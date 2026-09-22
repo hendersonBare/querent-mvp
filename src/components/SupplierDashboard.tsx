@@ -75,7 +75,7 @@ export function SupplierDashboard({
         </a>
         <div className="workspace-label">
           <p className="eyebrow">WORKSPACE</p>
-          <strong>Century Equipment</strong>
+          <strong>Herrick Industrial Supply</strong>
           <span>Supplier console</span>
         </div>
         <nav aria-label="Supplier navigation">
@@ -93,7 +93,7 @@ export function SupplierDashboard({
         <div className="sidebar-footer">
           <div className="initials">CE</div>
           <div>
-            <strong>Century Equipment</strong>
+            <strong>Herrick Industrial Supply</strong>
             <small>Supplier admin</small>
           </div>
           <button className="workspace-switch compact" aria-label="Switch workspace" onClick={signOut}>

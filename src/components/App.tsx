@@ -5,7 +5,7 @@ import {createAPI} from '@/lib/api';
 import type {Principal,Persona} from '@/lib/contracts';
 import {CustomerChat} from '@/features/chat/Chat';
 import {SupplierDashboard} from './SupplierDashboard';
-const choices:Persona[]=[{id:'supplier',label:'Century Equipment',description:'Open the supplier administration console.'},{id:'wasatch',label:'Wasatch Excavation',description:'Ask questions as the primary demo customer.'},{id:'bonneville',label:'Bonneville Grading',description:'Explore the second customer workspace.'}];
+const choices:Persona[]=[{id:'supplier',label:'Herrick Industrial Supply',description:'Open the supplier administration console.'},{id:'wasatch',label:'Wasatch Excavation',description:'Ask questions as the primary demo customer.'},{id:'bonneville',label:'Bonneville Grading',description:'Explore the second customer workspace.'}];
 export function App(){
  const [user,setUser]=useState<Principal|null>(null),[ready,setReady]=useState(false),[error,setError]=useState('');
  const switchWorkspace=useCallback(async()=>{await fetch('/api/session',{method:'DELETE'});setUser(null);setError('');},[]);

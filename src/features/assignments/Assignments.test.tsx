@@ -2,7 +2,7 @@ import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import {it,expect,vi} from 'vitest';
 import {RepAssignments} from './Assignments';
 import type {API,AccessRule,Rep} from '@/lib/contracts';
-const reps:Rep[]=[{id:'r1',name:'Dallen Rozema',phone:'(801) 111-2222',email:'dallen.rozema@centuryeq.com'}];
+const reps:Rep[]=[{id:'r1',name:'Brandi Gallegos',phone:'(801) 111-2222',email:'Brandi.Gallegos@herrickindustrial.com'}];
 const rule:AccessRule={category:'financing',enabled:true,rep_id:null,mixed_rep:false,rep_name:'Self-serve',phone:null,email:null};
 it('assigns a rep and refreshes on success',async()=>{
  const send=vi.fn().mockResolvedValue({ok:true});const refresh=vi.fn().mockResolvedValue(undefined);

@@ -23,7 +23,7 @@ test("public customer and supplier golden path", async ({ page }) => {
     await ask(page, "What is the status of PO-48213?"),
   ).toContainText("shipped");
   await switchWorkspace(page);
-  await page.getByRole("button", { name: /Century Equipment/ }).click();
+  await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await page.getByLabel("Viewing").selectOption("wasatch");
   await page
     .getByRole("button", { name: "Customer access", exact: true })
@@ -38,7 +38,7 @@ test("public customer and supplier golden path", async ({ page }) => {
     "That information isn’t available here.",
   );
   await switchWorkspace(page);
-  await page.getByRole("button", { name: /Century Equipment/ }).click();
+  await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await page.getByLabel("Viewing").selectOption("wasatch");
   await page.getByRole("button", { name: "Customer access", exact: true }).click();
   await page.getByRole("switch", { name: "Financing" }).click();

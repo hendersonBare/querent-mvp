@@ -151,7 +151,7 @@ export function CustomerChat({
             {turns.length === 0 ? (
               <div className="chat-welcome">
                 <img src="/querent-logo.png" alt="" width="55" height="55" />
-                <p className="eyebrow">CENTURY EQUIPMENT</p>
+                <p className="eyebrow">HERRICK INDUSTRIAL SUPPLY</p>
                 <h1>
                   Your business.
                   <br />

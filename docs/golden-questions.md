@@ -10,7 +10,7 @@ If a question's category is disabled, the response is exactly: `That information
 
 **Category:** Account details
 
-**Response:** Your Century Equipment account number is **CE-1001**.
+**Response:** Your Herrick Industrial Supply account number is **CE-1001**.
 
 ## 2. Account contact
 
@@ -161,7 +161,7 @@ Your financing plans:
 
 **Categories:** Current orders and account details
 
-**Response:** PO-48213 is **shipped**. Your Century Equipment account number is **CE-1001**.
+**Response:** PO-48213 is **shipped**. Your Herrick Industrial Supply account number is **CE-1001**.
 
 ## 15. Combined financing and service
 
@@ -193,9 +193,9 @@ Your financing plans:
 ## Demo sequence
 
 1. Choose Wasatch and ask questions 7, 4, 11, and 13.
-2. Switch workspace, choose Century Equipment, select Wasatch, and disable Financing.
+2. Switch workspace, choose Herrick Industrial Supply, select Wasatch, and disable Financing.
 3. Return to Wasatch. Financing disappears from the contacts panel.
 4. Ask question 13. Confirm the restricted response appears and no financing values are disclosed.
-5. Return to Century Equipment, re-enable Financing, and inspect analytics, the data browser, assignments, and connection status.
+5. Return to Herrick Industrial Supply, re-enable Financing, and inspect analytics, the data browser, assignments, and connection status.
 
 Simple wording variants are recognized without Claude. A short follow-up beginning with “what about,” “and,” or “how about” reuses the previous question for context. Canonical questions are the stable byte-for-byte acceptance cases.
