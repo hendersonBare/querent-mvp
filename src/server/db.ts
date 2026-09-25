@@ -45,7 +45,7 @@ function seed(database:Database.Database){
   if((database.prepare('SELECT count(*) FROM customers').pluck().get() as number)>0)return;
   database.transaction(()=>{
     const customers=[['wasatch','Wasatch Excavation LLC'],['bonneville','Bonneville Grading Co.']];
-    const reps=[['dallen','Brandi Gallegos','(801) 111-2222','Brandi.Gallegos@herrickindustrial.com'],['mara','Mara Jensen','(801) 555-0102','mara.jensen@herrickindustrial.com'],['eli','Eli Porter','(801) 555-0103','eli.porter@herrickindustrial.com'],['nora','Nora Chen','(801) 555-0104','nora.chen@herrickindustrial.com']];
+    const reps=[['dallen','Brandi Gallegos','(801) 111-2222','brandi.gallegos@herrickindustrial.com'],['mara','Mara Jensen','(801) 555-0102','mara.jensen@herrickindustrial.com'],['eli','Eli Porter','(801) 555-0103','eli.porter@herrickindustrial.com'],['nora','Nora Chen','(801) 555-0104','nora.chen@herrickindustrial.com']];
     const insertCustomer=database.prepare('INSERT INTO customers VALUES(?,?)'); customers.forEach(x=>insertCustomer.run(...x));
     const insertRep=database.prepare('INSERT INTO reps VALUES(?,?,?,?)'); reps.forEach(x=>insertRep.run(...x));
     const insertAccess=database.prepare('INSERT INTO access VALUES(?,?,1,?)');
