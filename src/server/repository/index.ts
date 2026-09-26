@@ -10,6 +10,7 @@ export * from './analytics';
 export * from './browse';
 export * from './catalog';
 export * from './chat';
+export * from './demo';
 export * from './erp';
 export * from './orders';
 export * from './pricing';

@@ -37,6 +37,28 @@ function bootstrap(database:Database.Database){
   database.transaction(()=>{if(!database.prepare('SELECT count(*) FROM customers').pluck().get())seedDatabase(database,{anchor:seedAnchorFromEnv()});}).immediate();
 }
 
+/**
+ * Drops every table and reseeds on the open connection, so the file stays in place and any other
+ * connection to it (another process, or another copy of this module in a server bundle) sees the
+ * fresh seed. `npm run db:reset` deletes the file instead, which also clears an incompatible schema.
+ * Returns the seed anchor used.
+ */
+export function reseedDatabase({anchor=seedAnchorFromEnv()}:{anchor?:string}={}){
+  const database=db();
+  const objects=database.prepare("SELECT type,name FROM sqlite_master WHERE type IN ('view','table') AND name NOT LIKE 'sqlite_%' ORDER BY type='table'").all() as {type:'view'|'table';name:string}[];
+  // foreign_keys can't change inside a transaction, so it is switched off around it.
+  database.pragma('foreign_keys = OFF');
+  try{
+    database.transaction(()=>{
+      for(const {type,name} of objects)database.exec(`DROP ${type.toUpperCase()} IF EXISTS "${name.replaceAll('"','""')}"`);
+      applySchema(database);
+      database.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(String(SCHEMA_VERSION));
+      seedDatabase(database,{anchor});
+    }).immediate();
+  }finally{database.pragma('foreign_keys = ON');}
+  return anchor;
+}
+
 /** The day the seed is anchored to (YYYY-MM-DD); see seed/dates.ts. */
 export function seedAnchor(){return db().prepare("SELECT value FROM meta WHERE key='seed_anchor'").pluck().get() as string;}
 

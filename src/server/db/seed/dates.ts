@@ -21,6 +21,6 @@ export function defaultSeedAnchor(now=new Date()){return addDays(now.toISOString
 export function seedAnchorFromEnv(env:Record<string,string|undefined>=process.env,now=new Date()){
   const value=env.QUERENT_SEED_DATE?.trim();
   if(!value)return defaultSeedAnchor(now);
-  if(!DAY.test(value)||Number.isNaN(parse(value).getTime())||addDays(value,0)!==value)throw new Error(`QUERENT_SEED_DATE must be a date like 2026-09-23 (got "${value}").`);
+  if(!DAY.test(value)||Number.isNaN(parse(value).getTime())||addDays(value,0)!==value)throw new RangeError(`QUERENT_SEED_DATE must be a date like 2026-09-23 (got "${value}").`);
   return value;
 }
