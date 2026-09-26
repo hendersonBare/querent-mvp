@@ -1,7 +1,8 @@
 import 'server-only';
 import {FULFILLMENTS,type BranchStock,type CartLine,type Fulfillment,type ItemCandidate,type ItemPopupPayload} from '@/domain';
 import type {Category} from '@/lib/contracts';
-import {branches,catalogItem,enabledCategories,searchItems,stockForItems} from '@/server/repository/customer';
+import {matchLine} from '@/server/matching';
+import {branches,catalogItem,catalogItems,enabledCategories,purchasedItems,stockForItems} from '@/server/repository/customer';
 
 // The chat tools over the customer-safe repository (spec §6.3). Scripted chat calls these
 // handlers directly, and live chat (task 2.1) exposes the same handlers to Claude, so both modes
@@ -19,14 +20,27 @@ const invalid=(message:string):ToolResult<never>=>({ok:false,reason:'invalid',me
 const restricted=(ctx:ToolContext,category:Category):ToolResult<never>|undefined=>
   enabledCategories(ctx.customerId).has(category)?undefined:{ok:false,reason:'restricted',category};
 
+/** A search_items candidate: identity plus its match score (0 to 1). */
+export interface ScoredItemCandidate extends ItemCandidate {score:number}
+/** search_items' answer for one line: `confident` means candidates[0] is the match; otherwise ask `question`. */
+export interface ItemSearchResult {candidates:ScoredItemCandidate[];confident:boolean;question:string|null}
+
 /**
- * search_items: catalog candidates for a phrase, best first (up to `limit`, default 5). Identity
- * only (SKU, description, pack, category), so it needs no access toggle: a customer can always
- * name what they want to buy. Ranking and confidence are task 1.4's scorer.
+ * search_items: scores the catalog against one line of a request, without its qty ("1/2 in grade 8
+ * hex bolts"), and says whether one SKU is a confident match or what to ask (src/server/matching).
+ * Up to `limit` candidates (default 5), best first. Identity only, so it needs no access toggle: a
+ * customer can always name what they want to buy. Order history ("the usual", Dana's usual bolt
+ * length) is used only when the customer has Orders & quotes on.
  */
-export function searchItemsTool(_ctx:ToolContext,{query,limit=5}:{query:string;limit?:number}):ToolResult<ItemCandidate[]>{
+export function searchItemsTool(ctx:ToolContext,{query,limit=5}:{query:string;limit?:number}):ToolResult<ItemSearchResult>{
   if(!query.trim())return invalid('Give search_items some words to search for.');
-  return {ok:true,data:searchItems(query,{limit}).map(({sku,description,pack,category_name})=>({sku,description,pack,category_name}))};
+  const purchases=enabledCategories(ctx.customerId).has('orders_quotes')?purchasedItems(ctx.customerId):[];
+  const rows=Number.isFinite(limit)?Math.min(20,Math.max(1,Math.floor(limit))):5;
+  const {candidates,confident,question}=matchLine(query,catalogItems(),{purchases,limit:rows});
+  return {ok:true,data:{
+    candidates:candidates.map(({item:{sku,description,pack,category_name},score})=>({sku,description,pack,category_name,score})),
+    confident,question,
+  }};
 }
 
 export interface ItemStockAnswer {sku:string;description:string;pack:string;total_available:number;branches:BranchStock[]}

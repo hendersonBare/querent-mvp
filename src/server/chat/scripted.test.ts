@@ -66,6 +66,14 @@ describe('the scripted Dana conversation (golden steps 1–3)',()=>{
       expect(JSON.stringify(r.payload)).not.toMatch(/cost|price/i);
     }
   });
+
+  it('agrees with the SKU scorer: the bolts are a confident match, and the wheels get the same question',async()=>{
+    const {searchItemsTool}=await import('./tools');
+    const verdict=(query:string)=>{const r=searchItemsTool(ctx,{query});if(!r.ok)throw new Error(r.reason);return {confident:r.data.confident,question:r.data.question,sku:r.data.candidates[0]?.sku};};
+    expect(verdict('the 1/2 in grade 8 hex bolts')).toEqual({confident:true,question:null,sku:'HCS-12-13-2G8'});
+    expect(verdict('6 boxes of cut-off wheels')).toMatchObject({confident:false,question:'Type 1 or Type 27 cut-off wheels?'});
+    expect(verdict('cut-off wheels, Type 1')).toEqual({confident:true,question:null,sku:T1.sku});
+  });
 });
 
 describe('answering the clarifying question',()=>{
