@@ -1,5 +1,4 @@
 import {describe,expect,it} from 'vitest';
-import {CATALOG} from '@/server/db/seed/catalog';
 import {fastenerSpec,itemName,matchesBolt,piecesPerPack,sameSize} from './fasteners';
 
 const spec=(description:string)=>fastenerSpec(description)!;
@@ -33,16 +32,6 @@ describe('fastenerSpec',()=>{
     expect(fastenerSpec('Lever load binder, 3/8-1/2 in chain')).toBeNull();
     expect(fastenerSpec('Hex cap screw M12 x 40, class 10.9')).toBeNull();
     expect(fastenerSpec('Hex nut, assorted')).toBeNull();
-  });
-
-  it('reads every fastener in the seeded catalog',()=>{
-    const found=CATALOG.flatMap(item=>{const s=fastenerSpec(item.description);return s?[[item.sku,s.kind,s.diameter,s.thread,s.grade]]:[];});
-    expect(found).toEqual([
-      ['HCS-12-13-2G8','bolt','1/2','13','8'],['HCS-12-13-2G5','bolt','1/2','13','5'],['HCS-12-13-112G8','bolt','1/2','13','8'],['HCS-12-13-3G8','bolt','1/2','13','8'],
-      ['HCS-38-16-1G5','bolt','3/8','16','5'],['HCS-58-11-3G8','bolt','5/8','11','8'],
-      ['HN-12-13-G8','nut','1/2','13','8'],['HN-12-13-G5','nut','1/2','13','5'],['HN-38-16-G5','nut','3/8','16','5'],
-      ['FW-12-G8','washer','1/2',null,'8'],['FW-12-SAE','washer','1/2',null,null],['LW-12-ZP','washer','1/2',null,null],
-    ]);
   });
 });
 

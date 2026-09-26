@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
-import {addQuoteLine,createQuote,LAST_PAID_WINDOW_MONTHS,quote,updateQuoteLine} from '@/server/repository';
+import {addQuoteLine,costedItems,createQuote,LAST_PAID_WINDOW_MONTHS,quote,updateQuoteLine} from '@/server/repository';
 import {useSeededDatabase} from '@/server/repository/test-db';
-import {formatUpsellSummary,HISTORY_MONTHS,upsellGpTotal,type Upsell} from './index';
+import {fastenerSpec,formatUpsellSummary,HISTORY_MONTHS,upsellGpTotal,type Upsell} from './index';
 import {pricerFor,quoteUpsells} from './service';
 
 // The adapter over the repository and the real pricing engine (task 1.1), on the seed pinned to
@@ -114,6 +114,17 @@ describe('a customer with no history',()=>{
       ['matching_fastener:HN-12-13-G8',5,19.95,'list',50.75],
       ['full_case:CW-45-045-T1',8,46,'list',43.8],
       ['matching_fastener:FW-12-G8',5,15.75,'list',41.75],
+    ]);
+  });
+});
+
+describe('the seeded catalog',()=>{
+  it('has every fastener readable: the bolts, nuts and washers the matching rule works from',()=>{
+    const found=costedItems().flatMap(item=>{const s=fastenerSpec(item.description);return s?[[item.sku,s.kind,s.diameter,s.thread,s.grade]]:[];});
+    expect(found).toEqual([
+      ['FW-12-G8','washer','1/2',null,'8'],['FW-12-SAE','washer','1/2',null,null],['HCS-12-13-112G8','bolt','1/2','13','8'],['HCS-12-13-2G5','bolt','1/2','13','5'],
+      ['HCS-12-13-2G8','bolt','1/2','13','8'],['HCS-12-13-3G8','bolt','1/2','13','8'],['HCS-38-16-1G5','bolt','3/8','16','5'],['HCS-58-11-3G8','bolt','5/8','11','8'],
+      ['HN-12-13-G5','nut','1/2','13','5'],['HN-12-13-G8','nut','1/2','13','8'],['HN-38-16-G5','nut','3/8','16','5'],['LW-12-ZP','washer','1/2',null,null],
     ]);
   });
 });

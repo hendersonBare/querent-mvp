@@ -1,12 +1,33 @@
 import {describe,expect,it} from 'vitest';
-import {catalogItem,CATALOG} from '@/server/db/seed/catalog';
 import {DEFAULT_UPSELL_OPTIONS,formatUpsellSummary,suggestUpsells,upsellGpTotal,type UpsellFacts,type UpsellItem,type UpsellLine,type UpsellPrice,type UpsellPriceRequest} from './rules';
 
 // Pure rule tests (spec §5.5, §7.2) over the seeded catalog, with a stub pricer standing in for
 // task 1.1 (./service.test.ts runs the real engine). The stub prices at the seed's customer price
 // unless a test says otherwise, so each GP figure is easy to check by hand.
 
-const ITEMS:UpsellItem[]=CATALOG.map(i=>({id:i.sku,sku:i.sku,description:i.description,pack:i.pack,case_qty:i.caseQty,cost:i.cost}));
+/** Seed catalog rows (src/server/db/seed/catalog.ts): [sku, description, pack, case qty, cost, list, customer price]. */
+const ROWS:[string,string,string,number,number,number,number][]=[
+  ['HCS-12-13-2G8','Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc','Box of 50',10,21.40,38.95,30.95],
+  ['HCS-12-13-2G5','Hex cap screw 1/2-13 x 2 in, Grade 5, zinc plated','Box of 50',10,14.60,26.50,21.95],
+  ['HCS-12-13-3G8','Hex cap screw 1/2-13 x 3 in, Grade 8, yellow zinc','Box of 25',10,17.80,32.40,26.25],
+  ['HCS-38-16-1G5','Hex cap screw 3/8-16 x 1 in, Grade 5, zinc plated','Box of 100',10,9.40,17.25,14.10],
+  ['HCS-58-11-3G8','Hex cap screw 5/8-11 x 3 in, Grade 8, yellow zinc','Box of 25',5,27.50,49.80,40.25],
+  ['HN-12-13-G8','Hex nut 1/2-13, Grade 8, yellow zinc','Box of 100',10,9.80,19.95,16.50],
+  ['HN-12-13-G5','Hex nut 1/2-13, Grade 5, zinc plated','Box of 100',10,6.90,13.40,11.25],
+  ['HN-38-16-G5','Hex nut 3/8-16, Grade 5, zinc plated','Box of 100',10,4.20,8.60,7.10],
+  ['FW-12-G8','Flat washer 1/2 in, Grade 8, yellow zinc','Box of 100',10,7.40,15.75,12.95],
+  ['FW-12-SAE','Flat washer 1/2 in, SAE, zinc plated','Box of 100',10,4.10,8.25,6.95],
+  ['LW-12-ZP','Split lock washer 1/2 in, zinc plated','Box of 100',10,3.60,7.40,6.10],
+  ['TEK-12-1-HWH','Self-drilling screw #12 x 1 in, hex washer head','Box of 250',8,11.20,21.90,17.80],
+  ['CW-45-045-T1','Cut-off wheel 4.5 x .045 x 7/8 in, Type 1','Box of 25',4,24.10,46.00,38.95],
+  ['FD-45-60Z','Flap disc 4.5 in, 60 grit zirconia','Box of 10',4,31.00,56.95,47.50],
+  ['FD-45-80Z','Flap disc 4.5 in, 80 grit zirconia','Box of 10',4,31.00,56.95,47.50],
+  ['GLV-N8-L-1000','Nitrile disposable gloves, 8 mil, black, size L','Case of 1,000',1,58.00,94.00,77.50],
+  ['SG-CLR-AF','Safety glasses, clear anti-fog','Box of 12',1,18.20,36.00,29.90],
+  ['RS-2-27-JH','Ratchet strap 2 in x 27 ft, 3,333 lb WLL, J-hooks','Each',10,14.20,28.50,22.95],
+];
+const ITEMS:UpsellItem[]=ROWS.map(([sku,description,pack,case_qty,cost])=>({id:sku,sku,description,pack,case_qty,cost}));
+const catalogItem=(sku:string)=>{const row=ROWS.find(r=>r[0]===sku)!;return {caseQty:row[3],cost:row[4],list:row[5],customer:row[6]};};
 const customerPrice=(itemId:string)=>catalogItem(itemId).customer;
 
 type PriceFn=(itemId:string,qty:number)=>UpsellPrice|null;

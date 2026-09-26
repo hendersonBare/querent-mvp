@@ -119,10 +119,10 @@ export function suggestUpsells(facts:UpsellFacts):Upsell[]{
   // Anchors: lines with a known item and something to order. Every line counts as "on the quote".
   const onQuote=new Set(facts.lines.map(l=>l.item_id));
   const anchors=facts.lines.flatMap((line,index)=>{const item=catalog.get(line.item_id);return item&&line.qty>0?[{line,item,index}]:[];});
-  const orderCount=new Map(facts.purchased.map(p=>[p.item_id,p]));
+  const purchasedById=new Map(facts.purchased.map(p=>[p.item_id,p]));
 
   const history=(anchorItemId:string,itemId:string):CoPurchaseEvidence|null=>{
-    const anchorOrders=orderCount.get(anchorItemId)?.order_count??0;
+    const anchorOrders=purchasedById.get(anchorItemId)?.order_count??0;
     const together=facts.coPurchases[anchorItemId]?.find(c=>c.item_id===itemId)?.orders_together??0;
     return together>=options.minOrdersTogether&&clearsShare(together,anchorOrders,options.minShare)?{orders_together:together,anchor_orders:anchorOrders}:null;
   };
@@ -130,7 +130,7 @@ export function suggestUpsells(facts:UpsellFacts):Upsell[]{
   const candidates=[
     ...matchingFasteners(anchors,facts.catalog,onQuote,history),
     ...fullCases(anchors),
-    ...boughtTogether(anchors,catalog,onQuote,facts.coPurchases,history,orderCount),
+    ...boughtTogether(anchors,catalog,onQuote,facts.coPurchases,history,purchasedById),
   ];
   // One chip per item: the first rule in UPSELL_KINDS wins (each rule already keeps one per item).
   const byItem=new Map<string,Candidate>();
