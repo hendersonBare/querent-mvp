@@ -4,7 +4,7 @@ import {ChevronLeft,ChevronRight} from 'lucide-react';
 import {categories,labels,type API,type Category,type Customer,type DataPage} from '@/lib/contracts';
 import {usePoll} from '@/lib/use-poll';
 export function DataBrowser({api,scope,customers}:{api:API;scope:string;customers:Customer[]}){
- const [category,setCategory]=useState<Category>('orders_current'),[page,setPage]=useState(1);
+ const [category,setCategory]=useState<Category>('items_stock'),[page,setPage]=useState(1);
  const load=useCallback(()=>api.get<DataPage>(`supplier/data/${scope}/${category}?page=${page}&size=10`),[api,scope,category,page]);
  const {data,error}=usePoll(load,15000);
  const names=new Map(customers.map(c=>[c.id,c.name]));

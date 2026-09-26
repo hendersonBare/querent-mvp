@@ -3,44 +3,43 @@ import { useCallback, useEffect, useState } from "react";
 import {
   BarChart3,
   SlidersHorizontal,
-  UsersRound,
   Database,
   Plug,
   LogOut,
   ArrowUpRight,
 } from "lucide-react";
-import type { API, Customer, Dashboard, Rep } from "@/lib/contracts";
+import type { API, Customer, Dashboard, Principal } from "@/lib/contracts";
+import { initials } from "@/lib/initials";
 import { usePoll } from "@/lib/use-poll";
 import { Analytics } from "@/features/analytics/Analytics";
 import { AccessSwitches } from "@/features/access/Access";
-import { RepAssignments } from "@/features/assignments/Assignments";
 import { DataBrowser } from "@/features/data-browser/DataBrowser";
 import { DataSources, ERPIndicator } from "@/features/erp-status/Status";
+// Rep assignments is hidden until task 6.1 rebuilds it as one rep per customer.
 const navigation = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "access", label: "Customer access", icon: SlidersHorizontal },
-  { id: "assignments", label: "Rep assignments", icon: UsersRound },
   { id: "data", label: "Data browser", icon: Database },
   { id: "sources", label: "Data sources", icon: Plug },
 ];
 const descriptions: Record<string, string> = {
   overview: "A clearer view of your customer conversations.",
   access: "You decide what your customers can see.",
-  assignments: "Connect your customers with the right people.",
   data: "Your customer records, in one place.",
   sources: "Keep an eye on your ERP connection.",
 };
 export function SupplierDashboard({
   api,
+  user,
   signOut,
 }: {
   api: API;
+  user: Principal;
   signOut: () => void;
 }) {
   const [scope, setScope] = useState("all"),
     [section, setSection] = useState("overview"),
     [customers, setCustomers] = useState<Customer[]>([]),
-    [reps, setReps] = useState<Rep[]>([]),
     [error, setError] = useState("");
   const load = useCallback(
     () => api.get<Dashboard>(`supplier/dashboard/${scope}`),
@@ -49,15 +48,10 @@ export function SupplierDashboard({
   const { data, error: loadError, refresh } = usePoll(load);
   useEffect(() => {
     let active = true;
-    Promise.all([
-      api.get<Customer[]>("supplier/customers"),
-      api.get<Rep[]>("supplier/reps"),
-    ])
-      .then(([c, r]) => {
-        if (active) {
-          setCustomers(c);
-          setReps(r);
-        }
+    api
+      .get<Customer[]>("supplier/customers")
+      .then((c) => {
+        if (active) setCustomers(c);
       })
       .catch((e) => {
         if (active) setError(String(e));
@@ -91,10 +85,10 @@ export function SupplierDashboard({
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="initials">CE</div>
+          <div className="initials">{initials(user.user_name)}</div>
           <div>
-            <strong>Herrick Industrial Supply</strong>
-            <small>Supplier admin</small>
+            <strong>{user.user_name}</strong>
+            <small>{user.name}</small>
           </div>
           <button className="workspace-switch compact" aria-label="Switch workspace" onClick={signOut}>
             <LogOut size={15} /> Switch
@@ -167,7 +161,7 @@ export function SupplierDashboard({
                       <div className="insight-stat">
                         <strong>
                           {data.access.filter((r) => r.enabled === true).length}{" "}
-                          of 7
+                          of {data.access.length}
                         </strong>
                         <span>categories fully enabled</span>
                       </div>
@@ -189,16 +183,6 @@ export function SupplierDashboard({
                   scope={scope}
                   rules={data.access}
                   refresh={() => void refresh()}
-                />
-              )}
-              {section === "assignments" && (
-                <RepAssignments
-                  key={scope}
-                  api={api}
-                  scope={scope}
-                  rules={data.access}
-                  reps={reps}
-                  refresh={refresh}
                 />
               )}
               {section === "data" && (

@@ -16,6 +16,7 @@ import type {
   ChatTurn,
   Principal,
 } from "@/lib/contracts";
+import { initials } from "@/lib/initials";
 import { usePoll } from "@/lib/use-poll";
 import { ERPIndicator } from "@/features/erp-status/Status";
 import { RepPanel } from "./RepPanel";
@@ -157,13 +158,13 @@ export function CustomerChat({
                   <br />
                   Your answers.
                 </h1>
-                <p>Ask about your orders, inventory, service and more.</p>
+                <p>Ask about stock, pricing, orders and quotes.</p>
                 <div className="suggestions">
                   {[
-                    "What is the status of PO-48213?",
-                    "What hydraulic filters are in stock?",
-                    "Show my recent service history.",
-                    "What are my financing balances?",
+                    "Do you have 1/2 in grade 8 hex bolts in stock?",
+                    "What did we pay for nitrile gloves last time?",
+                    "Has our last order shipped?",
+                    "What's our open balance?",
                   ].map((q) => (
                     <button
                       key={q}
@@ -182,7 +183,7 @@ export function CustomerChat({
                   <article className="chat-turn" key={turn.id}>
                     <div className="question-row">
                       <div className="question-bubble">{turn.question}</div>
-                      <span className="avatar user-avatar">WE</span>
+                      <span className="avatar user-avatar">{initials(user.user_name)}</span>
                     </div>
                     <div className="answer-row">
                       <span className="avatar brand-avatar">
@@ -225,7 +226,7 @@ export function CustomerChat({
             >
               <textarea
                 aria-label="Ask a question"
-                placeholder="Ask about your orders, inventory, service…"
+                placeholder="Ask about stock, pricing, orders…"
                 rows={1}
                 maxLength={4000}
                 value={question}
