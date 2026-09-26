@@ -56,9 +56,26 @@ describe('order history',()=>{
     expect(purchasedItems('great-basin')).toEqual([]);
   });
 
+  it('bounds the summary at `until` (inclusive), so later orders don\'t count and "last" is the latest in the window',()=>{
+    // The flap discs' latest order is SO-51223 on 2026-09-09 (3 boxes); before it, SO-51218 on 2026-06-18 (4 boxes).
+    const discs=(until?:string)=>purchasedItems('wasatch',{until}).find(i=>i.sku==='FD-45-60Z');
+    expect(discs()).toMatchObject({order_count:4,last_order_date:'2026-09-09',last_qty:3});
+    expect(discs('2026-09-09')).toMatchObject({order_count:4,last_order_date:'2026-09-09',last_qty:3});
+    expect(discs('2026-09-08')).toMatchObject({order_count:3,last_order_date:'2026-06-18',last_qty:4,last_unit_price:44.25});
+    expect(purchasedItems('wasatch',{since:'2026-09-01',until:'2026-09-08'})).toEqual([]);
+    expect(purchasedItems('wasatch',{until:'2025-09-01'})).toEqual([]);
+  });
+
   it('finds items bought together with an item',()=>{
     expect(coPurchases('wasatch','HCS-12-13-2G8').map(c=>[c.sku,c.orders_together])).toEqual([['HN-12-13-G8',5],['FW-12-G8',4],['ANC-12-414-W',1]]);
     expect(coPurchases('wasatch','CW-45-045-T1').map(c=>[c.sku,c.orders_together])).toEqual([['FD-45-60Z',4],['GLV-N8-L-1000',1],['SD-5-80-HL',1],['WB-4-CS',1]]);
     expect(coPurchases('wasatch','RS-2-27-JH')).toEqual([]);
+  });
+
+  it('bounds items bought together at `until` (inclusive)',()=>{
+    expect(coPurchases('wasatch','CW-45-045-T1',{until:'2026-09-09'}).map(c=>[c.sku,c.orders_together])).toEqual([['FD-45-60Z',4],['GLV-N8-L-1000',1],['SD-5-80-HL',1],['WB-4-CS',1]]);
+    // Before SO-51223 (2026-09-09) the wheels were bought with flap discs 3 times and never with gloves.
+    expect(coPurchases('wasatch','CW-45-045-T1',{until:'2026-09-08'}).map(c=>[c.sku,c.orders_together])).toEqual([['FD-45-60Z',3],['SD-5-80-HL',1],['WB-4-CS',1]]);
+    expect(coPurchases('wasatch','HCS-12-13-2G8',{since:'2025-12-01',until:'2026-06-01'}).map(c=>[c.sku,c.orders_together])).toEqual([['HN-12-13-G8',2],['FW-12-G8',1]]);
   });
 });
