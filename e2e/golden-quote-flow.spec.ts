@@ -81,7 +81,7 @@ test("0. Setup: fresh seed on the mockup's day, scripted chat, both personas sig
   expect(reset).toEqual({ ok: true, seed_date: SEED_DATE, chat_mode: "scripted" });
   await expect(dana.getByLabel("Ask a question")).toBeVisible();
   await expect(dana.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
-  await expect(brandi.locator(".sidebar-footer")).toContainText("Brandi Gallegos");
+  await expect(brandi.getByRole("button", { name: "Account: Brandi Gallegos" })).toHaveText("BG");
 });
 
 test.fixme(

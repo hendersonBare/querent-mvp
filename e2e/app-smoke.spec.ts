@@ -29,10 +29,12 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   page,
 }) => {
   await choose(page, "Herrick Industrial Supply");
-  await expect(page.locator(".sidebar-footer")).toContainText("Brandi Gallegos");
+  // The supplier persona opens the rep portal (task 3.1); e2e/rep-portal.spec.ts covers its shell.
+  await expect(page).toHaveURL(/\/rep\/quotes$/);
   await expect(
-    page.getByRole("button", { name: "Rep assignments" }),
-  ).toHaveCount(0);
+    page.getByRole("button", { name: "Account: Brandi Gallegos" }),
+  ).toHaveText("BG");
+  await expect(page.getByText("Rep assignments")).toHaveCount(0);
   const viewing = page.getByLabel("Viewing");
   await expect(viewing.locator("option")).toHaveText([
     "All customers",
@@ -43,8 +45,13 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   ]);
   await viewing.selectOption("wasatch");
 
+  // Customer access and the Data browser now live under Settings.
   await page
-    .getByRole("button", { name: "Customer access", exact: true })
+    .getByRole("navigation", { name: "Rep portal" })
+    .getByRole("link", { name: "Settings" })
+    .click();
+  await page
+    .getByRole("link", { name: "Customer access", exact: true })
     .click();
   for (const name of ["Items & stock", "Pricing", "Orders & quotes", "Account"])
     await expect(page.getByRole("switch", { name })).toHaveAttribute(
@@ -57,7 +64,7 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await pricing.click();
   await expect(pricing).toHaveAttribute("aria-checked", "true");
 
-  await page.getByRole("button", { name: "Data browser", exact: true }).click();
+  await page.getByRole("link", { name: "Data browser", exact: true }).click();
   await expect(page.getByRole("cell", { name: "HCS-12-13-2G8" })).toBeVisible();
   await page.getByLabel("Data category").selectOption("orders_quotes");
   await expect(page.getByRole("cell", { name: "SO-51223" })).toBeVisible();
