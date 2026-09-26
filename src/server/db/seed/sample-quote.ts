@@ -1,7 +1,9 @@
 import type Database from 'better-sqlite3';
+import type {ContractPrice,LastPaid,PriceSources} from '@/domain';
+import {priceLine} from '../../pricing';
 import {DANA,REPS,WASATCH,WASATCH_REP} from './accounts';
-import {addDays,addMinutes,at,longDate,nextWeekday,shortDate} from './dates';
-import {inserter,round2} from './insert';
+import {addMinutes,addMonths,at,nextWeekday} from './dates';
+import {inserter} from './insert';
 
 // Sample quote Q-24817: Dana's request from the mockup, drafted by Querent and waiting
 // for Brandi's review. seedSampleQuote() also backs "Reset sample quote": it deletes
@@ -10,17 +12,16 @@ import {inserter,round2} from './insert';
 export const SAMPLE_QUOTE={id:'q-24817',number:'Q-24817',conversationId:'conv-q-24817'};
 export const SAMPLE_REQUEST='Do you have the 1/2 in grade 8 hex bolts in stock? Need 10 boxes plus the usual cut-off wheels and gloves. Also need 2 in ratchet straps, maybe 12. Can we pick up Thursday at the SLC branch?';
 
-type Basis='contract'|'customer'|'last_paid';
-/** [sku, qty, Querent's basis, what Dana said, match score] */
-const LINES:[string,number,Basis,string,number][]=[
-  ['HCS-12-13-2G8',10,'last_paid','1/2 in grade 8 hex bolts, 10 boxes',0.92],
-  ['CW-45-045-T1',6,'contract','the usual cut-off wheels',0.95],
-  ['GLV-N8-L-1000',4,'last_paid','the usual gloves',0.93],
-  ['RS-2-27-JH',12,'customer','2 in ratchet straps, maybe 12 (then: 27 ft with J-hooks)',0.9],
+/**
+ * [sku, qty, what Dana said, match score]. Querent prices each line with the pricing engine
+ * (spec §5.1): last paid on bolts and gloves, the contract on wheels, customer price on straps.
+ */
+const LINES:[string,number,string,number][]=[
+  ['HCS-12-13-2G8',10,'1/2 in grade 8 hex bolts, 10 boxes',0.92],
+  ['CW-45-045-T1',6,'the usual cut-off wheels',0.95],
+  ['GLV-N8-L-1000',4,'the usual gloves',0.93],
+  ['RS-2-27-JH',12,'2 in ratchet straps, maybe 12 (then: 27 ft with J-hooks)',0.9],
 ];
-
-const money=(n:number)=>n.toLocaleString('en-US',{style:'currency',currency:'USD'});
-const gp=(n:number)=>`${n<0?'-':'+'}${money(Math.abs(n))} GP vs customer price.`;
 
 export function seedSampleQuote(database:Database.Database,anchor:string){
   const {id,number,conversationId}=SAMPLE_QUOTE;
@@ -55,19 +56,23 @@ export function seedSampleQuote(database:Database.Database,anchor:string){
       ship_to_address:`${WASATCH.ship_to_address}, ${WASATCH.ship_to_city}, ${WASATCH.ship_to_state} ${WASATCH.ship_to_zip}`,ship_to_lat:WASATCH.ship_to_lat,ship_to_lng:WASATCH.ship_to_lng,
       freight_override:null,freight_override_reason:null,valid_days:14,valid_until:null,customer_po:null,customer_note:null,change_request_note:null,unread_for_rep:1,unread_for_customer:0,is_sample:1,duplicated_from:null});
 
-    LINES.forEach(([sku,qty,basis,requestedText,matchScore],i)=>{
-      const cost=one<{cost:number}>('SELECT cost FROM items WHERE id=?',sku)!.cost;
-      const customerPrice=one<{unit_price:number}>('SELECT p.unit_price FROM customer_prices p JOIN customers c ON c.price_level_id=p.price_level_id WHERE c.id=? AND p.item_id=?',WASATCH.id,sku)!.unit_price;
-      let price=customerPrice,explanation=`Customer price. No purchase history or contract for this item. ${gp(0)}`;
-      if(basis==='last_paid'){
-        const last=one<{unit_price:number;order_date:string}>('SELECT l.unit_price,o.order_date FROM order_lines l JOIN orders o ON o.id=l.order_id WHERE o.customer_id=? AND l.item_id=? AND o.order_date>=? ORDER BY o.order_date DESC LIMIT 1',WASATCH.id,sku,addDays(anchor,-365))!;
-        price=last.unit_price;explanation=`Last paid ${money(price)} on ${shortDate(last.order_date)}, above customer price ${money(customerPrice)}. ${gp(round2((price-customerPrice)*qty))}`;
-      }else if(basis==='contract'){
-        const contract=one<{unit_price:number;contract_number:string;ends_on:string}>('SELECT l.unit_price,c.contract_number,c.ends_on FROM contract_lines l JOIN contracts c ON c.id=l.contract_id WHERE c.customer_id=? AND l.item_id=? AND c.starts_on<=? AND c.ends_on>=?',WASATCH.id,sku,anchor,anchor)!;
-        price=contract.unit_price;explanation=`Contract price under ${contract.contract_number}, good through ${longDate(contract.ends_on)}. Contract prices are binding, so Querent doesn't raise them.`;
-      }
-      insert('quote_lines',{id:`${id}-${i+1}`,quote_id:id,line_no:i+1,item_id:sku,qty,unit_price:price,price_basis:basis,suggested_price:price,suggested_basis:basis,customer_price:customerPrice,unit_cost:cost,
-        explanation,requested_text:requestedText,match_score:matchScore,added_by:'querent'});
+    // The facts the repository's priceSources returns, read on this raw connection (the seed can't use the repository).
+    const priceFacts=(sku:string):PriceSources=>{
+      const item=one<{sku:string;list_price:number;cost:number;case_qty:number;category_id:string}>('SELECT sku,list_price,cost,case_qty,category_id FROM items WHERE id=?',sku)!;
+      const customerPrice=one<{unit_price:number}>('SELECT p.unit_price FROM customer_prices p JOIN customers c ON c.price_level_id=p.price_level_id WHERE c.id=? AND p.item_id=?',WASATCH.id,sku)?.unit_price??null;
+      const contract=one<ContractPrice>(`SELECT c.id contract_id,c.contract_number,c.name contract_name,l.unit_price,c.starts_on,c.ends_on FROM contract_lines l JOIN contracts c ON c.id=l.contract_id
+        WHERE c.customer_id=? AND l.item_id=? AND c.starts_on<=? AND c.ends_on>=? ORDER BY l.unit_price,c.starts_on DESC LIMIT 1`,WASATCH.id,sku,anchor,anchor)??null;
+      const lastPaid=one<LastPaid>(`SELECT l.unit_price,l.qty,o.order_date,o.order_number FROM order_lines l JOIN orders o ON o.id=l.order_id
+        WHERE o.customer_id=? AND l.item_id=? AND o.order_date>=? AND o.order_date<=? ORDER BY o.order_date DESC,o.order_number DESC,l.line_no LIMIT 1`,WASATCH.id,sku,addMonths(anchor,-12),anchor)??null;
+      return {item_id:sku,...item,customer_price:customerPrice,contract,last_paid:lastPaid};
+    };
+
+    LINES.forEach(([sku,qty,requestedText,matchScore],i)=>{
+      const sources=priceFacts(sku);
+      // Scarcity is off in the seeded settings, so Reset sample quote always restores the mockup's prices.
+      const {suggestion,explanation}=priceLine({sources,qty,branchId:'slc',stock:null,scarcityEnabled:false,floor:null,on:anchor});
+      insert('quote_lines',{id:`${id}-${i+1}`,quote_id:id,line_no:i+1,item_id:sku,qty,unit_price:suggestion.price,price_basis:suggestion.basis,suggested_price:suggestion.price,suggested_basis:suggestion.basis,
+        customer_price:suggestion.customerPrice,unit_cost:sources.cost,explanation,requested_text:requestedText,match_score:matchScore,added_by:'querent'});
     });
 
     const activity:[string,string,string|null,string,string][]=[
