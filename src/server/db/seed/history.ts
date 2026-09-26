@@ -2,7 +2,7 @@ import {BRANCHES,type BranchId,DANA,DELIVERY_RATES,REPS,TAX_RATE,WASATCH,WASATCH
 import {catalogItem} from './catalog';
 import {addDays,addMinutes,at} from './dates';
 import {haversineRoadMiles} from '../../freight/distance';
-import {priceDelivery} from '../../freight/engine';
+import {CALL_FOR_FREIGHT,priceDelivery} from '../../freight/engine';
 import {erp,round2} from './insert';
 import type {SeedContext} from './reference';
 
@@ -60,7 +60,7 @@ function freightFor(deal:Deal,subtotal:number){
   const branch=BRANCHES.find(b=>b.id===deal.branch)!;
   const miles=haversineRoadMiles(branch,{lat:WASATCH.ship_to_lat,lng:WASATCH.ship_to_lng});
   const {amount}=priceDelivery({origin:branch.code,miles,subtotal,rates:DELIVERY_RATES});
-  if(amount==='call_for_freight')throw new Error(`Seeded delivery from ${branch.code} is beyond the delivery radius.`);
+  if(amount===CALL_FOR_FREIGHT)throw new Error(`Seeded delivery from ${branch.code} is beyond the delivery radius.`);
   return amount;
 }
 
