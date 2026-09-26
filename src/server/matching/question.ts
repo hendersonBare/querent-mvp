@@ -59,6 +59,11 @@ export function clarifyingQuestion<T extends MatchableItem>(candidates:readonly 
   const items=top.map(c=>parseItem(c.item));
   const key=separatingKey(items);
   if(!key)return `Which one do you mean: ${joinOr(top.map(({item})=>`${item.description} (${item.sku})`))}?`;
-  if(key==='name')return sentence(`${joinOr([...new Set(items.map(i=>i.noun))])}?`);
+  if(key==='name'){
+    // The product most of the contenders are comes first: "Nitrile disposable gloves or cut-resistant gloves?"
+    const nouns=items.map(i=>i.noun);
+    const count=(noun:string)=>nouns.filter(n=>n===noun).length;
+    return sentence(`${joinOr([...new Set(nouns)].sort((a,b)=>count(b)-count(a)))}?`);
+  }
   return sentence(`${joinOr(choices(items,key))} ${items[0].noun}?`);
 }

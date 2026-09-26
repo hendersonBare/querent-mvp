@@ -24,9 +24,9 @@ export function costedItems(){return all<CostedItem>(COSTED_ITEM+ITEM_ORDER);}
 export function costedItem(idOrSku:string){return one<CostedItem>(COSTED_ITEM+BY_ID_OR_SKU,idOrSku,idOrSku);}
 
 /**
- * Candidate items for a plain-language query (the search_items tool): every word must appear in
- * the SKU, description, search keywords or category. Words are lower-cased, a plural "s" is
- * dropped, and LIKE wildcards are literal. Ranking and confidence are task 1.4's job.
+ * Items whose SKU, description, search keywords or category contain every word of `query`. Words
+ * are lower-cased, a plural "s" is dropped, and LIKE wildcards are literal. Unranked: the
+ * search_items chat tool scores catalogItems() with src/server/matching instead.
  */
 export function searchItems(query:string,{limit=10}:{limit?:number}={}){
   const words=query.toLowerCase().split(/[\s,;]+/).map(w=>w.replace(/^[^\w/%]+|[^\w/%]+$/g,'')).filter(Boolean)

@@ -35,8 +35,10 @@ describe('clarifyingQuestion',()=>{
     expect(ask([T27,T27_THICK])).toBe('.045 in or .090 in cut-off wheels?');
   });
 
-  it('asks which product when the contenders are different products',()=>{
+  it('asks which product when the contenders are different products, the most common first',()=>{
     expect(ask([B2G8,NUT])).toBe('Hex cap screws or hex nuts?');
+    const cut=item('G-CR','Cut-resistant gloves, ANSI A4, size L');
+    expect(ask([cut,glove('L'),glove('M')])).toBe('Nitrile disposable gloves or cut-resistant gloves?');
   });
 
   it('asks type first when type, diameter and thickness all differ',()=>{
