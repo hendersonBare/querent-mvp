@@ -48,7 +48,7 @@ describe('repository on the Query to Quote seed',()=>{
     const page=browse(null,'items_stock',1,10);
     expect(page.total).toBe(62);expect(page.rows).toHaveLength(10);
     expect(page.rows[0]).toMatchObject({sku:'ANC-12-414-W',category:'Fasteners'});
-    expect(String(page.rows[0].available)).toMatch(/SLC \d+/);
+    expect(page.rows[0].available).toBe('SLC 30 · Ogden 12 · Provo 9');
   });
 
   it('browses customer records, empty for placeholder customers',async()=>{
