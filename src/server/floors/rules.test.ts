@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {
-  DEFAULT_FLOOR,canEditFloor,floorLabel,formatFloor,formatMargin,isBelowFloor,lineFloorStatus,margin,quoteFloorSummary,resolveFloor,roundMargin,
+  DEFAULT_FLOOR,canEditFloor,floorLabel,formatFloor,formatMargin,isBelowFloor,lineFloorStatus,margin,priceBelowFloor,quoteFloorSummary,resolveFloor,roundMargin,
   type FloorLine,type FloorRow,
 } from './rules';
 
@@ -108,6 +108,25 @@ describe('isBelowFloor',()=>{
     expect(isBelowFloor(-0.01,0)).toBe(true);
     expect(isBelowFloor(0,0)).toBe(false);
     expect(isBelowFloor(0.33,0.25)).toBe(false);
+  });
+});
+
+describe('priceBelowFloor',()=>{
+  it('compares the price\'s margin with the floor, exactly-at-floor not below',()=>{
+    expect(priceBelowFloor(79,58,0.3)).toBe(true);
+    expect(priceBelowFloor(79,58,0.25)).toBe(false);
+    expect(priceBelowFloor(26.75,21.4,0.2)).toBe(false);
+    expect(priceBelowFloor(26.73,21.4,0.2)).toBe(true);
+    expect(priceBelowFloor(10,12,0)).toBe(true);
+  });
+
+  it('is always below at $0 or less, and never with no price yet',()=>{
+    expect(priceBelowFloor(0,21.4,0.2)).toBe(true);
+    expect(priceBelowFloor(0,0,0)).toBe(true);
+    expect(priceBelowFloor(-3,21.4,0.2)).toBe(true);
+    expect(priceBelowFloor(null,21.4,0.2)).toBe(false);
+    expect(priceBelowFloor(undefined,21.4,0.2)).toBe(false);
+    expect(priceBelowFloor(Number.NaN,21.4,0.2)).toBe(false);
   });
 });
 

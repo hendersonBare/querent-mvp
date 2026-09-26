@@ -37,6 +37,16 @@ export const formatFloor=(floor:number)=>`${tenths(floor)/10}%`;
 /** True when `fraction` is under `floor` at the portal's precision. Exactly at the floor is not below. */
 export const isBelowFloor=(fraction:number,floor:number)=>tenths(fraction)<tenths(floor);
 
+/**
+ * Whether a unit price is below `floor` for this cost (the pricing engine's check, spec §5.1 rule 3).
+ * No price yet is not below: there is nothing to warn about, and Send is blocked for it separately.
+ * A price of $0 or less earns nothing, so it is always below.
+ */
+export function priceBelowFloor(price:number|null|undefined,cost:number,floor:number){
+  const fraction=margin(price,cost);
+  return fraction===null?price!=null&&price<=0:isBelowFloor(fraction,floor);
+}
+
 /** One stored floor. `floors` lists may hold several reps' rows; resolution picks the quote rep's. */
 export type FloorRow=Pick<RepFloor,'rep_id'|'category_id'|'margin_floor'>;
 /** `source` is 'default' when the rep has no usable floor row for the category. */
@@ -72,16 +82,11 @@ export interface LineFloorStatus {
   label:string|null;
 }
 
-/**
- * Whether one line is below floor[quote rep][line category], and the warning to show. A line with
- * no price yet has nothing to warn about (Send is blocked for it separately); a price of $0 or
- * less earns nothing and is always below floor.
- */
+/** Whether one line is below floor[quote rep][line category] (see priceBelowFloor), and the warning to show. */
 export function lineFloorStatus(line:FloorLine,{repId,repName,floors}:FloorContext):LineFloorStatus{
   const {floor,source}=resolveFloor(floors,repId,line.category_id);
-  const fraction=margin(line.unit_price,line.unit_cost);
-  const belowFloor=fraction===null?line.unit_price!==null&&line.unit_price<=0:isBelowFloor(fraction,floor);
-  return {margin:fraction,floor,floorPct:tenths(floor)/10,floorSource:source,belowFloor,label:belowFloor?floorLabel(repName,floor,line.category_name):null};
+  const belowFloor=priceBelowFloor(line.unit_price,line.unit_cost,floor);
+  return {margin:margin(line.unit_price,line.unit_cost),floor,floorPct:tenths(floor)/10,floorSource:source,belowFloor,label:belowFloor?floorLabel(repName,floor,line.category_name):null};
 }
 
 /** What the summary needs from a quote (Quote has all of it). */
