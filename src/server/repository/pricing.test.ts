@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {contracts,customerPrices,lastPaid,priceSources} from './pricing';
+import {contracts,customerPrices,lastPaid,lastPaidSince,priceSources} from './pricing';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -31,6 +31,28 @@ describe('customerPrices (customer-visible)',()=>{
     expect(customerPrices('wasatch',['CW-45-045-T1'],'2026-12-31')[0].contract?.unit_price).toBe(36);
   });
 
+  it('takes the lower price when two active contracts cover the same item',async()=>{
+    const {db}=await import('../db');
+    const d=db();
+    const addContract=(id:string,number:string,starts:string,ends:string,price:number)=>{
+      d.prepare('INSERT INTO contracts(id,customer_id,contract_number,name,starts_on,ends_on) VALUES(?,?,?,?,?,?)').run(id,'wasatch',number,`Fixture ${number}`,starts,ends);
+      d.prepare('INSERT INTO contract_lines(id,contract_id,item_id,unit_price) VALUES(?,?,?,?)').run(`${id}-1`,id,'CW-45-045-T1',price);
+    };
+    const removeContracts=()=>{
+      d.prepare("DELETE FROM contract_lines WHERE contract_id LIKE 'fixture-%'").run();
+      d.prepare("DELETE FROM contracts WHERE id LIKE 'fixture-%'").run();
+    };
+    try{
+      addContract('fixture-lower','FIX-LOWER','2026-09-01','2026-10-31',35.5);
+      addContract('fixture-higher','FIX-HIGHER','2026-06-01','2027-06-30',37);
+      expect(customerPrices('wasatch',['CW-45-045-T1'],ON)[0].contract).toMatchObject({contract_number:'FIX-LOWER',unit_price:35.5});
+      expect(priceSources('wasatch',['CW-45-045-T1'],ON)[0].contract).toMatchObject({contract_number:'FIX-LOWER',unit_price:35.5});
+      // Once the lower one ends, the seeded WAS-C-2026-01 ($36) beats the higher fixture ($37).
+      expect(customerPrices('wasatch',['CW-45-045-T1'],'2026-11-01')[0].contract).toMatchObject({contract_number:'WAS-C-2026-01',unit_price:36});
+      expect(customerPrices('wasatch',['CW-45-045-T1'],'2027-01-01')[0].contract).toMatchObject({contract_number:'FIX-HIGHER',unit_price:37});
+    }finally{removeContracts();}
+  });
+
   it('has no customer price for a placeholder customer, and never includes cost',()=>{
     const [price]=customerPrices('great-basin',['HCS-12-13-2G8'],ON);
     expect(price).toEqual({item_id:'HCS-12-13-2G8',sku:'HCS-12-13-2G8',list_price:38.95,customer_price:null,contract:null});
@@ -59,6 +81,12 @@ describe('priceSources (internal)',()=>{
   it('includes a purchase exactly 12 months back and drops one a day older',()=>{
     expect(priceSources('wasatch',['HCS-12-13-2G8'],'2027-08-12')[0].last_paid?.order_date).toBe('2026-08-12');
     expect(priceSources('wasatch',['HCS-12-13-2G8'],'2027-08-13')[0].last_paid).toBeNull();
+  });
+
+  it('measures the window in calendar months, so it spans Feb 29 (see pricing-window.test.ts)',()=>{
+    expect(lastPaidSince(ON)).toBe('2025-09-23');
+    expect(lastPaidSince('2028-03-01')).toBe('2027-03-01');
+    expect(lastPaidSince('2028-02-29')).toBe('2027-02-28');
   });
 
   it('skips unknown items',()=>{
