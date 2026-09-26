@@ -1,3 +1,4 @@
+import type {ChatReplyKind,ClarifyPayload,ItemPopupPayload} from '@/domain';
 /** What Querent may answer in chat, toggled per customer in Settings (spec §2). */
 export const categories = ['items_stock','pricing','orders_quotes','account'] as const;
 export type Category = typeof categories[number];
@@ -10,7 +11,11 @@ export interface Customer {id:string;name:string;account_number?:string}
 export interface Analytics {total_queries:number;minutes_saved:number;hours_saved:string;categories:{category:Category;count:number;rep_name:string}[]}
 export interface Dashboard {access:AccessRule[];analytics:Analytics}
 export interface ERPStatus {last_updated:string|null;events:{id:number;timestamp:string;message:string}[]}
-export interface ChatAnswer {answer:string;sql:string|null;categories:Category[];outcome:'answered'|'no_rows'|'error'|'restricted';row_count:number}
+/**
+ * One chat reply. kind 'clarify' carries a ClarifyPayload (Querent's question about a vague line) and
+ * 'item_popup' an ItemPopupPayload (the cart the item pop-up opens with); plain text has no payload.
+ */
+export interface ChatAnswer {answer:string;sql:string|null;categories:Category[];outcome:'answered'|'no_rows'|'error'|'restricted';row_count:number;kind?:ChatReplyKind;payload?:ClarifyPayload|ItemPopupPayload|null}
 export interface ChatTurn extends ChatAnswer {id:string;question:string;timestamp?:string}
 export interface DataPage {rows:Record<string,unknown>[];total:number;page:number;size:number}
 export interface API {get<T>(path:string):Promise<T>;send<T>(path:string,method:'POST'|'PUT',body:unknown):Promise<T>}

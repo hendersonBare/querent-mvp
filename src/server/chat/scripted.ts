@@ -1,6 +1,6 @@
 import 'server-only';
 import type {Branch,CartLine,ChatMessage,ChatReplyKind,ClarifyPayload,Fulfillment,ItemCandidate,ItemPopupPayload} from '@/domain';
-import type {Category} from '@/lib/contracts';
+import type {Category,ChatAnswer} from '@/lib/contracts';
 import {assignedRep,branches,catalogItem} from '@/server/repository/customer';
 import {getStockTool,proposeCartTool,searchItemsTool,type ItemStockAnswer,type ToolContext} from './tools';
 
@@ -26,7 +26,7 @@ export interface ChatReply {
   handled:Category[];
   toolCalls:string[];
   rowCount:number;
-  outcome:'answered'|'no_rows'|'restricted';
+  outcome:ChatAnswer['outcome'];
 }
 
 interface ScriptItem {
