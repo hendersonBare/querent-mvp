@@ -89,3 +89,16 @@
   background: var(--rep-ink);
   color: var(--rep-bg);
 }
+@media (max-width: 560px) {
+  .tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs a {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+}
