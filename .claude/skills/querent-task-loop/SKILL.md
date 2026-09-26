@@ -53,7 +53,7 @@ Work out who you're running for: `git config user.name` gives Henderson Bare →
      2. Spawn an implementer to fix it, with the verifier's findings.
      3. After **2 failed rounds**, set `Blocked` and add a Notion comment tagging Henderson and Sam with the findings.
 8. **Repeat** until no task is Ready and nothing is running.
-9. **Stopping** (queue empty, a human Phase review is next, or you're low on budget):
+9. **Stopping** (every build task is Done or Blocked, or you're low on budget):
    - Make sure every in-flight task has Handoff notes and a pushed branch.
    - Then post a short status summary: what's done, what's waiting on human review, what's blocked.
 
@@ -61,7 +61,7 @@ Work out who you're running for: `git config user.name` gives Henderson Bare →
 
 - **Never stop without handoff notes.** Token limits end sessions without warning, so keep Notion current as you go, not at the end.
 - **Heartbeat:** update *Claimed at* whenever a task changes state.
-- **Phase gates:** a phase's `N.R` review task is for humans. When the only remaining work depends on an open review, stop and tell the user which review is waiting.
+- **Phase reviews don't block.** `N.R` review tasks are human checkpoints. Never claim them, and never wait on them. *Depends on* lists only build tasks. At each stop, list which reviews are ready for a human to look at.
 - **No deploys:** Railway deployment is manual. Never run it.
 - **Schema changes** reseed destructively (bump `SCHEMA_VERSION`). If two branches both bumped the schema, the later one resolves the conflict when it rebases.
 - **Conflicts:** tasks that edit the same screen are chained by *Depends on*. If they still conflict, the later task rebases.
