@@ -39,7 +39,7 @@ describe('the scripted Dana conversation (golden steps 1–3)',()=>{
 
   it('matches the bolts, asks "Type 1 or Type 27 cut-off wheels?" instead of guessing, then opens the pop-up',async()=>{
     const [,clarify,popup]=await converse('Do you have 1/2 in grade 8 hex bolts in stock?',REQUEST,'Type 1');
-    expect(clarify).toMatchObject({kind:'clarify',outcome:'answered',toolCalls:['search_items'],rowCount:2,categories:[]});
+    expect(clarify).toMatchObject({kind:'clarify',outcome:'answered',toolCalls:['search_items'],rowCount:2,categories:['items_stock'],handled:['items_stock']});
     expect(clarify.content).toBe(`Got it: 10 × ${BOLTS}.\n\nType 1 or Type 27 cut-off wheels?`);
     expect(clarify.payload).toEqual({
       question:'Type 1 or Type 27 cut-off wheels?',round:1,
@@ -47,7 +47,7 @@ describe('the scripted Dana conversation (golden steps 1–3)',()=>{
       cart:{fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10,requested_text:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts'}]},
     } satisfies ClarifyPayload);
 
-    expect(popup).toMatchObject({kind:'item_popup',outcome:'answered',toolCalls:['propose_cart'],rowCount:2});
+    expect(popup).toMatchObject({kind:'item_popup',outcome:'answered',toolCalls:['propose_cart'],rowCount:2,categories:['items_stock'],handled:['items_stock']});
     expect(popup.payload).toEqual({fulfillment:'will_call',branch_id:'slc',lines:[
       {sku:'HCS-12-13-2G8',qty:10,requested_text:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts'},
       {sku:'CW-45-045-T1',qty:6,requested_text:'6 boxes of cut-off wheels'},
@@ -69,7 +69,7 @@ describe('the scripted Dana conversation (golden steps 1–3)',()=>{
 
   it('agrees with the SKU scorer: the bolts are a confident match, and the wheels get the same question',async()=>{
     const {searchItemsTool}=await import('./tools');
-    const verdict=(query:string)=>{const r=searchItemsTool(ctx,{query});if(!r.ok)throw new Error(r.reason);return {confident:r.data.confident,question:r.data.question,sku:r.data.candidates[0]?.sku};};
+    const verdict=(query:string)=>{const r=searchItemsTool(ctx,{query});if(!r.ok)throw new Error(r.reason);const [line]=r.data.lines;return {confident:line.confident,question:line.question,sku:line.candidates[0]?.sku};};
     expect(verdict('the 1/2 in grade 8 hex bolts')).toEqual({confident:true,question:null,sku:'HCS-12-13-2G8'});
     expect(verdict('6 boxes of cut-off wheels')).toMatchObject({confident:false,question:'Type 1 or Type 27 cut-off wheels?'});
     expect(verdict('cut-off wheels, Type 1')).toEqual({confident:true,question:null,sku:T1.sku});
@@ -146,6 +146,27 @@ describe('stock questions and access',()=>{
     const [denied]=await converse('Do you have 1/2 in grade 8 hex bolts in stock?');
     expect(denied).toEqual({kind:'text',payload:null,outcome:'restricted',categories:['items_stock'],handled:[],toolCalls:['get_stock'],rowCount:0,
       content:'Stock levels aren\'t available in chat for your account. Brandi Gallegos can check for you: (801) 111-2222 or brandi.gallegos@herrickindustrial.com.'});
+  });
+
+  it('does not match items or open the pop-up when Items & stock is off, and points to the rep',async()=>{
+    await setItemsStock(false);
+    const content='I can\'t look up items in chat for your account. Brandi Gallegos can take your order: (801) 111-2222 or brandi.gallegos@herrickindustrial.com.';
+    const [vague]=await converse(REQUEST);
+    expect(vague).toEqual({kind:'text',payload:null,outcome:'restricted',categories:['items_stock'],handled:[],toolCalls:['search_items'],rowCount:0,content});
+    const [clear]=await converse('Please quote 2 boxes of hex bolts');
+    expect(clear).toEqual({kind:'text',payload:null,outcome:'restricted',categories:['items_stock'],handled:[],toolCalls:['propose_cart'],rowCount:0,content});
+  });
+});
+
+describe('analytics categories (task 0.4 carry-forward)',()=>{
+  it('logs the request, clarifying and pop-up turns under Items & stock; off-script turns under none',async()=>{
+    const replies=await converse(REQUEST,'not sure','Type 1','What is our open balance?');
+    expect(replies.map(r=>[r.kind,r.categories,r.handled])).toEqual([
+      ['clarify',['items_stock'],['items_stock']],
+      ['clarify',['items_stock'],['items_stock']],
+      ['item_popup',['items_stock'],['items_stock']],
+      ['text',[],[]],
+    ]);
   });
 });
 

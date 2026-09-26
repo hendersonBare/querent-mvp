@@ -13,6 +13,17 @@ vi.mock('./chat/scripted',async importOriginal=>{
   }};
 });
 
+// The Anthropic SDK, mocked: Claude answers with the turns a test queues, or is unreachable when none are left.
+const claude=vi.hoisted(()=>({turns:[] as ({type:string}&Record<string,unknown>)[][],requests:[] as {messages:unknown[]}[]}));
+vi.mock('@anthropic-ai/sdk',()=>({default:class{
+  messages={create:async(body:{model:string;messages:unknown[]})=>{
+    claude.requests.push(structuredClone(body));
+    const content=claude.turns.shift();
+    if(!content)throw new Error('Claude is unreachable');
+    return {id:'msg',type:'message',role:'assistant',model:body.model,content,stop_reason:content.some(b=>b.type==='tool_use')?'tool_use':'end_turn',stop_sequence:null,usage:{input_tokens:1,output_tokens:1}};
+  }};
+}}));
+
 const env={key:process.env.ANTHROPIC_API_KEY,scripted:process.env.QUERENT_SCRIPTED};
 afterEach(()=>{
   if(env.key===undefined)delete process.env.ANTHROPIC_API_KEY;else process.env.ANTHROPIC_API_KEY=env.key;
@@ -41,7 +52,7 @@ describe('scripted mode (no API key, or QUERENT_SCRIPTED=1)',()=>{
     expect(messages.map(m=>[m.role,m.kind])).toEqual([['customer','text'],['assistant','text'],['customer','text'],['assistant','clarify'],['customer','text'],['assistant','item_popup']]);
     expect(messages.map(m=>m.content)).toEqual([STOCK,stock.answer,REQUEST,clarify.answer,'Type 1',popup.answer]);
     expect(messages[5].payload).toEqual(popup.payload);
-    expect(history('wasatch','conv-scripted').map(t=>[t.question,t.outcome,t.categories])).toEqual([[STOCK,'answered',['items_stock']],[REQUEST,'answered',[]],['Type 1','answered',[]]]);
+    expect(history('wasatch','conv-scripted').map(t=>[t.question,t.outcome,t.categories])).toEqual([[STOCK,'answered',['items_stock']],[REQUEST,'answered',['items_stock']],['Type 1','answered',['items_stock']]]);
   });
 
   it('is used even with an API key when QUERENT_SCRIPTED=1',async()=>{
@@ -60,17 +71,35 @@ describe('scripted mode (no API key, or QUERENT_SCRIPTED=1)',()=>{
 });
 
 describe('live mode (API key set, QUERENT_SCRIPTED unset)',()=>{
-  // Tool-calling chat is task 2.1. Until then live mode gives the holding answer that points to the rep.
-  it('gives the holding answer that points to the assigned rep, and logs it',async()=>{
+  // The Anthropic SDK is mocked (above): no test calls the real API.
+  it('answers through Claude\'s tool calls, stores the turn and logs its categories and tools',async()=>{
     process.env.ANTHROPIC_API_KEY='sk-test-not-used';delete process.env.QUERENT_SCRIPTED;
     const {ask}=await import('./pipeline');
     const {conversationMessages,history}=await import('./repository/customer');
+    claude.turns.push([{type:'text',text:'Hello again.'}]);
+    await ask('wasatch','conv-live','Hi',{contactId:'dana'});
+    claude.turns.push(
+      [{type:'tool_use',id:'toolu_1',name:'get_stock',input:{skus:['HCS-12-13-2G8']}}],
+      [{type:'text',text:'Yes. HCS-12-13-2G8 is in stock: 64 at SLC, 22 at Ogden and 8 at Provo.'}],
+    );
     const result=await ask('wasatch','conv-live',STOCK);
-    expect(result).toMatchObject({sql:null,categories:[],outcome:'no_rows',row_count:0,kind:'text',payload:null});
-    expect(result.answer).toContain('Brandi Gallegos');
-    expect(result.answer).toContain('(801) 111-2222');
-    expect(history('wasatch','conv-live')).toEqual([expect.objectContaining({question:STOCK,answer:result.answer,outcome:'no_rows'})]);
-    expect(conversationMessages('wasatch','conv-live').map(m=>m.role)).toEqual(['customer','assistant']);
+    expect(result).toMatchObject({sql:null,categories:['items_stock'],outcome:'answered',row_count:1,kind:'text',payload:null,
+      answer:'Yes. HCS-12-13-2G8 is in stock: 64 at SLC, 22 at Ogden and 8 at Provo.'});
+    expect(claude.requests.at(-2)!.messages.slice(0,3)).toEqual([{role:'user',content:'Hi'},{role:'assistant',content:'Hello again.'},{role:'user',content:STOCK}]);
+    expect(history('wasatch','conv-live').map(t=>[t.question,t.outcome,t.categories])).toEqual([['Hi','answered',[]],[STOCK,'answered',['items_stock']]]);
+    expect(conversationMessages('wasatch','conv-live').map(m=>m.role)).toEqual(['customer','assistant','customer','assistant']);
+  });
+
+  it('logs an error outcome when Claude can\'t be reached',async()=>{
+    process.env.ANTHROPIC_API_KEY='sk-test-not-used';delete process.env.QUERENT_SCRIPTED;
+    const errors=vi.spyOn(console,'error').mockImplementation(()=>{});
+    try{
+      const {ask}=await import('./pipeline');
+      const {history}=await import('./repository/customer');
+      const result=await ask('wasatch','conv-live-down',STOCK);
+      expect(result).toMatchObject({outcome:'error',answer:'We couldn’t complete that lookup. Please try again.'});
+      expect(history('wasatch','conv-live-down')).toEqual([expect.objectContaining({outcome:'error'})]);
+    }finally{errors.mockRestore();}
   });
 });
 
