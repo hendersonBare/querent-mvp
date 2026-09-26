@@ -148,9 +148,8 @@ describe('win/loss (lost quotes are stored as expired, task 0.2)',()=>{
   });
 
   it('computes the win rate over decided quotes only, or null with none decided',()=>{
-    const list=[...Array(17)].map(()=>({status:'accepted' as const,valid_until:'2026-09-01'}))
-      .concat([...Array(7)].map(()=>({status:'expired' as const,valid_until:'2026-09-01'})))
-      .concat([{status:'ready_for_review',valid_until:null},{status:'sent',valid_until:'2026-10-07'}] as const);
+    const decided=(status:QuoteStatus,n:number)=>Array.from({length:n},()=>({status,valid_until:'2026-09-01' as string|null}));
+    const list=[...decided('accepted',17),...decided('expired',7),{status:'ready_for_review' as const,valid_until:null},{status:'sent' as const,valid_until:'2026-10-07'}];
     const rate=winRate(list,now);
     expect(rate).toMatchObject({won:17,lost:7,open:2});
     expect(rate.rate).toBeCloseTo(17/24,10);

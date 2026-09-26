@@ -64,6 +64,10 @@ export interface QuoteSnapshotLine {sku:string;description:string;pack:string;qt
 export interface QuoteSnapshot {
   quote_number:string;revision:number;customer:{name:string;account_number:string};contact:string|null;rep:string;
   fulfillment:Fulfillment;branch:string;valid_until:string|null;subtotal:number;freight:number;total:number;lines:QuoteSnapshotLine[];
+  // The terms, frozen at send (task 1.5). Absent on snapshots stored before it (the seeded history).
+  sent_at?:string;valid_days?:ValidDays;customer_po?:string|null;customer_note?:string|null;
+  /** The delivery address, or null for will call. */
+  ship_to?:string|null;
 }
 
 export interface QuoteRevision {id:string;quote_id:string;revision:number;sent_at:string;sent_by:string;message:string|null;attach_pdf:boolean;total:number;snapshot:QuoteSnapshot}
