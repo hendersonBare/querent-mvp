@@ -61,7 +61,7 @@ export function templateWording(upsell:UpsellDraft):UpsellWording{
     case 'matching_fastener':{
       const {bolt,bolt_pieces,pack_pieces,history}=upsell.evidence;
       const bolts=`${bolt.diameter}-${bolt.thread} Grade ${bolt.grade} bolts`;
-      const cover=bolt_pieces!==null&&pack_pieces!==null?`: ${countOf(qty,unit)} of ${pack_pieces} cover all ${bolt_pieces}.`:' on this quote.';
+      const cover=bolt_pieces!==null&&pack_pieces!==null?`: ${countOf(qty,unit)} of ${pack_pieces} ${qty===1?'covers':'cover'} all ${bolt_pieces}.`:' on this quote.';
       const bought=history?` Bought with these bolts ${onOrders(history.orders_together,history.anchor_orders)} ${WINDOW}.`:'';
       return {title:addTitle,reason:`Matches the ${bolts}${cover}${bought}`};
     }
