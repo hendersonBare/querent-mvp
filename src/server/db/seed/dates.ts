@@ -7,6 +7,12 @@ const DAY=/^\d{4}-\d{2}-\d{2}$/;
 const parse=(day:string)=>new Date(`${day}T00:00:00.000Z`);
 
 export function addDays(day:string,days:number){const d=parse(day);d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
+/** The same day `months` later (negative: earlier), clamped to the end of a shorter month (Feb 29 -> Feb 28). */
+export function addMonths(day:string,months:number){
+  const d=parse(day),year=d.getUTCFullYear(),month=d.getUTCMonth()+months;
+  const lastDay=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+  return new Date(Date.UTC(year,month,Math.min(d.getUTCDate(),lastDay))).toISOString().slice(0,10);
+}
 /** ISO timestamp for `time` (HH:MM, UTC) on the day `days` from `day`. */
 export function at(day:string,days:number,time:string){return `${addDays(day,days)}T${time}:00.000Z`;}
 export function addMinutes(iso:string,minutes:number){return new Date(Date.parse(iso)+minutes*60_000).toISOString();}

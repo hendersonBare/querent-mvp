@@ -1,13 +1,15 @@
 import 'server-only';
 import type {Contract,ContractPrice,CustomerPrice,LastPaid,PriceSources} from '@/domain';
-import {addDays} from '../db/seed/dates';
+import {addMonths} from '../db/seed/dates';
 import {all,inOrder,list,one,today} from './sql';
 
 // Price facts per customer x item (spec §5.1). This module only reads facts; the pricing
-// engine (task 1.1) decides the suggestion. `on` is the pricing day (YYYY-MM-DD, default today).
+// engine (src/server/pricing) decides the suggestion. `on` is the pricing day (YYYY-MM-DD, default today).
 
-/** "Last paid" looks back 12 months from the pricing day (spec §5.1). */
-export const LAST_PAID_WINDOW_DAYS=365;
+/** "Last paid" looks back 12 calendar months from the pricing day (spec §5.1). */
+export const LAST_PAID_WINDOW_MONTHS=12;
+/** The first day of the last-paid window (inclusive): the same day 12 months earlier, so Feb 29 needs no special case. */
+export const lastPaidSince=(on:string)=>addMonths(on,-LAST_PAID_WINDOW_MONTHS);
 
 /** The customer's contracts, newest first, each with its lines and whether it is active on `on`. */
 export function contracts(customerId:string,on=today()):Contract[]{
@@ -53,6 +55,6 @@ export function priceSources(customerId:string,itemIds:readonly string[],on=toda
       SELECT l.item_id,l.unit_price,l.qty,o.order_date,o.order_number,row_number() OVER (PARTITION BY l.item_id ORDER BY o.order_date DESC,o.order_number DESC,l.line_no) n
       FROM order_lines l JOIN orders o ON o.id=l.order_id
       WHERE o.customer_id=? AND o.order_date>=? AND o.order_date<=? AND l.item_id IN (SELECT value FROM json_each(?))
-    ) WHERE n=1`,customerId,addDays(on,-LAST_PAID_WINDOW_DAYS),on,list(itemIds)).map(({item_id,...last})=>[item_id,last]));
+    ) WHERE n=1`,customerId,lastPaidSince(on),on,list(itemIds)).map(({item_id,...last})=>[item_id,last]));
   return prices.map(p=>{const {cost,case_qty,category_id}=facts.get(p.item_id)!;return {...p,cost,case_qty,category_id,last_paid:paid.get(p.item_id)??null};});
 }

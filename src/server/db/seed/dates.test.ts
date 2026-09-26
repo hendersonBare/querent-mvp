@@ -1,11 +1,21 @@
 import {expect,it} from 'vitest';
-import {addDays,at,defaultSeedAnchor,longDate,nextWeekday,seedAnchorFromEnv,shortDate} from './dates';
+import {addDays,addMonths,at,defaultSeedAnchor,longDate,nextWeekday,seedAnchorFromEnv,shortDate} from './dates';
 
 it('does day arithmetic across month and year ends',()=>{
   expect(addDays('2026-09-23',-42)).toBe('2026-08-12');
   expect(addDays('2026-09-23',99)).toBe('2026-12-31');
   expect(addDays('2026-09-23',-265)).toBe('2026-01-01');
   expect(at('2026-09-23',0,'16:14')).toBe('2026-09-23T16:14:00.000Z');
+});
+
+it('does calendar-month arithmetic, clamping to the end of a shorter month',()=>{
+  expect(addMonths('2026-09-23',-12)).toBe('2025-09-23');
+  expect(addMonths('2028-03-01',-12)).toBe('2027-03-01'); // 365 days back would be 2027-03-02
+  expect(addMonths('2028-02-29',-12)).toBe('2027-02-28');
+  expect(addMonths('2027-02-28',-12)).toBe('2026-02-28');
+  expect(addMonths('2026-03-31',-1)).toBe('2026-02-28');
+  expect(addMonths('2026-01-15',-13)).toBe('2024-12-15');
+  expect(addMonths('2026-12-31',2)).toBe('2027-02-28');
 });
 
 it('finds the next weekday strictly after a day',()=>{
