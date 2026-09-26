@@ -44,7 +44,8 @@ export interface FreightInput {
 const round2=(n:number)=>Math.round(Number((n*100).toPrecision(12)))/100;
 const usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 const perMile=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4});
-const money=(n:number)=>usd.format(n);
+/** "$1,240.00": how freight dollars read on the quote and in Activity. */
+export const formatUsd=(n:number)=>usd.format(n);
 const miles1=(n:number)=>n.toFixed(1);
 
 const hasShipTo=(shipTo:Place|null):shipTo is Place=>!!shipTo&&(!!shipTo.address?.trim()||(shipTo.lat!==null&&shipTo.lng!==null));
@@ -58,11 +59,11 @@ export function priceDelivery({origin,miles:rawMiles,subtotal,rates}:{origin:str
   if(miles>rates.max_radius_miles)return {rule:'beyond_radius',amount:CALL_FOR_FREIGHT,miles,formula:null,
     explanation:`${from} is beyond the ${round1(rates.max_radius_miles)} mi delivery radius. Call for freight: set it by hand before sending.`};
   if(round2(subtotal)>=rates.free_threshold)return {rule:'free_threshold',amount:0,miles,formula:null,
-    explanation:`Free delivery: items total ${money(round2(subtotal))}, at or over the ${money(rates.free_threshold)} threshold. ${from}.`};
+    explanation:`Free delivery: items total ${formatUsd(round2(subtotal))}, at or over the ${formatUsd(rates.free_threshold)} threshold. ${from}.`};
   const byDistance=round2(rates.base_fee+rates.per_mile*miles);
-  const formula=`${money(rates.base_fee)} + ${perMile.format(rates.per_mile)}/mi × ${miles1(miles)} mi = ${money(byDistance)}`;
+  const formula=`${formatUsd(rates.base_fee)} + ${perMile.format(rates.per_mile)}/mi × ${miles1(miles)} mi = ${formatUsd(byDistance)}`;
   if(byDistance<rates.min_charge)return {rule:'min_charge',amount:round2(rates.min_charge),miles,formula,
-    explanation:`${from}: ${formula}, below the ${money(rates.min_charge)} minimum charge.`};
+    explanation:`${from}: ${formula}, below the ${formatUsd(rates.min_charge)} minimum charge.`};
   return {rule:'distance',amount:byDistance,miles,formula,explanation:`${from}: ${formula}.`};
 }
 
