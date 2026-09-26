@@ -1,6 +1,8 @@
-import {fireEvent,render,screen} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {App} from './App';
+const router=vi.hoisted(()=>({replace:vi.fn()}));
+vi.mock('next/navigation',()=>({useRouter:()=>router}));
 let active:Record<string,unknown>|null=null;
 const brandi={user_id:'brandi',role:'supplier_admin',customer_id:null,name:'Herrick Industrial Supply',user_name:'Brandi Gallegos',rep_id:'brandi',contact_id:null};
 const dana={user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
@@ -8,4 +10,5 @@ function stubFetch(){vi.stubGlobal('fetch',vi.fn(async(input:RequestInfo|URL,ini
 beforeEach(()=>{active=null;stubFetch();});afterEach(()=>vi.unstubAllGlobals());
 it('offers the supplier (Brandi) and customer (Dana at Wasatch) personas',async()=>{render(<App/>);expect(await screen.findByText('Who would you like to explore as?')).toBeInTheDocument();expect(screen.getByRole('button',{name:/Herrick Industrial Supply.*Brandi Gallegos/})).toBeInTheDocument();expect(screen.getByRole('button',{name:/Wasatch Mechanical Contractors.*Dana Ortiz/})).toBeInTheDocument();expect(screen.getAllByRole('button',{name:/Herrick|Wasatch/})).toHaveLength(2);});
 it('selects and renders the customer workspace',async()=>{render(<App/>);fireEvent.click(await screen.findByRole('button',{name:/Wasatch Mechanical Contractors/}));expect(await screen.findByLabelText('Ask a question')).toBeInTheDocument();expect(screen.getByText('Wasatch Mechanical Contractors')).toBeInTheDocument();});
-it('restores the supplier workspace signed in as Brandi',async()=>{active=brandi;render(<App/>);expect(await screen.findByText('Supplier console')).toBeInTheDocument();expect(screen.getByText('Brandi Gallegos')).toBeInTheDocument();expect(screen.getByText('BG')).toBeInTheDocument();expect(screen.queryByRole('button',{name:'Rep assignments'})).not.toBeInTheDocument();});
+it('restores the supplier workspace by opening the rep portal (task 3.1)',async()=>{router.replace.mockClear();active=brandi;render(<App/>);expect(await screen.findByText('Opening the rep portal…')).toBeInTheDocument();await waitFor(()=>expect(router.replace).toHaveBeenCalledWith('/rep/quotes'));});
+it('opens the rep portal when Brandi\'s workspace is chosen',async()=>{router.replace.mockClear();render(<App/>);fireEvent.click(await screen.findByRole('button',{name:/Herrick Industrial Supply/}));await waitFor(()=>expect(router.replace).toHaveBeenCalledWith('/rep/quotes'));});

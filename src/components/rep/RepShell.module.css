@@ -1,0 +1,325 @@
+/* Rep portal frame: docs/design/querent-quote-flow.html (.appbar, .appnav, .count, .appsearch, .avatar).
+   The tokens are the mockup's palette. They cascade to every rep page, so later rep screens use
+   var(--rep-accent) and friends instead of repeating the hex values. */
+.portal {
+  --rep-bg: #ecefed;
+  --rep-surface: #ffffff;
+  --rep-surface-2: #f5f7f6;
+  --rep-lane: #e3e7e5;
+  --rep-ink: #151a1e;
+  --rep-ink-2: #39424a;
+  --rep-muted: #626d76;
+  --rep-line: #d2d8d5;
+  --rep-line-2: #e1e6e3;
+  --rep-accent: #0e7c74; /* Querent green */
+  --rep-accent-ink: #ffffff;
+  --rep-accent-soft: #d6eeea;
+  --rep-ok: #2b7a3b;
+  --rep-ok-soft: #e1f1e4;
+  --rep-warn: #a8670f;
+  --rep-warn-soft: #fbefd9;
+  --rep-bad: #c0392b;
+  --rep-bad-soft: #fbe3e0;
+  --rep-display: var(--font-archivo), "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --rep-body: var(--font-plex-sans), "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --rep-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  min-height: 100dvh;
+  background: var(--rep-bg);
+  color: var(--rep-ink);
+  font: 14px/1.45 var(--rep-body);
+}
+.portal a:focus-visible,
+.portal button:focus-visible,
+.portal select:focus-visible {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 2px;
+}
+
+.header {
+  background: var(--rep-surface);
+  border-bottom: 1px solid var(--rep-line);
+}
+
+/* ---- App bar ---- */
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rep-line-2);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 700 16px/1 var(--rep-display);
+  font-stretch: 112%;
+  white-space: nowrap;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--rep-accent);
+  color: var(--rep-accent-ink);
+  font-size: 14px;
+}
+.org {
+  font: 500 12px/1 var(--rep-body);
+  font-stretch: normal;
+  color: var(--rep-muted);
+  padding-left: 10px;
+  border-left: 1px solid var(--rep-line);
+}
+.nav {
+  display: flex;
+  gap: 2px;
+}
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13.5px;
+  color: var(--rep-ink-2);
+  white-space: nowrap;
+}
+.navLink:hover {
+  background: var(--rep-surface-2);
+  color: var(--rep-ink);
+  text-decoration: none;
+}
+.navLink[aria-current="page"] {
+  background: var(--rep-surface-2);
+  color: var(--rep-ink);
+  box-shadow: inset 0 -2px 0 var(--rep-accent);
+}
+.count {
+  font: 600 10.5px/1 var(--rep-body);
+  background: var(--rep-accent);
+  color: var(--rep-accent-ink);
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+.search {
+  position: relative;
+  flex: 1;
+  max-width: 340px;
+  margin-left: auto;
+}
+.search input {
+  width: 100%;
+  border: 1px solid var(--rep-line);
+  background: var(--rep-surface-2);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--rep-ink);
+}
+.search input:focus {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 0;
+}
+.searchNote {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--rep-ink);
+  color: var(--rep-surface);
+  font-size: 12.5px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+}
+.searchNote:empty {
+  display: none;
+}
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.iconButton {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--rep-ink-2);
+}
+.iconButton:hover {
+  background: var(--rep-surface-2);
+}
+.dot {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rep-bad);
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--rep-ink);
+  color: var(--rep-bg);
+  font: 600 11.5px/1 var(--rep-body);
+}
+.menuWrap {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  background: var(--rep-surface);
+  border: 1px solid var(--rep-line);
+  border-radius: 9px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+}
+.menuWho {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+}
+.menuWho small {
+  color: var(--rep-muted);
+  font-size: 12px;
+}
+.menu hr {
+  border: 0;
+  border-top: 1px solid var(--rep-line-2);
+  margin: 4px 2px;
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--rep-ink);
+}
+.menu button:hover,
+.menu button:focus-visible {
+  background: var(--rep-surface-2);
+}
+
+/* ---- "Viewing" customer picker ---- */
+.scopebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 16px;
+}
+.scopeLabel {
+  font: 600 10.5px/1 var(--rep-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rep-muted);
+}
+.scopeSelect {
+  max-width: 100%;
+  border: 1px solid var(--rep-line);
+  background: var(--rep-surface);
+  border-radius: 7px;
+  padding: 6px 30px 6px 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--rep-ink);
+}
+.scopeMeta {
+  font-size: 12.5px;
+  color: var(--rep-muted);
+}
+.mono {
+  font-family: var(--rep-mono);
+}
+
+/* ---- Page ---- */
+.page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 16px 20px 32px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Six sections don't fit beside Herrick's name on a laptop: drop the name first (the mockup drops it at 860px). */
+@media (max-width: 1180px) {
+  .org {
+    display: none;
+  }
+}
+/* Tablets and phones: the nav becomes a scrollable strip under the app bar (the mockup hides it). */
+@media (max-width: 900px) {
+  .appbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-bottom: 0;
+  }
+  .nav {
+    order: 3;
+    flex-basis: 100%;
+    margin: 0 -16px;
+    padding: 0 12px 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+@media (max-width: 560px) {
+  .search {
+    display: none;
+  }
+  .user {
+    margin-left: auto;
+  }
+  .scopebar {
+    padding-inline: 12px;
+  }
+  .scopeSelect {
+    flex: 1;
+    min-width: 0;
+  }
+  .scopeMeta {
+    flex-basis: 100%;
+  }
+  .page {
+    padding-inline: 12px;
+  }
+}
