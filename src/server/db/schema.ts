@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+import {FULFILLMENTS} from '../../domain/orders';
+import {PRICE_BASES as BASES,QUOTE_STATUSES} from '../../domain/quotes';
 import {categories} from '../../lib/contracts';
 
 // Bump on any schema change. There are no migrations: an older database refuses to
@@ -14,9 +16,10 @@ export const INFO_CATEGORIES=categories;
 
 const SYNC="source TEXT NOT NULL DEFAULT 'seed',external_id TEXT,synced_at TEXT";
 const list=(values:readonly string[])=>values.map(v=>`'${v}'`).join(',');
-const FULFILLMENT="CHECK(fulfillment IN ('will_call','delivery'))";
-const PRICE_BASES=list(['contract','customer','list','last_paid','custom']);
-export const QUOTE_STATUSES=['ready_for_review','sent','accepted','changes_requested','expired'] as const;
+const FULFILLMENT=`CHECK(fulfillment IN (${list(FULFILLMENTS)}))`;
+const PRICE_BASES=list(BASES);
+// The domain types (src/domain) own these values so the CHECK constraints and the TS types agree.
+export {QUOTE_STATUSES};
 
 const DDL=`
 CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);

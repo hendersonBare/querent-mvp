@@ -21,6 +21,8 @@ npm run db:reset
 
 Seeded dates are relative to a seed date, which defaults to yesterday so the demo stays current. Set `QUERENT_SEED_DATE=2026-09-23` before `npm run db:reset` to reproduce the design mockup's dates exactly. After a schema change (`SCHEMA_VERSION` in `src/server/db/schema.ts`), the app refuses to open an older database until you run `npm run db:reset`; there are no migrations.
 
+All data access goes through typed functions in `src/server/repository/` (types in `src/domain/`). `@/server/repository` is the full internal API. Customer-facing code and the chat tools use `@/server/repository/customer`, which never returns cost or margin. `npm test` fails if SQL appears anywhere else.
+
 Chat is being rebuilt for Query to Quote. Until the scripted and tool-calling chat land, every question gets a holding answer that points to the customer's rep.
 
 ## Verify and run a production build

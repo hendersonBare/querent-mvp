@@ -1,0 +1,116 @@
+import type {Fulfillment} from './orders';
+
+// Quotes (spec §4, §5.4). Quote and QuoteLine are internal: they carry unit cost and Querent's
+// pricing notes. Customers only ever see CustomerQuoteSummary / CustomerQuoteView, which are
+// built from the frozen revision the rep sent.
+
+export const QUOTE_STATUSES=['ready_for_review','sent','accepted','changes_requested','expired'] as const;
+export type QuoteStatus=typeof QUOTE_STATUSES[number];
+export const PRICE_BASES=['contract','customer','list','last_paid','custom'] as const;
+export type PriceBasis=typeof PRICE_BASES[number];
+export type LineSource='querent'|'rep'|'upsell';
+export type ActivityActor='customer'|'querent'|'rep'|'system';
+export type ValidDays=7|14|30;
+
+export interface QuoteHeader {
+  id:string;quote_number:string;customer_id:string;customer_name:string;account_number:string;contact_id:string|null;contact_name:string|null;rep_id:string;rep_name:string;
+  status:QuoteStatus;
+  /** The last sent revision (0 = never sent). */
+  revision:number;
+  conversation_id:string|null;request_text:string|null;requested_at:string;created_at:string;updated_at:string;sent_at:string|null;responded_at:string|null;
+  fulfillment:Fulfillment;branch_id:string;branch_code:string;
+  /** The pickup/delivery day asked for in chat. fulfillment_time is what the customer confirms on Accept. */
+  requested_date:string|null;fulfillment_time:string|null;
+  ship_to_address:string|null;ship_to_lat:number|null;ship_to_lng:number|null;
+  /** Freight is computed (task 1.3); only a rep override is stored. */
+  freight_override:number|null;freight_override_reason:string|null;
+  valid_days:ValidDays;valid_until:string|null;customer_po:string|null;
+  /** customer_note is printed on the quote; change_request_note is the customer's Request changes note. */
+  customer_note:string|null;change_request_note:string|null;
+  unread_for_rep:boolean;unread_for_customer:boolean;is_sample:boolean;duplicated_from:string|null;
+}
+
+/** Internal: one draft line with its cost and Querent's suggestion. */
+export interface QuoteLine {
+  id:string;quote_id:string;line_no:number;item_id:string;sku:string;description:string;pack:string;case_qty:number;category_id:string;category_name:string;list_price:number;
+  qty:number;
+  /** null = not priced yet. */
+  unit_price:number|null;price_basis:PriceBasis|null;
+  suggested_price:number|null;suggested_basis:PriceBasis|null;
+  /** Kept for "+$X GP vs customer price". */
+  customer_price:number|null;
+  unit_cost:number;
+  /** Querent's "Why this price?" note. */
+  explanation:string|null;requested_text:string|null;match_score:number|null;added_by:LineSource;
+}
+
+export interface Quote extends QuoteHeader {lines:QuoteLine[]}
+
+/** One row of the rep's Quotes list. subtotal, cost_total and margin cover priced lines only (margin per spec §5.2). */
+export interface QuoteListRow {
+  id:string;quote_number:string;customer_id:string;customer_name:string;rep_id:string;rep_name:string;status:QuoteStatus;revision:number;
+  requested_at:string;updated_at:string;sent_at:string|null;valid_until:string|null;fulfillment:Fulfillment;change_request_note:string|null;
+  unread_for_rep:boolean;is_sample:boolean;line_count:number;subtotal:number;cost_total:number;margin:number|null;freight_override:number|null;
+  /** Total of the last sent revision, or null if never sent. */
+  sent_total:number|null;
+}
+
+export interface QuoteSnapshotLine {sku:string;description:string;pack:string;qty:number;unit_price:number;total:number}
+
+/**
+ * The frozen copy of what the customer was sent ("Q-24817 rev 2"). Never add cost or internal notes.
+ * Customer reads copy only these fields (see customerQuote), so a new field must be added here too.
+ */
+export interface QuoteSnapshot {
+  quote_number:string;revision:number;customer:{name:string;account_number:string};contact:string|null;rep:string;
+  fulfillment:Fulfillment;branch:string;valid_until:string|null;subtotal:number;freight:number;total:number;lines:QuoteSnapshotLine[];
+}
+
+export interface QuoteRevision {id:string;quote_id:string;revision:number;sent_at:string;sent_by:string;message:string|null;attach_pdf:boolean;total:number;snapshot:QuoteSnapshot}
+
+export interface QuoteActivity {id:number;quote_id:string;at:string;actor:ActivityActor;actor_id:string|null;kind:string;message:string}
+
+/** Internal notes, never shown to the customer. */
+export interface QuoteNote {id:number;quote_id:string;rep_id:string;rep_name:string;body:string;created_at:string}
+
+/** Customer-safe: one quote button in the customer's right sidebar. total is the last sent revision's, or null before the first send. */
+export interface CustomerQuoteSummary {id:string;quote_number:string;status:QuoteStatus;revision:number;requested_at:string;sent_at:string|null;valid_until:string|null;total:number|null;unread:boolean}
+
+/** Customer-safe: the PDF preview modal. `sent` is the last revision the rep sent, or null before the first send. */
+export interface CustomerQuoteView extends CustomerQuoteSummary {
+  fulfillment_time:string|null;customer_po:string|null;change_request_note:string|null;
+  sent:{revision:number;sent_at:string;message:string|null;attach_pdf:boolean;snapshot:QuoteSnapshot}|null;
+}
+
+// Write inputs. Unit cost is never an input: the repository copies it from the item when a line is written.
+
+export interface NewQuoteLine {
+  itemId:string;qty:number;unitPrice?:number|null;priceBasis?:PriceBasis|null;suggestedPrice?:number|null;suggestedBasis?:PriceBasis|null;
+  customerPrice?:number|null;explanation?:string|null;requestedText?:string|null;matchScore?:number|null;addedBy?:LineSource;
+}
+
+export interface NewQuote {
+  customerId:string;contactId?:string|null;conversationId?:string|null;requestText?:string|null;
+  fulfillment:Fulfillment;branchId:string;requestedDate?:string|null;
+  /** Defaults to the customer's ship-to. */
+  shipTo?:{address:string;lat:number|null;lng:number|null}|null;
+  validDays?:ValidDays;customerNote?:string|null;duplicatedFrom?:string|null;
+  lines:NewQuoteLine[];
+  /** ISO timestamp; defaults to now. */
+  requestedAt?:string;at?:string;
+}
+
+export type QuoteLinePatch=Partial<Pick<NewQuoteLine,'qty'|'unitPrice'|'priceBasis'|'suggestedPrice'|'suggestedBasis'|'customerPrice'|'explanation'>>;
+export interface QuoteTermsPatch {validDays?:ValidDays;customerPo?:string|null;customerNote?:string|null}
+export interface QuoteFulfillmentPatch {fulfillment?:Fulfillment;branchId?:string;requestedDate?:string|null;shipTo?:{address:string;lat:number|null;lng:number|null}|null}
+
+/**
+ * Persists a status change decided by the quote state machine (task 1.5). The write only
+ * happens if the quote is still in `from`, so two concurrent transitions can't both win.
+ */
+export interface QuoteTransition {
+  from:QuoteStatus;to:QuoteStatus;at?:string;revision?:number;sentAt?:string|null;respondedAt?:string|null;validUntil?:string|null;
+  fulfillmentTime?:string|null;customerPo?:string|null;changeRequestNote?:string|null;unreadForRep?:boolean;unreadForCustomer?:boolean;
+}
+
+export interface NewQuoteRevision {revision:number;sentBy:string;message?:string|null;attachPdf?:boolean;total:number;snapshot:QuoteSnapshot;sentAt?:string}

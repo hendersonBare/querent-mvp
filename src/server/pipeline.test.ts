@@ -1,17 +1,13 @@
-import {mkdtempSync,rmSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import {join} from 'node:path';
-import {afterAll,beforeAll,expect,it} from 'vitest';
+import {expect,it} from 'vitest';
+import {useSeededDatabase} from './repository/test-db';
 
-let root='';
-beforeAll(()=>{root=mkdtempSync(join(tmpdir(),'querent-chat-'));process.env.DATABASE_PATH=join(root,'test.sqlite');});
-afterAll(async()=>{const {closeDatabase}=await import('./db');closeDatabase();rmSync(root,{recursive:true,force:true});delete process.env.DATABASE_PATH;});
+useSeededDatabase();
 
 // Until scripted chat (task 0.4) and tool-calling chat (task 2.1) land, every question gets a
 // holding answer that points to the customer's rep, and nothing is looked up.
 it('answers with a holding message that points to the assigned rep, and logs it',async()=>{
   const {ask}=await import('./pipeline');
-  const {history}=await import('./repository');
+  const {history}=await import('./repository/customer');
   const result=await ask('wasatch','conv-1','Do you have 1/2 in grade 8 hex bolts in stock?');
   expect(result).toMatchObject({sql:null,categories:[],outcome:'no_rows',row_count:0});
   expect(result.answer).toContain('Brandi Gallegos');

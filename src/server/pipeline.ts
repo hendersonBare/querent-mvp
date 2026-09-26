@@ -1,5 +1,5 @@
 import "server-only";
-import { appendLog, assignedRep } from "./repository";
+import { appendLog, assignedRep } from "./repository/customer";
 
 // Holding answer while chat is rebuilt for Query to Quote. The old regex answers and
 // text-to-SQL read tables that no longer exist, and text-to-SQL could now reach

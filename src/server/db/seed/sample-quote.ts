@@ -28,6 +28,8 @@ export function seedSampleQuote(database:Database.Database,anchor:string){
   const insert=inserter(database);
   database.transaction(()=>{
     database.prepare('UPDATE quotes SET duplicated_from=NULL WHERE duplicated_from=?').run(id);
+    // Other quotes asked for in the same chat (or duplicated from Q-24817) outlive its conversation.
+    database.prepare('UPDATE quotes SET conversation_id=NULL WHERE conversation_id=? AND id<>?').run(conversationId,id);
     database.prepare('UPDATE orders SET quote_id=NULL WHERE quote_id=?').run(id);
     for(const table of ['quote_lines','quote_revisions','quote_activity','quote_notes'])database.prepare(`DELETE FROM ${table} WHERE quote_id=?`).run(id);
     database.prepare('DELETE FROM quotes WHERE id=?').run(id);
