@@ -171,6 +171,9 @@ function forCustomerAction(customerId:string,quoteIdOrNumber:string,event:'accep
   return q;
 }
 
+/** Customer text from a request body: trimmed, and '' when missing or not a string, so it fails validation instead of crashing. */
+const text=(value:unknown)=>typeof value==='string'?value.trim():'';
+
 /** A day (2026-09-24) or a date-time (2026-09-24T15:00, optionally with seconds and a zone). */
 const TIME=/^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
 function isTime(value:string){
@@ -196,7 +199,7 @@ export interface AcceptInput {
  */
 export function acceptQuote(customerId:string,quoteIdOrNumber:string,{revision,fulfillmentTime,customerPo,now=clock()}:AcceptInput):Quote{
   const q=forCustomerAction(customerId,quoteIdOrNumber,'accept',revision,now);
-  const time=fulfillmentTime.trim(),po=customerPo.trim();
+  const time=text(fulfillmentTime),po=text(customerPo);
   if(!isTime(time))throw new QuoteActionError('invalid_input',`Choose a ${q.fulfillment==='delivery'?'delivery':'pickup'} time.`);
   if(!po)throw new QuoteActionError('invalid_input','Enter a PO number.');
   const total=quoteRevision(q.id,q.revision)?.total;
@@ -212,11 +215,11 @@ export function acceptQuote(customerId:string,quoteIdOrNumber:string,{revision,f
 /** Request changes (spec §3, §5.4): sent --> changes_requested, with a required note. Flags the rep and logs the note. */
 export function requestChanges(customerId:string,quoteIdOrNumber:string,{revision,note,now=clock()}:{revision:number;note:string;now?:string}):Quote{
   const q=forCustomerAction(customerId,quoteIdOrNumber,'request_changes',revision,now);
-  const text=note.trim();
-  if(!text)throw new QuoteActionError('invalid_input','Say what should change: a note is required.');
+  const body=text(note);
+  if(!body)throw new QuoteActionError('invalid_input','Say what should change: a note is required.');
   return inTransaction(()=>{
-    persist(q,{to:'changes_requested',at:now,respondedAt:now,changeRequestNote:text,unreadForRep:true,unreadForCustomer:false});
-    addQuoteActivity(q.id,{actor:'customer',actorId:q.contact_id,kind:'changes_requested',at:now,message:`${customerWho(q)} requested changes to ${q.quote_number} rev ${q.revision}: "${text}"`});
+    persist(q,{to:'changes_requested',at:now,respondedAt:now,changeRequestNote:body,unreadForRep:true,unreadForCustomer:false});
+    addQuoteActivity(q.id,{actor:'customer',actorId:q.contact_id,kind:'changes_requested',at:now,message:`${customerWho(q)} requested changes to ${q.quote_number} rev ${q.revision}: "${body}"`});
     return load(q.id);
   });
 }

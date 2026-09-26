@@ -174,7 +174,7 @@ describe('customer response: sent --> changes_requested --> sent (rev 2) --> acc
     await sendQuote(SAMPLE,{repId:'brandi',now:SEND});
     rev1Snapshot=structuredClone(quoteRevision(SAMPLE,1)!.snapshot);
     const before=counts(SAMPLE);
-    for(const note of ['','   \n\t'])expect(caught(()=>requestChanges('wasatch',SAMPLE,{revision:1,note,now:REQUEST}))).toMatchObject({code:'invalid_input',httpStatus:400});
+    for(const note of ['','   \n\t',undefined as unknown as string])expect(caught(()=>requestChanges('wasatch',SAMPLE,{revision:1,note,now:REQUEST}))).toMatchObject({code:'invalid_input',httpStatus:400});
     expect(quote(SAMPLE)).toMatchObject({status:'sent',change_request_note:null});
     expect(counts(SAMPLE)).toEqual(before);
   });
@@ -217,7 +217,7 @@ describe('customer response: sent --> changes_requested --> sent (rev 2) --> acc
 
   it('refuses Accept without a pickup or delivery time, or without a PO',()=>{
     const before=counts(SAMPLE);
-    for(const input of [{fulfillmentTime:'',customerPo:'7781'},{fulfillmentTime:'Thursday',customerPo:'7781'},{fulfillmentTime:'2026-02-30',customerPo:'7781'},{fulfillmentTime:PICKUP,customerPo:'  '}])
+    for(const input of [{fulfillmentTime:'',customerPo:'7781'},{fulfillmentTime:'Thursday',customerPo:'7781'},{fulfillmentTime:'2026-02-30',customerPo:'7781'},{fulfillmentTime:PICKUP,customerPo:'  '},{fulfillmentTime:undefined as unknown as string,customerPo:'7781'},{fulfillmentTime:PICKUP,customerPo:null as unknown as string}])
       expect(caught(()=>acceptQuote('wasatch',SAMPLE,{revision:2,...input,now:ACCEPT}))).toMatchObject({code:'invalid_input'});
     expect(quote(SAMPLE)?.status).toBe('sent');
     expect(counts(SAMPLE)).toEqual(before);
