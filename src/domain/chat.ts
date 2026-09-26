@@ -4,7 +4,7 @@ import type {Fulfillment} from './orders';
 export type MessageRole='customer'|'assistant'|'system';
 
 /** A catalog item as chat names it while matching a request: identity only, no stock or prices. */
-export interface ItemCandidate {sku:string;description:string;pack:string;category_name:string}
+export interface ItemCandidate {sku:string;description:string;pack:string;category_name:string;score:number}
 
 /** One matched line of a quote request. requested_text is what the customer said for it. */
 export interface CartLine {sku:string;qty:number;requested_text?:string}

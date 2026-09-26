@@ -1,7 +1,8 @@
 import 'server-only';
 import {FULFILLMENTS,type BranchStock,type CartLine,type Fulfillment,type ItemCandidate,type ItemPopupPayload} from '@/domain';
 import type {Category} from '@/lib/contracts';
-import {branches,catalogItem,enabledCategories,searchItems,stockForItems} from '@/server/repository/customer';
+import {catalogMatches} from '@/server/matching';
+import {branches,catalogItem,enabledCategories,stockForItems} from '@/server/repository/customer';
 
 // The chat tools over the customer-safe repository (spec §6.3). Scripted chat calls these
 // handlers directly, and live chat (task 2.1) exposes the same handlers to Claude, so both modes
@@ -24,9 +25,9 @@ const restricted=(ctx:ToolContext,category:Category):ToolResult<never>|undefined
  * only (SKU, description, pack, category), so it needs no access toggle: a customer can always
  * name what they want to buy. Ranking and confidence are task 1.4's scorer.
  */
-export function searchItemsTool(_ctx:ToolContext,{query,limit=5}:{query:string;limit?:number}):ToolResult<ItemCandidate[]>{
+export function searchItemsTool(ctx:ToolContext,{query,limit=5}:{query:string;limit?:number}):ToolResult<ItemCandidate[]>{
   if(!query.trim())return invalid('Give search_items some words to search for.');
-  return {ok:true,data:searchItems(query,{limit}).map(({sku,description,pack,category_name})=>({sku,description,pack,category_name}))};
+  return {ok:true,data:catalogMatches(ctx.customerId,query,{limit})};
 }
 
 export interface ItemStockAnswer {sku:string;description:string;pack:string;total_available:number;branches:BranchStock[]}

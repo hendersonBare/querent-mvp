@@ -24,8 +24,8 @@ async function converse(...messages:string[]){
 }
 
 const BOLTS='HCS-12-13-2G8 (Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc, box of 50)';
-const T1={sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',category_name:'Abrasives & Cutting'};
-const T27={sku:'CW-45-045-T27',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 27',pack:'Box of 25',category_name:'Abrasives & Cutting'};
+const T1={sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',category_name:'Abrasives & Cutting',score:.82};
+const T27={sku:'CW-45-045-T27',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 27',pack:'Box of 25',category_name:'Abrasives & Cutting',score:.82};
 const REQUEST='Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We\'ll pick up at SLC.';
 
 describe('the scripted Dana conversation (golden steps 1–3)',()=>{

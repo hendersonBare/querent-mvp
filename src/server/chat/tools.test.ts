@@ -16,8 +16,8 @@ describe('search_items',()=>{
     const {searchItemsTool}=await tools();
     const result=searchItemsTool(ctx,{query:'4.5 cut-off wheel .045'});
     expect(result).toEqual({ok:true,data:[
-      {sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',category_name:'Abrasives & Cutting'},
-      {sku:'CW-45-045-T27',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 27',pack:'Box of 25',category_name:'Abrasives & Cutting'},
+      {sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',category_name:'Abrasives & Cutting',score:.82},
+      {sku:'CW-45-045-T27',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 27',pack:'Box of 25',category_name:'Abrasives & Cutting',score:.82},
     ]});
     expect(keys(searchItemsTool(ctx,{query:'hex'}))).not.toContainEqual(expect.stringMatching(/cost|price|stock|available/i));
   });
