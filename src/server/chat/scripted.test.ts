@@ -72,7 +72,7 @@ describe('answering the clarifying question',()=>{
   it.each([['Type 27','CW-45-045-T27'],['27','CW-45-045-T27'],['the type-1 ones','CW-45-045-T1'],['T1 please','CW-45-045-T1'],['cw-45-045-t27','CW-45-045-T27'],['Type 27 cut-off wheels','CW-45-045-T27']])('"%s" picks %s',async(answer,sku)=>{
     const [,resolved]=await converse(REQUEST,answer);
     expect(resolved.kind).toBe('item_popup');
-    expect((resolved.payload as ItemPopupPayload).lines.map(l=>l.sku)).toEqual(['HCS-12-13-2G8',sku]);
+    expect((resolved.payload as ItemPopupPayload).lines.map(l=>[l.sku,l.qty])).toEqual([['HCS-12-13-2G8',10],[sku,6]]);
   });
 
   it('takes a new qty from the answer',async()=>{

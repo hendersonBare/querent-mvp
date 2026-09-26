@@ -1,7 +1,7 @@
 import "server-only";
 import type { ChatAnswer } from "@/lib/contracts";
 import { chatMode } from "./chat/mode";
-import { scriptedReply, type ChatReply } from "./chat/scripted";
+import { reply, scriptedReply, type ChatReply } from "./chat/scripted";
 import {
   addMessage,
   appendLog,
@@ -18,16 +18,6 @@ import {
 
 /** The conversation id belongs to another customer. */
 export class ConversationNotFoundError extends Error {}
-
-const reply = (r: Partial<ChatReply> & Pick<ChatReply, "content" | "outcome">): ChatReply => ({
-  kind: "text",
-  payload: null,
-  categories: [],
-  handled: [],
-  toolCalls: [],
-  rowCount: 0,
-  ...r,
-});
 
 function holdingReply(customerId: string): ChatReply {
   const rep = assignedRep(customerId);

@@ -74,7 +74,8 @@ function repHelp(ctx:ToolContext,lead:string){
   return rep?`${lead.replace('{rep}',rep.name)}: ${rep.phone} or ${rep.email}.`:'Herrick customer service can help.';
 }
 
-const reply=(r:Partial<ChatReply>&Pick<ChatReply,'content'>):ChatReply=>({kind:'text',payload:null,categories:[],handled:[],toolCalls:[],rowCount:0,outcome:'answered',...r});
+/** A reply with defaults: plain text, answered, no categories, tools or payload. */
+export const reply=(r:Partial<ChatReply>&Pick<ChatReply,'content'>):ChatReply=>({kind:'text',payload:null,categories:[],handled:[],toolCalls:[],rowCount:0,outcome:'answered',...r});
 
 /** A choice picks a candidate when exactly one choice (or one candidate SKU) matches the text. */
 function pick(text:string,candidates:ItemCandidate[],item?:ScriptItem){
@@ -167,7 +168,9 @@ function answer(ctx:ToolContext,text:string,pending:ClarifyPayload):ChatReply|un
   const item=SCRIPT.find(i=>i.vague?.question===pending.question);
   const chosen=pick(text,pending.line.candidates,item);
   if(!chosen)return undefined;
-  const qty=qtyIn(text)??pending.line.qty;
+  // Only an explicit "8 boxes" changes the qty: a bare "27" answers the question, it isn't a qty.
+  const unit=UNIT_QTY.exec(text)?.[1];
+  const qty=(unit===undefined?undefined:count(Number(unit)))??pending.line.qty;
   const line:CartLine={sku:chosen.sku,qty,requested_text:pending.line.requested_text};
   return itemPopup(ctx,{...pending.cart,...fulfillmentIn(text,branches(),pending.cart),lines:[...pending.cart.lines,line]},[]);
 }
