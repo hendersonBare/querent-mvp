@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// App smoke test on the Query to Quote seed (task 0.2). The golden quote flow
-// (e2e/golden-quote-flow.spec.ts) arrives with task 0.4 and grows with the build.
+// App smoke test on the Query to Quote seed (task 0.2). The end-to-end quote flow is
+// e2e/golden-quote-flow.spec.ts, which grows with the build. Chat is scripted (spec §6.5).
 const BASE_URL = process.env.QUERENT_BASE_URL || "http://127.0.0.1:3000";
 async function choose(page: Page, name: string) {
   await page.goto(BASE_URL);
@@ -20,7 +20,8 @@ test("customer persona: Dana at Wasatch chats and has Brandi as her rep", async 
   await box.fill("Do you have 1/2 in grade 8 hex bolts in stock?");
   await box.press("Enter");
   const answer = page.locator(".answer-bubble").last();
-  await expect(answer).toContainText("Brandi Gallegos");
+  await expect(answer).toContainText("HCS-12-13-2G8");
+  await expect(answer).toContainText("64 at SLC");
   await expect(page.locator(".user-avatar").last()).toHaveText("DO");
 });
 

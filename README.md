@@ -23,7 +23,25 @@ Seeded dates are relative to a seed date, which defaults to yesterday so the dem
 
 All data access goes through typed functions in `src/server/repository/` (types in `src/domain/`). `@/server/repository` is the full internal API. Customer-facing code and the chat tools use `@/server/repository/customer`, which never returns cost or margin. `npm test` fails if SQL appears anywhere else.
 
-Chat is being rebuilt for Query to Quote. Until the scripted and tool-calling chat land, every question gets a holding answer that points to the customer's rep.
+Chat runs in **scripted mode** when `ANTHROPIC_API_KEY` is unset or `QUERENT_SCRIPTED=1`. Scripted mode is a deterministic, offline Dana conversation that CI and every E2E run use. It works like this:
+
+1. Ask "Do you have 1/2 in grade 8 hex bolts in stock?"
+2. Ask for bolts and cut-off wheels, for example "Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels."
+3. Querent asks "Type 1 or Type 27 cut-off wheels?"
+4. Answer it, and Querent returns the item pop-up's list.
+
+Its answers come from the same chat tools live chat uses (`src/server/chat/tools.ts`). Live tool-calling chat is still being built. Until it lands, a configured API key gets a holding answer that points to the customer's rep.
+
+## End-to-end tests
+
+`e2e/golden-quote-flow.spec.ts` walks workflow steps 1–8. Each step is `test.fixme` until the task that builds it turns it on. With `QUERENT_WEBSERVER=1` (or in CI), Playwright resets the database and starts the production server itself, so run `npm run build` first. The server runs in scripted mode on the mockup's seed date (2026-09-23) and enables the test-only `POST /api/test/reset` (`QUERENT_E2E_RESET=1`). The golden spec calls that endpoint before it runs.
+
+```sh
+npm run build
+QUERENT_WEBSERVER=1 QUERENT_BASE_URL=http://127.0.0.1:3100 npx playwright test
+```
+
+To run against a server you started yourself, start it with `QUERENT_SCRIPTED=1 QUERENT_E2E_RESET=1 QUERENT_SEED_DATE=2026-09-23`. Never set `QUERENT_E2E_RESET` on a shared deployment, because it lets anyone reset the demo.
 
 ## Verify and run a production build
 
