@@ -1,6 +1,8 @@
 import {BRANCHES,type BranchId,DANA,DELIVERY_RATES,REPS,TAX_RATE,WASATCH,WASATCH_REP} from './accounts';
 import {catalogItem} from './catalog';
 import {addDays,addMinutes,at} from './dates';
+import {haversineRoadMiles} from '../../freight/distance';
+import {CALL_FOR_FREIGHT,priceDelivery} from '../../freight/engine';
 import {erp,round2} from './insert';
 import type {SeedContext} from './reference';
 
@@ -52,13 +54,14 @@ export const DEALS:Deal[]=[
 ];
 
 const money=(n:number)=>n.toLocaleString('en-US',{style:'currency',currency:'USD'});
-function milesBetween(a:{lat:number;lng:number},b:{lat:number;lng:number}){const r=(x:number)=>x*Math.PI/180;const h=Math.sin(r(b.lat-a.lat)/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(r(b.lng-a.lng)/2)**2;return 2*3958.8*Math.asin(Math.sqrt(h));}
-/** Historical freight with the spec §5.3 formula (the live engine is task 1.3). */
+/** Historical freight, priced by the live freight engine (spec §5.3) with haversine road miles. */
 function freightFor(deal:Deal,subtotal:number){
-  if(deal.fulfillment==='will_call'||subtotal>=DELIVERY_RATES.free_threshold)return 0;
+  if(deal.fulfillment==='will_call')return 0;
   const branch=BRANCHES.find(b=>b.id===deal.branch)!;
-  const miles=Math.round(milesBetween(branch,{lat:WASATCH.ship_to_lat,lng:WASATCH.ship_to_lng})*1.25*10)/10;
-  return round2(Math.max(DELIVERY_RATES.min_charge,DELIVERY_RATES.base_fee+DELIVERY_RATES.per_mile*miles));
+  const miles=haversineRoadMiles(branch,{lat:WASATCH.ship_to_lat,lng:WASATCH.ship_to_lng});
+  const {amount}=priceDelivery({origin:branch.code,miles,subtotal,rates:DELIVERY_RATES});
+  if(amount===CALL_FOR_FREIGHT)throw new Error(`Seeded delivery from ${branch.code} is beyond the delivery radius.`);
+  return amount;
 }
 
 export function seedHistory({insert,anchor,syncedAt}:SeedContext){
