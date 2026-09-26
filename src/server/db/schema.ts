@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import {categories} from '../../lib/contracts';
 
 // Bump on any schema change. There are no migrations: an older database refuses to
 // open and `npm run db:reset` rebuilds and reseeds it (spec §6.6).
@@ -9,7 +10,7 @@ export const SCHEMA_VERSION=2;
 export const ERP_SOURCED_TABLES=['branches','product_categories','items','branch_stock','price_levels','customer_prices','contracts','contract_lines','customers','contacts','reps','orders','order_lines'] as const;
 
 // The information categories a customer can be allowed to ask about in chat.
-export const INFO_CATEGORIES=['items_stock','pricing','orders_quotes','account'] as const;
+export const INFO_CATEGORIES=categories;
 
 const SYNC="source TEXT NOT NULL DEFAULT 'seed',external_id TEXT,synced_at TEXT";
 const list=(values:readonly string[])=>values.map(v=>`'${v}'`).join(',');

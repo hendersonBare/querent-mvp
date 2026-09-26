@@ -3,9 +3,10 @@ import {it,expect} from 'vitest';
 import {RepPanel} from './RepPanel';
 import type {AccessRule} from '@/lib/contracts';
 it('hides disabled categories and renders contact links',()=>{
- const rules:AccessRule[]=[{category:'parts_stock',enabled:true,rep_id:'1',mixed_rep:false,rep_name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},{category:'financing',enabled:false,rep_id:null,mixed_rep:false,rep_name:'Self-serve',phone:null,email:null}];
+ const rules:AccessRule[]=[{category:'items_stock',enabled:true,rep_id:'brandi',mixed_rep:false,rep_name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},{category:'pricing',enabled:false,rep_id:'brandi',mixed_rep:false,rep_name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'}];
  render(<RepPanel rules={rules}/>);
- expect(screen.queryByText('Financing')).not.toBeInTheDocument();
+ expect(screen.getByText('Items & stock')).toBeInTheDocument();
+ expect(screen.queryByText('Pricing')).not.toBeInTheDocument();
  expect(screen.getByRole('link',{name:'(801) 111-2222'})).toHaveAttribute('href','tel:8011112222');
 });
 it('shows a loading state instead of the empty state before rules arrive',()=>{

@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:3000>. Choose the supplier, Wasatch, or Bonneville workspace. All displayed companies, people, and records are fictional.
+Open <http://localhost:3000>. Choose the supplier persona (Herrick Industrial Supply, signed in as rep Brandi Gallegos) or the customer persona (Dana Ortiz at Wasatch Mechanical Contractors). All displayed companies, people, and records are fictional.
 
 The database is created and seeded automatically at `./data/querent.sqlite`. State survives restarts. To return to the original seed:
 
@@ -19,7 +19,9 @@ The database is created and seeded automatically at `./data/querent.sqlite`. Sta
 npm run db:reset
 ```
 
-Without `ANTHROPIC_API_KEY`, chat supports the exact questions in [docs/golden-questions.md](docs/golden-questions.md). Copy `.env.example` to `.env.local` and add a key to enable open-ended Claude questions. A configured Claude error returns a safe error and never switches to the deterministic fallback.
+Seeded dates are relative to a seed date, which defaults to yesterday so the demo stays current. Set `QUERENT_SEED_DATE=2026-09-23` before `npm run db:reset` to reproduce the design mockup's dates exactly. After a schema change (`SCHEMA_VERSION` in `src/server/db/schema.ts`), the app refuses to open an older database until you run `npm run db:reset`; there are no migrations.
+
+Chat is being rebuilt for Query to Quote. Until the scripted and tool-calling chat land, every question gets a holding answer that points to the customer's rep.
 
 ## Verify and run a production build
 
