@@ -74,6 +74,7 @@
   border-left: 1px solid var(--rep-line);
 }
 .nav {
+  position: relative; /* offsetParent for the links, so the strip can scroll to the current one */
   display: flex;
   gap: 2px;
 }
@@ -294,9 +295,12 @@
     order: 3;
     flex-basis: 100%;
     margin: 0 -16px;
-    padding: 0 12px 6px;
+    padding: 0 28px 6px 12px;
     overflow-x: auto;
     scrollbar-width: none;
+    /* The fade over the last 28px (padding once scrolled to the end) says there is more to scroll. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
   .nav::-webkit-scrollbar {
     display: none;

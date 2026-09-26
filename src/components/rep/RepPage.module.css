@@ -46,6 +46,10 @@
   color: var(--rep-muted);
   font-size: 13.5px;
 }
+/* Lets a grid or flex child shrink below its content (wide tables then scroll inside their card). */
+.shrink {
+  min-width: 0;
+}
 .pill {
   display: inline-flex;
   align-items: center;

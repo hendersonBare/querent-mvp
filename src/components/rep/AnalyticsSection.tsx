@@ -6,7 +6,7 @@ import type {Dashboard} from '@/lib/contracts';
 import {usePoll} from '@/lib/use-poll';
 import {Analytics} from '@/features/analytics/Analytics';
 import {useRepPortal,useRepScope} from './context';
-import {RepPageHeader} from './RepPage';
+import {RepPageHeader,repPageStyles as s} from './RepPage';
 
 /**
  * Analytics (spec §4). Until task 6.2 adds the quote stat cards and trends, this is the old
@@ -22,8 +22,8 @@ export function AnalyticsSection(){
     {error&&<p className="error" role="alert">{error}</p>}
     {!data?(error?null:<div className="card loading-card" role="status">Loading analytics…</div>):
       <div className="overview-grid">
-        <div><Analytics data={data.analytics}/></div>
-        <div className="overview-aside">
+        <div className={s.shrink}><Analytics data={data.analytics}/></div>
+        <div className={`overview-aside ${s.shrink}`}>
           <section className="card insight-card">
             <span className="insight-icon"><ArrowUpRight size={24}/></span>
             <h2>Answers for customers.<br/>Time for your team.</h2>

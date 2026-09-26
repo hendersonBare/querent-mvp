@@ -55,10 +55,17 @@ function RepHeader(){
   const pathname=usePathname();
   const active=sectionFor(pathname);
   const unread=badges.quotes;
+  const navRef=useRef<HTMLElement>(null);
+  // On a phone the nav is a scrolling strip: keep the current section in view.
+  useEffect(()=>{
+    const strip=navRef.current,link=strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    if(!strip||!link||strip.scrollWidth<=strip.clientWidth)return;
+    if(link.offsetLeft<strip.scrollLeft||link.offsetLeft+link.offsetWidth>strip.scrollLeft+strip.clientWidth-28)strip.scrollLeft=link.offsetLeft-12;
+  },[active?.id]);
   return <header className={s.header}>
     <div className={s.appbar}>
       <div className={s.brand}><span className={s.mark} aria-hidden="true">Q</span>Querent<span className={s.org}>{org}</span></div>
-      <nav className={s.nav} aria-label="Rep portal">
+      <nav ref={navRef} className={s.nav} aria-label="Rep portal">
         {REP_SECTIONS.map(section=><Link key={section.id} className={s.navLink} href={scope.href(section.href)} aria-current={active?.id===section.id?'page':undefined}>
           {section.label}
           {section.id==='quotes'&&unread>0&&<span className={s.count}>{unread}<span className={s.srOnly}> unread</span></span>}
