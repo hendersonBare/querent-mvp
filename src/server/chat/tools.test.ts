@@ -5,28 +5,55 @@ useSeededDatabase();
 
 const ctx={customerId:'wasatch'};
 const tools=()=>import('./tools');
-const setItemsStock=async(enabled:boolean)=>(await import('../repository')).setAccess('wasatch','items_stock',enabled);
-afterEach(async()=>{await setItemsStock(true);});
+const setAccess=async(category:'items_stock'|'orders_quotes',enabled:boolean)=>(await import('../repository')).setAccess('wasatch',category,enabled);
+const setItemsStock=(enabled:boolean)=>setAccess('items_stock',enabled);
+afterEach(async()=>{await setItemsStock(true);await setAccess('orders_quotes',true);});
+
+/** A search_items verdict with just its best candidate. */
+const verdict=(r:{ok:boolean;data?:unknown})=>{const d=(r as {data:{confident:boolean;question:string|null;candidates:{sku:string;score:number}[]}}).data;return {confident:d.confident,question:d.question,top:d.candidates[0]};};
 
 /** Every key in a tool result, however deep: the chat tools must never carry cost or prices. */
 const keys=(value:unknown):string[]=>Array.isArray(value)?value.flatMap(keys):value&&typeof value==='object'?Object.entries(value).flatMap(([k,v])=>[k,...keys(v)]):[];
 
 describe('search_items',()=>{
-  it('finds catalog candidates with identity only: no cost, prices or stock',async()=>{
+  it('scores catalog candidates with identity only (no cost, prices or stock) and asks about a near-duplicate',async()=>{
     const {searchItemsTool}=await tools();
     const result=searchItemsTool(ctx,{query:'4.5 cut-off wheel .045'});
-    expect(result).toEqual({ok:true,data:[
-      {sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',category_name:'Abrasives & Cutting'},
-      {sku:'CW-45-045-T27',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 27',pack:'Box of 25',category_name:'Abrasives & Cutting'},
-    ]});
+    expect(result).toEqual({ok:true,data:{
+      candidates:[
+        {sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',category_name:'Abrasives & Cutting',score:1},
+        {sku:'CW-45-045-T27',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 27',pack:'Box of 25',category_name:'Abrasives & Cutting',score:1},
+      ],
+      confident:false,
+      question:'Type 1 or Type 27 cut-off wheels?',
+    }});
     expect(keys(searchItemsTool(ctx,{query:'hex'}))).not.toContainEqual(expect.stringMatching(/cost|price|stock|available/i));
+  });
+
+  it('says when one candidate is a confident match, and asks nothing',async()=>{
+    const {searchItemsTool}=await tools();
+    expect(verdict(searchItemsTool(ctx,{query:'½-13 grade 8 hex cap screws 2 in'}))).toMatchObject({confident:true,question:null,top:{sku:'HCS-12-13-2G8',score:1}});
+  });
+
+  it('resolves "the usual" from order history, but only when the customer has Orders & quotes on',async()=>{
+    const {searchItemsTool}=await tools();
+    expect(verdict(searchItemsTool(ctx,{query:'the usual gloves'}))).toMatchObject({confident:true,top:{sku:'GLV-N8-L-1000',score:1}});
+    expect(verdict(searchItemsTool(ctx,{query:'1/2 in grade 8 hex bolts'}))).toMatchObject({confident:true,top:{sku:'HCS-12-13-2G8'}});
+    await setAccess('orders_quotes',false);
+    expect(verdict(searchItemsTool(ctx,{query:'the usual gloves'}))).toMatchObject({confident:false,question:'Nitrile disposable gloves or cut-resistant gloves?'});
+    expect(verdict(searchItemsTool(ctx,{query:'1/2 in grade 8 hex bolts'}))).toMatchObject({confident:false,question:'1-1/2 in, 2 in or 3 in hex cap screws?'});
   });
 
   it('caps the candidate count, and still works with Items & stock turned off',async()=>{
     const {searchItemsTool}=await tools();
     await setItemsStock(false);
     const result=searchItemsTool(ctx,{query:'cut-off wheel',limit:2});
-    expect(result.ok&&result.data.map(c=>c.sku)).toEqual(['CW-45-045-T1','CW-45-045-T27']);
+    expect(result.ok&&result.data.candidates.map(c=>c.sku)).toEqual(['CW-45-045-T1','CW-45-045-T27']);
+  });
+
+  it('asks for another description when nothing matches',async()=>{
+    const {searchItemsTool}=await tools();
+    expect(searchItemsTool(ctx,{query:'xyzzy'})).toEqual({ok:true,data:{candidates:[],confident:false,question:"I couldn't find that item. Can you describe it another way, or give the SKU?"}});
   });
 
   it('rejects an empty query',async()=>{

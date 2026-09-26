@@ -154,7 +154,7 @@ function request(ctx:ToolContext,text:string,mentioned:ScriptItem[]):ChatReply{
     if(item.sku){cart.lines.push({sku:catalogItem(item.sku)?.sku??item.sku,qty,requested_text});continue;}
     const found=searchItemsTool(ctx,{query:item.vague!.query});
     toolCalls.push('search_items');
-    const candidates=found.ok?found.data:[];
+    const candidates:ItemCandidate[]=found.ok?found.data.candidates.map(({sku,description,pack,category_name})=>({sku,description,pack,category_name})):[];
     const chosen=pick(said.join(' '),candidates,item);
     if(chosen)cart.lines.push({sku:chosen.sku,qty,requested_text});
     else if(!open){open={requested_text,qty,candidates};openItem=item;}
