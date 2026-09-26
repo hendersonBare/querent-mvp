@@ -15,7 +15,9 @@ test("customer persona: Dana at Wasatch chats and has Brandi as her rep", async 
   await expect(page.locator(".customer-header")).toContainText(
     "Wasatch Mechanical Contractors",
   );
-  await expect(page.locator(".rep-panel")).toContainText("Brandi Gallegos");
+  await expect(
+    page.getByRole("complementary", { name: "Contacts" }).getByRole("region", { name: "Your rep" }),
+  ).toContainText("Brandi Gallegos");
   const box = page.getByLabel("Ask a question");
   await box.fill("Do you have 1/2 in grade 8 hex bolts in stock?");
   await box.press("Enter");
@@ -71,7 +73,5 @@ test("customer experience fits a phone viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await choose(page, "Wasatch Mechanical Contractors");
   await expect(page.getByLabel("Ask a question")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Expand contacts" }),
-  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Contacts" })).toBeVisible();
 });
