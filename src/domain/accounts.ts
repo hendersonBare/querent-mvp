@@ -29,6 +29,16 @@ export interface Contact {id:string;customer_id:string;name:string;title:string|
 /** Static contacts for the customer sidebar; will-call rows point at their branch. */
 export interface Department {id:string;name:string;branch_id:string|null;phone:string;email:string|null;hours:string;sort_order:number}
 
+/** One Warehouse / Will-call row in the customer sidebar: the branch's code and name with its phone. */
+export interface WillCallContact {id:string;branch_id:string;code:string;name:string;phone:string;email:string|null;hours:string}
+
+/**
+ * The customer's left sidebar (spec §3), all static seed data: the assigned rep at the very top,
+ * then the departments without a branch (Customer Service, Accounts Receivable / Finance), then
+ * Warehouse / Will-call with one phone per branch.
+ */
+export interface CustomerContacts {supplier:string;rep:Rep|null;departments:Department[];willCall:WillCallContact[]}
+
 /** Freight rates (spec §5.3), shown read-only in Settings. */
 export interface DeliveryRates {base_fee:number;per_mile:number;min_charge:number;free_threshold:number;max_radius_miles:number}
 
