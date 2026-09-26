@@ -21,7 +21,7 @@ npm run db:reset
 
 Seeded dates are relative to a seed date, which defaults to yesterday so the demo stays current. Set `QUERENT_SEED_DATE=2026-09-23` before `npm run db:reset` to reproduce the design mockup's dates exactly. After a schema change (`SCHEMA_VERSION` in `src/server/db/schema.ts`), the app refuses to open an older database until you run `npm run db:reset`; there are no migrations.
 
-All data access goes through typed functions in `src/server/repository/` (types in `src/domain/`). `@/server/repository` is the full internal API. Customer-facing code and the chat tools use `@/server/repository/customer`, which never returns cost or margin. `npm test` fails if SQL appears anywhere else.
+All data access goes through typed functions in `src/server/repository/` (types in `src/domain/`). `@/server/repository` is the full internal API. Customer-facing code, customer routes and the chat tools use `@/server/repository/customer`, which never returns cost or margin. `npm test` fails if SQL appears anywhere else, if a customer route or chat code imports the internal repository, or if chat code imports a service that reads cost (pricing, floors, upsells).
 
 Chat runs in **scripted mode** when `ANTHROPIC_API_KEY` is unset or `QUERENT_SCRIPTED=1`. Scripted mode is a deterministic, offline Dana conversation that CI and every E2E run use. It works like this:
 
@@ -30,7 +30,9 @@ Chat runs in **scripted mode** when `ANTHROPIC_API_KEY` is unset or `QUERENT_SCR
 3. Querent asks "Type 1 or Type 27 cut-off wheels?"
 4. Answer it, and Querent returns the item pop-up's list.
 
-Its answers come from the same chat tools live chat uses (`src/server/chat/tools.ts`). Live tool-calling chat is still being built. Until it lands, a configured API key gets a holding answer that points to the customer's rep.
+Its answers come from the same chat tools live chat uses (`src/server/chat/tools.ts`).
+
+With `ANTHROPIC_API_KEY` set (and `QUERENT_SCRIPTED` unset), chat runs in **live mode**: Claude answers through seven typed tools over the customer-safe repository (`search_items`, `get_stock`, `get_price`, `get_order_history`, `get_order_status`, `get_account_summary`, `propose_cart`), never generated SQL. The model is `ANTHROPIC_MODEL`, default `claude-sonnet-5` (`src/server/chat/live.ts`). Each tool checks the customer's information-category toggle on the server. Items & stock gates `search_items`, `get_stock` and `propose_cart`, Pricing gates `get_price`, Orders & quotes gates both order tools, and Account gates `get_account_summary`.
 
 ## End-to-end tests
 
