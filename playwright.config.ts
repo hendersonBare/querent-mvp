@@ -42,6 +42,10 @@ export default defineConfig({
           QUERENT_SCRIPTED: '1',
           ANTHROPIC_API_KEY: '',
           NEXT_TELEMETRY_DISABLED: '1',
+          // Every E2E run uses the mockup's dates (spec §2), and specs may reset the database
+          // through the test-only POST /api/test/reset (e2e/golden-quote-flow.spec.ts).
+          QUERENT_SEED_DATE: '2026-09-23',
+          QUERENT_E2E_RESET: '1',
         },
       }
     : undefined,
