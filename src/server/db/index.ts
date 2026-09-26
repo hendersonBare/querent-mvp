@@ -32,7 +32,9 @@ function bootstrap(database:Database.Database){
   }
   applySchema(database);
   database.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES('schema_version',?)").run(String(SCHEMA_VERSION));
-  if(!database.prepare('SELECT count(*) FROM customers').pluck().get())seedDatabase(database,{anchor:seedAnchorFromEnv()});
+  // IMMEDIATE takes the write lock before the emptiness check, so two processes opening a new
+  // database at once cannot both seed it.
+  database.transaction(()=>{if(!database.prepare('SELECT count(*) FROM customers').pluck().get())seedDatabase(database,{anchor:seedAnchorFromEnv()});}).immediate();
 }
 
 /** The day the seed is anchored to (YYYY-MM-DD); see seed/dates.ts. */
