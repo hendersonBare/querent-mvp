@@ -1,9 +1,11 @@
 import type {ItemStock,PriceBasis,PriceSources} from '@/domain';
+import {margin,priceBelowFloor} from '../floors/rules';
 
 // The pricing engine (spec §5.1, task 1.1). Pure functions over the facts the repository returns
-// (priceSources, stockForItems, pricingSettings, floorFor): no I/O and no server-only imports, so
-// the quote screen can re-run them live when the rep changes qty or branch. Money is handled in
-// integer cents, so every price and GP figure is exact to the cent.
+// (priceSources, stockForItems, pricingSettings) and the quote rep's floor: no I/O and no
+// server-only imports, so the quote screen can re-run them live when the rep changes qty or
+// branch. Money is handled in integer cents, so every price and GP figure is exact to the cent.
+// Rule 3 uses the floor rules (src/server/floors), so the pick's flag and the red warning agree.
 
 /** Scarcity uplift on the customer price, in percent (spec §5.1). */
 export const SCARCITY_UPLIFT_PERCENT=5;
@@ -21,7 +23,7 @@ export interface PricingInput{
   stock:ItemStock|null;
   /** Settings > Pricing: scarcity uplift. Off by default. */
   scarcityEnabled:boolean;
-  /** The quote rep's margin floor for the item's category, as a fraction (0.2 = 20%), or null if none is set. */
+  /** floor[quote rep][item category] as a fraction (0.2 = 20%), e.g. from `effectiveFloor`; null skips the floor check. */
   floor:number|null;
   /** The pricing day (YYYY-MM-DD). The explanation adds the year to a last-paid date from another year. */
   on:string;
@@ -46,7 +48,7 @@ export interface PriceSuggestion{
   customerPrice:number|null;
   /** "+$X GP vs customer price": (price - customer price) x qty. Negative on a contract below customer price; null without both prices. */
   gpVsCustomer:number|null;
-  /** Rule 3: the suggestion's margin, the floor it was checked against, and whether it is below. Never changes the pick. */
+  /** Rule 3: the suggestion's margin, the floor it was checked against, and whether it is below (priceBelowFloor). Never changes the pick. */
   margin:number|null;floor:number|null;belowFloor:boolean;
   /** Facts that applied (they may not have won). */
   brokenCase:boolean;scarcity:Scarcity|null;
@@ -75,12 +77,6 @@ const dollars=(amountCents:number)=>amountCents/100;
 /** A price the engine can use: a positive, finite number. Zero or missing means "not on file". */
 const usable=(price:number|null|undefined):price is number=>typeof price==='number'&&Number.isFinite(price)&&price>0;
 
-/** margin = (price - cost) / price (spec §5.2), or null when there is no positive price. Task 1.2 owns the canonical floor check. */
-export function marginOf(price:number|null,cost:number):number|null{
-  if(!usable(price))return null;
-  return (cents(price)-cents(cost))/cents(price);
-}
-
 /** (price - customer price) x qty, to the cent; null unless both prices are on file. */
 export function gpVsCustomer(price:number|null,customerPrice:number|null,qty:number):number|null{
   if(!usable(price)||!usable(customerPrice)||!Number.isFinite(qty))return null;
@@ -105,7 +101,8 @@ interface Candidate{basis:PriceBasis;cents:number;reason:PriceReason}
  * 2. Otherwise start at the customer price and raise it only on a fact: last paid higher (last 12
  *    months), a broken case (qty below the case qty: list), or scarcity (setting on: customer + 5%).
  *    The highest wins (ties: last paid, broken case, scarcity, customer), capped at list.
- * 3. The floor never changes the pick; `belowFloor` drives the red warning.
+ * 3. The floor never changes the pick: the highest fact-based price is already the one most
+ *    likely to clear it. `belowFloor` (priceBelowFloor) matches the red warning.
  * With no customer price the suggestion is list; with no list either, there is none.
  */
 export function suggestPrice(input:PricingInput):PriceSuggestion{
@@ -115,12 +112,12 @@ export function suggestPrice(input:PricingInput):PriceSuggestion{
   const brokenCase=qty>0&&qty<sources.case_qty;
   const scarcity=input.scarcityEnabled?scarcityAt(input.stock,input.branchId,qty):null;
 
+  const floor=input.floor!==null&&Number.isFinite(input.floor)?input.floor:null;
   const finish=(pick:Candidate|null,uncapped:number|null=null):PriceSuggestion=>{
-    const price=pick?dollars(pick.cents):null,margin=marginOf(price,sources.cost);
-    const floor=usable(input.floor)?input.floor:null;
+    const price=pick?dollars(pick.cents):null;
     return {basis:pick?.basis??null,price,reason:pick?.reason??'no_price',capped:uncapped!==null,uncapped:uncapped===null?null:dollars(uncapped),
       customerPrice:customer===null?null:dollars(customer),gpVsCustomer:gpVsCustomer(price,sources.customer_price,qty),
-      margin,floor,belowFloor:floor!==null&&margin!==null&&margin<floor,brokenCase,scarcity};
+      margin:margin(price,sources.cost),floor,belowFloor:floor!==null&&priceBelowFloor(price,sources.cost,floor),brokenCase,scarcity};
   };
 
   if(sources.contract&&usable(sources.contract.unit_price))return finish({basis:'contract',cents:cents(sources.contract.unit_price),reason:'contract'});

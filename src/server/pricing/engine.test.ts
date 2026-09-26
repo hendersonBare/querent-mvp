@@ -1,6 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {ItemStock,PriceBasis,PriceSources} from '@/domain';
-import {gpVsCustomer,marginOf,priceOptions,querentFoundGp,scarcityAt,suggestPrice,type PricingInput} from './engine';
+import {formatMargin} from '../floors/rules';
+import {gpVsCustomer,priceOptions,querentFoundGp,scarcityAt,suggestPrice,type PricingInput} from './engine';
 
 // Spec §5.1 rules, one describe per rule. Fixtures are the seeded Wasatch facts on the mockup's
 // day (2026-09-23), then varied one fact at a time.
@@ -156,7 +157,20 @@ describe('rule 3: the floor never changes the pick',()=>{
     // Customer price 30.95 at cost 26 is 16.0% (below 20%); last paid 32.50 is 20.0%.
     const s=suggestPrice(input({sources:{cost:26,last_paid:paid(32.5)}}));
     expect(s).toMatchObject({basis:'last_paid',price:32.5,floor:0.2,belowFloor:false});
-    expect(s.margin).toBe(0.2);
+    expect(s.margin).toBeCloseTo(0.2,10);
+  });
+
+  it('flags at the precision the red warning uses (tenths of a point), so the two always agree',()=>{
+    // $30.00 at $24.01 cost is 19.97%, shown as 20.0%: not below a 20% floor. At $24.02 it is 19.9%.
+    const shown=suggestPrice(input({sources:{customer_price:30,cost:24.01}}));
+    expect([formatMargin(shown.margin),shown.belowFloor]).toEqual(['20.0%',false]);
+    const below=suggestPrice(input({sources:{customer_price:30,cost:24.02}}));
+    expect([formatMargin(below.margin),below.belowFloor]).toEqual(['19.9%',true]);
+  });
+
+  it('treats a 0% floor as a floor: only a negative margin is below it',()=>{
+    expect(suggestPrice(input({floor:0,sources:{cost:30}}))).toMatchObject({floor:0,belowFloor:false});
+    expect(suggestPrice(input({floor:0,sources:{cost:31}}))).toMatchObject({floor:0,belowFloor:true});
   });
 
   it('when nothing clears the floor, suggests the best basis anyway and flags it',()=>{
@@ -187,13 +201,6 @@ describe('rounding to cents',()=>{
     expect(gpVsCustomer(36,38.95,6)).toBe(-17.7);
     expect(gpVsCustomer(31.5,null,10)).toBeNull();
     expect(gpVsCustomer(null,30.95,10)).toBeNull();
-  });
-
-  it('computes margin from cents',()=>{
-    expect(marginOf(31.5,21.4)).toBeCloseTo(0.3206,4);
-    expect(marginOf(30,24)).toBe(0.2);
-    expect(marginOf(0,5)).toBeNull();
-    expect(marginOf(null,5)).toBeNull();
   });
 });
 

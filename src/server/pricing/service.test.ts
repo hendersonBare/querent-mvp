@@ -1,4 +1,5 @@
 import {afterEach,describe,expect,it} from 'vitest';
+import {quoteFloors} from '@/server/floors/service';
 import {quote,setScarcityUplift} from '@/server/repository';
 import {useSeededDatabase} from '@/server/repository/test-db';
 import {draftLineFields,explainQuoteGp,querentFoundGp} from './index';
@@ -57,8 +58,15 @@ describe('priceLines',()=>{
     expect(bolts.explanation).toBe('No customer price on file, so Querent starts from list price $38.95.');
   });
 
-  it('skips the floor check for a rep with no floors on file',()=>{
-    expect(priceLines({customerId:'wasatch',repId:'nobody',branchId:'slc',lines:[{itemId:'GLV-N8-L-1000',qty:4}],on:ON})[0].suggestion).toMatchObject({floor:null,belowFloor:false});
+  it('uses the 20% default floor for a rep with no floors on file (spec §5.2)',()=>{
+    // The same gloves line: 26.6% is under Brandi's 30% Safety & PPE floor, but not under 20%.
+    expect(priceLines({customerId:'wasatch',repId:'nobody',branchId:'slc',lines:[{itemId:'GLV-N8-L-1000',qty:4}],on:ON})[0].suggestion).toMatchObject({floor:0.2,belowFloor:false});
+  });
+
+  it('flags exactly what the red warning flags on the seeded sample quote',()=>{
+    const warnings=quoteFloors('q-24817')!.lines.map(l=>l.belowFloor);
+    expect(wasatch().map(l=>l.suggestion.belowFloor)).toEqual(warnings);
+    expect(warnings).toEqual([false,false,true,false]);
   });
 });
 

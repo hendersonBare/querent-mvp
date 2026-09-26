@@ -1,5 +1,6 @@
 import 'server-only';
-import {floorFor,priceSources,pricingSettings,stockForItems} from '@/server/repository';
+import {effectiveFloor} from '@/server/floors/service';
+import {priceSources,pricingSettings,stockForItems} from '@/server/repository';
 import {priceLine,type PricedLine} from './index';
 
 // The thin adapter between the repository and the pure pricing engine (spec §5.1): it loads the
@@ -8,7 +9,7 @@ import {priceLine,type PricedLine} from './index';
 
 export interface PriceLinesRequest{
   customerId:string;
-  /** The quote's rep (always the customer's assigned rep); their floors drive the below-floor flag. */
+  /** The quote's rep (always the customer's assigned rep); their floors (20% when unset, spec §5.2) drive the below-floor flag. */
   repId:string;
   /** The quote's branch, for scarcity. */
   branchId:string;
@@ -25,9 +26,9 @@ export function priceLines({customerId,repId,branchId,lines,on=new Date().toISOS
   const itemIds=[...new Set(lines.map(l=>l.itemId))];
   const sources=new Map(priceSources(customerId,itemIds,on).map(s=>[s.item_id,s]));
   const stock=new Map(stockForItems(itemIds).map(s=>[s.item_id,s]));
-  const floors=new Map<string,number|null>();
+  const floors=new Map<string,number>();
   const floor=(categoryId:string)=>{
-    if(!floors.has(categoryId))floors.set(categoryId,floorFor(repId,categoryId)??null);
+    if(!floors.has(categoryId))floors.set(categoryId,effectiveFloor(repId,categoryId).floor);
     return floors.get(categoryId)!;
   };
   const scarcityEnabled=pricingSettings().scarcity_uplift_enabled;
