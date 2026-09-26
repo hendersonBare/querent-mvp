@@ -24,8 +24,12 @@ export function conversationMessages(customerId:string,conversationId:string){
   return all<MessageRow>(`${MESSAGE} JOIN conversations c ON c.id=m.conversation_id WHERE m.conversation_id=? AND c.customer_id=? ORDER BY m.created_at,m.rowid`,conversationId,customerId).map(toMessage);
 }
 
-/** Appends a message. payload is stored as JSON (e.g. the item pop-up's lines). */
-export function addMessage(conversationId:string,{id=randomUUID(),role,kind='text',content,payload=null,at=nowIso()}:{id?:string;role:MessageRole;kind?:string;content:string;payload?:unknown;at?:string}){
+/**
+ * Appends a message to one of the customer's conversations; payload is stored as JSON (e.g. the
+ * item pop-up's lines). Returns undefined, writing nothing, if the conversation isn't this customer's.
+ */
+export function addMessage(customerId:string,conversationId:string,{id=randomUUID(),role,kind='text',content,payload=null,at=nowIso()}:{id?:string;role:MessageRole;kind?:string;content:string;payload?:unknown;at?:string}){
+  if(!conversation(customerId,conversationId))return undefined;
   run('INSERT INTO messages(id,conversation_id,role,kind,content,payload,created_at) VALUES(?,?,?,?,?,?,?)',id,conversationId,role,kind,content,payload===null?null:JSON.stringify(payload),at);
   return toMessage(one<MessageRow>(`${MESSAGE} WHERE m.id=?`,id)!);
 }

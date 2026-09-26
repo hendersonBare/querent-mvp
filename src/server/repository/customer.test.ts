@@ -36,7 +36,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   productCategories:()=>customer.productCategories(),
   searchItems:()=>customer.searchItems('hex'),
   stockForItems:()=>customer.stockForItems(ALL_ITEMS()),
-  addMessage:()=>customer.addMessage('conv-q-24817',{role:'assistant',kind:'item_popup',content:'Here is your list.',payload:{lines:[{sku:'RS-2-27-JH',qty:12}]}}),
+  addMessage:()=>customer.addMessage('wasatch','conv-q-24817',{role:'assistant',kind:'item_popup',content:'Here is your list.',payload:{lines:[{sku:'RS-2-27-JH',qty:12}]}}),
   appendLog:()=>customer.appendLog({customerId:'wasatch',conversationId:'conv-q-24817',question:'Q?',categories:['pricing'],handled:['pricing'],toolCalls:['get_price'],rowCount:1,latency:5,outcome:'answered',answer:'A.'}),
   conversation:()=>customer.conversation('wasatch','conv-q-24817'),
   conversationMessages:()=>customer.conversationMessages('wasatch','conv-q-24817'),

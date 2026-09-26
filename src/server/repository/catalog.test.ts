@@ -62,6 +62,7 @@ describe('searchItems',()=>{
     expect(searchItems('tape',{limit:2})).toHaveLength(2);
     expect(searchItems('e',{limit:500})).toHaveLength(50);
     expect(searchItems('tape',{limit:0})).toHaveLength(1);
+    expect(searchItems('e',{limit:Number.NaN})).toHaveLength(10);
   });
 
   it('never returns cost',()=>{

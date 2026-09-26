@@ -35,7 +35,8 @@ export function searchItems(query:string,{limit=10}:{limit?:number}={}){
   const text="lower(i.sku||' '||i.description||' '||i.keywords||' '||c.name)";
   const where=words.map(()=>`${text} LIKE ? ESCAPE '\\'`).join(' AND ');
   const patterns=words.map(w=>`%${w.replace(/[\\%_]/g,m=>`\\${m}`)}%`);
-  return all<CatalogItem>(`${ITEM} WHERE ${where}${ITEM_ORDER} LIMIT ?`,...patterns,Math.min(50,Math.max(1,Math.floor(limit))));
+  const rows=Number.isFinite(limit)?Math.min(50,Math.max(1,Math.floor(limit))):10;
+  return all<CatalogItem>(`${ITEM} WHERE ${where}${ITEM_ORDER} LIMIT ?`,...patterns,rows);
 }
 
 /** Stock at every branch for each item, in the order asked. Unknown items are skipped. */
