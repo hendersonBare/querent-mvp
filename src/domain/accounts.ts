@@ -1,0 +1,38 @@
+// Supplier, customers, contacts, reps, departments and supplier settings (spec §2, §4).
+
+export interface Supplier {id:string;name:string;address:string;city:string;state:string;zip:string;phone:string;email:string;website:string}
+
+export interface Rep {id:string;name:string;initials:string;title:string;phone:string;email:string}
+
+/** One row of the customer picker, the Customers list and Rep assignments (one rep per customer). */
+export interface CustomerListItem {id:string;name:string;account_number:string;rep_id:string|null;rep_name:string|null}
+
+export interface ShipTo {name:string|null;address:string;city:string|null;state:string|null;zip:string|null;lat:number|null;lng:number|null}
+
+/** Internal account record. Placeholder customers have only id, name, account number and rep (spec §2). */
+export interface CustomerAccount {
+  id:string;account_number:string;name:string;terms:string|null;credit_limit:number|null;open_balance:number|null;past_due_balance:number|null;
+  tax_status:'taxable'|'exempt'|null;tax_state:string|null;price_level_id:string|null;main_phone:string|null;ship_to:ShipTo|null;rep:Rep|null;
+}
+
+/** Customer-safe account facts (the get_account_summary tool, spec §6.3). */
+export interface AccountSummary {customer_id:string;account_number:string;name:string;terms:string|null;credit_limit:number|null;open_balance:number|null;past_due_balance:number|null;tax_status:'taxable'|'exempt'|null;rep:Rep|null}
+
+/**
+ * Internal facts for the rep's Customer panel. Lost quotes are stored as `expired` (task 0.2),
+ * so win_rate = accepted / (accepted + expired), or null with no decided quotes.
+ */
+export interface CustomerStats {customer_id:string;last_order:{order_number:string;order_date:string;total:number}|null;quotes_accepted:number;quotes_expired:number;win_rate:number|null}
+
+export interface Contact {id:string;customer_id:string;name:string;title:string|null;phone:string|null;email:string|null;is_primary:boolean}
+
+/** Static contacts for the customer sidebar; will-call rows point at their branch. */
+export interface Department {id:string;name:string;branch_id:string|null;phone:string;email:string|null;hours:string;sort_order:number}
+
+/** Freight rates (spec §5.3), shown read-only in Settings. */
+export interface DeliveryRates {base_fee:number;per_mile:number;min_charge:number;free_threshold:number;max_radius_miles:number}
+
+export interface PricingSettings {scarcity_uplift_enabled:boolean}
+
+/** A rep's margin floor for one product category, as a fraction (0.2 = 20%). Spec §5.2. */
+export interface RepFloor {rep_id:string;category_id:string;category_name:string;margin_floor:number;updated_at:string}
