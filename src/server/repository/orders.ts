@@ -37,20 +37,23 @@ export function orderHistory(customerId:string,{itemIds,since='0000-01-01',limit
     ${NEWEST},l.line_no LIMIT ?`,customerId,since,itemIds?1:null,JSON.stringify(itemIds??[]),limit);
 }
 
-/** What the customer buys, most often first: resolves "the usual" (task 1.4). */
-export function purchasedItems(customerId:string,{since='0000-01-01'}:{since?:string}={}){
+/** Orders dated since..until (YYYY-MM-DD, both inclusive). Both are optional: the default is all history. */
+interface DateWindow {since?:string;until?:string}
+
+/** What the customer buys, most often first: resolves "the usual" (task 1.4). last_* is the latest order in the window. */
+export function purchasedItems(customerId:string,{since='0000-01-01',until='9999-12-31'}:DateWindow={}){
   return all<PurchasedItem>(`SELECT item_id,sku,description,pack,count(DISTINCT order_id) order_count,sum(qty) total_qty,max(order_date) last_order_date,
       max(CASE WHEN n=1 THEN qty END) last_qty,max(CASE WHEN n=1 THEN unit_price END) last_unit_price
     FROM (SELECT l.item_id,i.sku,i.description,i.pack,l.order_id,l.qty,l.unit_price,o.order_date,
         row_number() OVER (PARTITION BY l.item_id ORDER BY o.order_date DESC,o.order_number DESC,l.line_no) n
-      FROM order_lines l JOIN orders o ON o.id=l.order_id JOIN items i ON i.id=l.item_id WHERE o.customer_id=? AND o.order_date>=?)
-    GROUP BY item_id ORDER BY order_count DESC,last_order_date DESC,sku`,customerId,since);
+      FROM order_lines l JOIN orders o ON o.id=l.order_id JOIN items i ON i.id=l.item_id WHERE o.customer_id=? AND o.order_date>=? AND o.order_date<=?)
+    GROUP BY item_id ORDER BY order_count DESC,last_order_date DESC,sku`,customerId,since,until);
 }
 
 /** Internal: items bought on the same orders as `itemId`, most often first (frequently bought together, task 1.6). */
-export function coPurchases(customerId:string,itemId:string,{since='0000-01-01'}:{since?:string}={}){
+export function coPurchases(customerId:string,itemId:string,{since='0000-01-01',until='9999-12-31'}:DateWindow={}){
   return all<CoPurchase>(`SELECT other.item_id,i.sku,i.description,count(DISTINCT other.order_id) orders_together
     FROM order_lines mine JOIN orders o ON o.id=mine.order_id JOIN order_lines other ON other.order_id=mine.order_id AND other.item_id<>mine.item_id JOIN items i ON i.id=other.item_id
-    WHERE o.customer_id=? AND mine.item_id=? AND o.order_date>=?
-    GROUP BY other.item_id ORDER BY orders_together DESC,i.sku`,customerId,itemId,since);
+    WHERE o.customer_id=? AND mine.item_id=? AND o.order_date>=? AND o.order_date<=?
+    GROUP BY other.item_id ORDER BY orders_together DESC,i.sku`,customerId,itemId,since,until);
 }

@@ -10,6 +10,7 @@ import {formatUsd,templateWording,type UpsellWording} from './wording';
 //   bought_together:   items the customer often buys on the same orders as a quote item (history).
 // Each chip is priced through the pricing engine (task 1.1, injected as `price`) and carries its
 // estimated GP gain. Pure, with no server imports; the database adapter is ./service.
+// Chips are internal (rep portal only): they carry unit cost and GP. Never send one to a customer.
 
 export type UpsellKind='matching_fastener'|'full_case'|'bought_together';
 /** Rule priority: when two rules suggest the same item, the earlier kind wins. */

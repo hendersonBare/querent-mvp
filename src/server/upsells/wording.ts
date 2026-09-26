@@ -12,7 +12,12 @@ export interface UpsellWording{
   reason:string;
 }
 
-/** Writes the wording for a batch of chips (e.g. Claude in live mode): one entry per chip, in order. */
+/**
+ * Writes the wording for a batch of chips (e.g. Claude in live mode): one entry per chip, in order.
+ * Chips are internal: they carry unit_cost, gp_gain and price basis. A writer must run rep-side
+ * (the rep portal, never the customer chat), or strip cost and GP before any of it reaches a
+ * model prompt that could be shown to a customer.
+ */
 export type UpsellWriter=(upsells:readonly Upsell[])=>Promise<readonly (Partial<UpsellWording>|null|undefined)[]>;
 
 /** The window the rules read history over (the same 12 months as "last paid", spec §5.1). */

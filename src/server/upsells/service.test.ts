@@ -67,6 +67,22 @@ describe('quoteUpsells on the seeded sample quote Q-24817',()=>{
     ]);
   });
 
+  it('ends history at `on`: orders dated after it never count, as with last paid',()=>{
+    // On Jun 1, 2026 the Jun 18, Aug 12 and Sep 9 orders haven't happened yet. In the window
+    // (Jun 1, 2025 - Jun 1, 2026): 4 bolt orders, all with nuts, 3 with washers; 3 wheel orders,
+    // 2 with flap discs (last bought 5 boxes, Dec 27); 3 glove orders, 2 with safety glasses.
+    const early=quoteUpsells('q-24817',{on:'2026-06-01'})!;
+    const byId=Object.fromEntries(early.map(u=>[u.id,u]));
+    expect(byId['matching_fastener:HN-12-13-G8'].evidence).toMatchObject({history:{orders_together:4,anchor_orders:4}});
+    expect(byId['matching_fastener:FW-12-G8'].evidence).toMatchObject({history:{orders_together:3,anchor_orders:4}});
+    expect(byId['bought_together:FD-45-60Z']).toMatchObject({qty:5,evidence:{orders_together:2,anchor_orders:3}});
+    expect(byId['bought_together:SG-CLR-AF']).toMatchObject({qty:2,evidence:{orders_together:2,anchor_orders:3}});
+    expect(byId['bought_together:FD-45-60Z'].wording.reason).toBe('Bought with cut-off wheels on 2 of the 3 orders that had them in the last 12 months.');
+    // The day of an order counts (inclusive), like last paid: on Sep 9 the Sep 9 order is in.
+    expect(quoteUpsells('q-24817',{on:'2026-09-09'})!.find(u=>u.item.sku==='FD-45-60Z')).toMatchObject({qty:3,evidence:{orders_together:4,anchor_orders:5}});
+    expect(quoteUpsells('q-24817',{on:'2026-09-08'})!.find(u=>u.item.sku==='FD-45-60Z')).toMatchObject({qty:4,evidence:{orders_together:3,anchor_orders:4}});
+  });
+
   it('passes options through to the rules',()=>{
     expect(quoteUpsells('q-24817',{on:ON,options:{maxSuggestions:2}})!.map(u=>u.id)).toEqual(['matching_fastener:HN-12-13-G8','matching_fastener:FW-12-G8']);
     expect(quoteUpsells('q-24817',{on:ON,options:{minShare:0.6}})!.map(u=>u.id)).not.toContain('bought_together:SG-CLR-AF');
