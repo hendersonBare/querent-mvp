@@ -55,7 +55,7 @@ describe('ItemDetail',()=>{
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc');
     expect(screen.getByRole('heading',{level:1}).parentElement?.nextElementSibling).toHaveTextContent('HCS-12-13-2G8 · Fasteners · Box of 50');
     const stock=within(screen.getByRole('region',{name:'Stock by branch'}));
-    expect(stock.getAllByRole('row').slice(1).map(r=>r.textContent)).toEqual(['Salt Lake CitySLC640—','OgdenOgden220—','ProvoProvo80—','All branches940']);
+    expect(stock.getAllByRole('row').slice(1).map(r=>r.textContent)).toEqual(['Salt Lake CitySLC640—','Ogden220—','Provo80—','All branches940']);
     const facts=within(screen.getByRole('region',{name:'Item'}));
     expect(Object.fromEntries(facts.getAllByRole('term').map(dt=>[dt.textContent,dt.nextElementSibling?.textContent]))).toEqual({
       'SKU':'HCS-12-13-2G8','Category':'Fasteners','Sold as':'Box of 50','Full case':'10 packs','List price':'$38.95',
@@ -66,7 +66,7 @@ describe('ItemDetail',()=>{
   it('shows what is on order and when it arrives',()=>{
     render(<ItemDetail view={{...BOLTS_VIEW,item:STRAPS,sales:[]}} viewing={ALL}/>);
     const stock=within(screen.getByRole('region',{name:'Stock by branch'}));
-    expect(stock.getAllByRole('row').slice(1).map(r=>r.textContent)).toEqual(['Salt Lake CitySLC70—','OgdenOgden200—','ProvoProvo024Sep 26, 2026','All branches2724']);
+    expect(stock.getAllByRole('row').slice(1).map(r=>r.textContent)).toEqual(['Salt Lake CitySLC70—','Ogden200—','Provo024Sep 26, 2026','All branches2724']);
     expect(screen.getByRole('heading',{name:'No orders for this item yet'})).toBeInTheDocument();
   });
 

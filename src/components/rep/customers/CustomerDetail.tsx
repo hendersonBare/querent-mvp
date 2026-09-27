@@ -56,7 +56,7 @@ function AccountPanel({view}:{view:CustomerView}){
   </Panel>;
   const tax=taxStatus(account.tax_status,account.tax_state);
   const shipTo=account.ship_to;
-  return <Panel id="customer-account" title="Account" meta={account.terms??undefined}>
+  return <Panel id="customer-account" title="Account">
     <dl className={s.kv}>
       <dt>Terms</dt><dd>{account.terms??'—'}</dd>
       <dt>Credit limit</dt><dd>{money(account.credit_limit)}</dd>

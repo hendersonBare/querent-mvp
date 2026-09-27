@@ -26,7 +26,7 @@ export function ItemDetail({view,viewing}:{view:ItemView;viewing:Viewing}){
             <tbody>{branches.map(b=>{
               const at=item.stock.find(x=>x.branch_id===b.id);
               return <tr key={b.id}>
-                <th scope="row">{b.name}<span className={s.sub}>{b.code}</span></th>
+                <th scope="row">{b.name}{b.code!==b.name&&<span className={s.sub}>{b.code}</span>}</th>
                 <td className={s.num}><Stock available={at?.available??0}/></td>
                 <td className={s.num}>{at?.on_order??0}</td>
                 <td className={s.num}>{at?.next_receipt_on?day(at.next_receipt_on):<span className={s.muted}>—</span>}</td>
