@@ -42,7 +42,7 @@ const capitalized=(text:string)=>text.charAt(0).toUpperCase()+text.slice(1);
 const firstName=(name:string|null)=>name?.trim().split(/\s+/)[0]||null;
 
 export interface ExportMenuProps {
-  detail:Pick<QuoteDetail,'quote'|'editable'|'valid_until'|'floors'|'freight'|'delivery_rates'>;
+  detail:Pick<QuoteDetail,'quote'|'editable'|'valid_until'|'floors'|'freight'|'delivery_rates'|'panels'>;
   /** The lines as on screen (queued edits and typing included): the summary copies these. */
   lines:readonly DetailLine[];
   /** Resolves once the page's queued edits are saved (the quote editor's flush). */
@@ -79,7 +79,8 @@ export function ExportMenu({detail,lines,flush,buttonClassName}:ExportMenuProps)
   function copySummary(){
     const figures=quoteFigures(lines,{freight:detail.freight,rates:detail.delivery_rates,branchCode:quote.branch_code,
       floor:{repId:quote.rep_id,repName:quote.rep_name,floors:detail.floors}});
-    const text=quoteSummaryText(summaryQuoteOf(detail,lines,figures));
+    // The payment terms come from the Customer panel's account facts, as in the mockup ("Net 30").
+    const text=quoteSummaryText(summaryQuoteOf(detail,lines,figures,detail.panels.customer.terms));
     void copyText(text).then(copied=>setToast(copied
       ?{text:'Quote summary copied',tone:'done'}
       :{text:'The browser blocked copying. Allow clipboard access for this site and try again.',tone:'error'}));

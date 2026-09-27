@@ -130,7 +130,8 @@ describe('downloads',()=>{
 });
 
 describe('Copy quote summary',()=>{
-  const SUMMARY_START='Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)\nValid until Oct 9, 2026 · Will call at SLC\n\n10 x HCS-12-13-2G8';
+  // With Wasatch's payment terms from the Customer panel, as in the mockup (cleanup 17).
+  const SUMMARY_START='Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)\nValid until Oct 9, 2026 · Net 30 · Will call at SLC\n\n10 x HCS-12-13-2G8';
 
   it('writes the plain-text summary of the lines on screen to the clipboard and says so',async()=>{
     renderMenu();
@@ -143,6 +144,14 @@ describe('Copy quote summary',()=>{
     expect(text).not.toMatch(/21\.40|margin|cost|%/i);
     // Nothing to fetch: it is built from the page.
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves the terms out for an account with none on file',async()=>{
+    const detail=sampleDetail();
+    renderMenu({...detail,panels:{...detail.panels,customer:{...detail.panels.customer,terms:null}}});
+    choose(/Copy quote summary/);
+    await waitFor(()=>expect(writeText).toHaveBeenCalled());
+    expect((writeText!.mock.calls[0][0] as string).split('\n')[1]).toBe('Valid until Oct 9, 2026 · Will call at SLC');
   });
 
   it('uses the lines as edited, not as last saved',async()=>{

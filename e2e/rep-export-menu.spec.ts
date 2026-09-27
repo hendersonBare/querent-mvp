@@ -190,7 +190,7 @@ test("Copy quote summary puts plain text on the clipboard, with no cost or margi
   expect(copied).toBe(
     [
       "Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)",
-      `Valid until ${validUntil} · Will call at SLC`,
+      `Valid until ${validUntil} · Net 30 · Will call at SLC`,
       "",
       "10 x HCS-12-13-2G8 Hex cap screw 1/2-13 x 2 in (Box of 50) @ $31.50 = $315.00",
       "6 x CW-45-045-T1 Cut-off wheel 4.5 x .045 x 7/8 in (Box of 25) @ $36.00 = $216.00",

@@ -7,7 +7,7 @@ import {cents} from '@/server/quotes/snapshot';
 // an email or a text message, in the mockup's shape:
 //
 //   Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)
-//   Valid until Oct 9, 2026 · Will call at SLC
+//   Valid until Oct 9, 2026 · Net 30 · Will call at SLC
 //
 //   10 x HCS-12-13-2G8 Hex cap screw 1/2-13 x 2 in (Box of 50) @ $31.50 = $315.00
 //   …
