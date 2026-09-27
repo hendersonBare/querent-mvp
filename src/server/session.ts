@@ -8,4 +8,6 @@ export const personas={
   customer:{user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'},
 } satisfies Record<string,Principal>;
 export type PersonaId=keyof typeof personas;
-export function principal(request:NextRequest):Principal|null{const id=request.cookies.get(COOKIE)?.value as PersonaId|undefined;return id&&id in personas?personas[id]:null;}
+export function principal(request:NextRequest):Principal|null{return principalFromCookie(request.cookies.get(COOKIE)?.value);}
+/** The persona named by the COOKIE value, for Server Components that read cookies() themselves (the rep portal layout). */
+export function principalFromCookie(value:string|undefined):Principal|null{return value&&Object.hasOwn(personas,value)?personas[value as PersonaId]:null;}
