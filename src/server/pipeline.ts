@@ -72,7 +72,6 @@ export async function ask(
   });
   return {
     answer: result.content,
-    sql: null,
     categories: result.categories,
     outcome: result.outcome,
     row_count: result.rowCount,

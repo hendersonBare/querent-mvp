@@ -5,7 +5,7 @@ import {addArrived,placeWithHistory,timeline} from './notices';
 
 // Where the "quote is ready" messages go among the chat's turns (task 5.1).
 
-const turn=(id:string,timestamp?:string):ChatTurn=>({id,question:id,answer:`${id}.`,sql:null,categories:[],outcome:'answered',row_count:0,...(timestamp?{timestamp}:{})});
+const turn=(id:string,timestamp?:string):ChatTurn=>({id,question:id,answer:`${id}.`,categories:[],outcome:'answered',row_count:0,...(timestamp?{timestamp}:{})});
 const notice=(id:string,created_at:string):QuoteNotice=>({id,conversation_id:'c',created_at,text:'',quote_id:'q-1',quote_number:'Q-1',revision:1,total:10,valid_until:'2026-10-07',
   headline:'Quote Q-1 is ready: $10.00, valid until Oct 7',attach_pdf:true,pdf_url:'/api/quotes/q-1/pdf?variant=customer&rev=1'});
 const order=(entries:ReturnType<typeof timeline>)=>entries.map(e=>e.kind==='turn'?e.turn.id:e.notice.id);

@@ -34,5 +34,3 @@ export function setAccess(scope:string|null,category:Category,enabled:boolean){
 
 export function enabledCategories(customerId:string){return new Set(access(customerId).filter(r=>r.enabled).map(r=>r.category));}
 
-/** Customer-safe: the categories this customer has on, each with their rep as the contact (the chat's rep panel). */
-export function customerAccessRules(customerId:string){return aggregateAccess([customerId]).filter(rule=>rule.enabled);}

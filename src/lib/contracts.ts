@@ -16,7 +16,7 @@ export interface ERPStatus {last_updated:string|null;events:{id:number;timestamp
  * 'item_popup' an ItemPopupPayload (the cart the item pop-up opens with) and 'quote_requested' a
  * QuoteRequestedPayload (the quote Request quote created); plain text has no payload.
  */
-export interface ChatAnswer {answer:string;sql:string|null;categories:Category[];outcome:'answered'|'no_rows'|'error'|'restricted';row_count:number;kind?:ChatReplyKind;payload?:ClarifyPayload|ItemPopupPayload|QuoteRequestedPayload|null}
+export interface ChatAnswer {answer:string;categories:Category[];outcome:'answered'|'no_rows'|'error'|'restricted';row_count:number;kind?:ChatReplyKind;payload?:ClarifyPayload|ItemPopupPayload|QuoteRequestedPayload|null}
 export interface ChatTurn extends ChatAnswer {id:string;question:string;timestamp?:string}
 
 /**

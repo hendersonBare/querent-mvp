@@ -3,7 +3,7 @@ import {NextResponse,type NextRequest} from 'next/server';
 import type {Principal} from '@/lib/contracts';
 import {chatNotices} from '@/server/customer/notices';
 import {ask,ConversationNotFoundError} from '@/server/pipeline';
-import {customerAccessRules,history} from '@/server/repository/customer';
+import {history} from '@/server/repository/customer';
 
 // The customer API (/api/query/customer/...), for a signed-in customer contact. Customer routes use
 // only the customer-safe repository module, so nothing here can return cost, margin or another
@@ -15,7 +15,6 @@ const fail=(detail:string,status=400)=>NextResponse.json({detail},{status});
 export async function customerRoute(request:NextRequest,user:Principal&{customer_id:string},segments:string[]){
   const [area,name,id]=segments;
   if(area!=='customer')return undefined;
-  if(request.method==='GET'&&name==='panel'&&segments.length===2)return NextResponse.json(customerAccessRules(user.customer_id));
   if(request.method==='GET'&&name==='history'&&id)return NextResponse.json(history(user.customer_id,id));
   // The "quote is ready" messages for the chat on screen (task 5.1): history() has no row for them.
   if(request.method==='GET'&&name==='notices'&&id&&segments.length===3)return NextResponse.json(chatNotices(user.customer_id,id));

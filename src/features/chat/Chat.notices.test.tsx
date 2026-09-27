@@ -12,7 +12,7 @@ import {CustomerChat} from './Chat';
 
 const user:Principal={user_id:'u1',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
 const CONVERSATION='conv-1';
-const turn=(t:Partial<ChatTurn>&Pick<ChatTurn,'id'|'question'|'answer'>):ChatTurn=>({sql:null,categories:[],outcome:'answered',row_count:0,...t});
+const turn=(t:Partial<ChatTurn>&Pick<ChatTurn,'id'|'question'|'answer'>):ChatTurn=>({categories:[],outcome:'answered',row_count:0,...t});
 const notice=(id:string,created_at:string,extra:Partial<QuoteNotice>={}):QuoteNotice=>({id,conversation_id:CONVERSATION,created_at,text:'Hi Dana, here it is.\nThanks, Brandi',
   quote_id:'q-24818',quote_number:'Q-24818',revision:1,total:531,valid_until:'2026-10-07',headline:'Quote Q-24818 is ready: $531.00, valid until Oct 7',attach_pdf:true,
   pdf_url:'/api/quotes/q-24818/pdf?variant=customer&rev=1',...extra});
@@ -26,7 +26,7 @@ function makeApi({history=HISTORY,notices=()=>[] as QuoteNotice[]}:{history?:Cha
     if(path===`customer/notices/${CONVERSATION}`)return notices();
     throw new Error(`unexpected get ${path}`);
   });
-  const send=vi.fn(async():Promise<ChatAnswer>=>({answer:'Answered.',sql:null,categories:[],outcome:'answered',row_count:0}));
+  const send=vi.fn(async():Promise<ChatAnswer>=>({answer:'Answered.',categories:[],outcome:'answered',row_count:0}));
   return {api:{get,send} as unknown as API,get,send};
 }
 /** The chat's articles in order, by what names them: a question, or a notice's headline. */

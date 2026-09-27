@@ -18,13 +18,6 @@ async function call(method:'GET'|'POST',path:string,{persona='customer',body}:{p
   return {status:response.status,json:await response.json()};
 }
 
-it('gives Dana her enabled categories with Brandi as the contact',async()=>{
-  const {status,json}=await call('GET','customer/panel');
-  expect(status).toBe(200);
-  expect(json.map((r:{category:string})=>r.category)).toEqual(['items_stock','pricing','orders_quotes','account']);
-  expect(json[0]).toMatchObject({enabled:true,rep_name:'Brandi Gallegos'});
-});
-
 it('answers a chat question and serves it back in that conversation\'s history',async()=>{
   const asked=await call('POST','customer/chat',{body:{question:'Do you have 1/2 in grade 8 hex bolts in stock?',conversation_id:'conv-route'}});
   expect(asked.status).toBe(200);
@@ -75,6 +68,8 @@ it('serves the "quote is ready" messages for the chat on screen (task 5.1), neve
 it('keeps customers out of supplier routes, and suppliers out of customer routes',async()=>{
   expect((await call('GET','supplier/customers')).status).toBe(403);
   expect((await call('GET','customer/nothing-here')).status).toBe(403);
-  expect((await call('GET','customer/panel',{persona:'supplier'})).status).toBe(404);
-  expect((await call('GET','customer/panel',{persona:'nobody'})).status).toBe(401);
+  // The old chat rep panel (customer/panel) is gone: the left sidebar reads customer/contacts (task 2.4).
+  expect((await call('GET','customer/panel')).status).toBe(403);
+  expect((await call('GET','customer/history/conv-route',{persona:'supplier'})).status).toBe(404);
+  expect((await call('GET','customer/history/conv-route',{persona:'nobody'})).status).toBe(401);
 });

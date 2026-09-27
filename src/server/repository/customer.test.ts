@@ -24,7 +24,6 @@ const ALL_ITEMS=()=>customer.catalogItems().map(i=>i.id);
 /** One representative call per export, on data that exists, so every field is present. */
 const calls:Record<keyof typeof customer,()=>unknown>={
   access:()=>customer.access('wasatch'),
-  customerAccessRules:()=>customer.customerAccessRules('wasatch'),
   enabledCategories:()=>customer.enabledCategories('wasatch'),
   isCategory:()=>customer.isCategory('pricing'),
   accountSummary:()=>customer.accountSummary('wasatch'),
@@ -36,7 +35,6 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   catalogItem:()=>customer.catalogItem('HCS-12-13-2G8'),
   catalogItems:()=>customer.catalogItems(),
   productCategories:()=>customer.productCategories(),
-  searchItems:()=>customer.searchItems('hex'),
   stockForItems:()=>customer.stockForItems(ALL_ITEMS()),
   addMessage:()=>customer.addMessage('wasatch','conv-q-24817',{role:'assistant',kind:'item_popup',content:'Here is your list.',payload:{lines:[{sku:'RS-2-27-JH',qty:12}]}}),
   appendLog:()=>customer.appendLog({customerId:'wasatch',conversationId:'conv-q-24817',question:'Q?',categories:['pricing'],handled:['pricing'],toolCalls:['get_price'],rowCount:1,latency:5,outcome:'answered',answer:'A.'}),

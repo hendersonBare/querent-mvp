@@ -92,9 +92,9 @@ export function appendLog(entry:QueryLogEntry){
 export function history(customerId:string,conversationId:string):ChatTurn[]{
   const replies=conversationMessages(customerId,conversationId).filter(m=>m.role==='assistant');
   let next=0;
-  return all<Omit<ChatTurn,'sql'|'categories'>&{categories:string}>('SELECT id,question,answer,categories,outcome,row_count,timestamp FROM query_logs WHERE customer_id=? AND conversation_id=? ORDER BY timestamp,rowid',customerId,conversationId)
+  return all<Omit<ChatTurn,'categories'>&{categories:string}>('SELECT id,question,answer,categories,outcome,row_count,timestamp FROM query_logs WHERE customer_id=? AND conversation_id=? ORDER BY timestamp,rowid',customerId,conversationId)
     .map(row=>{
-      const turn:ChatTurn={...row,sql:null,categories:JSON.parse(row.categories) as Category[]};
+      const turn:ChatTurn={...row,categories:JSON.parse(row.categories) as Category[]};
       const found=replies.findIndex((m,i)=>i>=next&&m.content===row.answer);
       if(found<0)return turn;
       next=found+1;

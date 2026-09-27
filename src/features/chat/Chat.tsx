@@ -122,7 +122,6 @@ export function CustomerChat({
         id,
         question: text,
         answer: "",
-        sql: null,
         categories: [],
         outcome: "answered",
         row_count: 0,

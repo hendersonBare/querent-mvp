@@ -54,13 +54,14 @@ describe('query log',()=>{
   it('returns a seeded conversation\'s questions oldest first',()=>{
     const turns=history('wasatch','history-1');
     expect(turns.map(t=>t.question)).toEqual(['Has our last order shipped?','What did we pay for the Type 1 cut-off wheels last time?','Do you have 1/2-13 grade 8 hex nuts at Ogden?']);
-    expect(turns[0]).toMatchObject({categories:['orders_quotes'],outcome:'answered',sql:null});
+    expect(turns[0]).toMatchObject({categories:['orders_quotes'],outcome:'answered'});
+    expect(turns[0]).not.toHaveProperty('sql');
   });
 
   it('logs a chat question and returns it in that conversation\'s history',()=>{
     createConversation({id:'conv-log',customerId:'wasatch'});
     expect(appendLog({customerId:'wasatch',conversationId:'conv-log',question:'Q?',categories:['items_stock'],handled:['items_stock'],toolCalls:['search_items'],rowCount:1,latency:12,outcome:'answered',answer:'A.',at:'2026-09-24T10:00:00.000Z'})).toBe(true);
-    expect(history('wasatch','conv-log')).toEqual([{id:expect.any(String),question:'Q?',answer:'A.',categories:['items_stock'],outcome:'answered',row_count:1,timestamp:'2026-09-24T10:00:00.000Z',sql:null}]);
+    expect(history('wasatch','conv-log')).toEqual([{id:expect.any(String),question:'Q?',answer:'A.',categories:['items_stock'],outcome:'answered',row_count:1,timestamp:'2026-09-24T10:00:00.000Z'}]);
     expect(history('great-basin','conv-log')).toEqual([]);
   });
 

@@ -99,7 +99,8 @@ describe('Request quote',()=>{
 
     const answer=`Sent to Brandi for review. Your quote number is **${created.quote_number}**. Brandi will price it and send it to you here in chat.`;
     const question='Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1 (pickup at SLC).';
-    expect(turn).toMatchObject({question,answer,kind:'quote_requested',outcome:'answered',categories:[],sql:null});
+    expect(turn).toMatchObject({question,answer,kind:'quote_requested',outcome:'answered',categories:[]});
+    expect(turn).not.toHaveProperty('sql');
     const payload=turn.payload as QuoteRequestedPayload;
     expect(payload).toMatchObject({quote_id:created.id,quote_number:created.quote_number,status:'ready_for_review'});
 
