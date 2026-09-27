@@ -1,4 +1,4 @@
-import type {Fulfillment,OrderStatus,QuoteStatus} from '@/domain';
+import type {Fulfillment,OrderStatus} from '@/domain';
 
 // Words and formats for the rep's Customers, Orders and Items pages (task 3.8). Pure: the pages
 // render on the server, and the tests call these directly.
@@ -16,19 +16,6 @@ export const percent=(fraction:number)=>`${Math.round(fraction*100)}%`;
 
 /** "1 order", "23 orders". */
 export const count=(n:number,word:string,plural=`${word}s`)=>`${n} ${n===1?word:plural}`;
-
-/**
- * Quote status chips, in the rep's words: ready_for_review reads "Draft ready" as in the mockup's
- * quote header (docs/design/screens/03), the rest use the spec §3 words. Same words and tones as
- * the Quotes list (task 3.2).
- */
-export const QUOTE_STATUS:Readonly<Record<QuoteStatus,{label:string;tone:'draft'|'changes'|'sent'|'accepted'|'expired'}>>={
-  ready_for_review:{label:'Draft ready',tone:'draft'},
-  changes_requested:{label:'Changes requested',tone:'changes'},
-  sent:{label:'Sent',tone:'sent'},
-  accepted:{label:'Accepted',tone:'accepted'},
-  expired:{label:'Expired',tone:'expired'},
-};
 
 /** Order status chips. Orders come from the ERP read-only: open, shipped (or picked up) and closed. */
 export const ORDER_STATUS:Readonly<Record<OrderStatus,{label:string;tone:'sent'|'accepted'|'expired'}>>={
