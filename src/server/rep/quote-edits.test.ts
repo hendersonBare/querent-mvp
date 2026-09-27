@@ -71,6 +71,10 @@ describe('editing a line',()=>{
     expect(d.send_check).toMatchObject({can_send:true,below_floor_count:2});
     const free=await edits.editRepQuoteLine('brandi','Q-24817','q-24817-1',{unitPrice:0},{now:NOW});
     expect(line(free,'q-24817-1')).toMatchObject({unit_price:0,price_basis:'custom'});
+    // Clearing the price (Undo back to an unpriced line) leaves it unpriced, which blocks Send.
+    const cleared=await edits.editRepQuoteLine('brandi','Q-24817','q-24817-1',{unitPrice:null},{now:NOW});
+    expect(line(cleared,'q-24817-1')).toMatchObject({unit_price:null,price_basis:null});
+    expect(cleared.send_check.blockers.map(b=>b.code)).toEqual(['no_price']);
   });
 
   it('re-prices on a qty change: a line on Querent’s pick follows it, and the suggestion is stored',async()=>{

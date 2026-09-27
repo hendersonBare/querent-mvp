@@ -8,7 +8,7 @@ import {
   addQuoteActivity,addQuoteLine,catalogItem,inTransaction,quote,removeQuoteLine,restoreQuoteLine,searchItems,stockForItems,updateQuoteLine,
 } from '@/server/repository';
 import {detailLines,pricingDay,quoteDetailOf,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
-import {MAX_PRICE,MAX_QTY,shortName,withBasis,withPrice,withQty,type DetailLine} from './quote-math';
+import {MAX_PRICE,MAX_QTY,applyPatch,shortName,withBasis,type DetailLine,type LinePatch} from './quote-math';
 import {repQuote} from './quotes';
 
 // The rep's edits to a quote draft (spec §4, §5.4; task 3.3): change a line's qty, price basis
@@ -51,10 +51,9 @@ const Qty=z.number({error:'Enter a whole quantity.'}).int({error:'Enter a whole 
   .min(0,{error:'A quantity can’t be below 0.'}).max(MAX_QTY,{error:`A quantity can’t be over ${MAX_QTY.toLocaleString('en-US')}.`});
 const Basis=z.enum(PRICE_BASES,{error:`Choose a price basis: ${PRICE_BASES.join(', ')}.`});
 
-/** PATCH a line: any of a new qty, a price basis, a typed price. A price alone is Custom. */
-export const LinePatchBody=z.strictObject({qty:Qty.optional(),basis:Basis.optional(),unitPrice:Money.optional()})
+/** PATCH a line: any of a new qty, a price basis, a typed price (null clears it). A price alone is Custom. */
+export const LinePatchBody:z.ZodType<LinePatch>=z.strictObject({qty:Qty.optional(),basis:Basis.optional(),unitPrice:Money.nullable().optional()})
   .refine(b=>b.qty!==undefined||b.basis!==undefined||b.unitPrice!==undefined,{error:'Nothing to change: send qty, basis or unitPrice.'});
-export type LinePatch=z.infer<typeof LinePatchBody>;
 
 /** POST a line: an item by id or SKU at a qty (1 by default). `restore` puts a removed line back (Undo). */
 export const NewLineBody=z.strictObject({
@@ -79,19 +78,10 @@ function parse<T>(schema:z.ZodType<T>,body:unknown):T{
 
 // ---- Applying an edit ----
 
-/** `line` after the patch: qty first (Querent re-picks for it), then the basis or typed price. */
-export function patchedLine(line:DetailLine,patch:LinePatch):DetailLine{
-  let next=patch.qty===undefined?line:withQty(line,patch.qty);
-  if(patch.basis!==undefined&&patch.basis!=='custom'){
-    const priced=withBasis(next,patch.basis);
-    if(!priced)throw new QuoteActionError('invalid_input',`${BASIS_LABELS[patch.basis]} has no price for ${line.sku}.`);
-    next=priced;
-  }else if(patch.unitPrice!==undefined){
-    next=withPrice(next,patch.unitPrice);
-    if(patch.basis==='custom')next={...next,price_basis:'custom'};
-  }else if(patch.basis==='custom'){
-    next=withBasis(next,'custom')!;
-  }
+/** `line` after the patch (applyPatch); a basis with no price for the line is bad input. */
+function patchedLine(line:DetailLine,patch:LinePatch):DetailLine{
+  const next=applyPatch(line,patch);
+  if(!next)throw new QuoteActionError('invalid_input',`${BASIS_LABELS[patch.basis!]} has no price for ${line.sku}.`);
   return next;
 }
 

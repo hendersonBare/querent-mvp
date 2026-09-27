@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {FLOORS,ITEMS,SAMPLE_LINES,detailLine,sampleDetail} from '@/components/rep/quote-detail/test-fixtures';
 import {
-  BAR_MAX_MARGIN,blendedFloor,lineFigures,linePricing,liveFreight,onQuerentPick,parseMoney,parseQty,priceForMargin,quoteChecks,quoteFigures,shortName,withBasis,withPrice,withQty,
+  BAR_MAX_MARGIN,applyPatch,blendedFloor,inversePatch,lineFigures,linePricing,liveFreight,onQuerentPick,parseMoney,parseQty,priceForMargin,quoteChecks,quoteFigures,shortName,withBasis,withPrice,withQty,
 } from './quote-math';
 
 // The quote detail's math (task 3.3; spec §4, §5.1, §5.2): the per-line dropdown and floor
@@ -65,6 +65,24 @@ describe('edits',()=>{
     expect(withQty(custom,5)).toMatchObject({qty:5,unit_price:33,price_basis:'custom',suggested_basis:'list'});
     // A contract is binding at any qty.
     expect(withQty(wheels,1)).toMatchObject({unit_price:36,price_basis:'contract'});
+  });
+
+  it('applies a patch qty first, then the basis or typed price; undo patches take it back',()=>{
+    expect(applyPatch(bolts,{basis:'list'})).toMatchObject({unit_price:38.95,price_basis:'list'});
+    expect(applyPatch(bolts,{basis:'contract'})).toBeNull();
+    expect(applyPatch(bolts,{unitPrice:null})).toMatchObject({unit_price:null,price_basis:null});
+    expect(applyPatch(bolts,{unitPrice:31.5,basis:'custom'})).toMatchObject({unit_price:31.5,price_basis:'custom'});
+    expect(applyPatch(bolts,{basis:'custom'})).toMatchObject({unit_price:31.5,price_basis:'custom'});
+    expect(applyPatch(bolts,{qty:5,unitPrice:30})).toMatchObject({qty:5,unit_price:30,price_basis:'custom'});
+    for(const patch of [{basis:'list' as const},{unitPrice:22},{qty:5},{qty:20,basis:'customer' as const},{unitPrice:null}]){
+      const after=applyPatch(bolts,patch)!;
+      const back=applyPatch(after,inversePatch(bolts,after))!;
+      expect([back.qty,back.unit_price,back.price_basis]).toEqual([10,31.5,'last_paid']);
+    }
+    const custom=withPrice(straps,21.5);
+    const moved=applyPatch(custom,{basis:'list'})!;
+    expect(inversePatch(custom,moved)).toEqual({basis:'custom',unitPrice:21.5});
+    expect(inversePatch(bolts,bolts)).toEqual({});
   });
 
   it('parses what the rep types: whole quantities from 0, prices in dollars and cents from $0',()=>{

@@ -100,6 +100,43 @@ export function withPrice(line:DetailLine,price:number):DetailLine{
   return {...line,unit_price:rounded,price_basis:current?.price===rounded?line.price_basis:'custom'};
 }
 
+/** One edit to a line, as the page autosaves it: a qty, a price basis, a typed price (null clears it). A price alone is Custom. */
+export interface LinePatch {qty?:number;basis?:PriceBasis;unitPrice?:number|null}
+
+/**
+ * The line after `patch`: the qty first (Querent re-picks for it), then the basis or the typed
+ * price. null when the patch picks a basis that has no price for this line. The server applies
+ * edits with this, and the page shows them with it before the save comes back.
+ */
+export function applyPatch(line:DetailLine,patch:LinePatch):DetailLine|null{
+  let next=patch.qty===undefined?line:withQty(line,patch.qty);
+  if(patch.basis!==undefined&&patch.basis!=='custom'){
+    const onBasis=withBasis(next,patch.basis);
+    if(!onBasis)return null;
+    next=onBasis;
+  }else if(patch.unitPrice===null){
+    next={...next,unit_price:null,price_basis:null};
+  }else if(patch.unitPrice!==undefined){
+    next=withPrice(next,patch.unitPrice);
+    if(patch.basis==='custom')next={...next,price_basis:'custom'};
+  }else if(patch.basis==='custom'){
+    next=withBasis(next,'custom')!;
+  }
+  return next;
+}
+
+/** The patch that takes `after` back to `before` (Undo): the old qty and the old price on its basis. */
+export function inversePatch(before:DetailLine,after:DetailLine):LinePatch{
+  const patch:LinePatch={};
+  if(after.qty!==before.qty)patch.qty=before.qty;
+  if(after.unit_price!==before.unit_price||after.price_basis!==before.price_basis||patch.qty!==undefined){
+    if(before.unit_price===null)patch.unitPrice=null;
+    else if(before.price_basis===null||before.price_basis==='custom')Object.assign(patch,{basis:'custom',unitPrice:before.unit_price});
+    else patch.basis=before.price_basis;
+  }
+  return patch;
+}
+
 /** The unit price that earns `percent` margin on `cost` (33 -> cost / 0.67), to the cent; null for 100% or more. */
 export function priceForMargin(cost:number,percent:number):number|null{
   if(!Number.isFinite(percent)||percent>=100)return null;
