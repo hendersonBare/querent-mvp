@@ -3,8 +3,11 @@
 /** A sent revision number, 'draft' (the rep's preview of the unsent draft), or null for the latest sent revision. */
 export type PdfRevision=number|'draft'|null;
 
-/** The PDF variants built so far. The internal worksheet (task 4.2) must stay rep-only when it is added. */
-export const PDF_VARIANTS=['customer'] as const;
+/**
+ * The customer quote (task 4.1) and the rep's internal worksheet (task 4.2), which adds cost,
+ * margin, floors and Querent's reasoning. The route serves `internal` to reps only.
+ */
+export const PDF_VARIANTS=['customer','internal'] as const;
 export type PdfVariant=typeof PDF_VARIANTS[number];
 
 export type PdfQuery={ok:true;variant:PdfVariant;rev:PdfRevision}|{ok:false;detail:string};

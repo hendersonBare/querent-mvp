@@ -3,7 +3,7 @@ import {NextResponse} from 'next/server';
 import {renderCustomerQuotePdf} from './CustomerQuotePdf';
 import type {CustomerPdfModel} from './model';
 
-// Responses for GET /api/quotes/:id/pdf (task 4.1), shared by the customer and rep paths.
+// Responses for GET /api/quotes/:id/pdf (tasks 4.1 and 4.2), shared by the customer and rep paths.
 
 /**
  * The one answer for any quote a caller may not see: unknown, another customer's, not sent yet,
@@ -20,17 +20,21 @@ export function pdfError(detail:string,status:number){
 const asciiName=(name:string)=>name.replace(/[^\x20-\x7e]/g,'').replace(/["\\]/g,'');
 
 /**
- * The rendered PDF, inline so the preview modal can show it (a Download link adds its own
+ * A rendered PDF, inline so the preview modal can show it (a Download link adds its own
  * download attribute). Never cached: a draft preview changes as the rep edits, and the answer
- * depends on who is asking.
+ * depends on who is asking. Takes bytes, so this module never imports the internal worksheet.
  */
-export async function pdfResponse(model:CustomerPdfModel){
-  const bytes=await renderCustomerQuotePdf(model);
+export function pdfFileResponse(bytes:Uint8Array,filename:string){
   return new Response(bytes as Uint8Array<ArrayBuffer>,{status:200,headers:{
     'content-type':'application/pdf',
-    'content-disposition':`inline; filename="${asciiName(model.filename)}"; filename*=UTF-8''${encodeURIComponent(model.filename)}`,
+    'content-disposition':`inline; filename="${asciiName(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
     'content-length':String(bytes.byteLength),
     'cache-control':'private, no-store',
     'x-content-type-options':'nosniff',
   }});
+}
+
+/** The customer quote PDF as a response. */
+export async function pdfResponse(model:CustomerPdfModel){
+  return pdfFileResponse(await renderCustomerQuotePdf(model),model.filename);
 }
