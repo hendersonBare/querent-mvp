@@ -513,12 +513,10 @@
   box-shadow: 0 24px 60px rgba(23, 50, 45, 0.22);
   animation: ip-in 0.16s ease-out;
 }
-.ip-dialog:focus {
-  outline: none;
-}
+/* The dialog takes focus when it opens, so screen readers announce it; its controls show focus. */
+.ip-dialog:focus,
 .ip-dialog:focus-visible {
-  outline: 2px solid var(--teal);
-  outline-offset: 2px;
+  outline: none;
 }
 @keyframes ip-in {
   from {
