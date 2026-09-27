@@ -202,6 +202,8 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
   await page.getByLabel("Viewing").selectOption("wasatch");
+  // The pick is in the URL before the nav links carry it: wait, or Settings opens for All customers.
+  await expect(page).toHaveURL(/[?&]customer=wasatch(&|$)/);
   await openSettings(page, "Customer access");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
   await expect(page.getByText("Viewing Wasatch Mechanical Contractors")).toBeVisible();
@@ -226,8 +228,10 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access$/);
   await expect(page.getByText("On for some customers")).toBeVisible();
 
-  // Back on: Dana gets stock again.
+  // Back on: Dana gets stock again. Wait for Wasatch's view first, so the switch is Wasatch's alone.
   await page.getByLabel("Viewing").selectOption("wasatch");
+  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
+  await expect(page.getByText("Viewing Wasatch Mechanical Contractors")).toBeVisible();
   await page.getByRole("switch", { name: "Items & stock" }).click();
   await expect(page.getByRole("switch", { name: "Items & stock" })).toHaveAttribute("aria-checked", "true");
   await expect(await ask(dana, STOCK_QUESTION)).toContainText("64 at SLC");
@@ -247,6 +251,7 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
   await screenshot(page, testInfo, "settings-assignments-reassigned-1440");
   // The "Viewing" picker's rep follows.
   await page.getByLabel("Viewing").selectOption("wasatch");
+  await expect(page).toHaveURL(/[?&]customer=wasatch(&|$)/);
   await expect(page.getByRole("banner")).toContainText("WAS-1142 · Rep Mara Jensen");
 
   // Dana's rep card and chat's "call your rep" name Mara now.
