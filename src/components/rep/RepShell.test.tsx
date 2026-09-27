@@ -16,6 +16,7 @@ vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<
 const {RepShell}=await import('./RepShell');
 const {SectionPlaceholder}=await import('./RepPage');
 const {SettingsSection}=await import('./SettingsSection');
+const {settingsFixture}=await import('./settings/test-fixtures');
 
 const customers:CustomerListItem[]=[
   {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen'},
@@ -32,7 +33,6 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   if(url==='/api/rep/badges')return Response.json({quotes:badgeCount});
   if(url==='/api/session'&&init?.method==='DELETE')return Response.json({ok:true});
   if(url.startsWith('/api/query/supplier/dashboard/'))return Response.json(dashboard);
-  if(url.startsWith('/api/query/supplier/data/'))return Response.json({rows:[],total:0,page:1,size:10});
   if(url==='/api/query/erp/status')return Response.json({last_updated:null,events:[]});
   return Response.json({detail:'Not found.'},{status:404});
 });
@@ -125,10 +125,10 @@ describe('"Viewing" customer picker',()=>{
   });
 
   it('changes the scope in the URL, keeping the page and its other params',()=>{
-    at('/rep/settings','tab=data');
+    at('/rep/settings','tab=access');
     renderShell();
     fireEvent.change(screen.getByLabelText('Viewing'),{target:{value:'great-basin'}});
-    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=data&customer=great-basin',{scroll:false});
+    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=access&customer=great-basin',{scroll:false});
   });
 
   it('goes back to All customers by dropping ?customer=',()=>{
@@ -167,21 +167,21 @@ describe('account menu',()=>{
 
 // Analytics follows the picker too: src/components/rep/analytics/AnalyticsPage.test.tsx (task 6.2).
 describe('sections follow the picker',()=>{
-  it('Settings opens Customer access for All customers by default, with the old sections as tabs',async()=>{
-    at('/rep/settings');
-    renderShell(<SettingsSection/>);
+  it('Settings opens Rep assignments by default, with every section as a tab that keeps the picker',()=>{
+    at('/rep/settings','customer=great-basin');
+    renderShell(<SettingsSection initial={settingsFixture('great-basin')}/>);
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Customer access','Data browser','Data sources']);
-    expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
-    expect(await screen.findByRole('switch',{name:'Pricing'})).toBeInTheDocument();
-    expect(requested()).toContain('/api/query/supplier/dashboard/all');
+    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Customer access','Margin floors','Pricing & delivery','Data sources']);
+    expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
+    expect(within(tabs).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources&customer=great-basin');
+    expect(screen.getByRole('combobox',{name:'Rep for Great Basin Fabrication'})).toHaveValue('brandi');
+    expect(screen.queryByText('Data browser')).not.toBeInTheDocument();
   });
 
-  it('the Settings data browser reads the picked customer\'s records',async()=>{
-    at('/rep/settings','tab=data&customer=great-basin');
-    renderShell(<SettingsSection/>);
-    expect(await screen.findByText('No records in this category.')).toBeInTheDocument();
-    expect(requested()).toContain('/api/query/supplier/data/great-basin/items_stock?page=1&size=10');
-    expect(within(screen.getByRole('navigation',{name:'Settings sections'})).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources&customer=great-basin');
+  it('Settings > Customer access is for the picked customer',()=>{
+    at('/rep/settings','tab=access&customer=wasatch');
+    renderShell(<SettingsSection initial={settingsFixture('wasatch')}/>);
+    expect(screen.getByText('Viewing Wasatch Mechanical Contractors',{selector:'p'})).toBeInTheDocument();
+    expect(screen.getByRole('switch',{name:'Pricing'})).toBeChecked();
   });
 });
