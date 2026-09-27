@@ -179,8 +179,24 @@ export function useQuoteEditor(initial:QuoteDetail){
   /** Resolves once every queued edit is saved (Save draft). */
   const flush=useCallback(()=>chain.current,[]);
 
+  /**
+   * A quote-level save from the side panels (task 3.4: pickup or delivery, freight, terms,
+   * internal notes), queued behind the line edits so answers can't overtake each other. `save`
+   * answers the fresh detail, which replaces the server copy (totals, freight and the checks
+   * follow it). Rejects with the error for the panel to show, after reloading the quote if it
+   * changed underneath (404 / 409).
+   */
+  const saveQuote=useCallback((save:()=>Promise<QuoteDetail>):Promise<QuoteDetail>=>{
+    const result=chain.current.then(save).then(fresh=>{setServer(fresh);setSavedAt(new Date().toISOString());return fresh;},async(caught:unknown)=>{
+      if(caught instanceof EditError&&(caught.status===404||caught.status===409)){const fresh=await reload(quoteId);if(fresh)setServer(fresh);}
+      throw caught;
+    });
+    chain.current=result.then(()=>undefined,()=>undefined);
+    return result;
+  },[quoteId]);
+
   return {detail:server,lines,pending:pending.length,adding:pending.some(p=>p.op.kind==='add'&&!p.op.restore),error,savedAt,undoStack,
-    draft,edit,remove,add,undo,flush,focusLineId,clearFocus:()=>setFocusLineId(null),dismissError:()=>setError(null)};
+    draft,edit,remove,add,undo,flush,saveQuote,focusLineId,clearFocus:()=>setFocusLineId(null),dismissError:()=>setError(null)};
 }
 
 export type QuoteEditor=ReturnType<typeof useQuoteEditor>;
