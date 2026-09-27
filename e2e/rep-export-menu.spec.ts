@@ -189,7 +189,7 @@ test("Copy quote summary puts plain text on the clipboard, with no cost or margi
     .toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   expect(copied).toBe(
     [
-      "Quote Q-24817 rev 1 for Wasatch Mechanical Contractors (Dana Ortiz)",
+      "Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)",
       `Valid until ${validUntil} · Will call at SLC`,
       "",
       "10 x HCS-12-13-2G8 Hex cap screw 1/2-13 x 2 in (Box of 50) @ $31.50 = $315.00",

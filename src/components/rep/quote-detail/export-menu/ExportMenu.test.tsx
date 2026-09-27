@@ -130,7 +130,7 @@ describe('downloads',()=>{
 });
 
 describe('Copy quote summary',()=>{
-  const SUMMARY_START='Quote Q-24817 rev 1 for Wasatch Mechanical Contractors (Dana Ortiz)\nValid until Oct 9, 2026 · Will call at SLC\n\n10 x HCS-12-13-2G8';
+  const SUMMARY_START='Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)\nValid until Oct 9, 2026 · Will call at SLC\n\n10 x HCS-12-13-2G8';
 
   it('writes the plain-text summary of the lines on screen to the clipboard and says so',async()=>{
     renderMenu();
