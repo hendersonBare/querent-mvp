@@ -51,6 +51,20 @@ describe('query log',()=>{
     expect(history('great-basin','conv-log')).toEqual([]);
   });
 
+  it('returns each turn with its reply\'s kind and payload, matched in order by the reply\'s text (task 2.2)',()=>{
+    createConversation({id:'conv-kinds',customerId:'wasatch'});
+    const log=(question:string,answer:string,at:string)=>appendLog({customerId:'wasatch',conversationId:'conv-kinds',question,categories:['items_stock'],handled:['items_stock'],toolCalls:[],rowCount:1,latency:1,outcome:'answered',answer,at});
+    const say=(role:'customer'|'assistant',content:string,at:string,kind='text',payload:unknown=null)=>addMessage('wasatch','conv-kinds',{role,content,kind,payload,at});
+    const clarify={open:[{requested_text:'wheels',round:1}],cart:{lines:[]},dropped:[],rep:null};
+    say('customer','Hi','2026-09-24T10:00:00.000Z');say('assistant','Hello.','2026-09-24T10:00:01.000Z');log('Hi','Hello.','2026-09-24T10:00:01.000Z');
+    say('customer','Wheels','2026-09-24T10:01:00.000Z');say('assistant','Which?','2026-09-24T10:01:01.000Z','clarify',clarify);log('Wheels','Which?','2026-09-24T10:01:01.000Z');
+    // A reply without a log entry (a system notice) is skipped, and a log entry without a message gets no kind.
+    say('assistant','Quote requested.','2026-09-24T10:01:30.000Z','quote_requested',{quote_id:'q-1'});
+    log('Which?','Which?','2026-09-24T10:02:00.000Z');
+    expect(history('wasatch','conv-kinds').map(t=>[t.question,t.kind,t.payload])).toEqual([['Hi',undefined,undefined],['Wheels','clarify',clarify],['Which?',undefined,undefined]]);
+    expect(history('great-basin','conv-kinds')).toEqual([]);
+  });
+
   it('writes nothing to a conversation that isn\'t the customer\'s (task 0.3 carry-forward)',()=>{
     const entry={question:'Not mine',categories:[],handled:[],toolCalls:[],rowCount:0,latency:1,outcome:'answered',answer:'x'};
     // conv-test is great-basin's (created above); wasatch may not log against it, nor against a conversation that doesn't exist.

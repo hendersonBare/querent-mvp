@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { ClarifyPayload } from "@/domain";
 import type { API, ChatAnswer, ChatTurn, Principal } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
+import { ClarifyPanel } from "@/components/customer/ClarifyPanel";
 import { CustomerLayout } from "@/components/customer/CustomerLayout";
 export function CustomerChat({
   api,
@@ -33,7 +35,8 @@ export function CustomerChat({
     api
       .get<ChatTurn[]>(`customer/history/${conversation}`)
       .then((result) => {
-        if (!cancelled) setTurns(result);
+        // A message sent before the history arrived stays, after the history.
+        if (!cancelled) setTurns((current) => [...result, ...current]);
       })
       .catch((e) => {
         if (!cancelled) setError(String(e));
@@ -129,7 +132,7 @@ export function CustomerChat({
               </div>
             ) : (
               <div className="turns">
-                {turns.map((turn) => (
+                {turns.map((turn, index) => (
                   <article className="chat-turn" key={turn.id}>
                     <div className="question-row">
                       <div className="question-bubble">{turn.question}</div>
@@ -151,6 +154,14 @@ export function CustomerChat({
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {turn.answer}
                             </ReactMarkdown>
+                            {/* Only the latest clarifying reply can still be answered (task 2.2). */}
+                            {turn.kind === "clarify" && turn.payload && index === turns.length - 1 && (
+                              <ClarifyPanel
+                                payload={turn.payload as ClarifyPayload}
+                                active={!busy && !!conversation}
+                                onSend={(message) => void ask(message)}
+                              />
+                            )}
                           </div>
                         )}
                       </div>

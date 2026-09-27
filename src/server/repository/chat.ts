@@ -47,8 +47,22 @@ export function appendLog(entry:QueryLogEntry){
   return true;
 }
 
-/** The customer's logged questions and answers in one conversation, oldest first. */
+/**
+ * The customer's logged questions and answers in one conversation, oldest first. A turn whose reply
+ * has a payload (a clarifying question's buttons, the item pop-up's cart) carries the reply's kind
+ * and payload, so reopening the chat shows the same controls. Replies are paired with log entries in
+ * order, by their text; a reply with no log entry (a system notice) is skipped.
+ */
 export function history(customerId:string,conversationId:string):ChatTurn[]{
-  return all<Omit<ChatTurn,'sql'|'categories'>&{categories:string}>('SELECT id,question,answer,categories,outcome,row_count,timestamp FROM query_logs WHERE customer_id=? AND conversation_id=? ORDER BY timestamp',customerId,conversationId)
-    .map(row=>({...row,sql:null,categories:JSON.parse(row.categories) as Category[]}));
+  const replies=conversationMessages(customerId,conversationId).filter(m=>m.role==='assistant');
+  let next=0;
+  return all<Omit<ChatTurn,'sql'|'categories'>&{categories:string}>('SELECT id,question,answer,categories,outcome,row_count,timestamp FROM query_logs WHERE customer_id=? AND conversation_id=? ORDER BY timestamp,rowid',customerId,conversationId)
+    .map(row=>{
+      const turn:ChatTurn={...row,sql:null,categories:JSON.parse(row.categories) as Category[]};
+      const found=replies.findIndex((m,i)=>i>=next&&m.content===row.answer);
+      if(found<0)return turn;
+      next=found+1;
+      const {kind,payload}=replies[found];
+      return payload===null?turn:{...turn,kind:kind as ChatTurn['kind'],payload:payload as ChatTurn['payload']};
+    });
 }
