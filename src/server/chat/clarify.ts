@@ -188,7 +188,7 @@ export function statedQty(text:string){
 export function readAction(text:string,state:ClarifyPayload):LineOutcome[]{
   const drop=dropTarget(text,state);
   if(drop!==undefined)return [{kind:'drop',index:drop}];
-  const taken=new Set<string>(),picks:LineOutcome[]=[];
+  const taken=new Set<string>(),picks:Extract<LineOutcome,{kind:'match'}>[]=[];
   state.open.forEach((line,index)=>{
     const named=line.candidates.filter(c=>!taken.has(c.sku)&&mentionsSku(text,c.sku));
     if(named.length===1){taken.add(named[0].sku);picks.push({kind:'match',index,sku:named[0].sku});}

@@ -43,16 +43,22 @@ describe('scripted mode (no API key, or QUERENT_SCRIPTED=1)',()=>{
     expect(stock).toMatchObject({sql:null,categories:['items_stock'],outcome:'answered',row_count:1,kind:'text',payload:null});
     expect(stock.answer).toContain('64 at SLC, 22 at Ogden and 8 at Provo');
     const clarify=await ask('wasatch','conv-scripted',REQUEST,{contactId:'dana'});
-    expect(clarify).toMatchObject({kind:'clarify',outcome:'answered',payload:{question:'Type 1 or Type 27 cut-off wheels?',round:1}});
+    expect(clarify).toMatchObject({kind:'clarify',outcome:'answered',payload:{open:[{question:'Type 1 or Type 27 cut-off wheels?',round:1}]}});
+    const again=await ask('wasatch','conv-scripted','Not sure',{contactId:'dana'});
+    expect(again).toMatchObject({kind:'clarify',payload:{open:[{round:2,choices:[{sku:'CW-45-045-T1'},{sku:'CW-45-045-T27'},{sku:'CW-45-090-T27'}]}],rep:{name:'Brandi Gallegos'}}});
     const popup=await ask('wasatch','conv-scripted','Type 1',{contactId:'dana'});
     expect(popup).toMatchObject({kind:'item_popup',payload:{fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10},{sku:'CW-45-045-T1',qty:6}]}});
 
     expect(conversation('wasatch','conv-scripted')).toMatchObject({customer_id:'wasatch',contact_id:'dana'});
     const messages=conversationMessages('wasatch','conv-scripted');
-    expect(messages.map(m=>[m.role,m.kind])).toEqual([['customer','text'],['assistant','text'],['customer','text'],['assistant','clarify'],['customer','text'],['assistant','item_popup']]);
-    expect(messages.map(m=>m.content)).toEqual([STOCK,stock.answer,REQUEST,clarify.answer,'Type 1',popup.answer]);
-    expect(messages[5].payload).toEqual(popup.payload);
-    expect(history('wasatch','conv-scripted').map(t=>[t.question,t.outcome,t.categories])).toEqual([[STOCK,'answered',['items_stock']],[REQUEST,'answered',['items_stock']],['Type 1','answered',['items_stock']]]);
+    expect(messages.map(m=>[m.role,m.kind])).toEqual([['customer','text'],['assistant','text'],['customer','text'],['assistant','clarify'],['customer','text'],['assistant','clarify'],['customer','text'],['assistant','item_popup']]);
+    expect(messages.map(m=>m.content)).toEqual([STOCK,stock.answer,REQUEST,clarify.answer,'Not sure',again.answer,'Type 1',popup.answer]);
+    expect(messages[7].payload).toEqual(popup.payload);
+    const turns=history('wasatch','conv-scripted');
+    expect(turns.map(t=>[t.question,t.outcome,t.categories])).toEqual([[STOCK,'answered',['items_stock']],[REQUEST,'answered',['items_stock']],['Not sure','answered',['items_stock']],['Type 1','answered',['items_stock']]]);
+    // The history carries each reply's kind and payload, so a reload shows the same buttons.
+    expect(turns.map(t=>t.kind)).toEqual([undefined,'clarify','clarify','item_popup']);
+    expect(turns.map(t=>t.payload)).toEqual([undefined,clarify.payload,again.payload,popup.payload]);
   });
 
   it('is used even with an API key when QUERENT_SCRIPTED=1',async()=>{

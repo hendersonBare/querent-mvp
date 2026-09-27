@@ -1,80 +1,59 @@
 import 'server-only';
-import type {Branch,CartLine,ChatMessage,ClarifyPayload,Fulfillment,ItemCandidate,ItemPopupPayload} from '@/domain';
-import type {Category} from '@/lib/contracts';
-import {branches,catalogItem} from '@/server/repository/customer';
-import {UNIT_QTY,quantityOf} from './lines';
+import type {ChatMessage,ClarifyPayload} from '@/domain';
+import {UNIT_QTY} from './lines';
 import {reply,repHelp as help,type ChatReply} from './reply';
-import {getStockTool,proposeCartTool,searchItemsTool,type ItemStockAnswer,type ToolContext} from './tools';
+import {
+  advance,itemLabel as label,itemsDenied,pendingRequest,readAction,requestReply,startRequest,statedQty,whereIn,type LineOutcome,
+} from './clarify';
+import {getStockTool,searchItemsTool,toolDenied,type ItemStockAnswer,type ToolContext} from './tools';
 
 export {reply,type ChatReply} from './reply';
 
 // Scripted chat (spec §6.5): a deterministic Dana conversation that needs no API key. CI and every
 // E2E run use it. The script knows a few phrasings; the data behind every answer comes from the
-// same chat tools live chat uses, so stock, SKUs and access toggles are real.
+// same chat tools live chat uses, so stock, SKUs and access toggles are real, and a quote request
+// runs through the same clarification loop (./clarify.ts): each line Dana names is matched by
+// search_items (the 1.4 matcher), never by a SKU the script picks.
 //
 //   Dana: Do you have 1/2 in grade 8 hex bolts in stock?        -> stock at every branch (get_stock)
 //   Dana: Please quote 10 boxes of the 1/2 in grade 8 hex bolts
 //         and 6 boxes of cut-off wheels. We'll pick up at SLC.  -> bolts matched; the wheels are vague:
-//                                                                  "Type 1 or Type 27 cut-off wheels?" (search_items)
-//   Dana: Type 1                                                 -> the item pop-up's cart (propose_cart)
+//                                                                  "Type 1 or Type 27 cut-off wheels?" (round 1)
+//   Dana: Not sure                                               -> round 2: the top 3 wheels as buttons,
+//                                                                  Brandi's contact, and Drop this line
+//   Dana: Type 1 (or presses a button)                           -> the item pop-up's cart (propose_cart)
 //
 // Anything off-script gets a short note that points to the customer's rep.
 
 interface ScriptItem {
-  /** How Querent names the item in a reply, e.g. "which cut-off wheels you mean". */
-  name:string;
   mention:RegExp;
-  /** A line Querent matches outright: the SKU Dana usually orders. */
+  /** Stock questions: the SKU a stock answer is about. */
   sku?:string;
-  /** A vague line: the search that finds the candidates, the question, and how an answer picks one. */
-  vague?:{query:string;question:string;choices:{sku:string;pattern:RegExp}[]};
+  /**
+   * An item Dana names without saying which: the SKU a stock answer covers for each way she can
+   * narrow it (all of them when she doesn't), and the words a short answer ("27", "the 1s") stands for.
+   */
+  vague?:{choices:{sku:string;phrase:string;pattern:RegExp}[]};
 }
 
 const SCRIPT:ScriptItem[]=[
-  {name:'hex bolts',mention:/\bhex\s+(?:bolts?|cap\s+screws?)\b|\bcap\s+screws?\b|\bbolts?\b/i,sku:'HCS-12-13-2G8'},
-  {name:'cut-off wheels',mention:/\bcut[\s-]?off(?:\s+(?:wheels?|discs?))?\b/i,vague:{
-    query:'4.5 cut-off wheel .045',
-    question:'Type 1 or Type 27 cut-off wheels?',
-    choices:[
-      {sku:'CW-45-045-T1',pattern:/\b(?:type|t)[\s-]*1(?![\d/.])|^\W*(?:the\s+)?1s?\W*$/i},
-      {sku:'CW-45-045-T27',pattern:/\b(?:type|t)[\s-]*27(?![\d/.])|^\W*(?:the\s+)?27s?\W*$/i},
-    ],
-  }},
+  {mention:/\bhex\s+(?:bolts?|cap\s+screws?)\b|\bcap\s+screws?\b|\bbolts?\b/i,sku:'HCS-12-13-2G8'},
+  {mention:/\bcut[\s-]?off(?:\s+(?:wheels?|discs?))?\b/i,vague:{choices:[
+    {sku:'CW-45-045-T1',phrase:'Type 1',pattern:/\b(?:type|t)[\s-]*1(?![\d/.])|^\W*(?:the\s+)?1s?\W*$/i},
+    {sku:'CW-45-045-T27',phrase:'Type 27',pattern:/\b(?:type|t)[\s-]*27(?![\d/.])|^\W*(?:the\s+)?27s?\W*$/i},
+  ]}},
 ];
 
 const REQUEST=/\b(?:need|want|order|quote|send|request|buy|get\s+(?:me|us)|pick\s*up|deliver(?:y|ed)?|ship)\b/i;
-const DELIVERY=/\bdeliver(?:y|ed)?\b|\bship(?:ped|ping)?\b/i;
 /** Clause breaks: punctuation (not a decimal point), and "and" / "plus" / "also" / "then". */
 const CLAUSE=/[,;!?]|\.(?!\d)|\b(?:and|plus|also|then)\b/i;
 
 const clauses=(text:string)=>text.split(CLAUSE).map(c=>c.trim()).filter(Boolean);
-const count=(n:number)=>n>0?n:undefined;
-/** A qty stated in the clause: "10 boxes", or a leading number ("6 cut-off wheels"). "1/2 in" is a size, not a qty (./lines.ts). */
-const qtyIn=(clause:string)=>quantityOf(clause)??undefined;
 const joinAnd=(parts:string[])=>parts.length<2?parts.join(''):`${parts.slice(0,-1).join(', ')} and ${parts.at(-1)}`;
-const label=(item:{sku:string;description:string;pack:string})=>`${item.sku} (${item.description}, ${item.pack.toLowerCase()})`;
 const shortDate=(day:string)=>new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+const rowsOf=(lines:{candidates:unknown[]}[])=>lines.reduce((n,l)=>n+l.candidates.length,0);
 
 const repHelp=(ctx:ToolContext,lead:string)=>help(ctx.customerId,lead);
-
-/** Asking for goods (matching, clarifying, the pop-up) is logged under Items & stock, the toggle its tools check. */
-const ITEMS:Category[]=['items_stock'];
-
-/** Items & stock is off for this customer: no item matching in chat, so point to the rep. */
-const itemsDenied=(ctx:ToolContext,toolCalls:string[])=>reply({
-  content:`I can't look up items in chat for your account. ${repHelp(ctx,'{rep} can take your order')}`,
-  categories:ITEMS,toolCalls,outcome:'restricted',
-});
-
-/** A choice picks a candidate when exactly one choice (or one candidate SKU) matches the text. */
-function pick(text:string,candidates:ItemCandidate[],item?:ScriptItem){
-  const upper=text.toUpperCase();
-  const skus=new Set([
-    ...(item?.vague?.choices??[]).filter(c=>c.pattern.test(text)).map(c=>c.sku),
-    ...candidates.filter(c=>upper.includes(c.sku)).map(c=>c.sku),
-  ]);
-  return skus.size===1?candidates.find(c=>skus.has(c.sku)):undefined;
-}
 
 // ---- Stock answer ----------------------------------------------------------------------------
 
@@ -99,84 +78,72 @@ function stockAnswer(ctx:ToolContext,skus:string[]):ChatReply{
   return reply({content,categories:['items_stock'],handled:['items_stock'],toolCalls:['get_stock'],rowCount:items.length});
 }
 
-// ---- Quote request, clarification and the item pop-up ----------------------------------------
+// ---- Quote request and the clarification loop (./clarify.ts) ----------------------------------
 
-function fulfillmentIn(text:string,all:Branch[],fallback?:ItemPopupPayload){
-  const fulfillment:Fulfillment=DELIVERY.test(text)?'delivery':fallback?.fulfillment??'will_call';
-  const named=all.find(b=>[b.code,b.name,b.city,b.city.replace(/\s+city$/i,'')].some(n=>new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`,'i').test(text)));
-  return {fulfillment,branch_id:named?.id??fallback?.branch_id??all[0].id};
+/** Dana asks for goods: search_items matches every line she names; then the pop-up, or a question for each open line. */
+function request(ctx:ToolContext,text:string):ChatReply{
+  const said=clauses(text).filter(clause=>SCRIPT.some(item=>item.mention.test(clause)));
+  const toolCalls=['search_items'];
+  const found=searchItemsTool(ctx,{query:said.join('\n')});
+  if(!found.ok&&found.reason==='restricted')return itemsDenied(ctx,toolCalls);
+  if(!found.ok||!found.data.lines.length)return reply({content:`I couldn't match that. ${repHelp(ctx,'{rep} can help')}`,categories:['items_stock'],toolCalls,outcome:'no_rows'});
+  return requestReply(ctx,undefined,startRequest(found.data.lines,whereIn(text)),{toolCalls,rowCount:rowsOf(found.data.lines)});
 }
 
-function describeLine(line:CartLine){const item=catalogItem(line.sku);return `${line.qty} × ${item?label(item):line.sku}`;}
-
-function itemPopup(ctx:ToolContext,cart:ItemPopupPayload,toolCalls:string[]):ChatReply{
-  const result=proposeCartTool(ctx,cart);
-  if(!result.ok&&result.reason==='restricted')return itemsDenied(ctx,[...toolCalls,'propose_cart']);
-  if(!result.ok)return reply({content:`I couldn't build your list. ${repHelp(ctx,'{rep} can help')}`,categories:ITEMS,toolCalls:[...toolCalls,'propose_cart'],outcome:'no_rows'});
-  const payload=result.data;
-  const branch=branches().find(b=>b.id===payload.branch_id)!;
-  const where=payload.fulfillment==='will_call'?`Pickup at ${branch.code}`:`Delivery from ${branch.code}`;
-  return reply({
-    kind:'item_popup',payload,categories:ITEMS,handled:ITEMS,toolCalls:[...toolCalls,'propose_cart'],rowCount:payload.lines.length,
-    content:`Here is your list:\n\n${payload.lines.map(l=>`- ${describeLine(l)}`).join('\n')}\n\n${where}. Check the quantities, choose pickup or delivery, then press Request quote.`,
-  });
-}
-
-function clarify(ctx:ToolContext,payload:ClarifyPayload,toolCalls:string[]):ChatReply{
-  const {question,round,line,cart}=payload;
-  const name=SCRIPT.find(i=>i.vague?.question===question)?.name??'item';
-  const content=round<2
-    ?`${cart.lines.length?`Got it: ${joinAnd(cart.lines.map(describeLine))}.\n\n`:''}${question}`
-    :`I still need to know which ${name} you mean. ${question}\n\n${line.candidates.map(c=>`- ${label(c)}`).join('\n')}\n\nNot sure? ${repHelp(ctx,'{rep} can help')}`;
-  return reply({kind:'clarify',payload,content,categories:ITEMS,handled:ITEMS,toolCalls,rowCount:line.candidates.length});
-}
-
-/** Dana asks for goods: match each scripted line, then ask about the first vague one or open the pop-up. */
-function request(ctx:ToolContext,text:string,mentioned:ScriptItem[]):ChatReply{
-  const parts=clauses(text);
-  const toolCalls:string[]=[];
-  const cart:ItemPopupPayload={...fulfillmentIn(text,branches()),lines:[]};
-  let open:ClarifyPayload['line']|undefined,openItem:ScriptItem|undefined;
-  for(const item of mentioned){
-    const said=parts.filter(p=>item.mention.test(p));
-    const requested_text=said.find(p=>qtyIn(p)!==undefined)??said[0]??item.name;
-    const qty=said.map(qtyIn).find(q=>q!==undefined)??1;
-    if(item.sku){cart.lines.push({sku:catalogItem(item.sku)?.sku??item.sku,qty,requested_text});continue;}
-    const found=searchItemsTool(ctx,{query:item.vague!.query});
-    toolCalls.push('search_items');
-    if(!found.ok&&found.reason==='restricted')return itemsDenied(ctx,toolCalls);
-    const candidates:ItemCandidate[]=found.ok?(found.data.lines[0]?.candidates??[]).map(({sku,description,pack,category_name})=>({sku,description,pack,category_name})):[];
-    const chosen=pick(said.join(' '),candidates,item);
-    if(chosen)cart.lines.push({sku:chosen.sku,qty,requested_text});
-    else if(!open){open={requested_text,qty,candidates};openItem=item;}
-  }
-  if(open&&openItem)return clarify(ctx,{question:openItem.vague!.question,round:1,line:open,cart},toolCalls);
-  return itemPopup(ctx,cart,toolCalls);
-}
-
-/** Dana answers a clarifying question: resolve the line and open the pop-up, or ask again. */
-function answer(ctx:ToolContext,text:string,pending:ClarifyPayload):ChatReply|undefined{
-  const item=SCRIPT.find(i=>i.vague?.question===pending.question);
-  const chosen=pick(text,pending.line.candidates,item);
-  if(!chosen)return undefined;
-  // Only an explicit "8 boxes" changes the qty: a bare "27" answers the question, it isn't a qty.
-  const unit=UNIT_QTY.exec(text)?.[1];
-  const qty=(unit===undefined?undefined:count(Number(unit)))??pending.line.qty;
-  const line:CartLine={sku:chosen.sku,qty,requested_text:pending.line.requested_text};
-  return itemPopup(ctx,{...pending.cart,...fulfillmentIn(text,branches(),pending.cart),lines:[...pending.cart.lines,line]},[]);
+/** The words an answer stands for: a short answer the script knows ("27" is "Type 27"), else the answer without its "8 boxes". */
+function phraseOf(text:string){
+  const known=SCRIPT.flatMap(item=>item.vague?.choices.filter(c=>c.pattern.test(text))??[]);
+  return known.length===1?known[0].phrase:text.replace(UNIT_QTY,' ').trim();
 }
 
 /**
- * The scripted reply to `message`, given the conversation so far (oldest first). The state of an
- * open clarification lives in the last assistant message's `clarify` payload.
+ * Dana replies while lines are open. A button (a candidate's SKU, or Drop) settles its line
+ * directly. Otherwise each open line is searched again with her answer added, as Claude searches
+ * again in live chat: a confident match among the line's candidates settles it, and a new question
+ * about fewer of them narrows it. No reply when the message answers no line.
+ */
+function answer(ctx:ToolContext,text:string,pending:ClarifyPayload):{reply?:ChatReply;toolCalls:string[];rowCount:number}{
+  const toolCalls:string[]=[];
+  let rowCount=0;
+  let outcomes=readAction(text,pending);
+  if(!outcomes.length){
+    const phrase=phraseOf(text);
+    for(const [index,line] of pending.open.entries()){
+      toolCalls.push('search_items');
+      const found=searchItemsTool(ctx,{query:`${line.text} ${phrase}`});
+      if(!found.ok&&found.reason==='restricted')return {reply:itemsDenied(ctx,toolCalls),toolCalls,rowCount};
+      if(!found.ok||found.data.lines.length!==1)continue;
+      const [again]=found.data.lines;
+      rowCount+=again.candidates.length;
+      const offered=new Set(line.candidates.map(c=>c.sku));
+      if(!again.candidates[0]||!offered.has(again.candidates[0].sku))continue;
+      if(again.confident)outcomes.push({kind:'match',index,sku:again.candidates[0].sku});
+      else if(again.question!==line.question)outcomes.push({kind:'refine',index,line:{...again,candidates:again.candidates.filter(c=>offered.has(c.sku))}});
+    }
+    const qty=statedQty(text);
+    if(outcomes.length===1&&qty)outcomes=[{...outcomes[0],qty} as LineOutcome];
+  }
+  if(!outcomes.length)return {toolCalls,rowCount};
+  const next=advance(pending,outcomes,{where:whereIn(text,pending.cart)});
+  return {reply:requestReply(ctx,pending,next,{toolCalls,rowCount}),toolCalls,rowCount};
+}
+
+/**
+ * The scripted reply to `message`, given the conversation so far (oldest first). An open request
+ * lives in the last assistant message's `clarify` payload.
  */
 export function scriptedReply(ctx:ToolContext,message:string,history:Pick<ChatMessage,'role'|'kind'|'payload'>[]):ChatReply{
   const text=message.trim();
-  const last=history.findLast(m=>m.role==='assistant');
-  const pending=last?.kind==='clarify'?last.payload as ClarifyPayload:undefined;
-  if(pending){const resolved=answer(ctx,text,pending);if(resolved)return resolved;}
+  const pending=pendingRequest(history);
+  let tried:{toolCalls:string[];rowCount:number}|undefined;
+  if(pending){
+    if(toolDenied(ctx,'search_items'))return itemsDenied(ctx,['search_items']);
+    const attempt=answer(ctx,text,pending);
+    if(attempt.reply)return attempt.reply;
+    tried=attempt;
+  }
   const mentioned=SCRIPT.filter(item=>item.mention.test(text));
-  if(mentioned.length&&(REQUEST.test(text)||UNIT_QTY.test(text)))return request(ctx,text,mentioned);
+  if(mentioned.length&&(REQUEST.test(text)||UNIT_QTY.test(text)))return request(ctx,text);
   if(mentioned.length){
     const skus=mentioned.flatMap(item=>{
       if(item.sku)return [item.sku];
@@ -185,7 +152,8 @@ export function scriptedReply(ctx:ToolContext,message:string,history:Pick<ChatMe
     });
     return stockAnswer(ctx,skus);
   }
-  if(pending)return clarify(ctx,{...pending,round:pending.round+1},[]);
+  // A reply that settles no open line: the next round (./clarify.ts).
+  if(pending)return requestReply(ctx,pending,advance(pending,[]),tried);
   return reply({
     outcome:'no_rows',
     content:`I'm running as a scripted demo, so I can only follow the sample conversation: ask whether the 1/2 in grade 8 hex bolts are in stock, then ask for bolts and cut-off wheels to start a quote. ${repHelp(ctx,'For anything else, {rep} can help')}`,
