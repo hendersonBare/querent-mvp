@@ -35,6 +35,8 @@ describe('the tool definitions Claude sees',()=>{
     const {TOOL_DEFINITIONS}=await definitions();
     const schema=(name:string)=>TOOL_DEFINITIONS.find(t=>t.name===name)!.input_schema as {required?:string[];properties:Record<string,{maxItems?:number;enum?:string[];items?:{properties:Record<string,{minimum?:number;maximum?:number}>}}>};
     expect(schema('search_items').required).toEqual(['query']);
+    // Task 2.2: Claude marks the searches that belong to a quote request; the clarification loop tracks those.
+    expect(schema('search_items').properties.quote_request).toMatchObject({type:'boolean'});
     expect(schema('get_stock')).toMatchObject({required:['skus'],properties:{skus:{maxItems:20}}});
     expect(schema('get_order_history').required??[]).toEqual([]);
     expect(schema('get_account_summary').properties).toEqual({});

@@ -19,6 +19,7 @@ const INPUTS={
   search_items:z.object({
     query:z.string().trim().min(1).max(2000).describe(`What the customer asked for, one item per line (up to ${MAX_REQUEST_LINES}), in their words: "10 boxes of 1/2 in grade 8 hex bolts\\n6 boxes of cut-off wheels". Quantities may stay in; they are read and taken out before scoring.`),
     limit:z.number().int().min(1).max(20).optional().describe('Candidates per line, best first. Default 5.'),
+    quote_request:z.boolean().optional().describe('true when the customer is asking for these goods to be quoted, not just asking about them. Querent then tracks the request line by line: each line that is not confident stays open with its clarifying question, and from the second round the customer sees its top candidates as buttons and the rep\'s contact.'),
   }),
   get_stock:z.object({skus:SKUS}),
   get_price:z.object({skus:SKUS}),
@@ -43,7 +44,7 @@ const INPUTS={
 } satisfies Record<ToolName,z.ZodType>;
 
 const DESCRIPTIONS:Record<ToolName,string>={
-  search_items:'Match what the customer asked for to catalog SKUs. Returns, for each requested line, scored candidates (identity only: SKU, description, pack, category), whether the best one is a confident match, and if not, the clarifying question to ask. Call it whenever the customer names goods, before get_stock, get_price or propose_cart, and never guess a SKU it did not return. Handles "the usual" from order history.',
+  search_items:'Match what the customer asked for to catalog SKUs. Returns, for each requested line, scored candidates (identity only: SKU, description, pack, category), whether the best one is a confident match, and if not, the clarifying question to ask. Call it whenever the customer names goods, before get_stock, get_price or propose_cart, and never guess a SKU it did not return. Handles "the usual" from order history. Set quote_request when the customer wants the goods quoted.',
   get_stock:'Stock on hand at every branch for up to 20 SKUs: available, on order, and the next receipt date. Use for "do you have ...", "how many ... at Ogden".',
   get_price:'The customer\'s own prices per pack for up to 20 SKUs: list price, their price-level price, an active contract price, and your_price (what they pay today). Use for "what\'s my price on ...". A quote is priced by the rep and can differ.',
   get_order_history:'Lines the customer bought, newest first: order number, date, PO, SKU, qty, and the unit price paid when their account shows prices. Use for "what did we pay last time", "when did we last order ...", "how many do we usually buy".',
@@ -64,7 +65,7 @@ export interface ToolRun {
 
 /** Each tool's handler, given its validated input. */
 const HANDLERS={
-  search_items:(ctx:ToolContext,input:z.infer<typeof INPUTS.search_items>)=>searchItemsTool(ctx,input),
+  search_items:(ctx:ToolContext,{query,limit}:z.infer<typeof INPUTS.search_items>)=>searchItemsTool(ctx,{query,limit}),
   get_stock:(ctx:ToolContext,input:z.infer<typeof INPUTS.get_stock>)=>getStockTool(ctx,input),
   get_price:(ctx:ToolContext,input:z.infer<typeof INPUTS.get_price>)=>getPriceTool(ctx,input),
   get_order_history:(ctx:ToolContext,input:z.infer<typeof INPUTS.get_order_history>)=>getOrderHistoryTool(ctx,input),
