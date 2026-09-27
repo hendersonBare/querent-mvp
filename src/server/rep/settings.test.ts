@@ -187,7 +187,8 @@ describe('updateMyFloor: My margin floors',()=>{
   });
 
   it('rejects a floor outside 0% to 99.9%, or not a number, changing nothing',()=>{
-    for(const floor_pct of [-0.1,99.96,100,150,Number.NaN,Number.POSITIVE_INFINITY,'25',null,undefined])
+    // Any negative, even one that rounds to 0.0% (cleanup 11).
+    for(const floor_pct of [-0.1,-0.01,-0.04,-0.05,-Number.MIN_VALUE,99.96,100,150,Number.NaN,Number.POSITIVE_INFINITY,'25',null,undefined])
       rejects(()=>updateMyFloor('brandi',{category_id:'fasteners',floor_pct}),400,/0%.*99\.9%/);
     rejects(()=>updateMyFloor('brandi',{floor_pct:25}),400);
     rejects(()=>updateMyFloor('brandi',{category_id:'nothing',floor_pct:25}),404);
