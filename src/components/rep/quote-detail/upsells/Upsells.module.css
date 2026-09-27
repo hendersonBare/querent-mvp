@@ -94,13 +94,18 @@ summary.head::-webkit-details-marker {
   color: var(--rep-muted);
 }
 
-/* Phones (screen 08): the title and "Querent found" on one line, the ideas under them; each chip's button under its text. */
+/* Phones (screen 08): "Querent found" and the ideas under the title; each chip's button under its text. */
 @media (max-width: 640px) {
   .meta {
     flex-basis: 100%;
-    margin-left: 26px;
     text-align: left;
   }
+  /* Under the title, past the chevron. */
+  .found,
+  .meta {
+    margin-left: 26px;
+  }
+  .box:not(details) .found,
   .box:not(details) .meta {
     margin-left: 0;
   }

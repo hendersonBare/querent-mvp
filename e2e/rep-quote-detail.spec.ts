@@ -100,7 +100,8 @@ test("screen 03 at 1440px: header, panels, line grid, totals and summary card", 
   await expect(summary(page)).toContainText("$361.40Gross profit");
   await expect(summary(page)).toContainText("32.2%Margin");
   await expect(summary(page)).toContainText("Bar shows quote margin. Marker is the 23.8% blended floor.");
-  await expect(summary(page)).toContainText("Querent found +$11.50 GP");
+  // "Querent found" sits next to "Suggested by Querent" (spec §5.1 rule 4, task 3.6).
+  await expect(page.getByRole("group", { name: "Suggested by Querent" })).toContainText("Querent found +$11.50 GP");
   await noSidewaysScroll(page);
   await attachScreenshot(page, testInfo, "quote-detail-1440");
 
