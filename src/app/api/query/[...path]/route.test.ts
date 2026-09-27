@@ -45,6 +45,33 @@ it('rejects a bad question, and another customer\'s conversation',async()=>{
   expect((await call('GET','customer/history/conv-great-basin')).json).toEqual([]);
 });
 
+it('serves the "quote is ready" messages for the chat on screen (task 5.1), never another customer\'s',async()=>{
+  const {createConversation,createQuote}=await import('@/server/repository');
+  const {sendQuote}=await import('@/server/quotes/service');
+  const asked=await call('POST','customer/chat',{body:{question:'Hi',conversation_id:'conv-notices-route'}});
+  expect(asked.status).toBe(200);
+  const mine=createQuote({customerId:'wasatch',contactId:'dana',conversationId:'conv-notices-route',fulfillment:'will_call',branchId:'slc',at:'2026-09-23T16:00:00.000Z',
+    lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5}]});
+  await sendQuote(mine.id,{repId:'brandi',message:'<script>alert(1)</script> **Hi**',now:'2026-09-23T17:00:00.000Z'});
+  createConversation({id:'conv-gb-route',customerId:'great-basin',at:'2026-09-23T16:00:00.000Z'});
+  const theirs=createQuote({customerId:'great-basin',conversationId:'conv-gb-route',fulfillment:'will_call',branchId:'slc',at:'2026-09-23T16:00:00.000Z',lines:[{itemId:'HCS-12-13-2G8',qty:1,unitPrice:40}]});
+  await sendQuote(theirs.id,{repId:'brandi',message:'Not for Dana',now:'2026-09-23T17:00:00.000Z'});
+
+  const notices=await call('GET','customer/notices/conv-notices-route');
+  expect(notices.status).toBe(200);
+  const own=notices.json.filter((n:{conversation_id:string})=>n.conversation_id==='conv-notices-route');
+  expect(own).toEqual([expect.objectContaining({quote_id:mine.id,revision:1,text:'<script>alert(1)</script> **Hi**',headline:expect.stringMatching(new RegExp(`^Quote ${mine.quote_number} is ready: `))})]);
+  // The history still pairs Dana's question with its reply; the notice is not a turn.
+  expect((await call('GET','customer/history/conv-notices-route')).json.map((t:{question:string})=>t.question)).toEqual(['Hi']);
+  // Tampered: Great Basin's conversation id gets Dana nothing of theirs.
+  const tampered=await call('GET','customer/notices/conv-gb-route');
+  expect(tampered.status).toBe(200);
+  expect(JSON.stringify(tampered.json)).not.toContain('Not for Dana');
+  expect(tampered.json.some((n:{quote_id:string})=>n.quote_id===theirs.id)).toBe(false);
+  expect((await call('GET','customer/notices/conv-notices-route',{persona:'supplier'})).status).toBe(404);
+  expect((await call('GET','customer/notices/conv-notices-route',{persona:'nobody'})).status).toBe(401);
+});
+
 it('keeps customers out of supplier routes, and suppliers out of customer routes',async()=>{
   expect((await call('GET','supplier/customers')).status).toBe(403);
   expect((await call('GET','customer/nothing-here')).status).toBe(403);

@@ -102,8 +102,30 @@ export interface CustomerQuoteView extends CustomerQuoteSummary {
   sent:{revision:number;sent_at:string;message:string|null;attach_pdf:boolean;snapshot:QuoteSnapshot}|null;
 }
 
-/** Customer-safe: one revision the rep sent (the customer PDF, task 4.1), with the quote's rep for its contact block. */
-export interface CustomerQuoteRevision {quote_id:string;revision:number;sent_at:string;snapshot:QuoteSnapshot;rep:Rep|null}
+/**
+ * Customer-safe: one revision the rep sent (the customer PDF, task 4.1), with the quote's rep for its
+ * contact block. attach_pdf: the rep left Attach PDF on, so the preview modal offers Download (5.1).
+ */
+export interface CustomerQuoteRevision {quote_id:string;revision:number;sent_at:string;attach_pdf:boolean;snapshot:QuoteSnapshot;rep:Rep|null}
+
+/**
+ * Customer-safe: what the PDF preview modal shows for one of the customer's quotes (task 5.1).
+ * `shown` is the sent revision on screen (the latest unless an older one was asked for), or null
+ * before the rep's first send: the customer PDF doesn't exist until then.
+ */
+export interface CustomerQuotePreview {
+  id:string;quote_number:string;
+  /** The status to show now: a sent quote past valid_until reads expired. */
+  status:QuoteStatus;
+  /** The last revision sent, 0 before the first send. */
+  latest_revision:number;
+  requested_at:string;
+  shown:{revision:number;sent_at:string;total:number;valid_until:string|null;attach_pdf:boolean;
+    /** GET /api/quotes/<id>/pdf?variant=customer&rev=<n>: shown inline, and downloaded when attach_pdf. */
+    pdf_url:string}|null;
+  /** The rep who owns the quote, to name in the modal's notes. */
+  rep:Pick<Rep,'name'|'phone'|'email'>|null;
+}
 
 // Write inputs. Unit cost is never an input: the repository copies it from the item when a line is written.
 

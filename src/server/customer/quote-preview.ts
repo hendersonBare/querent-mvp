@@ -1,0 +1,26 @@
+import 'server-only';
+import type {CustomerQuotePreview,Rep} from '@/domain';
+import {customerPdfUrl,effectiveStatus} from '@/server/quotes';
+import {assignedRep,customerQuote,customerQuoteRevision} from '@/server/repository/customer';
+
+// The customer's PDF preview modal (spec §3, task 5.1). Customer-facing, so it reads only the
+// customer-safe repository module: a revision the rep sent, never the draft.
+
+const contact=(rep:Rep|null|undefined)=>rep?{name:rep.name,phone:rep.phone,email:rep.email}:null;
+
+/**
+ * One of the customer's quotes (by id or number) as the preview modal shows it: its status now (a
+ * sent quote past valid_until reads expired), and revision `revision` of what the rep sent, or the
+ * latest when omitted. Before the first send there is nothing to show (`shown` null). Undefined
+ * for another customer's quote, an unknown one, or a revision that was never sent.
+ */
+export function customerQuotePreview(customerId:string,quoteIdOrNumber:string,revision?:number,now=new Date().toISOString()):CustomerQuotePreview|undefined{
+  const q=customerQuote(customerId,quoteIdOrNumber);
+  if(!q)return undefined;
+  const base={id:q.id,quote_number:q.quote_number,status:effectiveStatus(q,now),latest_revision:q.revision,requested_at:q.requested_at};
+  if(!q.sent)return revision===undefined?{...base,shown:null,rep:contact(assignedRep(customerId))}:undefined;
+  const sent=customerQuoteRevision(customerId,q.id,revision);
+  if(!sent)return undefined;
+  return {...base,rep:contact(sent.rep),shown:{revision:sent.revision,sent_at:sent.sent_at,total:sent.snapshot.total,valid_until:sent.snapshot.valid_until??null,
+    attach_pdf:sent.attach_pdf,pdf_url:customerPdfUrl(q.id,sent.revision)}};
+}

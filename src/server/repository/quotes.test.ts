@@ -300,6 +300,15 @@ describe('customer-safe quote reads',()=>{
     expect(customerQuoteRevision('wasatch',q.quote_number)).toMatchObject({revision:2,snapshot:{revision:2,total:300}});
     expect(customerQuoteRevision('wasatch',q.id,1)).toMatchObject({revision:1,snapshot:{revision:1,total:SNAPSHOT.total}});
   });
+
+  it('says per revision whether the rep left Attach PDF on (task 5.1: the preview modal offers Download)',()=>{
+    expect(customerQuoteRevision('wasatch','Q-24816')?.attach_pdf).toBe(true);
+    const q=newQuote();
+    addQuoteRevision(q.id,{revision:1,sentBy:'brandi',total:219.5,snapshot:SNAPSHOT,attachPdf:false});
+    addQuoteRevision(q.id,{revision:2,sentBy:'brandi',total:300,snapshot:{...SNAPSHOT,revision:2,total:300},attachPdf:true});
+    expect(customerQuoteRevision('wasatch',q.id,1)?.attach_pdf).toBe(false);
+    expect(customerQuoteRevision('wasatch',q.id)?.attach_pdf).toBe(true);
+  });
 });
 
 describe('resetSampleQuote',()=>{

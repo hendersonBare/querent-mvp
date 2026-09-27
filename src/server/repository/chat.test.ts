@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {addMessage,appendLog,conversation,conversationMessages,createConversation,history,latestConversation} from './chat';
+import {addMessage,appendLog,conversation,conversationMessages,createConversation,history,latestConversation,quoteNotices} from './chat';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -85,5 +85,55 @@ describe('query log',()=>{
     expect(appendLog({...entry,customerId:'wasatch',conversationId:'no-such-conversation'})).toBe(false);
     expect(history('great-basin','conv-test')).toEqual([]);
     expect(history('wasatch','conv-test')).toEqual([]);
+  });
+});
+
+describe('quote notices (task 5.1): the quote_ready messages Approve & send posts, for the customer\'s chat',()=>{
+  const payload=(quoteId:string,quoteNumber:string,revision=1,extra:Record<string,unknown>={})=>({quote_id:quoteId,quote_number:quoteNumber,revision,total:1122.4,valid_until:'2026-10-07',
+    headline:`Quote ${quoteNumber} is ready: $1,122.40, valid until Oct 7`,attach_pdf:true,pdf_url:`/api/quotes/${quoteId}/pdf?variant=customer&rev=${revision}`,...extra});
+  const ready=(customerId:string,conversationId:string,id:string,content:string,body:unknown,at:string)=>
+    addMessage(customerId,conversationId,{id,role:'system',kind:'quote_ready',content,payload:body,at});
+
+  it('returns the customer\'s quote_ready messages oldest first, in every conversation or in one, with the rep\'s text as stored',()=>{
+    createConversation({id:'conv-notice-a',customerId:'wasatch',contactId:'dana',at:'2026-09-24T08:00:00.000Z'});
+    createConversation({id:'conv-notice-b',customerId:'wasatch',contactId:'dana',at:'2026-09-24T08:00:00.000Z'});
+    ready('wasatch','conv-notice-b','n-2','Second <b>one</b>\n**bold?**',payload('q-24816','Q-24816',2),'2026-09-24T11:00:00.000Z');
+    ready('wasatch','conv-notice-a','n-1','',payload('q-24817','Q-24817'),'2026-09-24T10:00:00.000Z');
+    addMessage('wasatch','conv-notice-a',{role:'assistant',content:'Not a notice',at:'2026-09-24T10:30:00.000Z'});
+    const all=quoteNotices('wasatch').filter(n=>n.id.startsWith('n-'));
+    expect(all.map(n=>n.id)).toEqual(['n-1','n-2']);
+    expect(all[0]).toEqual({id:'n-1',conversation_id:'conv-notice-a',created_at:'2026-09-24T10:00:00.000Z',text:'',...payload('q-24817','Q-24817')});
+    expect(all[1].text).toBe('Second <b>one</b>\n**bold?**');
+    expect(quoteNotices('wasatch','conv-notice-b').map(n=>n.id)).toEqual(['n-2']);
+    expect(quoteNotices('wasatch','no-such-conversation')).toEqual([]);
+  });
+
+  it('rebuilds the payload field by field, and skips a malformed one',()=>{
+    createConversation({id:'conv-notice-c',customerId:'wasatch',at:'2026-09-24T08:00:00.000Z'});
+    ready('wasatch','conv-notice-c','n-leaky','Hi',payload('q-24816','Q-24816',1,{unit_cost:14.6,margin:0.3,internal_notes:'thin'}),'2026-09-24T12:00:00.000Z');
+    ready('wasatch','conv-notice-c','n-bad','Hi',{quote_id:'q-24816',quote_number:'Q-24816',revision:'one'},'2026-09-24T12:01:00.000Z');
+    ready('wasatch','conv-notice-c','n-null','Hi',null,'2026-09-24T12:02:00.000Z');
+    const notices=quoteNotices('wasatch','conv-notice-c');
+    expect(notices.map(n=>n.id)).toEqual(['n-leaky']);
+    expect(Object.keys(notices[0]).sort()).toEqual(['attach_pdf','conversation_id','created_at','headline','id','pdf_url','quote_id','quote_number','revision','text','total','valid_until']);
+  });
+
+  it('only ever returns the customer\'s own messages about the customer\'s own quotes',async()=>{
+    const {createQuote}=await import('./quotes');
+    const theirs=createQuote({customerId:'great-basin',fulfillment:'will_call',branchId:'slc',lines:[]});
+    createConversation({id:'conv-notice-gb',customerId:'great-basin',at:'2026-09-24T08:00:00.000Z'});
+    ready('great-basin','conv-notice-gb','n-gb','Theirs',payload(theirs.id,theirs.quote_number),'2026-09-24T13:00:00.000Z');
+    createConversation({id:'conv-notice-d',customerId:'wasatch',at:'2026-09-24T08:00:00.000Z'});
+    // A notice in Wasatch's chat naming another customer's quote, or one that doesn't exist, is never shown.
+    ready('wasatch','conv-notice-d','n-foreign','Tampered',payload(theirs.id,theirs.quote_number),'2026-09-24T13:01:00.000Z');
+    ready('wasatch','conv-notice-d','n-unknown','Tampered',payload('q-nope','Q-00000'),'2026-09-24T13:02:00.000Z');
+    expect(quoteNotices('wasatch').map(n=>n.id)).not.toContain('n-gb');
+    expect(quoteNotices('wasatch','conv-notice-d')).toEqual([]);
+    expect(quoteNotices('wasatch','conv-notice-gb')).toEqual([]);
+    expect(quoteNotices('great-basin').map(n=>n.id)).toEqual(['n-gb']);
+  });
+
+  it('is not part of history(): notices have no query-log row',()=>{
+    expect(history('wasatch','conv-notice-a')).toEqual([]);
   });
 });
