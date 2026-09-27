@@ -104,6 +104,27 @@ describe('customerPdfModel',()=>{
     expect(customerPdfModel({...fromSnapshot(SNAPSHOT,SNAPSHOT.sent_at!),customer_note:'  '},CONTEXT).note).toBeNull();
   });
 
+  it('prints the terms, rep contact and letterhead frozen at send, not the live records (spec §5.4)',()=>{
+    const frozen:QuoteSnapshot={...SNAPSHOT,terms:'Net 30',
+      rep_contact:{name:'Brandi Gallegos',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},
+      letterhead:{supplier:'Herrick Industrial Supply',website:'herrickindustrial.com',branch:'Salt Lake City',address:'1480 W 2100 S',city:'Salt Lake City',state:'UT',zip:'84119',phone:'(801) 555-0120'}};
+    const live:PdfContext={supplier:{...CONTEXT.supplier,name:'Herrick Supply Co.',website:'herrick.example'},
+      branch:{...CONTEXT.branch!,name:'Downtown SLC',address:'200 N Main St',will_call_phone:'(801) 555-0177'},
+      rep:{name:'Brandi Gallegos',title:'Branch Sales',phone:'(801) 555-0199',email:'bg@herrick.example'},terms:'Net 45'};
+    const model=customerPdfModel(fromSnapshot(frozen,frozen.sent_at!),live);
+    expect(model.supplier).toEqual({name:'Herrick Industrial Supply',branch:'Salt Lake City branch',address:['1480 W 2100 S','Salt Lake City, UT 84119'],phone:'(801) 555-0120',website:'herrickindustrial.com'});
+    expect(model.details).toContainEqual({label:'Terms',value:'Net 30'});
+    expect(model.terms[0]).toBe('Payment terms: Net 30.');
+    expect(model.rep).toEqual({name:'Brandi Gallegos',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'});
+    expect(model.footer.left).toBe('Herrick Industrial Supply · Quote Q-24816 rev 1');
+    expect(JSON.stringify(model)).not.toMatch(/Net 45|555-0199|555-0177|200 N Main|Downtown|Branch Sales|herrick\.example|Supply Co/);
+    // A snapshot stored before these were frozen prints the live records.
+    const older=customerPdfModel(fromSnapshot(SNAPSHOT,SNAPSHOT.sent_at!),live);
+    expect(older.details).toContainEqual({label:'Terms',value:'Net 45'});
+    expect(older.rep.phone).toBe('(801) 555-0199');
+    expect(older.supplier).toMatchObject({branch:'Downtown SLC branch',address:['200 N Main St','Salt Lake City, UT 84119'],phone:'(801) 555-0177'});
+  });
+
   it('falls back to the snapshot\'s rep name, Net 30 and Herrick\'s own address when the context lacks them',()=>{
     const bare=customerPdfModel(fromSnapshot(SNAPSHOT,SNAPSHOT.sent_at!),{...CONTEXT,branch:null,rep:null,terms:null});
     expect(bare.rep).toEqual({name:'Brandi Gallegos',title:null,phone:null,email:null});
@@ -142,7 +163,7 @@ describe('fromDraft (the rep\'s preview of an unsent draft)',()=>{
     expect(source).toEqual({quote_number:'Q-1',revision:2,draft:true,date:NOW,valid_until:'2026-10-08',customer:{name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'},contact:'Dana Ortiz',
       rep:'Brandi Gallegos',customer_po:'7781',customer_note:'Call on arrival.',fulfillment:'delivery',branch:'SLC',ship_to:'1800 W 10950 S, South Jordan, UT 84095',
       lines:[{sku:'SKU-1',description:'Item 1',pack:'Each',qty:20,unit_price:31.5,total:630},{sku:'SKU-2',description:'Item 2',pack:'Each',qty:3,unit_price:null,total:null}],
-      subtotal:630,freight:62.5,freight_miles:15,total:692.5});
+      subtotal:630,freight:62.5,freight_miles:15,total:692.5,terms:null,rep_contact:null,letterhead:null});
     expect(JSON.stringify(source)).not.toMatch(/\b0\.5\b|GP|Last paid|Can you do|Need bolts|"custom"/);
   });
 

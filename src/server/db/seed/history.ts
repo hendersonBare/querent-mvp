@@ -1,4 +1,5 @@
-import {BRANCHES,type BranchId,DANA,DELIVERY_RATES,REPS,TAX_RATE,WASATCH,WASATCH_REP} from './accounts';
+import {BRANCHES,type BranchId,DANA,DELIVERY_RATES,REPS,SUPPLIER,TAX_RATE,WASATCH,WASATCH_REP} from './accounts';
+import {letterheadOf,repContactOf} from '../../quotes/snapshot';
 import {catalogItem} from './catalog';
 import {addDays,addMinutes,at} from './dates';
 import {haversineRoadMiles} from '../../freight/distance';
@@ -99,6 +100,8 @@ export function seedHistory({insert,anchor,syncedAt}:SeedContext){
       const snapshot={quote_number:quoteNumber,revision:1,customer:{name:WASATCH.name,account_number:WASATCH.account_number},contact:DANA.name,rep:rep.name,
         fulfillment:deal.fulfillment,branch:branch.code,valid_until:validUntil,subtotal,freight,total,
         ship_to:deal.fulfillment==='delivery'?`${WASATCH.ship_to_address}, ${WASATCH.ship_to_city}, ${WASATCH.ship_to_state} ${WASATCH.ship_to_zip}`:null,freight_miles:freightMiles,
+        // What the customer PDF prints around the quote, as sendQuote freezes it (task 4.1).
+        terms:WASATCH.terms,rep_contact:repContactOf(rep),letterhead:letterheadOf(SUPPLIER,{...branch,will_call_phone:branch.phone}),
         lines:lines.map(l=>({sku:l.item.sku,description:l.item.description,pack:l.item.pack,qty:l.qty,unit_price:l.price,total:round2(l.qty*l.price)}))};
       insert('quote_revisions',{id:`${quoteId}-r1`,quote_id:quoteId,revision:1,sent_at:sentAt,sent_by:rep.id,message:`Hi Dana, quote ${quoteNumber} is ready for you.`,attach_pdf:1,total,snapshot:JSON.stringify(snapshot)});
       const activity:[string,string,string|null,string,string][]=[

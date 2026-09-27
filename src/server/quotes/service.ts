@@ -5,12 +5,12 @@ import type {DistanceProvider} from '@/server/freight/distance';
 import {formatUsd,type QuoteFreight} from '@/server/freight/engine';
 import {freightForQuote,freightOverrideOf,overrideFreight} from '@/server/freight/quote';
 import {
-  addQuoteActivity,addQuoteRevision,createQuote,inTransaction,markQuoteRead,quote,quoteByNumber,quoteRevision,quotes,rep,resetSampleQuote,saveQuoteTransition,
+  accountSummary,addQuoteActivity,addQuoteRevision,branch,createQuote,inTransaction,markQuoteRead,quote,quoteByNumber,quoteRevision,quotes,rep,resetSampleQuote,saveQuoteTransition,supplier,
 } from '@/server/repository';
 import {QuoteActionError} from './errors';
 import {assertEvent,effectiveStatus,expiresAt,isExpired,validUntilFor} from './lifecycle';
 import {sendBlockers,type SendBlocker} from './send-check';
-import {buildSnapshot,cents} from './snapshot';
+import {buildSnapshot,cents,letterheadOf,repContactOf,type SnapshotInput} from './snapshot';
 
 // Quote lifecycle services (spec §5.4): the only code that changes a quote's status. Each one
 // reads the quote, asks ./lifecycle whether the move is legal, and persists it with
@@ -36,6 +36,16 @@ function repName(repId:string){
   const r=rep(repId);
   if(!r)throw new QuoteActionError('invalid_input',`Unknown rep ${repId}.`);
   return r.name;
+}
+
+/**
+ * What the customer PDF prints around the quote, as it stands at send: the account's payment
+ * terms, the quote's rep with their contact, and the branch letterhead. Frozen into the revision
+ * so its PDF never changes when those records do (spec §5.4, task 4.1).
+ */
+function printedFacts(q:Quote):Pick<SnapshotInput,'terms'|'repContact'|'letterhead'>{
+  const quoteRep=rep(q.rep_id),quoteBranch=branch(q.branch_id);
+  return {terms:accountSummary(q.customer_id)?.terms??null,repContact:quoteRep?repContactOf(quoteRep):null,letterhead:quoteBranch?letterheadOf(supplier(),quoteBranch):null};
 }
 
 /** Saves the move, guarded on the status `q` was read in. Throws conflict (rolling back the transaction) if it changed. */
@@ -108,7 +118,7 @@ export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attac
     const blockers=sendBlockers(q,freight);
     if(blockers.length)throw new QuoteActionError('send_blocked',`Can't send ${q.quote_number} yet. ${blockers.map(b=>b.message).join(' ')}`,{blockers});
     const revision=q.revision+1,validUntil=validUntilFor(now,q.valid_days);
-    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,freight:typeof freight.amount==='number'?freight.amount:Number.NaN,freightMiles:freight.computed.miles});
+    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,freight:typeof freight.amount==='number'?freight.amount:Number.NaN,freightMiles:freight.computed.miles,...printedFacts(q)});
     persist(q,{to:'sent',at:now,revision,sentAt:now,validUntil,unreadForRep:false,unreadForCustomer:true});
     const stored=addQuoteRevision(q.id,{revision,sentBy:repId,message,attachPdf,total:snapshot.total,snapshot,sentAt:now});
     addQuoteActivity(q.id,{actor:'rep',actorId:repId,kind:'sent',at:now,message:`${sender} sent ${q.quote_number} rev ${revision} to ${customerWho(q)} (${formatUsd(snapshot.total)})`});

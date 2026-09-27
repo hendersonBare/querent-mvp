@@ -246,6 +246,11 @@ function customerSnapshot(s:QuoteSnapshot):QuoteSnapshot{
   return {quote_number:s.quote_number,revision:s.revision,customer:{name:s.customer.name,account_number:s.customer.account_number},contact:s.contact??null,rep:s.rep,
     fulfillment:s.fulfillment,branch:s.branch,valid_until:s.valid_until??null,subtotal:s.subtotal,freight:s.freight,total:s.total,
     sent_at:s.sent_at,valid_days:s.valid_days,customer_po:s.customer_po,customer_note:s.customer_note,ship_to:s.ship_to,freight_miles:s.freight_miles,
+    // What the customer PDF prints around the quote (task 4.1): customer-visible, field by field.
+    terms:s.terms,
+    rep_contact:s.rep_contact&&{name:s.rep_contact.name,title:s.rep_contact.title,phone:s.rep_contact.phone,email:s.rep_contact.email},
+    letterhead:s.letterhead&&{supplier:s.letterhead.supplier,website:s.letterhead.website,branch:s.letterhead.branch,address:s.letterhead.address,
+      city:s.letterhead.city,state:s.letterhead.state,zip:s.letterhead.zip,phone:s.letterhead.phone},
     lines:s.lines.map(l=>({sku:l.sku,description:l.description,pack:l.pack,qty:l.qty,unit_price:l.unit_price,total:l.total}))};
 }
 

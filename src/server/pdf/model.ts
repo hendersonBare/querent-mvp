@@ -1,4 +1,5 @@
-import type {Branch,Fulfillment,QuoteSnapshot,Rep,Supplier} from '@/domain';
+import type {Branch,Fulfillment,QuoteSnapshot,Rep,SnapshotLetterhead,SnapshotRepContact,Supplier} from '@/domain';
+import {copyLetterhead,letterheadOf,repContactOf} from '@/server/quotes/snapshot';
 
 // The customer quote PDF's content (task 4.1, spec §6.7). Pure and customer-safe: the types
 // below have no field for cost, margin, floors, price basis or Querent's reasoning, and every
@@ -33,6 +34,11 @@ export interface PdfQuote {
   freight:number|null;
   freight_miles:number|null;
   total:number|null;
+  // Frozen at send (spec §5.4), so a sent revision's PDF never changes. Null on snapshots stored
+  // before they carried them, and on a draft preview: the PDF then prints the live records (PdfContext).
+  terms:string|null;
+  rep_contact:SnapshotRepContact|null;
+  letterhead:SnapshotLetterhead|null;
 }
 
 /** A sent revision as the PDF prints it. `sentAt` dates snapshots stored before they carried sent_at (the seeded history). */
@@ -43,10 +49,14 @@ export function fromSnapshot(s:QuoteSnapshot,sentAt:string):PdfQuote{
     customer_po:s.customer_po??null,customer_note:s.customer_note??null,fulfillment:s.fulfillment,branch:s.branch,ship_to:s.ship_to??null,
     lines:s.lines.map(l=>({sku:l.sku,description:l.description,pack:l.pack,qty:l.qty,unit_price:l.unit_price,total:l.total})),
     subtotal:s.subtotal,freight:s.freight,freight_miles:s.freight_miles??null,total:s.total,
+    terms:s.terms??null,rep_contact:s.rep_contact?repContactOf(s.rep_contact):null,letterhead:s.letterhead?copyLetterhead(s.letterhead):null,
   };
 }
 
-/** The letterhead and contact facts around the quote, all customer-visible seed data. */
+/**
+ * The live letterhead and contact records around the quote, all customer-visible seed data. The
+ * PDF uses them only where the quote has no frozen value: older snapshots and draft previews.
+ */
 export interface PdfContext {
   supplier:Pick<Supplier,'name'|'address'|'city'|'state'|'zip'|'phone'|'website'>;
   /** The quote's branch, or null if its code is unknown (then Herrick's main address and phone). */
@@ -102,19 +112,26 @@ function freightRow(q:PdfQuote):CustomerPdfModel['totals'][number]{
   return {label:'Freight',detail,value:q.freight===null?'Call for freight':usd.format(q.freight)};
 }
 
-/** Formats a quote for the customer PDF. Adds nothing that isn't in `q` or `ctx`. */
+/**
+ * Formats a quote for the customer PDF. Adds nothing that isn't in `q` or `ctx`. The quote's
+ * frozen terms, rep contact and letterhead win; `ctx` (the live records) fills only what the
+ * quote lacks, and Herrick's main address and Net 30 are the last resort.
+ */
 export function customerPdfModel(q:PdfQuote,ctx:PdfContext):CustomerPdfModel{
-  const {supplier,branch}=ctx;
+  const {supplier}=ctx;
+  const head=q.letterhead??(ctx.branch?letterheadOf(supplier,ctx.branch):null);
+  const letterhead=head
+    ?{supplier:head.supplier,website:head.website,branch:`${head.branch} branch`,lines:[head.address,cityLine(head)],phone:head.phone}
+    :{supplier:supplier.name,website:supplier.website||null,branch:null,lines:[supplier.address,cityLine(supplier)],phone:supplier.phone};
+  const rep=q.rep_contact??(ctx.rep?repContactOf(ctx.rep):null);
   const ref=`${q.quote_number} rev ${q.revision}`;
   const validUntil=day(q.valid_until);
-  const terms=clean(ctx.terms)??DEFAULT_TERMS;
-  const place=branch?`${branch.address}, ${cityLine(branch)}`:`${supplier.address}, ${cityLine(supplier)}`;
+  const terms=clean(q.terms)??clean(ctx.terms)??DEFAULT_TERMS;
   return {
     title:`Quote ${ref}${q.draft?' (draft preview)':''}`,
-    filename:`${supplier.name} quote ${ref}${q.draft?' draft':''}.pdf`,
+    filename:`${letterhead.supplier} quote ${ref}${q.draft?' draft':''}.pdf`,
     draft:q.draft,
-    supplier:{name:supplier.name,branch:branch?`${branch.name} branch`:null,address:branch?[branch.address,cityLine(branch)]:[supplier.address,cityLine(supplier)],
-      phone:branch?.will_call_phone??supplier.phone,website:supplier.website||null},
+    supplier:{name:letterhead.supplier,branch:letterhead.branch,address:letterhead.lines,phone:letterhead.phone,website:letterhead.website},
     quote:{number:q.quote_number,revision:`Rev ${q.revision}`,date:day(q.date),validUntil},
     customer:{name:q.customer.name,attention:q.contact?`Attn: ${q.contact}`:null,account:`Account ${q.customer.account_number}`},
     details:[
@@ -123,10 +140,10 @@ export function customerPdfModel(q:PdfQuote,ctx:PdfContext):CustomerPdfModel{
       {label:'Valid until',value:validUntil},
       {label:'Customer PO',value:clean(q.customer_po)??'To be added'},
       {label:'Terms',value:terms},
-      {label:'Sales rep',value:ctx.rep?.name??q.rep},
+      {label:'Sales rep',value:q.rep},
     ],
     fulfillment:q.fulfillment==='will_call'
-      ?{label:'Will call',lines:[`Pick up at ${branch?`${branch.name} branch`:q.branch}`,place]}
+      ?{label:'Will call',lines:[`Pick up at ${letterhead.branch??q.branch}`,letterhead.lines.join(', ')]}
       :{label:'Delivery',lines:['Ship to',clean(q.ship_to)??'Address to be confirmed']},
     lines:q.lines.map((l,i)=>({no:String(i+1),sku:l.sku,description:l.description,qty:count.format(l.qty),unit:l.pack,
       unitPrice:l.unit_price===null?NONE:unitUsd.format(l.unit_price),extended:l.total===null?NONE:usd.format(l.total)})),
@@ -138,7 +155,7 @@ export function customerPdfModel(q:PdfQuote,ctx:PdfContext):CustomerPdfModel{
     ],
     note:clean(q.customer_note),
     terms:[`Payment terms: ${terms}.`,`Prices valid until ${validUntil}, subject to stock at the time of order.`,'Sales tax added on invoice.'],
-    rep:{name:ctx.rep?.name??q.rep,title:ctx.rep?.title??null,phone:ctx.rep?.phone??null,email:ctx.rep?.email??null},
-    footer:{left:`${supplier.name} · Quote ${ref}`,via:'via Querent',sample:'Sample data'},
+    rep:{name:rep?.name??q.rep,title:rep?.title??null,phone:rep?.phone??null,email:rep?.email??null},
+    footer:{left:`${letterhead.supplier} · Quote ${ref}`,via:'via Querent',sample:'Sample data'},
   };
 }

@@ -68,7 +68,7 @@ describe('seeded Q-24817, the rep\'s draft preview (ready_for_review)',()=>{
     expect(text).toContain('12 Each $22.95 $275.40');
   });
 
-  it('totals the draft: will call freight at SLC, tax added on invoice, $1,122.40 (the mockup\'s total)',()=>{
+  it('totals the draft: will call freight at SLC, tax added on invoice, $1,122.40 (the pricing engine\'s total for the seeded lines)',()=>{
     expect(text).toContain('Subtotal $1,122.40 Freight Will call at SLC $0.00 Sales tax Added on invoice Total $1,122.40');
     expect(text).toContain('WILL CALL Pick up at Salt Lake City branch 1480 W 2100 S, Salt Lake City, UT 84119');
   });

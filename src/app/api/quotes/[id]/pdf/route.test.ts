@@ -2,7 +2,7 @@
 // react-pdf's browser build (picked under jsdom) writes streams pdf.js can't read.
 import {NextRequest} from 'next/server';
 import {beforeAll,describe,expect,it} from 'vitest';
-import {useSeededDatabase} from '@/server/repository/test-db';
+import {updateLiveRecord,useSeededDatabase} from '@/server/repository/test-db';
 import {internalLeaks,pdfText} from '@/server/pdf/test-pdf';
 
 useSeededDatabase();
@@ -98,6 +98,45 @@ describe('the customer (Dana)',()=>{
     expect((await call('Q-24817','?rev=draft','customer')).status).toBe(404);
     expect((await call('Q-24817','?rev=2','customer')).status).toBe(404);
     resetSampleQuote();
+  });
+});
+
+describe('a sent revision is frozen (spec §5.4): the PDF the customer saw can always be reproduced',()=>{
+  const textOf=async(response:Response)=>{expect(response.status).toBe(200);return (await pdfText(await response.arrayBuffer())).text;};
+
+  it('keeps its terms, rep contact and letterhead after the account, rep and branch change; the draft preview shows the live ones',async()=>{
+    const {resetSampleQuote}=await import('@/server/repository');
+    const {requestChanges,sendQuote}=await import('@/server/quotes/service');
+    resetSampleQuote();
+    await sendQuote('q-24817',{repId:'brandi',now:'2026-09-23T17:00:00.000Z'});
+    const sentAsIs=await textOf(await call('Q-24817','','customer'));
+    const seededAsIs=await textOf(await call('Q-24816','','customer'));
+    for(const text of [sentAsIs,seededAsIs])for(const field of ['Terms Net 30','Payment terms: Net 30.','(801) 111-2222','Inside Sales, Herrick Industrial Supply','1480 W 2100 S','Phone (801) 555-0120'])expect(text).toContain(field);
+
+    await updateLiveRecord('customers','wasatch','terms','Net 45');
+    await updateLiveRecord('reps','brandi','phone','(801) 555-0199');
+    await updateLiveRecord('reps','brandi','title','Branch Sales');
+    await updateLiveRecord('branches','slc','address','200 N Main St');
+    await updateLiveRecord('branches','slc','will_call_phone','(801) 555-0177');
+    try{
+      // Unchanged, byte for byte in text, for the customer and for the rep, and for the seeded history.
+      expect(await textOf(await call('Q-24817','','customer'))).toBe(sentAsIs);
+      expect(await textOf(await call('Q-24817','?rev=1','supplier'))).toBe(sentAsIs);
+      expect(await textOf(await call('Q-24816','','customer'))).toBe(seededAsIs);
+
+      // Nothing is frozen until the next send: the rev 2 draft preview prints the live records.
+      requestChanges('wasatch','q-24817',{revision:1,note:'Can you do 20 boxes?',now:'2026-09-24T15:00:00.000Z'});
+      const draft=await textOf(await call('Q-24817','?rev=draft','supplier'));
+      for(const field of ['Terms Net 45','Payment terms: Net 45.','(801) 555-0199','Branch Sales, Herrick Industrial Supply','200 N Main St','Phone (801) 555-0177'])expect(draft).toContain(field);
+      expect(draft).not.toMatch(/Net 30|111-2222|1480 W 2100 S/);
+    }finally{
+      await updateLiveRecord('customers','wasatch','terms','Net 30');
+      await updateLiveRecord('reps','brandi','phone','(801) 111-2222');
+      await updateLiveRecord('reps','brandi','title','Inside Sales');
+      await updateLiveRecord('branches','slc','address','1480 W 2100 S');
+      await updateLiveRecord('branches','slc','will_call_phone','(801) 555-0120');
+      resetSampleQuote();
+    }
   });
 });
 

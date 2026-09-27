@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {Quote,QuoteLine} from '@/domain';
-import {buildSnapshot,cents} from './snapshot';
+import {buildSnapshot,cents,letterheadOf,repContactOf} from './snapshot';
 
 const line=(n:number,qty:number,unit_price:number|null,extra:Partial<QuoteLine>={}):QuoteLine=>({id:`q-1-${n}`,quote_id:'q-1',line_no:n,item_id:`SKU-${n}`,sku:`SKU-${n}`,
   description:`Item ${n}`,pack:'Each',case_qty:1,category_id:'fasteners',category_name:'Fasteners',list_price:99,qty,unit_price,price_basis:'custom',suggested_price:1,
@@ -44,6 +44,21 @@ describe('buildSnapshot',()=>{
     expect(buildSnapshot(QUOTE,{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:62.5,freightMiles:15})).toMatchObject({freight:62.5,freight_miles:15});
     expect(buildSnapshot({...QUOTE,fulfillment:'will_call'},{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:0,freightMiles:null})).toHaveProperty('freight_miles',null);
     expect(snap).not.toHaveProperty('freight_miles');
+  });
+
+  it('freezes the terms, rep contact and letterhead the customer PDF prints, copying named fields only (task 4.1)',()=>{
+    const rep={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi@example.com'};
+    const branch={id:'slc',code:'SLC',name:'Salt Lake City',address:'1480 W 2100 S',city:'Salt Lake City',state:'UT',zip:'84119',lat:40.7,lng:-111.9,will_call_phone:'(801) 555-0120',will_call_hours:'Mon–Fri'};
+    const supplier={id:'herrick',name:'Herrick Industrial Supply',address:'1480 W 2100 S',city:'Salt Lake City',state:'UT',zip:'84119',phone:'(801) 555-0100',email:'sales@example.com',website:'herrickindustrial.com'};
+    const frozen=buildSnapshot(QUOTE,{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:0,terms:'Net 30',
+      repContact:{...repContactOf(rep),margin_floor:0.2} as ReturnType<typeof repContactOf>,letterhead:{...letterheadOf(supplier,branch),internal:'x'} as ReturnType<typeof letterheadOf>});
+    expect(frozen).toMatchObject({terms:'Net 30',
+      rep_contact:{name:'Brandi Gallegos',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi@example.com'},
+      letterhead:{supplier:'Herrick Industrial Supply',website:'herrickindustrial.com',branch:'Salt Lake City',address:'1480 W 2100 S',city:'Salt Lake City',state:'UT',zip:'84119',phone:'(801) 555-0120'}});
+    expect(JSON.stringify(frozen)).not.toMatch(/margin_floor|"internal"|initials|"lat"|will_call_hours/);
+    expect(snap).not.toHaveProperty('terms');
+    expect(snap).not.toHaveProperty('rep_contact');
+    expect(snap).not.toHaveProperty('letterhead');
   });
 
   it('has no ship-to on will call',()=>{

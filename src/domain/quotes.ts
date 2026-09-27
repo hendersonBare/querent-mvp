@@ -58,6 +58,12 @@ export interface QuoteListRow {
 
 export interface QuoteSnapshotLine {sku:string;description:string;pack:string;qty:number;unit_price:number;total:number}
 
+/** The rep's contact as printed on the customer PDF, frozen at send (task 4.1). */
+export interface SnapshotRepContact {name:string;title:string|null;phone:string|null;email:string|null}
+
+/** The customer PDF's letterhead, frozen at send (task 4.1): Herrick and the quote's branch, with its phone. */
+export interface SnapshotLetterhead {supplier:string;website:string|null;branch:string;address:string;city:string;state:string;zip:string;phone:string}
+
 /**
  * The frozen copy of what the customer was sent ("Q-24817 rev 2"). Never add cost or internal notes.
  * Customer reads copy only these fields (see customerQuote), so a new field must be added here too.
@@ -71,6 +77,13 @@ export interface QuoteSnapshot {
   ship_to?:string|null;
   /** Road miles from the branch that priced delivery freight (task 4.1 prints them); null for will call or unmeasured. */
   freight_miles?:number|null;
+  // What the customer PDF prints around the quote, frozen at send so the PDF can always be
+  // reproduced even after the account, rep or branch changes (task 4.1). Absent on snapshots
+  // stored before it; the PDF then falls back to the live records.
+  /** The customer's payment terms ("Net 30"). */
+  terms?:string|null;
+  rep_contact?:SnapshotRepContact|null;
+  letterhead?:SnapshotLetterhead|null;
 }
 
 export interface QuoteRevision {id:string;quote_id:string;revision:number;sent_at:string;sent_by:string;message:string|null;attach_pdf:boolean;total:number;snapshot:QuoteSnapshot}
