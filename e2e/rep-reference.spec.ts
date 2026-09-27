@@ -109,6 +109,9 @@ test("customers: every account with its rep, and a detail page with account, rep
 test("customers: the picker narrows the list and switches the customer page", async ({ page }) => {
   await signInAsBrandi(page);
   await section(page, "Customers").click();
+  // Wait for the page before picking: the picker keeps whatever page is current (router.replace).
+  await expect(page).toHaveURL(/\/rep\/customers$/);
+  await expect(bodyRows(page)).toHaveCount(4);
   await viewing(page).selectOption("great-basin");
   await expect(page).toHaveURL(/\/rep\/customers\?customer=great-basin$/);
   await expect(bodyRows(page)).toHaveCount(1);
@@ -130,6 +133,7 @@ test("customers: the picker narrows the list and switches the customer page", as
 test("orders: the list follows the picker, and the detail shows the lines at the prices paid", async ({ page }, testInfo) => {
   await signInAsBrandi(page);
   await section(page, "Orders").click();
+  await expect(page).toHaveURL(/\/rep\/orders$/);
   await expect(title(page)).toHaveText("Orders");
   await expect(page.getByText("Viewing All customers · 23 orders")).toBeVisible();
   await expect(bodyRows(page)).toHaveCount(23);
@@ -173,6 +177,7 @@ test("orders: the list follows the picker, and the detail shows the lines at the
 test("items: the catalog with stock per branch, list price and category, and an item page", async ({ page }, testInfo) => {
   await signInAsBrandi(page);
   await section(page, "Items").click();
+  await expect(page).toHaveURL(/\/rep\/items$/);
   await expect(title(page)).toHaveText("Items");
   await expect(page.getByRole("columnheader")).toHaveText(["Item", "Category", "List price", "SLC", "Ogden", "Provo", "Total"]);
   await expect(bodyRows(page)).toHaveCount(62);
@@ -234,6 +239,7 @@ test("phone (390px): each list and detail fits, with the picker, and nothing scr
 
   // The picker at 390px: Orders narrows to Wasatch, and the list still fits.
   await page.goto("/rep/orders");
+  await expect(bodyRows(page)).toHaveCount(23);
   await viewing(page).selectOption("wasatch");
   await expect(page).toHaveURL(/\/rep\/orders\?customer=wasatch$/);
   await expect(page.getByText("Viewing Wasatch Mechanical Contractors · 23 orders")).toBeVisible();
