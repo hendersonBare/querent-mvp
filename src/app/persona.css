@@ -39,4 +39,4 @@
   font-size: 0.8rem;
   line-height: 1.35;
 }
-.workspace-switch{display:inline-flex;align-items:center;gap:7px;padding:8px 10px;border-radius:8px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap}.workspace-switch:hover{background:var(--pale);color:var(--teal)}.workspace-switch.compact{padding:7px}
+.workspace-switch{display:inline-flex;align-items:center;gap:7px;padding:8px 10px;border-radius:8px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap}.workspace-switch:hover{background:var(--pale);color:var(--teal)}
