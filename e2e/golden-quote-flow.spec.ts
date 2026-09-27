@@ -6,8 +6,9 @@ import { extractText, getDocumentProxy } from "unpdf";
 // (spec §1, §7 Definition of done item 3). One test per step, in order, sharing Dana's and
 // Brandi's browser sessions. Every step started switched off; the task named in its `task`
 // annotation built the step, switched it on and made it pass. Since task 5.2 every step runs, and
-// src/e2e-suite.test.ts keeps it that way (no skipped, focused or unfinished test in e2e/).
-// Step 6 has a rep half (3.7) and a customer half (5.1), so it is two tests.
+// src/e2e-suite.test.ts keeps it that way: no test or step switched off, focused or expected to
+// fail anywhere in e2e/, and every test below present by title and tag (GOLDEN_TESTS there; rename
+// a test in both places). Step 6 has a rep half (3.7) and a customer half (5.1), so it is two tests.
 //
 // Chat runs in scripted mode (spec §6.5): deterministic and offline, the same in CI and locally.
 // Before the spec, beforeAll resets the database to the seed pinned to the mockup's day through
