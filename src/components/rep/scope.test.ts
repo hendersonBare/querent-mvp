@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {apiScope,sectionFor,scopeFrom,scopedHref} from './scope';
+import {sectionFor,scopeFrom,scopedHref} from './scope';
 
 const customers=[{id:'wasatch'},{id:'great-basin'}];
 const params=(query:string)=>new URLSearchParams(query);
@@ -32,11 +32,7 @@ describe('scopedHref: portal links keep the picked customer',()=>{
   });
 });
 
-describe('apiScope and sectionFor',()=>{
-  it("maps the picker to the supplier API's scope segment",()=>{
-    expect(apiScope(null)).toBe('all');
-    expect(apiScope('wasatch')).toBe('wasatch');
-  });
+describe('sectionFor',()=>{
   it('finds the nav section for a path, including its sub-pages',()=>{
     expect(sectionFor('/rep/quotes')?.label).toBe('Quotes');
     expect(sectionFor('/rep/quotes/Q-24817')?.label).toBe('Quotes');

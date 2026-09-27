@@ -2,11 +2,10 @@
 //
 // The picked customer lives in the URL as ?customer=<customer id>. No param means All customers.
 // Every nav link keeps it, a reload keeps it, and any page can read it:
-//   - Client Components: useRepScope() from './context' ({customerId, scope, customer, href, ...}).
+//   - Client Components: useRepScope() from './context' ({customerId, customer, label, href, ...}).
 //   - Server Components: the page's searchParams prop, `(await searchParams).customer`, checked
 //     against the customer list the same way scopeFrom() does.
-// Lists and analytics (tasks 3.2, 3.8, 6.2) filter by it; the supplier API takes it as its
-// <scope> path segment ('all' or the id, see apiScope).
+// Lists and analytics (tasks 3.2, 3.8, 6.2) filter by it.
 
 export const SCOPE_PARAM='customer';
 export const ALL_CUSTOMERS='all';
@@ -45,6 +44,3 @@ export function scopedHref(path:string,customerId:string|null){
   const query=params.toString();
   return query?`${base}?${query}`:base;
 }
-
-/** The supplier API's scope segment (supplier/dashboard/<scope>, supplier/data/<scope>/...): 'all' or the customer id. */
-export const apiScope=(customerId:string|null)=>customerId??ALL_CUSTOMERS;
