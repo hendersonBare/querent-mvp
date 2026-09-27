@@ -86,6 +86,20 @@ summary.head::-webkit-details-marker {
   font-weight: 600;
   color: var(--rep-accent);
 }
+/* A suggestion the server refused (it changed since it was shown, or no longer applies); the list above refreshes. */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--rep-line-2);
+  background: var(--rep-warn-soft);
+  color: var(--rep-warn);
+  font-size: 13px;
+}
 .empty {
   margin: 0;
   padding: 10px 14px 12px;

@@ -59,6 +59,9 @@ const api = (page: Page, path: string, method = "GET", body?: unknown) =>
     [path, method, body] as const,
   );
 
+/** Taking the nut as GET shows it on the sample: its id and the fingerprint it was shown with. */
+const NUT = { upsellId: "matching_fastener:HN-12-13-G8", fingerprint: "matching_fastener:HN-12-13-G8|add 5|19.95" };
+
 const FIVE = [
   "Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)",
   "Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)",
@@ -155,6 +158,25 @@ test("phone (390px, screen 08): the section stacks under the items, chips stay u
   await noSidewaysScroll(page);
 });
 
+test("a chip that changed in another tab is refused with a note, and the chips and lines refresh (no stale apply)", async ({ page }) => {
+  await openQuote(page);
+  await header(page).click();
+  await expect(chips(page).first()).toContainText("HN-12-13-G8 · 5 at $19.95");
+  // Another tab takes the bolts to 20 boxes: the nut chip now means 10 boxes at $16.50 (a full case at customer price).
+  expect((await api(page, "/api/rep/quotes/Q-24817/lines/q-24817-1", "PATCH", { qty: 20 })).status).toBe(200);
+  await suggested(page).getByRole("button", { name: /^Add: Hex nut 1\/2-13/ }).click();
+  await expect(suggested(page).getByRole("alert")).toContainText("That suggestion changed since it was shown. Check the updated suggestions and try again.");
+  await expect(page.getByRole("rowheader", { name: /HN-12-13-G8/ })).toHaveCount(0);
+  await expect(qty(page, "HCS-12-13-2G8")).toHaveValue("20");
+  await expect(chips(page).first()).toContainText("HN-12-13-G8 · 10 at $16.50");
+  expect((await api(page, "/api/rep/quotes/Q-24817")).body.lines).toHaveLength(4);
+  // Taken as it reads now, it applies as it reads.
+  await suggested(page).getByRole("button", { name: /^Add: Hex nut 1\/2-13/ }).click();
+  await expect(suggested(page).getByRole("alert")).toHaveCount(0);
+  await expect(qty(page, "HN-12-13-G8")).toHaveValue("10");
+  await saved(page);
+});
+
 test("sent, accepted and expired quotes offer no chips, and the API refuses to take one (409)", async ({ page }) => {
   await openQuote(page, made.sent);
   const box = page.getByRole("region", { name: "Suggested by Querent" });
@@ -163,7 +185,7 @@ test("sent, accepted and expired quotes offer no chips, and the API refuses to t
   await expect(box.getByRole("button")).toHaveCount(0);
   for (const number of [made.sent, made.overdue, "Q-24816"]) {
     expect(await api(page, `/api/rep/quotes/${number}/upsells`)).toMatchObject({ status: 200, body: { editable: false, upsells: [] } });
-    expect((await api(page, `/api/rep/quotes/${number}/upsells`, "POST", { upsellId: "matching_fastener:HN-12-13-G8" })).status).toBe(409);
+    expect((await api(page, `/api/rep/quotes/${number}/upsells`, "POST", NUT)).status).toBe(409);
   }
   // changes_requested is editable, so it gets chips.
   const revising = await api(page, `/api/rep/quotes/${made.changes_requested}/upsells`);
@@ -173,8 +195,10 @@ test("sent, accepted and expired quotes offer no chips, and the API refuses to t
 test("rep-only: 401 without a session, 403 for Dana, 404 for another rep's quote", async ({ page, browser, baseURL, playwright }) => {
   await openQuote(page);
   expect((await api(page, `/api/rep/quotes/${made.other_rep}/upsells`)).status).toBe(404);
-  expect((await api(page, `/api/rep/quotes/${made.other_rep}/upsells`, "POST", { upsellId: "matching_fastener:HN-12-13-G8" })).status).toBe(404);
+  expect((await api(page, `/api/rep/quotes/${made.other_rep}/upsells`, "POST", NUT)).status).toBe(404);
   expect((await api(page, "/api/rep/quotes/Q-24817/upsells", "POST", { upsellId: "" })).status).toBe(400);
+  expect((await api(page, "/api/rep/quotes/Q-24817/upsells", "POST", { upsellId: NUT.upsellId })).status).toBe(400);
+  expect((await api(page, "/api/rep/quotes/Q-24817/upsells", "POST", { ...NUT, qty: 50 })).status).toBe(400);
 
   const anonymous = await playwright.request.newContext({ baseURL });
   try {
@@ -190,7 +214,7 @@ test("rep-only: 401 without a session, 403 for Dana, 404 for another rep's quote
     await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
     await expect(dana.getByLabel("Ask a question")).toBeVisible();
     expect((await api(dana, "/api/rep/quotes/Q-24817/upsells")).status).toBe(403);
-    expect((await api(dana, "/api/rep/quotes/Q-24817/upsells", "POST", { upsellId: "matching_fastener:HN-12-13-G8" })).status).toBe(403);
+    expect((await api(dana, "/api/rep/quotes/Q-24817/upsells", "POST", NUT)).status).toBe(403);
   } finally {
     await context.close();
   }

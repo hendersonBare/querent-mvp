@@ -19,13 +19,25 @@ import {repQuote} from './quotes';
 // Taking a chip goes through the line-edit service (task 3.3), so it acts only on the rep's own
 // quote, only while the quote is editable (canEditDraft: 409 on sent, accepted and expired),
 // writes Activity, and returns the fresh detail the page autosaves with (Undo takes it back
-// like any other add or qty change). The chip is found again on the quote as it is now, so a
-// suggestion that no longer applies (its item already added, its line changed) is refused (409).
+// like any other add or qty change). The chip is found again on the quote as it is now and
+// applied only if it is still what the rep was shown (its fingerprint): a suggestion that no
+// longer applies, or that now means something else (another tab changed its line), is refused
+// (409). The server never applies a qty or price the client sends.
 
 const clock=()=>new Date().toISOString();
 
-/** A chip as the rep portal gets it, and who wrote its words. Internal: it carries unit cost and GP. */
-export type RepUpsell=Upsell&{wording_source:'claude'|'template'};
+/**
+ * What a chip shows the rep, as one string: its id, what it changes (add N, or line from -> to)
+ * and Querent's price. Taking a chip sends back the fingerprint it was shown with; the server
+ * recomputes the chip and applies it only if the fingerprints match.
+ */
+export function upsellFingerprint({id,action,unit_price}:Pick<Upsell,'id'|'action'|'unit_price'>){
+  const change=action.type==='add_line'?`add ${action.qty}`:`${action.line_id} ${action.from_qty}->${action.to_qty}`;
+  return `${id}|${change}|${unit_price.toFixed(2)}`;
+}
+
+/** A chip as the rep portal gets it: who wrote its words, and its fingerprint. Internal: it carries unit cost and GP. */
+export type RepUpsell=Upsell&{wording_source:'claude'|'template';fingerprint:string};
 
 export interface RepUpsells {
   quote_id:string;
@@ -83,12 +95,16 @@ export async function repQuoteUpsells(repId:string,quoteIdOrNumber:string,option
   const chips=quoteUpsells(q,{on:pricingDay(now)})??[];
   const writer='writer' in options?options.writer:upsellWriter();
   const worded=await wordUpsells(chips,writer&&costFreeWriter(writer));
-  return {quote_id:q.id,editable:true,upsells:worded.map((u,i)=>({...u,wording_source:sameWording(u.wording,chips[i].wording)?'template':'claude'}))};
+  return {quote_id:q.id,editable:true,upsells:worded.map((u,i)=>({...u,wording_source:sameWording(u.wording,chips[i].wording)?'template':'claude',fingerprint:upsellFingerprint(u)}))};
 }
 
-/** POST /api/rep/quotes/<id>/upsells: the chip to take, by id ("matching_fastener:HN-12-13-G8"). */
+/**
+ * POST /api/rep/quotes/<id>/upsells: the chip to take, by id ("matching_fastener:HN-12-13-G8"),
+ * and the fingerprint it was shown with. Nothing else: the qty and price come from the server.
+ */
 export const TakeUpsellBody=z.strictObject({
   upsellId:z.string({error:'Choose a suggestion.'}).trim().min(1,{error:'Choose a suggestion.'}).max(120,{error:'Choose a suggestion.'}),
+  fingerprint:z.string({error:'Send the suggestion as it was shown.'}).min(1,{error:'Send the suggestion as it was shown.'}).max(200,{error:'Send the suggestion as it was shown.'}),
 });
 
 export interface TakenUpsell {
@@ -101,16 +117,18 @@ export interface TakenUpsell {
 /**
  * Takes one of Querent's suggestions on the rep's quote: adds its line (added by 'upsell', priced
  * by the engine at its qty) or bumps the line to the full case. Refuses another rep's quote
- * (404), a quote that can't be edited (409), and a chip that no longer applies (409).
+ * (404), a quote that can't be edited (409), a chip that no longer applies (409), and a chip that
+ * isn't what the rep was shown any more: a different qty, line or price (409).
  */
 export async function takeRepQuoteUpsell(repId:string,quoteIdOrNumber:string,body:unknown,{now=clock(),provider}:QuoteDetailOptions={}):Promise<TakenUpsell>{
   const parsed=TakeUpsellBody.safeParse(body);
   if(!parsed.success)throw new QuoteActionError('invalid_input',parsed.error.issues[0]?.message??'Choose a suggestion.');
-  const {upsellId}=parsed.data;
+  const {upsellId,fingerprint}=parsed.data;
   // Found and applied with no await in between: the chip is checked against the quote it changes.
   const q=editableQuote(repId,quoteIdOrNumber,now);
   const chip=quoteUpsells(q,{on:pricingDay(now)})?.find(u=>u.id===upsellId);
   if(!chip)throw new QuoteActionError('conflict',`That suggestion no longer applies to ${q.quote_number}.`);
+  if(upsellFingerprint(chip)!==fingerprint)throw new QuoteActionError('conflict','That suggestion changed since it was shown. Check the updated suggestions and try again.');
   const {action}=chip;
   if(action.type==='add_line'){
     const added=await addRepQuoteLine(repId,q.id,{itemId:action.item_id,qty:action.qty},{now,provider,source:'upsell'});

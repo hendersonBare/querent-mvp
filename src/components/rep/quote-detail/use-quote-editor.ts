@@ -23,8 +23,11 @@ export type EditOp=
   |{kind:'remove';lineId:string}
   /** `preview` shows a restored line in its place before the save comes back. */
   |{kind:'add';itemId:string;qty:number;restore?:NewLine['restore'];preview?:DetailLine}
-  /** Takes one of Querent's suggestions (POST .../upsells); `bump` shows a qty bump before the save comes back. */
-  |{kind:'upsell';upsellId:string;bump?:{lineId:string;qty:number}};
+  /**
+   * Takes one of Querent's suggestions (POST .../upsells) as it was shown (`fingerprint`: the server
+   * refuses it if it changed since); `bump` shows a qty bump before the save comes back.
+   */
+  |{kind:'upsell';upsellId:string;fingerprint:string;bump?:{lineId:string;qty:number}};
 
 export interface UndoEntry {
   id:number;
@@ -46,7 +49,7 @@ export class EditError extends Error{
 async function send(quoteId:string,op:EditOp):Promise<{detail:QuoteDetail;line_id?:string}>{
   const base=`/api/rep/quotes/${encodeURIComponent(quoteId)}/lines`;
   const json={'content-type':'application/json'};
-  const response=op.kind==='upsell'?await fetch(`/api/rep/quotes/${encodeURIComponent(quoteId)}/upsells`,{method:'POST',headers:json,body:JSON.stringify({upsellId:op.upsellId}),cache:'no-store'})
+  const response=op.kind==='upsell'?await fetch(`/api/rep/quotes/${encodeURIComponent(quoteId)}/upsells`,{method:'POST',headers:json,body:JSON.stringify({upsellId:op.upsellId,fingerprint:op.fingerprint}),cache:'no-store'})
     :op.kind==='patch'?await fetch(`${base}/${encodeURIComponent(op.lineId)}`,{method:'PATCH',headers:json,body:JSON.stringify(op.patch),cache:'no-store'})
     :op.kind==='remove'?await fetch(`${base}/${encodeURIComponent(op.lineId)}`,{method:'DELETE',cache:'no-store'})
     :await fetch(base,{method:'POST',headers:json,body:JSON.stringify({itemId:op.itemId,qty:op.qty,...(op.restore?{restore:op.restore}:{})}),cache:'no-store'});
@@ -88,6 +91,8 @@ export function useQuoteEditor(initial:QuoteDetail){
   const [drafts,setDrafts]=useState<Record<string,LinePatch>>({});
   const [undoStack,setUndoStack]=useState<UndoEntry[]>([]);
   const [error,setError]=useState<string|null>(null);
+  /** Why the last suggestion taken wasn't (shown in "Suggested by Querent", next to the chips). */
+  const [upsellError,setUpsellError]=useState<string|null>(null);
   const [savedAt,setSavedAt]=useState<string|null>(null);
   /** An added line to focus once it arrives (its qty field, as in the mockup). */
   const [focusLineId,setFocusLineId]=useState<string|null>(null);
@@ -113,8 +118,11 @@ export function useQuoteEditor(initial:QuoteDetail){
       }
       setSavedAt(new Date().toISOString());
       setError(null);
+      if(entry.op.kind==='upsell')setUpsellError(null);
     }catch(caught){
-      setError(caught instanceof Error?caught.message:'That change wasn’t saved. Try again.');
+      const message=caught instanceof Error?caught.message:'That change wasn’t saved. Try again.';
+      // A refused suggestion (it changed, or no longer applies) is explained next to the chips, which refresh with the reload below.
+      if(entry.op.kind==='upsell')setUpsellError(message);else setError(message);
       if(entry.undoId!==null)setUndoStack(stack=>stack.filter(u=>u.id!==entry.undoId));
       // The quote changed underneath (sent from another tab, a line removed): show it as it is now.
       if(caught instanceof EditError&&(caught.status===404||caught.status===409)){const fresh=await reload(quoteId);if(fresh)setServer(fresh);}
@@ -179,17 +187,18 @@ export function useQuoteEditor(initial:QuoteDetail){
    * Takes one of Querent's suggestions (task 3.6): the server finds the chip again and adds its
    * line or bumps the line's qty. A bump shows at once; Undo puts the qty back, or removes the line.
    */
-  const takeUpsell=useCallback((chip:{id:string;action:UpsellAction;item:{description:string}})=>{
+  const takeUpsell=useCallback((chip:{id:string;fingerprint:string;action:UpsellAction;item:{description:string}})=>{
     const {action}=chip;
+    setUpsellError(null);
     if(action.type==='add_line'){
-      enqueue({kind:'upsell',upsellId:chip.id},{label:`Added ${shortName(chip.item.description)} from Suggested by Querent`,inverse:null});
+      enqueue({kind:'upsell',upsellId:chip.id,fingerprint:chip.fingerprint},{label:`Added ${shortName(chip.item.description)} from Suggested by Querent`,inverse:null});
       return;
     }
     const base=displayLines(server.lines,pending.map(p=>p.op),{}).find(l=>l.id===action.line_id);
     const after=base&&applyPatch(base,{qty:action.to_qty});
     if(!base||!after)return;
     draft(base.id,null);
-    enqueue({kind:'upsell',upsellId:chip.id,bump:{lineId:base.id,qty:action.to_qty}},
+    enqueue({kind:'upsell',upsellId:chip.id,fingerprint:chip.fingerprint,bump:{lineId:base.id,qty:action.to_qty}},
       {label:`Changed qty on ${shortName(base.description)} to ${action.to_qty} (Suggested by Querent)`,inverse:{kind:'patch',lineId:base.id,patch:inversePatch(base,after)}});
   },[draft,enqueue,server.lines,pending]);
 
@@ -209,7 +218,8 @@ export function useQuoteEditor(initial:QuoteDetail){
   const takingUpsells=useMemo(()=>new Set(pending.flatMap(p=>p.op.kind==='upsell'?[p.op.upsellId]:[])),[pending]);
 
   return {detail:server,lines,pending:pending.length,adding:pending.some(p=>p.op.kind==='add'&&!p.op.restore),error,savedAt,undoStack,
-    draft,edit,remove,add,undo,flush,focusLineId,clearFocus:()=>setFocusLineId(null),dismissError:()=>setError(null),takeUpsell,takingUpsells};
+    draft,edit,remove,add,undo,flush,focusLineId,clearFocus:()=>setFocusLineId(null),dismissError:()=>setError(null),
+    takeUpsell,takingUpsells,upsellError,dismissUpsellError:()=>setUpsellError(null)};
 }
 
 export type QuoteEditor=ReturnType<typeof useQuoteEditor>;

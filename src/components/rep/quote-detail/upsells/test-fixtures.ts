@@ -1,5 +1,5 @@
 import type {ItemStock} from '@/domain';
-import type {RepUpsell} from '@/server/rep/quote-upsells';
+import {upsellFingerprint,type RepUpsell} from '@/server/rep/quote-upsells';
 import {ITEMS,detailLine} from '../test-fixtures';
 
 // "Suggested by Querent" fixtures (task 3.6): the five chips GET /api/rep/quotes/Q-24817/upsells
@@ -27,7 +27,8 @@ function chip(key:UpsellItemKey|'wheels',kind:RepUpsell['kind'],anchor:Anchor,{q
   const item=key==='wheels'?ITEMS.wheels:UPSELL_ITEMS[key];
   const anchorItem=ITEMS[anchor];
   const action:RepUpsell['action']=kind==='full_case'?{type:'set_qty',line_id:ANCHOR_LINES[anchor],item_id:item.sku,from_qty:6,to_qty:qty}:{type:'add_line',item_id:item.sku,qty};
-  return {id:`${kind}:${item.sku}`,kind,action,item:{id:item.sku,sku:item.sku,description:item.description,pack:item.pack,case_qty:item.case_qty},qty,unit_price,price_basis,
+  const id=`${kind}:${item.sku}`;
+  return {id,fingerprint:upsellFingerprint({id,action,unit_price}),kind,action,item:{id:item.sku,sku:item.sku,description:item.description,pack:item.pack,case_qty:item.case_qty},qty,unit_price,price_basis,
     unit_cost:item.cost,gp_gain,anchor:{line_id:ANCHOR_LINES[anchor],item_id:anchorItem.sku,sku:anchorItem.sku,description:anchorItem.description},
     wording:{title,reason},evidence,wording_source:'template'} as RepUpsell;
 }

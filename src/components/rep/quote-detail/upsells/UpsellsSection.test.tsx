@@ -26,7 +26,7 @@ const {RepShell}=await import('../../RepShell');
 const {QuoteDetailView}=await import('../QuoteDetailView');
 
 // ---- A fake rep API over one quote ----
-let server:{lines:DetailLine[];upsells:number;conflict:boolean};
+let server:{lines:DetailLine[];upsells:number;changed:boolean};
 const detailOf=(lines:DetailLine[])=>sampleDetail({lines});
 /** The chips that still apply to the stored lines (the rules would drop the others). */
 const stillApply=(lines:DetailLine[])=>SAMPLE_UPSELLS.filter(u=>u.action.type==='add_line'?!lines.some(l=>l.item_id===u.item.sku)
@@ -42,7 +42,9 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   }
   if(url==='/api/rep/quotes/q-24817/upsells'&&method==='POST'){
     const chip=stillApply(server.lines).find(u=>u.id===body.upsellId);
-    if(!chip||server.conflict)return Response.json({detail:'That suggestion no longer applies to Q-24817.',code:'conflict'},{status:409});
+    if(!chip)return Response.json({detail:'That suggestion no longer applies to Q-24817.',code:'conflict'},{status:409});
+    if(server.changed||body.fingerprint!==chip.fingerprint)
+      return Response.json({detail:'That suggestion changed since it was shown. Check the updated suggestions and try again.',code:'conflict'},{status:409});
     let lineId:string;
     if(chip.action.type==='add_line'){
       const added=upsellLine(chip,Math.max(...server.lines.map(l=>l.line_no))+1);
@@ -63,7 +65,7 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
 });
 const calls=(method:string,match:RegExp)=>fetchMock.mock.calls.filter(([url,init])=>(init?.method??'GET')===method&&match.test(String(url)));
 
-beforeEach(()=>{server={lines:[...SAMPLE_LINES],upsells:200,conflict:false};fetchMock.mockClear();vi.stubGlobal('fetch',fetchMock);});
+beforeEach(()=>{server={lines:[...SAMPLE_LINES],upsells:200,changed:false};fetchMock.mockClear();vi.stubGlobal('fetch',fetchMock);});
 afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
@@ -130,7 +132,7 @@ describe('taking a chip',()=>{
     fireEvent.click(within(section()).getByRole('button',{name:/^Add: Hex nut/}));
     expect(within(section()).getByRole('button',{name:/^Add: Hex nut/})).toHaveTextContent('Adding…');
     await waitFor(()=>expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toBeInTheDocument());
-    expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'matching_fastener:HN-12-13-G8'});
+    expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'matching_fastener:HN-12-13-G8',fingerprint:'matching_fastener:HN-12-13-G8|add 5|19.95'});
     expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toHaveTextContent('Suggested');
     // 5 x $19.95 = $99.75 more. Querent found: the nut's broken-case list price over its customer price, (19.95 - 16.50) x 5 = $17.25 more.
     expect(totalsText()).toContain('Items$1,222.15');
@@ -161,7 +163,7 @@ describe('taking a chip',()=>{
     expect(totalsText()).toContain('Items$1,194.40');
     expect(chipTitles()).not.toContain('Bump cut-off wheels to 8 boxes (2 full cases)');
     await waitFor(()=>expect(calls('POST',/\/upsells$/)).toHaveLength(1));
-    expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'full_case:CW-45-045-T1'});
+    expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'full_case:CW-45-045-T1',fingerprint:'full_case:CW-45-045-T1|q-24817-2 6->8|36.00'});
     await loaded('4 ideas · up to +$155.65 gross profit');
     // Contract lines add nothing to "Querent found" (spec §5.1).
     expect(section().querySelector('summary')).toHaveTextContent('Querent found +$11.50 GP');
@@ -174,13 +176,32 @@ describe('taking a chip',()=>{
     expect(totalsText()).toContain('Items$1,122.40');
   });
 
-  it('shows the server\'s refusal when a chip no longer applies, and reloads the quote',async()=>{
+  it('explains a chip the server refused as changed (409) next to the chips, and refreshes them and the quote',async()=>{
     await openSection();
-    server.conflict=true;
+    server.changed=true;
+    const gets=calls('GET',/\/upsells$/).length;
     fireEvent.click(within(section()).getByRole('button',{name:/^Add: Safety glasses/}));
-    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('That suggestion no longer applies to Q-24817.'));
+    await waitFor(()=>expect(within(section()).getByRole('alert')).toHaveTextContent('That suggestion changed since it was shown. Check the updated suggestions and try again.'));
     await waitFor(()=>expect(calls('GET',/\/quotes\/q-24817$/)).toHaveLength(1));
+    await waitFor(()=>expect(calls('GET',/\/upsells$/).length).toBeGreaterThan(gets));
+    // Not the grid's error bar, and nothing to undo.
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.queryByRole('button',{name:'Undo'})).toBeNull();
+    expect(screen.queryByRole('rowheader',{name:/SG-CLR-AF/})).toBeNull();
+    // Taking a chip again clears the note; Dismiss does too.
+    server.changed=false;
+    fireEvent.click(within(section()).getByRole('button',{name:/^Add: Safety glasses/}));
+    expect(within(section()).queryByRole('alert')).toBeNull();
+    await waitFor(()=>expect(screen.getByRole('rowheader',{name:/SG-CLR-AF/})).toBeInTheDocument());
+  });
+
+  it('lets the rep dismiss the note',async()=>{
+    await openSection();
+    server.changed=true;
+    fireEvent.click(within(section()).getByRole('button',{name:/^Add: Flap disc/}));
+    await waitFor(()=>expect(within(section()).getByRole('alert')).toBeInTheDocument());
+    fireEvent.click(within(section()).getByRole('button',{name:'Dismiss'}));
+    expect(within(section()).queryByRole('alert')).toBeNull();
   });
 });
 

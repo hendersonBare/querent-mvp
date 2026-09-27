@@ -12,8 +12,10 @@ import u from './Upsells.module.css';
 // 03-04 and 08): collapsed, like the mockup, to one row with "Querent found +$Y GP" (spec §5.1
 // rule 4) and "N ideas · up to +$X gross profit". Open, each chip reads as Querent's wording
 // (Claude's in live mode, the template in scripted mode), its qty, price, margin and GP gain, and
-// one click takes it: an autosaved edit like any other, so Undo takes it back. A quote that can't
-// be edited offers no chips; its row still shows what Querent found.
+// one click takes it: an autosaved edit like any other, so Undo takes it back. The server applies
+// a chip only as it was shown; one that changed since (another tab edited its line) is refused,
+// the reason shows here, and the chips refresh. A quote that can't be edited offers no chips; its
+// row still shows what Querent found.
 
 const FOUND_NOTE='What Querent’s suggested prices add over the customer’s price, at these quantities. Contract lines add nothing.';
 
@@ -32,6 +34,7 @@ export function UpsellsSection({editor,querentFound}:{editor:QuoteEditor;querent
   if(!editable)return <section className={`${s.card} ${u.box}`} aria-labelledby="upsells-title"><div className={u.head}>{heading}</div></section>;
   return <details className={`${s.card} ${u.box}`} aria-labelledby="upsells-title">
     <summary className={u.head}><ChevronRight aria-hidden="true" size={14} strokeWidth={2} className={`${s.chev} ${u.chev}`}/>{heading}</summary>
+    {editor.upsellError&&<p className={u.notice} role="alert">{editor.upsellError}<button type="button" className={s.link} onClick={editor.dismissUpsellError}>Dismiss</button></p>}
     {chips.length?<ul className={u.list}>{chips.map(chip=><UpsellRow key={chip.id} chip={chip} taking={editor.takingUpsells.has(chip.id)} onTake={()=>editor.takeUpsell(chip)}/>)}</ul>
       :<p className={u.empty}>{state.status==='loading'?'Querent is looking for ideas for this quote.':state.status==='error'?'Suggestions couldn’t be loaded. They’ll try again after your next change.':'Nothing more to suggest for these lines.'}</p>}
   </details>;

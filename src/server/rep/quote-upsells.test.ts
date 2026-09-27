@@ -143,17 +143,25 @@ describe('the writer\'s wording',()=>{
   });
 });
 
+/** The chip as GET shows it now, and the body that takes it as shown. */
+async function shown(id:string,quote='Q-24817'){
+  const {upsells}=await load();
+  const chip=(await upsells.repQuoteUpsells('brandi',quote,{now:NOW,writer:undefined}))!.upsells.find(u=>u.id===id);
+  if(!chip)throw new Error(`No chip ${id} on ${quote}`);
+  return chip;
+}
+const bodyOf=(chip:{id:string;fingerprint:string})=>({upsellId:chip.id,fingerprint:chip.fingerprint});
+const take=async(id:string,quote='Q-24817')=>(await load()).upsells.takeRepQuoteUpsell('brandi',quote,bodyOf(await shown(id,quote)),{now:NOW});
+
 describe('taking a chip',()=>{
   it('adds the nut as a suggested line through the line-edit service: priced, logged, and the chip is gone',async()=>{
     const {upsells,repo}=await load();
-    const before=(await load()).repo.quote('q-24817')!;
-    const taken=await upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'matching_fastener:HN-12-13-G8'},{now:NOW});
+    const taken=await take('matching_fastener:HN-12-13-G8');
     const added=taken.detail.lines.find(l=>l.id===taken.line_id)!;
     expect(added).toMatchObject({sku:'HN-12-13-G8',qty:5,unit_price:19.95,price_basis:'list',suggested_basis:'list',customer_price:16.5,added_by:'upsell',line_no:5});
     expect(taken.detail.send_check.subtotal).toBe(1122.4+99.75);
     expect(repo.quoteActivity('q-24817').at(-1)).toMatchObject({actor:'rep',actor_id:'brandi',kind:'line_added',
       message:'Brandi added Hex nut 1/2-13 (HN-12-13-G8), qty 5, suggested by Querent'});
-    expect(before.lines).toHaveLength(4);
     // The nut chip is gone. 5 boxes of nuts is a broken case (10 to a case), so 1.6's full_case rule now offers the rest of the case.
     const after=(await upsells.repQuoteUpsells('brandi','Q-24817',{now:NOW,writer:undefined}))!;
     expect(after.upsells.map(u=>[u.id,u.gp_gain])).toEqual([['matching_fastener:FW-12-G8',41.75],['bought_together:FD-45-60Z',39.75],['full_case:CW-45-045-T1',23.8],
@@ -165,7 +173,7 @@ describe('taking a chip',()=>{
 
   it('bumps the wheels to the full case; the contract price stays, and "Querent found" doesn\'t move (contract lines add none)',async()=>{
     const {upsells,repo}=await load();
-    const taken=await upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'full_case:CW-45-045-T1'},{now:NOW});
+    const taken=await take('full_case:CW-45-045-T1');
     expect(taken.line_id).toBe('q-24817-2');
     expect(taken.detail.lines.find(l=>l.id==='q-24817-2')).toMatchObject({qty:8,unit_price:36,price_basis:'contract'});
     expect(taken.detail.send_check.subtotal).toBe(1122.4+72);
@@ -178,39 +186,75 @@ describe('taking a chip',()=>{
     const {upsells,edits}=await load();
     const ids=async()=>(await upsells.repQuoteUpsells('brandi','Q-24817',{now:NOW,writer:undefined}))!.upsells.map(u=>u.id);
     const all=await ids();
-    const nut=await upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'matching_fastener:HN-12-13-G8'},{now:NOW});
-    await upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'full_case:CW-45-045-T1'},{now:NOW});
+    const nut=await take('matching_fastener:HN-12-13-G8');
+    await take('full_case:CW-45-045-T1');
     expect(await ids()).toEqual(['matching_fastener:FW-12-G8','bought_together:FD-45-60Z','bought_together:SG-CLR-AF','full_case:HN-12-13-G8']);
     await edits.editRepQuoteLine('brandi','Q-24817','q-24817-2',{qty:6},{now:NOW});
     await edits.removeRepQuoteLine('brandi','Q-24817',nut.line_id,{now:NOW});
     expect(await ids()).toEqual(all);
   });
 
+  it('fingerprints what the chip shows: its id, what it changes, the qty and Querent\'s price',async()=>{
+    const {upsells}=await load();
+    expect((await upsells.repQuoteUpsells('brandi','Q-24817',{now:NOW,writer:undefined}))!.upsells.map(u=>u.fingerprint)).toEqual([
+      'matching_fastener:HN-12-13-G8|add 5|19.95',
+      'matching_fastener:FW-12-G8|add 5|15.75',
+      'bought_together:FD-45-60Z|add 3|44.25',
+      'full_case:CW-45-045-T1|q-24817-2 6->8|36.00',
+      'bought_together:SG-CLR-AF|add 2|29.90',
+    ]);
+  });
+
+  it('refuses a chip that changed since it was shown (409) and writes nothing: the verifier\'s repro (F1)',async()=>{
+    const {upsells,edits,repo}=await load();
+    const wheels=await shown('full_case:CW-45-045-T1');
+    const nut=await shown('matching_fastener:HN-12-13-G8');
+    expect([wheels.action,nut.qty,nut.unit_price]).toEqual([{type:'set_qty',line_id:'q-24817-2',item_id:'CW-45-045-T1',from_qty:6,to_qty:8},5,19.95]);
+    // Elsewhere (another tab), the wheels go to 9 and the bolts to 20: the same ids now mean 9 -> 12, and 10 nuts at $16.50.
+    await edits.editRepQuoteLine('brandi','Q-24817','q-24817-2',{qty:9},{now:NOW});
+    await edits.editRepQuoteLine('brandi','Q-24817','q-24817-1',{qty:20},{now:NOW});
+    const lines=repo.quote('q-24817')!.lines;
+    const changed={code:'conflict',httpStatus:409,message:'That suggestion changed since it was shown. Check the updated suggestions and try again.'};
+    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',bodyOf(wheels),{now:NOW})).rejects.toMatchObject(changed);
+    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',bodyOf(nut),{now:NOW})).rejects.toMatchObject(changed);
+    expect(repo.quote('q-24817')!.lines).toEqual(lines);
+    // Taken as shown now, they apply as shown.
+    const [freshWheels,freshNut]=[await shown('full_case:CW-45-045-T1'),await shown('matching_fastener:HN-12-13-G8')];
+    expect([freshWheels.fingerprint,freshNut.fingerprint]).toEqual(['full_case:CW-45-045-T1|q-24817-2 9->12|36.00','matching_fastener:HN-12-13-G8|add 10|16.50']);
+    expect((await upsells.takeRepQuoteUpsell('brandi','Q-24817',bodyOf(freshWheels),{now:NOW})).detail.lines.find(l=>l.id==='q-24817-2')!.qty).toBe(12);
+    expect((await upsells.takeRepQuoteUpsell('brandi','Q-24817',bodyOf(freshNut),{now:NOW})).detail.lines.at(-1)).toMatchObject({sku:'HN-12-13-G8',qty:10,unit_price:16.5});
+  });
+
   it('refuses a chip that no longer applies, or never did (409), and bad input (400)',async()=>{
     const {upsells,repo}=await load();
-    await upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'matching_fastener:HN-12-13-G8'},{now:NOW});
+    const nut=await shown('matching_fastener:HN-12-13-G8');
+    await upsells.takeRepQuoteUpsell('brandi','Q-24817',bodyOf(nut),{now:NOW});
     const lines=repo.quote('q-24817')!.lines;
-    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'matching_fastener:HN-12-13-G8'},{now:NOW}))
+    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',bodyOf(nut),{now:NOW}))
       .rejects.toMatchObject({code:'conflict',httpStatus:409,message:'That suggestion no longer applies to Q-24817.'});
-    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'bought_together:DT-2-60'},{now:NOW})).rejects.toMatchObject({code:'conflict'});
-    for(const body of [undefined,{},{upsellId:''},{upsellId:7},{upsellId:'x'.repeat(121)},{upsellId:'full_case:CW-45-045-T1',qty:99}])
+    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'bought_together:DT-2-60',fingerprint:'bought_together:DT-2-60|add 1|9.99'},{now:NOW})).rejects.toMatchObject({code:'conflict'});
+    const washer=await shown('matching_fastener:FW-12-G8');
+    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{...bodyOf(washer),fingerprint:'matching_fastener:FW-12-G8|add 50|15.75'},{now:NOW})).rejects.toMatchObject({code:'conflict'});
+    for(const body of [undefined,{},{upsellId:''},{upsellId:7},{upsellId:washer.id},{fingerprint:washer.fingerprint},{upsellId:washer.id,fingerprint:''},
+      {upsellId:'x'.repeat(121),fingerprint:washer.fingerprint},{upsellId:washer.id,fingerprint:'y'.repeat(201)},{...bodyOf(washer),qty:99}])
       await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',body,{now:NOW})).rejects.toMatchObject({code:'invalid_input',httpStatus:400});
     expect(repo.quote('q-24817')!.lines).toEqual(lines);
   });
 
   it('refuses another rep\'s quote (404) and sent, accepted or expired quotes (409 via canEditDraft), writing nothing',async()=>{
     const {upsells,repo,service}=await load();
-    const chip={upsellId:'full_case:CW-45-045-T1'};
+    const chip=bodyOf(await shown('full_case:CW-45-045-T1'));
     await expect(upsells.takeRepQuoteUpsell('mara','Q-24817',chip,{now:NOW})).rejects.toMatchObject({code:'not_found',httpStatus:404});
     const accepted=repo.quoteByNumber('Q-24816')!;
     await expect(upsells.takeRepQuoteUpsell('brandi','Q-24816',chip,{now:NOW}))
       .rejects.toMatchObject({code:'illegal_transition',httpStatus:409,message:'Q-24816 was accepted, so it can\'t be edited. Duplicate it to quote again.'});
     expect(repo.quoteByNumber('Q-24816')).toEqual(accepted);
     const copy=service.duplicateQuote('Q-24817',{repId:'brandi',now:'2026-09-23T15:00:00.000Z'});
+    const copyChip=bodyOf(await shown('full_case:CW-45-045-T1',copy.id));
     await service.sendQuote(copy.id,{repId:'brandi',now:'2026-09-23T16:00:00.000Z'});
     const sent=repo.quote(copy.id)!;
-    await expect(upsells.takeRepQuoteUpsell('brandi',copy.id,chip,{now:NOW})).rejects.toMatchObject({code:'illegal_transition',httpStatus:409,message:/was sent to the customer/});
-    await expect(upsells.takeRepQuoteUpsell('brandi',copy.id,chip,{now:'2026-10-09T00:00:00.000Z'})).rejects.toMatchObject({code:'illegal_transition',message:/expired/});
+    await expect(upsells.takeRepQuoteUpsell('brandi',copy.id,copyChip,{now:NOW})).rejects.toMatchObject({code:'illegal_transition',httpStatus:409,message:/was sent to the customer/});
+    await expect(upsells.takeRepQuoteUpsell('brandi',copy.id,copyChip,{now:'2026-10-09T00:00:00.000Z'})).rejects.toMatchObject({code:'illegal_transition',message:/expired/});
     expect(repo.quote(copy.id)).toEqual(sent);
   });
 
@@ -221,7 +265,7 @@ describe('taking a chip',()=>{
     service.requestChanges('wasatch',copy.id,{revision:1,note:'Add nuts please',now:'2026-09-23T17:00:00.000Z'});
     expect(repo.quote(copy.id)!.status).toBe('changes_requested');
     expect((await upsells.repQuoteUpsells('brandi',copy.id,{now:NOW,writer:undefined}))!.editable).toBe(true);
-    const taken=await upsells.takeRepQuoteUpsell('brandi',copy.id,{upsellId:'matching_fastener:HN-12-13-G8'},{now:NOW});
+    const taken=await take('matching_fastener:HN-12-13-G8',copy.id);
     expect(taken.detail.lines.at(-1)).toMatchObject({sku:'HN-12-13-G8',added_by:'upsell'});
   });
 });
