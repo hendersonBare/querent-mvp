@@ -1,5 +1,5 @@
 import 'server-only';
-import type {DeliveryRates,Quote,QuoteHeader} from '@/domain';
+import type {DeliveryRates,Quote} from '@/domain';
 import {resolveFloor,type FloorRow} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
 import type {QuoteFreight} from '@/server/freight/engine';
@@ -75,10 +75,4 @@ export async function quoteDetailOf(q:Quote,{now=clock(),provider}:QuoteDetailOp
 export async function repQuoteDetail(repId:string,quoteIdOrNumber:string,options:QuoteDetailOptions={}):Promise<QuoteDetail|undefined>{
   const q=repQuote(repId,quoteIdOrNumber);
   return q&&quoteDetailOf(q,options);
-}
-
-/** The status the header shows and whether edits are allowed, for a header read at `now`. */
-export function editState(q:Pick<QuoteHeader,'status'|'valid_until'>,now:string){
-  const status=effectiveStatus(q,now);
-  return {status,editable:canEditDraft(status)};
 }
