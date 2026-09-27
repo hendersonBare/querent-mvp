@@ -189,10 +189,16 @@
   font: 600 15px/1.3 var(--rep-body);
   letter-spacing: normal;
 }
+.panel > .titleRow {
+  margin-bottom: 12px;
+}
 .panelSummary {
   margin: 4px 0 14px;
   font-size: 13px;
   color: var(--rep-muted);
+}
+.panel > .titleRow + .panelSummary {
+  margin-top: -8px;
 }
 .inlineFigure {
   font-weight: 600;
@@ -342,6 +348,12 @@
   pointer-events: none;
   white-space: nowrap;
 }
+.chartTip[data-side="right"] {
+  margin-left: 6px;
+}
+.chartTip[data-side="left"] {
+  margin-right: 6px;
+}
 .chartTip strong {
   font-size: 14px;
   color: var(--rep-ink);
@@ -409,6 +421,7 @@
 /* ---- Margin vs floor: a bar per category with a floor tick, like the quote's margin bar ---- */
 .marginList {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin: 0;
   padding: 0;
@@ -494,6 +507,8 @@
 /* ---- Top requested items ---- */
 .itemList {
   display: grid;
+  /* One track that can shrink, so a long description truncates instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin: 0;
   padding: 0;

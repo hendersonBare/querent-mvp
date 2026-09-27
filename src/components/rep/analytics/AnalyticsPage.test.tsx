@@ -140,7 +140,7 @@ describe('the picker',()=>{
     expect(requested()).toContain('/api/rep/analytics?customer=great-basin');
     expect(card('Win rate')).toHaveTextContent('—No quotes decided yet');
     expect(card('Quoted vs accepted')).toHaveTextContent('$0.00 quotedNo quotes sent yet');
-    expect(card('Hours saved')).toHaveTextContent('0.0 hours20 min for each of 0 quotes sent');
+    expect(card('Hours saved')).toHaveTextContent('0.0 hoursNo quotes sent yet');
     expect(card('Extra GP Querent found')).toHaveTextContent('$0.00No accepted quotes yet');
     expect(card('Quotes and wins by week')).toHaveTextContent('No quotes requested in the last 26 weeks.');
     expect(within(card('Quotes and wins by week')).queryByRole('button',{name:'Show table'})).not.toBeInTheDocument();

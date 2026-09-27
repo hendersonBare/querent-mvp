@@ -40,12 +40,12 @@ export function StatCards({data}:{data:RepAnalytics}){
     <StatCard label="Quoted vs accepted" topic="dollars quoted and accepted" value={formatMoneyFigure(q.quoted)} unit="quoted"
       info={<>Quoted: the total of the last revision sent (items and freight, before tax) for each of {plural(q.quoted_count,'sent quote')}, {formatMoney(q.quoted)}. Accepted: the same total for the {plural(q.accepted_count,'quote')} customers accepted, {formatMoney(q.accepted)}{q.share!==null?<>, {formatPercent(q.share)} of the dollars quoted</>:null}.</>}>
       <p className={s.kpiContext}>{q.quoted_count?`${formatMoneyFigure(q.accepted)} accepted, ${formatPercent(q.share)}`:'No quotes sent yet'}</p>
-      <span className={s.meter} aria-hidden="true"><span style={{width:`${Math.min(100,(q.share??0)*100)}%`}}/></span>
+      {q.share!==null&&<span className={s.meter} aria-hidden="true"><span style={{width:`${Math.min(100,q.share*100)}%`}}/></span>}
     </StatCard>
 
     <StatCard label="Hours saved" topic="hours saved" value={formatHours(h.hours)} unit={h.hours===1?'hour':'hours'}
       info={<>A fixed {h.minutes_per_quote} minutes of rep time for each quote sent (matching items, checking stock, pricing and writing it up), times {plural(h.quotes_sent,'quote')} sent: {formatCount(h.minutes)} minutes. Each quote counts once, however many revisions it took.</>}>
-      <p className={s.kpiContext}>{h.minutes_per_quote} min for each of {plural(h.quotes_sent,'quote')} sent</p>
+      <p className={s.kpiContext}>{h.quotes_sent?`${h.minutes_per_quote} min for each of ${plural(h.quotes_sent,'quote')} sent`:'No quotes sent yet'}</p>
     </StatCard>
 
     <StatCard label="Extra GP Querent found" topic="extra GP Querent found" value={formatGpAmount(gp.amount)} tone={gp.amount>0?'gain':undefined}

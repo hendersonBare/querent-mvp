@@ -131,7 +131,7 @@ test("picker: Viewing changes the scope of analytics and lists, and every nav li
   await viewing.selectOption("great-basin");
   await expect(page).toHaveURL(/\/rep\/analytics\?customer=great-basin$/);
   await expect(totalQueries(page)).toHaveText("0");
-  await expect(page.getByText("Customer questions Querent answered · Great Basin Fabrication")).toBeVisible();
+  await expect(page.getByText("Quotes and customer questions for Great Basin Fabrication")).toBeVisible();
   await expect(page.getByRole("banner")).toContainText("GBF-2207 · Rep Brandi Gallegos");
 
   // Every section link and the Settings tabs carry the scope.

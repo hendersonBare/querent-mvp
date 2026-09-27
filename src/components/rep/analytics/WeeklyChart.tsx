@@ -69,8 +69,9 @@ export function WeeklyChart({weeks}:{weeks:WeekPoint[]}){
               </span>}
             </div>)}
           </div>
-          {week&&<div className={s.chartTip} role="status" data-side={active!<n/2?'left':'right'}
-            style={active!<n/2?{left:`${(active!/n)*100}%`}:{right:`${((n-1-active!)/n)*100}%`}}>
+          {/* Beside the column, never over it: right of it in the first half, left of it in the second. */}
+          {week&&<div className={s.chartTip} role="status" data-side={active!<n/2?'right':'left'}
+            style={active!<n/2?{left:`${((active!+1)/n)*100}%`}:{right:`${((n-active!)/n)*100}%`}}>
             <strong>{plural(week.quotes,'quote')}</strong>
             <span>{week.won} won, {week.lost} lost, {week.open} open</span>
             <span className={s.chartTipWeek}>Week of {formatWeek(week.week_start)}</span>
