@@ -215,52 +215,52 @@ export function CustomerChat({
                     return <QuoteNoticeCard key={`notice-${entry.notice.id}`} notice={entry.notice} />;
                   const { turn, index } = entry;
                   return (
-                  <article className="chat-turn" key={turn.id}>
-                    <div className="question-row">
-                      <div className="question-bubble">{turn.question}</div>
-                      <span className="avatar user-avatar">{initials(user.user_name)}</span>
-                    </div>
-                    <div className="answer-row">
-                      <span className="avatar brand-avatar">
-                        <img src="/querent-logo.png" alt="Querent" />
-                      </span>
-                      <div className="answer-content">
-                        {!turn.answer ? (
-                          <div className="typing" role="status">
-                            Looking up your records<span>…</span>
-                          </div>
-                        ) : (
-                          <div
-                            className={`answer-bubble ${turn.outcome === "error" ? "answer-error" : ""}`}
-                          >
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {turn.answer}
-                            </ReactMarkdown>
-                            {/* Only the latest clarifying reply can still be answered (task 2.2). */}
-                            {turn.kind === "clarify" && turn.payload && index === turns.length - 1 && (
-                              <ClarifyPanel
-                                payload={turn.payload as ClarifyPayload}
-                                active={!busy && !!conversation}
-                                onSend={(message) => void ask(message)}
-                              />
-                            )}
-                            {/* Only the latest pop-up can still be quoted, once (task 2.3). */}
-                            {turn.kind === "item_popup" && turn.payload && (
-                              <ItemPopup
-                                api={api}
-                                conversationId={conversation}
-                                payload={turn.payload as ItemPopupPayload}
-                                active={index === lastPopup && !!conversation}
-                                requested={quoteRequestedAfter(turns, index)}
-                                autoOpen={turn.id === popupToOpen}
-                                onRequested={quoteRequested}
-                              />
-                            )}
-                          </div>
-                        )}
+                    <article className="chat-turn" key={turn.id}>
+                      <div className="question-row">
+                        <div className="question-bubble">{turn.question}</div>
+                        <span className="avatar user-avatar">{initials(user.user_name)}</span>
                       </div>
-                    </div>
-                  </article>
+                      <div className="answer-row">
+                        <span className="avatar brand-avatar">
+                          <img src="/querent-logo.png" alt="Querent" />
+                        </span>
+                        <div className="answer-content">
+                          {!turn.answer ? (
+                            <div className="typing" role="status">
+                              Looking up your records<span>…</span>
+                            </div>
+                          ) : (
+                            <div
+                              className={`answer-bubble ${turn.outcome === "error" ? "answer-error" : ""}`}
+                            >
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {turn.answer}
+                              </ReactMarkdown>
+                              {/* Only the latest clarifying reply can still be answered (task 2.2). */}
+                              {turn.kind === "clarify" && turn.payload && index === turns.length - 1 && (
+                                <ClarifyPanel
+                                  payload={turn.payload as ClarifyPayload}
+                                  active={!busy && !!conversation}
+                                  onSend={(message) => void ask(message)}
+                                />
+                              )}
+                              {/* Only the latest pop-up can still be quoted, once (task 2.3). */}
+                              {turn.kind === "item_popup" && turn.payload && (
+                                <ItemPopup
+                                  api={api}
+                                  conversationId={conversation}
+                                  payload={turn.payload as ItemPopupPayload}
+                                  active={index === lastPopup && !!conversation}
+                                  requested={quoteRequestedAfter(turns, index)}
+                                  autoOpen={turn.id === popupToOpen}
+                                  onRequested={quoteRequested}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </article>
                   );
                 })}
               </div>
