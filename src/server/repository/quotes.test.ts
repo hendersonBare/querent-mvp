@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {Quote,QuoteSnapshot} from '@/domain';
 import {
-  addQuoteActivity,addQuoteLine,addQuoteNote,addQuoteRevision,createQuote,customerQuote,customerQuotes,markQuoteRead,quote,quoteActivity,quoteByNumber,quoteNotes,
+  addQuoteActivity,addQuoteLine,addQuoteNote,addQuoteRevision,createQuote,customerQuote,customerQuoteRevision,customerQuotes,markQuoteRead,quote,quoteActivity,quoteByNumber,quoteNotes,
   quoteRevision,quoteRevisions,quotes,removeQuoteLine,resetSampleQuote,saveQuoteTransition,setFreightOverride,unreadQuoteCount,updateQuoteFulfillment,updateQuoteLine,updateQuoteTerms,
 } from './quotes';
 import {inTransaction} from './sql';
@@ -250,6 +250,26 @@ describe('customer-safe quote reads',()=>{
     addQuoteRevision(q.id,{revision:1,sentBy:'brandi',total:219.5,snapshot:leaky});
     expect(quoteRevision(q.id,1)?.snapshot).toHaveProperty('internal_notes');
     expect(customerQuote('wasatch',q.id)?.sent?.snapshot).toEqual(SNAPSHOT);
+    expect(customerQuoteRevision('wasatch',q.id)?.snapshot).toEqual(SNAPSHOT);
+  });
+
+  it('reads one sent revision for the customer PDF (task 4.1): the latest by default, only the customer\'s own, never a draft',()=>{
+    const latest=customerQuoteRevision('wasatch','q-24816');
+    expect(latest).toMatchObject({quote_id:'q-24816',revision:1,sent_at:customerQuote('wasatch','Q-24816')!.sent!.sent_at,rep:{id:'brandi',name:'Brandi Gallegos',phone:'(801) 111-2222'}});
+    expect(latest?.snapshot).toMatchObject({quote_number:'Q-24816',fulfillment:'delivery',branch:'SLC',freight:62.5,freight_miles:15,total:655.25});
+    expect(customerQuoteRevision('wasatch','Q-24816',1)).toEqual(latest);
+    expect(customerQuoteRevision('wasatch','Q-24816',2)).toBeUndefined();
+    // Q-24817 is ready_for_review: it has no sent revision, so its draft prices never reach the customer.
+    expect(customerQuoteRevision('wasatch','Q-24817')).toBeUndefined();
+    expect(customerQuoteRevision('wasatch','Q-24817',0)).toBeUndefined();
+    expect(customerQuoteRevision('great-basin','Q-24816')).toBeUndefined();
+    expect(customerQuoteRevision('wasatch','nope')).toBeUndefined();
+
+    const q=newQuote();
+    addQuoteRevision(q.id,{revision:1,sentBy:'brandi',total:219.5,snapshot:SNAPSHOT});
+    addQuoteRevision(q.id,{revision:2,sentBy:'brandi',total:300,snapshot:{...SNAPSHOT,revision:2,total:300}});
+    expect(customerQuoteRevision('wasatch',q.quote_number)).toMatchObject({revision:2,snapshot:{revision:2,total:300}});
+    expect(customerQuoteRevision('wasatch',q.id,1)).toMatchObject({revision:1,snapshot:{revision:1,total:SNAPSHOT.total}});
   });
 });
 

@@ -1,3 +1,4 @@
+import type {Rep} from './accounts';
 import type {Fulfillment} from './orders';
 
 // Quotes (spec §4, §5.4). Quote and QuoteLine are internal: they carry unit cost and Querent's
@@ -68,6 +69,8 @@ export interface QuoteSnapshot {
   sent_at?:string;valid_days?:ValidDays;customer_po?:string|null;customer_note?:string|null;
   /** The delivery address, or null for will call. */
   ship_to?:string|null;
+  /** Road miles from the branch that priced delivery freight (task 4.1 prints them); null for will call or unmeasured. */
+  freight_miles?:number|null;
 }
 
 export interface QuoteRevision {id:string;quote_id:string;revision:number;sent_at:string;sent_by:string;message:string|null;attach_pdf:boolean;total:number;snapshot:QuoteSnapshot}
@@ -85,6 +88,9 @@ export interface CustomerQuoteView extends CustomerQuoteSummary {
   fulfillment_time:string|null;customer_po:string|null;change_request_note:string|null;
   sent:{revision:number;sent_at:string;message:string|null;attach_pdf:boolean;snapshot:QuoteSnapshot}|null;
 }
+
+/** Customer-safe: one revision the rep sent (the customer PDF, task 4.1), with the quote's rep for its contact block. */
+export interface CustomerQuoteRevision {quote_id:string;revision:number;sent_at:string;snapshot:QuoteSnapshot;rep:Rep|null}
 
 // Write inputs. Unit cost is never an input: the repository copies it from the item when a line is written.
 

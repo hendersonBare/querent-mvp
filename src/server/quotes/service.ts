@@ -108,7 +108,7 @@ export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attac
     const blockers=sendBlockers(q,freight);
     if(blockers.length)throw new QuoteActionError('send_blocked',`Can't send ${q.quote_number} yet. ${blockers.map(b=>b.message).join(' ')}`,{blockers});
     const revision=q.revision+1,validUntil=validUntilFor(now,q.valid_days);
-    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,freight:typeof freight.amount==='number'?freight.amount:Number.NaN});
+    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,freight:typeof freight.amount==='number'?freight.amount:Number.NaN,freightMiles:freight.computed.miles});
     persist(q,{to:'sent',at:now,revision,sentAt:now,validUntil,unreadForRep:false,unreadForCustomer:true});
     const stored=addQuoteRevision(q.id,{revision,sentBy:repId,message,attachPdf,total:snapshot.total,snapshot,sentAt:now});
     addQuoteActivity(q.id,{actor:'rep',actorId:repId,kind:'sent',at:now,message:`${sender} sent ${q.quote_number} rev ${revision} to ${customerWho(q)} (${formatUsd(snapshot.total)})`});

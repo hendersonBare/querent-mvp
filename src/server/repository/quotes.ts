@@ -1,7 +1,7 @@
 import 'server-only';
 import type {
-  ActivityActor,CustomerQuoteSummary,CustomerQuoteView,LineSource,NewQuote,NewQuoteLine,NewQuoteRevision,Quote,QuoteActivity,QuoteFulfillmentPatch,
-  QuoteHeader,QuoteLine,QuoteLinePatch,QuoteListRow,QuoteNote,QuoteRevision,QuoteSnapshot,QuoteStatus,QuoteTermsPatch,QuoteTransition,
+  ActivityActor,CustomerQuoteRevision,CustomerQuoteSummary,CustomerQuoteView,LineSource,NewQuote,NewQuoteLine,NewQuoteRevision,Quote,QuoteActivity,QuoteFulfillmentPatch,
+  QuoteHeader,QuoteLine,QuoteLinePatch,QuoteListRow,QuoteNote,QuoteRevision,QuoteSnapshot,QuoteStatus,QuoteTermsPatch,QuoteTransition,Rep,
 } from '@/domain';
 import {db,seedAnchor} from '../db';
 import {SAMPLE_QUOTE,seedSampleQuote} from '../db/seed';
@@ -245,7 +245,7 @@ export function customerQuotes(customerId:string){
 function customerSnapshot(s:QuoteSnapshot):QuoteSnapshot{
   return {quote_number:s.quote_number,revision:s.revision,customer:{name:s.customer.name,account_number:s.customer.account_number},contact:s.contact??null,rep:s.rep,
     fulfillment:s.fulfillment,branch:s.branch,valid_until:s.valid_until??null,subtotal:s.subtotal,freight:s.freight,total:s.total,
-    sent_at:s.sent_at,valid_days:s.valid_days,customer_po:s.customer_po,customer_note:s.customer_note,ship_to:s.ship_to,
+    sent_at:s.sent_at,valid_days:s.valid_days,customer_po:s.customer_po,customer_note:s.customer_note,ship_to:s.ship_to,freight_miles:s.freight_miles,
     lines:s.lines.map(l=>({sku:l.sku,description:l.description,pack:l.pack,qty:l.qty,unit_price:l.unit_price,total:l.total}))};
 }
 
@@ -258,4 +258,21 @@ export function customerQuote(customerId:string,quoteIdOrNumber:string):Customer
   const last=one<RevisionRow>(`${REVISION} WHERE quote_id=? ORDER BY revision DESC LIMIT 1`,row.id);
   const sent=last?{revision:last.revision,sent_at:last.sent_at,message:last.message,attach_pdf:bool(last.attach_pdf),snapshot:customerSnapshot(JSON.parse(last.snapshot) as QuoteSnapshot)}:null;
   return {...toSummary(row),fulfillment_time:row.fulfillment_time,customer_po:row.customer_po,change_request_note:row.change_request_note,sent};
+}
+
+/**
+ * Customer-safe: one revision the rep sent on one of the customer's quotes (by id or number), the
+ * latest when `revision` is omitted, with the quote's own rep (quotes are never reassigned). This
+ * is what the customer PDF prints (task 4.1). Undefined for another customer's quote, an unknown
+ * one, or a revision that was never sent, so a draft's unreviewed prices never reach the customer.
+ */
+export function customerQuoteRevision(customerId:string,quoteIdOrNumber:string,revision?:number):CustomerQuoteRevision|undefined{
+  const q=one<{id:string;rep_id:string}>('SELECT id,rep_id FROM quotes WHERE customer_id=? AND (id=? OR upper(quote_number)=upper(?))',customerId,quoteIdOrNumber,quoteIdOrNumber);
+  if(!q)return undefined;
+  const row=revision===undefined
+    ?one<RevisionRow>(`${REVISION} WHERE quote_id=? ORDER BY revision DESC LIMIT 1`,q.id)
+    :one<RevisionRow>(`${REVISION} WHERE quote_id=? AND revision=?`,q.id,revision);
+  if(!row)return undefined;
+  const rep=one<Rep>('SELECT id,name,initials,title,phone,email FROM reps WHERE id=?',q.rep_id)??null;
+  return {quote_id:q.id,revision:row.revision,sent_at:row.sent_at,snapshot:customerSnapshot(JSON.parse(row.snapshot) as QuoteSnapshot),rep};
 }

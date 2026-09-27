@@ -54,14 +54,13 @@ export const DEALS:Deal[]=[
 ];
 
 const money=(n:number)=>n.toLocaleString('en-US',{style:'currency',currency:'USD'});
-/** Historical freight, priced by the live freight engine (spec §5.3) with haversine road miles. */
+/** Historical freight and its road miles, priced by the live freight engine (spec §5.3) with haversine road miles. */
 function freightFor(deal:Deal,subtotal:number){
-  if(deal.fulfillment==='will_call')return 0;
+  if(deal.fulfillment==='will_call')return {amount:0,miles:null};
   const branch=BRANCHES.find(b=>b.id===deal.branch)!;
-  const miles=haversineRoadMiles(branch,{lat:WASATCH.ship_to_lat,lng:WASATCH.ship_to_lng});
-  const {amount}=priceDelivery({origin:branch.code,miles,subtotal,rates:DELIVERY_RATES});
+  const {amount,miles}=priceDelivery({origin:branch.code,miles:haversineRoadMiles(branch,{lat:WASATCH.ship_to_lat,lng:WASATCH.ship_to_lng}),subtotal,rates:DELIVERY_RATES});
   if(amount===CALL_FOR_FREIGHT)throw new Error(`Seeded delivery from ${branch.code} is beyond the delivery radius.`);
-  return amount;
+  return {amount,miles};
 }
 
 export function seedHistory({insert,anchor,syncedAt}:SeedContext){
@@ -71,7 +70,7 @@ export function seedHistory({insert,anchor,syncedAt}:SeedContext){
   for(const deal of DEALS){
     const lines=deal.lines.map(([sku,qty,price,basis='customer',customerPrice=price])=>({item:catalogItem(sku),qty,price,basis,customerPrice}));
     const subtotal=round2(lines.reduce((sum,l)=>sum+l.qty*l.price,0));
-    const freight=freightFor(deal,subtotal);
+    const {amount:freight,miles:freightMiles}=freightFor(deal,subtotal);
     const branch=BRANCHES.find(b=>b.id===deal.branch)!;
     const makesOrder=!deal.quote||deal.outcome==='accepted';
     const orderNumber=makesOrder?`SO-${51201+orderIndex}`:null;
@@ -99,6 +98,7 @@ export function seedHistory({insert,anchor,syncedAt}:SeedContext){
         explanation:null,requested_text:null,match_score:null,added_by:'querent'}));
       const snapshot={quote_number:quoteNumber,revision:1,customer:{name:WASATCH.name,account_number:WASATCH.account_number},contact:DANA.name,rep:rep.name,
         fulfillment:deal.fulfillment,branch:branch.code,valid_until:validUntil,subtotal,freight,total,
+        ship_to:deal.fulfillment==='delivery'?`${WASATCH.ship_to_address}, ${WASATCH.ship_to_city}, ${WASATCH.ship_to_state} ${WASATCH.ship_to_zip}`:null,freight_miles:freightMiles,
         lines:lines.map(l=>({sku:l.item.sku,description:l.item.description,pack:l.item.pack,qty:l.qty,unit_price:l.price,total:round2(l.qty*l.price)}))};
       insert('quote_revisions',{id:`${quoteId}-r1`,quote_id:quoteId,revision:1,sent_at:sentAt,sent_by:rep.id,message:`Hi Dana, quote ${quoteNumber} is ready for you.`,attach_pdf:1,total,snapshot:JSON.stringify(snapshot)});
       const activity:[string,string,string|null,string,string][]=[

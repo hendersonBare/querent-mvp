@@ -40,6 +40,12 @@ describe('buildSnapshot',()=>{
     for(const leak of ['unit_cost','cost','margin','suggested','explanation','Internal','customer_price','match_score','requested_text'])expect(text).not.toContain(leak);
   });
 
+  it('keeps the freight miles when given (the customer PDF prints them), and adds no key otherwise',()=>{
+    expect(buildSnapshot(QUOTE,{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:62.5,freightMiles:15})).toMatchObject({freight:62.5,freight_miles:15});
+    expect(buildSnapshot({...QUOTE,fulfillment:'will_call'},{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:0,freightMiles:null})).toHaveProperty('freight_miles',null);
+    expect(snap).not.toHaveProperty('freight_miles');
+  });
+
   it('has no ship-to on will call',()=>{
     expect(buildSnapshot({...QUOTE,fulfillment:'will_call'},{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:0})).toMatchObject({fulfillment:'will_call',ship_to:null,freight:0,total:401.72});
   });
