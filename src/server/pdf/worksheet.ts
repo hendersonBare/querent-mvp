@@ -121,14 +121,12 @@ export function worksheetModel(q:PdfQuote,ctx:PdfContext,facts:WorksheetFacts):W
   const frame=customerPdfModel(q,ctx);
   const ref=`${q.quote_number} rev ${q.revision}`;
 
-  let items=0,cost=0,below=0,priced=0,currentCost=false;
+  // Profit covers the priced lines with a known cost (an unpriced line has no margin yet).
+  let items=0,cost=0,below=0,currentCost=false;
   const lines=q.lines.map((l,i):WorksheetLine=>{
     const f=facts.lines[i],shown=frame.lines[i];
     const fraction=f.floor?.margin??margin(l.unit_price,f.unit_cost);
-    if(l.unit_price!==null){
-      priced++;
-      if(f.unit_cost!==null){items+=l.total??0;cost+=l.qty*f.unit_cost;}
-    }
+    if(l.unit_price!==null&&f.unit_cost!==null){items+=l.total??0;cost+=l.qty*f.unit_cost;}
     const belowFloor=!!f.floor?.belowFloor;
     if(belowFloor)below++;
     if(f.cost_source==='item')currentCost=true;
