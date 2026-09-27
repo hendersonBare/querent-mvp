@@ -3,8 +3,8 @@ import {Fragment,useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import s from './QuoteDetail.module.css';
 
 // A header menu on the quote (mockup .menu-wrap / .menu): the Export menu (PDFs, CSV, Copy
-// summary: task 4.3, see ./export-menu) and the ⋯ menu (Duplicate, Reset sample, Open in ERP: task 3.5, see
-// ./more-menu). Until a task adds its items, the menu says what will be there instead of opening
+// summary: task 4.3, see ./export-menu) and the ⋯ menu (Duplicate, Reset sample, Open in ERP:
+// task 3.5, see ./more-menu). Until a task adds its items, the menu says what will be there instead of opening
 // empty. Arrow keys move through every item, disabled ones included, so a disabled item's
 // tooltip can be read (WAI-ARIA menu pattern); a disabled item never runs.
 
