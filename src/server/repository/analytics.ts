@@ -15,10 +15,17 @@ const scopeIds=(scope:CustomerScope):string[]=>scope===null?customerIds():typeof
 /** Binds the scope for `customer_id IN (SELECT value FROM json_each(?))`. */
 const bindScope=(scope:CustomerScope)=>list(scopeIds(scope));
 
+/**
+ * Chat log rows that are questions. The item pop-up's Request quote is logged as a chat turn too
+ * (tool call request_quote, task 2.3) so the chat history shows it, but it asks nothing: it is left
+ * out of the question counts, "questions answered without a rep" and the minutes saved.
+ */
+const QUESTIONS="customer_id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM json_each(query_logs.tool_calls) t WHERE t.value='request_quote')";
+
 /** Chat question counts per information category and the minutes they saved (the original query analytics). */
 export function analytics(scope:CustomerScope):Analytics{
   const ids=scopeIds(scope);
-  const logs=all<{handled_categories:string;outcome:string}>('SELECT handled_categories,outcome FROM query_logs WHERE customer_id IN (SELECT value FROM json_each(?))',list(ids));
+  const logs=all<{handled_categories:string;outcome:string}>(`SELECT handled_categories,outcome FROM query_logs WHERE ${QUESTIONS}`,list(ids));
   const rules=ids.length?aggregateAccess(ids):[];
   const counts=new Map(categories.map(c=>[c,0]));
   const base:Record<Category,number>={items_stock:8,pricing:10,orders_quotes:7,account:5};
@@ -35,7 +42,7 @@ export function analytics(scope:CustomerScope):Analytics{
 
 /** Chat questions per logged outcome ('answered', 'no_rows', 'restricted', 'error'); outcomes with none are absent. */
 export function questionOutcomes(scope:CustomerScope):Record<string,number>{
-  const rows=all<{outcome:string;count:number}>('SELECT outcome,count(*) count FROM query_logs WHERE customer_id IN (SELECT value FROM json_each(?)) GROUP BY outcome ORDER BY outcome',bindScope(scope));
+  const rows=all<{outcome:string;count:number}>(`SELECT outcome,count(*) count FROM query_logs WHERE ${QUESTIONS} GROUP BY outcome ORDER BY outcome`,bindScope(scope));
   return Object.fromEntries(rows.map(r=>[r.outcome,r.count]));
 }
 

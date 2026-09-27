@@ -71,7 +71,7 @@ export function TopItems({items}:{items:RequestedItem[]}){
 
 export function QuestionsCard({questions:q}:{questions:QuestionsAnswered}){
   return <Panel title="Questions answered without a rep" topic="questions answered without a rep"
-    info={<>Customer questions in Querent chat that Querent answered on its own: with live stock, price, order or account data, or by telling the customer nothing matched (for example, an item you don’t stock). Questions blocked by the customer’s access settings, or that hit an error, went to you.{q.total?<> {q.answered} of {q.total}.</>:null}</>}>
+    info={<>Customer questions in Querent chat that Querent answered on its own: with live stock, price, order or account data, or by telling the customer nothing matched (for example, an item you don’t stock). Questions blocked by the customer’s access settings, or that hit an error, went to you. Pressing Request quote isn’t a question and isn’t counted.{q.total?<> {q.answered} of {q.total}.</>:null}</>}>
     {!q.total?<p className={s.emptyNote}>No customer questions yet.</p>:
       <div className={s.questions}>
         <div>
