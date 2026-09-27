@@ -10,6 +10,9 @@ import {describe,expect,it} from 'vitest';
 //    quote service): get_price answers from repository/customer's customer-visible prices only.
 // 4. Customer routes (under src/app/, a folder or file named "customer" or "customer-*") may only
 //    use the customer-safe repository module, and customer API paths are served only from them.
+// 5. Customer routes may not import the services that read cost either, with one named exception
+//    (task 2.3): the quote intake, which prices Request quote's draft server-side and answers with
+//    customer-safe fields only. LLM code may not import the intake.
 
 const ROOT=resolve(__dirname,'../../..');
 const SCANNED=['src','scripts','e2e'];
@@ -18,8 +21,14 @@ const DB_IMPORTERS=[...SQL_HOME,'scripts/'];
 /** LLM code: the chat pipeline, anything under these folders, and any file that imports the Anthropic SDK. */
 const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent)\/)/;
 const CUSTOMER_MODULE='src/server/repository/customer';
-/** Server modules that read cost, margin or floors. LLM code may not import them. */
-const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service'];
+/** Server modules that read cost, margin or floors. LLM code may not import them, and customer routes only CUSTOMER_INTAKE. */
+const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake'];
+/**
+ * The one cost reader a customer route may import (rule 5, task 2.3): Request quote drafts a priced
+ * quote, so it needs the pricing engine. It takes only customer-supplied fields and returns only
+ * customer-safe ones; its tests and the route's test deep-scan every response for cost.
+ */
+const CUSTOMER_INTAKE='src/server/intake/quote-request';
 /** Customer routes: under src/app/, a folder or file named "customer" or "customer-*" (not the rep's "customers" views). */
 const CUSTOMER_ROUTE=/^src\/app\/(?:.+\/)?customer(?:-[^/.]*)?(?:\/|\.tsx?$)/;
 /** A customer API path handled in code: 'customer/...' or ==='customer'. */
@@ -69,7 +78,10 @@ export function violations(file:string,text:string){
     found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (LLM code may only use ${CUSTOMER_MODULE})`));
     found.push(...imports.filter(readsCost).map(target=>`${file} imports ${target} (it reads cost; LLM code gets customer-visible prices from ${CUSTOMER_MODULE})`));
   }
-  if(!isTest(file)&&CUSTOMER_ROUTE.test(file))found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer routes may only use ${CUSTOMER_MODULE})`));
+  if(!isTest(file)&&CUSTOMER_ROUTE.test(file)){
+    found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer routes may only use ${CUSTOMER_MODULE})`));
+    found.push(...imports.filter(target=>readsCost(target)&&target!==CUSTOMER_INTAKE).map(target=>`${file} imports ${target} (it reads cost; the one cost reader customer routes may call is ${CUSTOMER_INTAKE})`));
+  }
   if(!isTest(file)&&file.startsWith('src/app/api/')&&!CUSTOMER_ROUTE.test(file))
     found.push(...text.split('\n').flatMap((line,i)=>CUSTOMER_PATH.test(line)?[`${file}:${i+1}: ${line.trim()} (serve customer paths from a customer route file)`]:[]));
   return found;
@@ -83,6 +95,7 @@ describe('repository boundary',()=>{
     expect(files).toContain('src/app/api/query/[...path]/customer.ts');
     expect(files).toContain('src/server/pipeline.ts');
     expect(files).toContain('src/server/chat/live.ts');
+    expect(files).toContain('src/app/api/query/customer/quote-requests/route.ts');
     expect(files.length).toBeGreaterThan(40);
   });
 
@@ -139,6 +152,24 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/pricing/service.test.ts',"import {suggestPrice} from '@/server/pricing';")).toEqual([]);
   });
 
+  it('keep customer routes off the services that read cost, except the one named quote intake (task 2.3)',()=>{
+    const route='src/app/api/query/customer/quote-requests/route.ts';
+    expect(violations(route,"import {requestQuote} from '@/server/intake/quote-request';")).toEqual([]);
+    expect(violations(route,"import {priceLines} from '@/server/pricing/service';")).toHaveLength(1);
+    expect(violations(route,"import {draftLineFields} from '@/server/pricing';")).toHaveLength(1);
+    expect(violations(route,"import {quoteUpsells} from '@/server/upsells/service';")).toHaveLength(1);
+    expect(violations(route,"import {sendQuote} from '@/server/quotes/service';")).toHaveLength(1);
+    expect(violations('src/app/api/query/[...path]/customer.ts',"import {floorFor} from '@/server/floors';")).toHaveLength(1);
+    // Only that one file: not the rest of the intake folder, and not by a relative path elsewhere.
+    expect(violations(route,"import {x} from '@/server/intake';")).toHaveLength(1);
+    expect(violations(route,"import {x} from '@/server/intake/other';")).toHaveLength(1);
+    expect(violations('src/app/customer/page.tsx',"import {requestQuote} from '../../server/intake/quote-request';")).toEqual([]);
+    // LLM code may not reach it at all; rep-side code may.
+    expect(violations('src/server/chat/clarify.ts',"import {requestQuote} from '@/server/intake/quote-request';")).toHaveLength(1);
+    expect(violations('src/server/pipeline.ts',"import {requestQuote} from './intake/quote-request';")).toHaveLength(1);
+    expect(violations('src/app/api/rep/route.ts',"import {priceLines} from '@/server/pricing/service';")).toEqual([]);
+  });
+
   it('keep customer routes on the customer-safe module, and customer paths in customer route files (task 0.3 carry-forward)',()=>{
     expect(violations('src/app/api/query/[...path]/customer.ts',"import {history} from '@/server/repository/customer';")).toEqual([]);
     expect(violations('src/app/api/query/[...path]/customer.ts',"const {history}=await import('@/server/repository');")).toHaveLength(1);
@@ -148,6 +179,8 @@ describe('boundary detectors',()=>{
     expect(violations('src/app/api/query/[...path]/route.ts',"if(segments[0]==='customer')return x;")).toHaveLength(1);
     expect(violations('src/app/api/query/[...path]/route.ts',"if(user.role==='customer_user'&&user.customer_id)return customerRoute(request);")).toEqual([]);
     expect(violations('src/app/api/query/[...path]/route.ts',"import {customerIds,customers} from '@/server/repository';")).toEqual([]);
+    // The route files under customer/ are customer routes too.
+    expect(violations('src/app/api/query/customer/quotes/route.ts',"import {quotes} from '@/server/repository';")).toHaveLength(1);
     // The rep's Customers views are not customer routes.
     expect(violations('src/app/customers/page.tsx',"import {customers} from '@/server/repository';")).toEqual([]);
     expect(violations('src/app/api/query/[...path]/route.ts',"if(path==='supplier/customers')return json(customers());")).toEqual([]);
