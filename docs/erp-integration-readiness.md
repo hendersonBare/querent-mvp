@@ -3,7 +3,7 @@
 Querent v2 (Query to Quote), task 7.2. This covers how the finished MVP code handles ERP data today and what has to change to connect a real ERP. It goes deep on **Epicor Prophet 21 (P21) + Epicor WMS**, and covers **Epicor Eclipse**, **Infor Distribution FACTS** and **TIMS (Computers Unlimited)** more briefly.
 
 - Code baseline: `main` at `7b09f06` (schema v3). Spec: Notion "Querent v2: Query to Quote" §6 (<https://app.notion.com/p/3e7afa1db504810fbbddc37175014ead>).
-- Written 2026-09-27. This file is the source of record. The Notion page "ERP Integration Readiness" is a short companion that links here, because the Notion workspace goes read-only for new content after 2026-09-29.
+- Written 2026-09-27. This file is the source of record. The Notion page "ERP Integration Readiness" (<https://app.notion.com/p/3e8afa1db50481e497a2f6fcdeb0368e>, a child of the plan page) is a short companion that links here, because the Notion workspace goes read-only for new content after 2026-09-29.
 
 ## How to read the evidence column
 
