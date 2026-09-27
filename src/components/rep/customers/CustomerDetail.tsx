@@ -66,13 +66,13 @@ function AccountPanel({view}:{view:CustomerView}){
       <dt>Quote win rate</dt><dd>{view.win_rate===null?'—':<>{percent(view.win_rate)}<span className={s.sub}>{view.quotes_won} of {count(view.quotes_decided,'decided quote')}</span></>}</dd>
       {account.main_phone&&<><dt>Main phone</dt><dd className={s.phone}>{account.main_phone}</dd></>}
     </dl>
-    {view.credit_used!==null&&<div className={s.credit}>
+    {view.credit_used!==null&&<div className={s.railSection}>
       Credit used: {percent(view.credit_used)}
       <div className={s.bar} role="img" aria-label={`Credit used: ${percent(view.credit_used)} of ${money(account.credit_limit)}`}>
         <i style={{width:`${Math.min(100,view.credit_used*100)}%`}} data-high={view.credit_used>=HIGH_CREDIT||undefined}/>
       </div>
     </div>}
-    {shipTo&&<div className={s.credit}>
+    {shipTo&&<div className={s.railSection}>
       Ship-to
       <address className={s.address}>{shipTo.name&&<>{shipTo.name}<br/></>}{shipTo.address}<br/>{[shipTo.city,[shipTo.state,shipTo.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</address>
     </div>}

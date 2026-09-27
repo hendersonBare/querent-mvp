@@ -312,8 +312,8 @@
   overflow-wrap: anywhere;
 }
 
-/* Credit used: mockup .bar (Querent green; amber from 80%) */
-.credit {
+/* Credit used (mockup .bar: Querent green, amber from 80%) and ship-to under the account facts */
+.railSection {
   margin-top: 12px;
   font-size: 12px;
   color: var(--rep-muted);
