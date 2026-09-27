@@ -1,47 +1,56 @@
 'use client';
-import {useCallback} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useSearchParams} from 'next/navigation';
-import type {Dashboard} from '@/lib/contracts';
-import {usePoll} from '@/lib/use-poll';
-import {AccessSwitches} from '@/features/access/Access';
-import {DataBrowser} from '@/features/data-browser/DataBrowser';
-import {DataSources} from '@/features/erp-status/Status';
-import {useRepPortal,useRepScope} from './context';
+import type {RepSettings} from '@/server/rep/settings';
+import {useRepScope} from './context';
 import {RepPageHeader,repPageStyles as s} from './RepPage';
+import {CustomerAccess} from './settings/CustomerAccess';
+import {DataSources} from './settings/DataSources';
+import {MarginFloors} from './settings/MarginFloors';
+import {PricingDelivery} from './settings/PricingDelivery';
+import {RepAssignments} from './settings/RepAssignments';
 
-// Settings (spec §4). For now it holds the old supplier sections, unchanged: Customer access and
-// the Data browser follow the "Viewing" picker; Data sources is supplier-wide. Task 6.1 adds Rep
-// assignments, delivery rates, margin floors and the scarcity toggle.
+// Settings (spec §4, task 6.1), one tab per section in ?tab=: Rep assignments, Customer access
+// (follows the "Viewing" picker), My margin floors, Pricing & delivery, and Data sources. The page
+// renders it with the signed-in rep's settings; each tab saves through /api/rep/settings/* and
+// keeps what the server stored.
 
 export const SETTINGS_TABS=[
+  {id:'assignments',label:'Rep assignments'},
   {id:'access',label:'Customer access'},
-  {id:'data',label:'Data browser'},
+  {id:'floors',label:'Margin floors'},
+  {id:'pricing',label:'Pricing & delivery'},
   {id:'sources',label:'Data sources'},
 ] as const;
-type SettingsTab=typeof SETTINGS_TABS[number]['id'];
+export type SettingsTab=typeof SETTINGS_TABS[number]['id'];
+export const DEFAULT_SETTINGS_TAB:SettingsTab='assignments';
 
-export function SettingsSection(){
-  const {api,customers}=useRepPortal();
+/** The tab in ?tab=, or Rep assignments for anything else. */
+export const settingsTab=(value:string|null|undefined):SettingsTab=>SETTINGS_TABS.find(t=>t.id===value)?.id??DEFAULT_SETTINGS_TAB;
+
+export function SettingsSection({initial}:{initial:RepSettings}){
   const scope=useRepScope();
-  const requested=useSearchParams().get('tab');
-  const tab:SettingsTab=SETTINGS_TABS.find(t=>t.id===requested)?.id??'access';
+  const tab=settingsTab(useSearchParams().get('tab'));
+  const [settings,setSettings]=useState(initial);
+  const update=<K extends keyof RepSettings>(key:K)=>(value:RepSettings[K])=>setSettings(current=>({...current,[key]:value}));
+  const tabsRef=useRef<HTMLElement>(null);
+  // On a phone the tabs are a scrolling strip: keep the current one in view, as the portal nav does.
+  useEffect(()=>{
+    const strip=tabsRef.current,link=strip?.querySelector<HTMLElement>('[aria-current="page"]');
+    if(!strip||!link||strip.scrollWidth<=strip.clientWidth)return;
+    const left=link.offsetLeft-strip.offsetLeft;
+    if(left<strip.scrollLeft||left+link.offsetWidth>strip.scrollLeft+strip.clientWidth)strip.scrollLeft=Math.max(0,left-12);
+  },[tab]);
   return <>
-    <RepPageHeader title="Settings" description={tab==='sources'?'Herrick Industrial Supply':`Viewing ${scope.label}`}/>
-    <nav className={s.tabs} aria-label="Settings sections">
+    <RepPageHeader title="Settings" description={tab==='access'?`Viewing ${scope.label}`:'Herrick Industrial Supply'}/>
+    <nav ref={tabsRef} className={s.tabs} aria-label="Settings sections">
       {SETTINGS_TABS.map(t=><Link key={t.id} href={scope.href(`/rep/settings?tab=${t.id}`)} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
     </nav>
-    {tab==='access'&&<CustomerAccess key={scope.scope} scope={scope.scope}/>}
-    {tab==='data'&&<DataBrowser key={scope.scope} api={api} scope={scope.scope} customers={customers}/>}
-    {tab==='sources'&&<DataSources api={api}/>}
+    {tab==='assignments'&&<RepAssignments rows={settings.assignments} reps={settings.reps} repId={settings.rep_id} onChange={update('assignments')}/>}
+    {tab==='access'&&<CustomerAccess access={settings.access} scopeLabel={scope.label} onChange={update('access')}/>}
+    {tab==='floors'&&<MarginFloors mine={settings.floors.mine} others={settings.floors.others} onSaved={mine=>setSettings(current=>({...current,floors:{...current.floors,mine}}))}/>}
+    {tab==='pricing'&&<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={update('pricing')}/>}
+    {tab==='sources'&&<DataSources initial={settings.sources}/>}
   </>;
-}
-
-function CustomerAccess({scope}:{scope:string}){
-  const {api}=useRepPortal();
-  const load=useCallback(()=>api.get<Dashboard>(`supplier/dashboard/${scope}`),[api,scope]);
-  const {data,error,refresh}=usePoll(load);
-  if(error)return <p className="error" role="alert">{error}</p>;
-  if(!data)return <div className="card loading-card" role="status">Loading customer access…</div>;
-  return <AccessSwitches api={api} scope={scope} rules={data.access} refresh={()=>void refresh()}/>;
 }

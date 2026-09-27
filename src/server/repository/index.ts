@@ -7,7 +7,6 @@
 export * from './access';
 export * from './accounts';
 export * from './analytics';
-export * from './browse';
 export * from './catalog';
 export * from './chat';
 export * from './demo';
