@@ -11,32 +11,37 @@ Font.registerHyphenationCallback(word=>[word]);
 
 const INK='#000000',MUTED='#4d4d4d',RULE='#b3b3b3';
 
+// No lineHeight on the Page: react-pdf 4 then drops `render` texts (the page number) and resolves
+// the inherited multiple against the page's 9pt, squashing larger text. It is set on the content
+// wrapper instead (with its own fontSize: a View resolves the multiple against its own size, 18pt
+// by default), and on each larger text style.
 const s=StyleSheet.create({
-  page:{paddingTop:44,paddingBottom:64,paddingHorizontal:48,fontFamily:'Helvetica',fontSize:9,color:INK,lineHeight:1.35},
+  page:{paddingTop:44,paddingBottom:64,paddingHorizontal:48,fontFamily:'Helvetica',fontSize:9,color:INK},
+  content:{fontSize:9,lineHeight:1.35},
   header:{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start'},
   brand:{flexDirection:'row'},
   logo:{width:46,height:46,borderWidth:1.25,borderColor:INK,alignItems:'center',justifyContent:'center',marginRight:12},
   logoMark:{fontFamily:'Times-Bold',fontSize:26,lineHeight:1},
-  company:{fontFamily:'Helvetica-Bold',fontSize:14.5,letterSpacing:0.3,marginBottom:3},
+  company:{fontFamily:'Helvetica-Bold',fontSize:14.5,lineHeight:1.2,letterSpacing:0.3,marginBottom:3},
   headRight:{alignItems:'flex-end'},
   stamps:{flexDirection:'row',marginBottom:8},
-  stamp:{borderWidth:0.75,borderColor:INK,paddingVertical:1.5,paddingHorizontal:5,fontFamily:'Helvetica-Bold',fontSize:6.5,letterSpacing:1,textTransform:'uppercase',marginLeft:4},
-  docTitle:{fontFamily:'Helvetica-Bold',fontSize:19,letterSpacing:2.5},
-  docRef:{fontSize:10,marginTop:2},
+  stamp:{borderWidth:0.75,borderColor:INK,paddingVertical:1.5,paddingHorizontal:5,fontFamily:'Helvetica-Bold',fontSize:6.5,lineHeight:1.2,letterSpacing:0.4,textTransform:'uppercase',marginLeft:4},
+  docTitle:{fontFamily:'Helvetica-Bold',fontSize:19,lineHeight:1.15,letterSpacing:1},
+  docRef:{fontSize:10,lineHeight:1.3,marginTop:3},
   heavyRule:{borderBottomWidth:1.5,borderBottomColor:INK,marginTop:14,marginBottom:14},
   parties:{flexDirection:'row',justifyContent:'space-between'},
   partyCol:{width:'48%'},
-  label:{fontFamily:'Helvetica-Bold',fontSize:7,letterSpacing:1.1,textTransform:'uppercase',color:MUTED,marginBottom:4},
+  label:{fontFamily:'Helvetica-Bold',fontSize:7,letterSpacing:0.4,textTransform:'uppercase',color:MUTED,marginBottom:4},
   strong:{fontFamily:'Helvetica-Bold'},
-  customerName:{fontFamily:'Helvetica-Bold',fontSize:10.5,marginBottom:1},
+  customerName:{fontFamily:'Helvetica-Bold',fontSize:10.5,lineHeight:1.3,marginBottom:1},
   block:{marginBottom:12},
   detailRow:{flexDirection:'row',paddingVertical:1.5,borderBottomWidth:0.5,borderBottomColor:RULE},
   detailLabel:{width:84,color:MUTED},
   detailValue:{flex:1},
-  table:{marginTop:6},
+  table:{marginTop:18},
   tr:{flexDirection:'row',paddingVertical:5,borderBottomWidth:0.5,borderBottomColor:RULE},
   th:{flexDirection:'row',paddingVertical:4,borderTopWidth:1,borderTopColor:INK,borderBottomWidth:1,borderBottomColor:INK},
-  thText:{fontFamily:'Helvetica-Bold',fontSize:7,letterSpacing:0.9,textTransform:'uppercase'},
+  thText:{fontFamily:'Helvetica-Bold',fontSize:7,letterSpacing:0.4,textTransform:'uppercase'},
   cNo:{width:18},
   cSku:{width:86,paddingRight:6},
   cDesc:{flex:1,paddingRight:8},
@@ -51,7 +56,7 @@ const s=StyleSheet.create({
   totalRow:{flexDirection:'row',justifyContent:'space-between',paddingVertical:3},
   totalDetail:{fontSize:7.5,color:MUTED},
   grandRow:{flexDirection:'row',justifyContent:'space-between',marginTop:4,paddingTop:6,borderTopWidth:1.25,borderTopColor:INK},
-  grandText:{fontFamily:'Helvetica-Bold',fontSize:11.5},
+  grandText:{fontFamily:'Helvetica-Bold',fontSize:11.5,lineHeight:1.3},
   closing:{flexDirection:'row',justifyContent:'space-between',marginTop:22,paddingTop:12,borderTopWidth:0.5,borderTopColor:INK},
   footer:{position:'absolute',left:48,right:48,bottom:28,flexDirection:'row',justifyContent:'space-between',paddingTop:6,borderTopWidth:0.5,borderTopColor:INK,fontSize:7,color:MUTED},
 });
@@ -70,6 +75,7 @@ function Totals({rows}:{rows:CustomerPdfModel['totals']}){
 export function CustomerQuotePdf({model:m}:{model:CustomerPdfModel}){
   return <Document title={m.title} author={m.supplier.name} subject={`Quotation for ${m.customer.name}`} creator={m.footer.via} producer={m.supplier.name} language="en-US">
     <Page size="LETTER" style={s.page}>
+      <View style={s.content}>
       <View style={s.header}>
         <View style={s.brand}>
           {/* Logo placeholder: Herrick's mark goes here once supplied. */}
@@ -152,6 +158,7 @@ export function CustomerQuotePdf({model:m}:{model:CustomerPdfModel}){
           {m.rep.phone?<Text>{m.rep.phone}</Text>:null}
           {m.rep.email?<Text>{m.rep.email}</Text>:null}
         </View>
+      </View>
       </View>
 
       <View style={s.footer} fixed>
