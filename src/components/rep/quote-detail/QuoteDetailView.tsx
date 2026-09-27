@@ -1,12 +1,12 @@
 'use client';
 import {useCallback,useMemo,useState} from 'react';
 import Link from 'next/link';
-import {ChevronDown,ChevronRight} from 'lucide-react';
+import {ChevronRight} from 'lucide-react';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
 import {useRepScope} from '../context';
 import {StatusChip} from '../quotes/QuotesList';
-import {ActionMenu} from './ActionMenu';
+import {ExportMenu} from './export-menu/ExportMenu';
 import {AddItem} from './AddItem';
 import {LineGrid,lineRowId} from './LineGrid';
 import {MoreMenu} from './more-menu/MoreMenu';
@@ -98,9 +98,7 @@ function QuoteHeader({detail,editor,onApprove}:{detail:QuoteDetail;editor:QuoteE
       <div className={s.qactions}>
         <p className={s.saveState} role="status">{status}</p>
         <button type="button" className={s.btn} onClick={saveDraft} disabled={!editable}>Save draft</button>
-        <ActionMenu buttonClassName={s.btn} menuLabel="Export" items={[]} emptyNote="Exports (customer PDF, internal worksheet, CSV, copy summary) arrive here soon.">
-          Export<ChevronDown aria-hidden="true" size={13} strokeWidth={2} className={s.caret}/>
-        </ActionMenu>
+        <ExportMenu detail={detail} lines={editor.lines} flush={editor.flush} buttonClassName={s.btn}/>
         <MoreMenu quote={quote} flush={editor.flush} buttonClassName={`${s.btn} ${s.sq}`}/>
         <button type="button" className={`${s.btn} ${s.primary}`} onClick={onApprove} disabled={!editable}>Approve &amp; send</button>
       </div>
