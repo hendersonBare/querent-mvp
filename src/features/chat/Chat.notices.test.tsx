@@ -86,6 +86,29 @@ describe('quote notices in the chat',()=>{
     }finally{window.removeEventListener(QUOTES_CHANGED_EVENT,changed);}
   });
 
+  it('announces a new quote once, even when two polls answer before the chat re-renders',async()=>{
+    const pending:((value:QuoteNotice[])=>void)[]=[];
+    let polling=false;
+    const get=vi.fn((path:string):Promise<unknown>=>{
+      if(path in sidebarRoutes)return Promise.resolve(sidebarRoutes[path as keyof typeof sidebarRoutes]);
+      if(path===`customer/history/${CONVERSATION}`)return Promise.resolve(HISTORY);
+      if(path===`customer/notices/${CONVERSATION}`){
+        if(!polling){polling=true;return Promise.resolve([]);}
+        return new Promise<QuoteNotice[]>(resolve=>pending.push(resolve));
+      }
+      return Promise.reject(new Error(`unexpected get ${path}`));
+    });
+    const changed=vi.fn();
+    window.addEventListener(QUOTES_CHANGED_EVENT,changed);
+    try{
+      render(<CustomerChat api={{get,send:vi.fn()} as unknown as API} user={user} signOut={()=>{}} noticePollMs={10}/>);
+      await waitFor(()=>expect(pending.length).toBeGreaterThanOrEqual(2));
+      await act(async()=>{for(const resolve of pending.splice(0))resolve([notice('n1','2026-09-23T19:00:00.000Z')]);});
+      expect(changed).toHaveBeenCalledTimes(1);
+      expect(screen.getAllByRole('article',{name:/is ready/})).toHaveLength(1);
+    }finally{window.removeEventListener(QUOTES_CHANGED_EVENT,changed);}
+  });
+
   it('a question asked after the notice goes after it',async()=>{
     const {api}=makeApi({notices:()=>[notice('n1','2026-09-23T19:00:00.000Z')]});
     render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);

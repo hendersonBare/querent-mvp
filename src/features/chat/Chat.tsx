@@ -92,7 +92,11 @@ export function CustomerChat({
       api
         .get<QuoteNotice[]>(`customer/notices/${conversation}`)
         .then((sent) => {
-          if (cancelled || sent.every((n) => shownNotices.current.has(n.id))) return;
+          if (cancelled) return;
+          const arrived = sent.filter((n) => !shownNotices.current.has(n.id));
+          if (!arrived.length) return;
+          // Marked shown now, not after the render: a poll answered before then mustn't announce them again.
+          for (const n of arrived) shownNotices.current.add(n.id);
           setNotices((placed) => addArrived(placed, sent, turnCount.current));
           emitQuotesChanged();
         })
