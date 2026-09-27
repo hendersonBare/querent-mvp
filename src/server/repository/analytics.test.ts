@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {analytics,quoteFacts,quoteLineFacts,topRequestedItems} from './analytics';
+import {analytics,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems} from './analytics';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -15,6 +15,24 @@ describe('query analytics',()=>{
     expect(analytics(null).total_queries).toBe(40);
     expect(analytics(null).categories[0].rep_name).toBe('Multiple reps');
   });
+
+  it('takes a list of customers (a rep\'s book of business)',()=>{
+    const brandis=analytics(['wasatch','great-basin']);
+    expect(brandis.total_queries).toBe(40);
+    expect(brandis.minutes_saved).toBe(analytics('wasatch').minutes_saved);
+    expect(brandis.categories.every(c=>c.rep_name==='Brandi Gallegos')).toBe(true);
+    const nobody=analytics([]);
+    expect(nobody).toMatchObject({total_queries:0,minutes_saved:0,hours_saved:'0.0'});
+    expect(nobody.categories.map(c=>[c.count,c.rep_name])).toEqual([[0,'—'],[0,'—'],[0,'—'],[0,'—']]);
+  });
+
+  it('counts chat questions by outcome',()=>{
+    // 12 seeded questions repeat over 40 logs; the 10th ("6 in Type 27?") is a no-match answer.
+    expect(questionOutcomes('wasatch')).toEqual({answered:37,no_rows:3});
+    expect(questionOutcomes(['wasatch','great-basin'])).toEqual({answered:37,no_rows:3});
+    expect(questionOutcomes('great-basin')).toEqual({});
+    expect(questionOutcomes([])).toEqual({});
+  });
 });
 
 describe('quote analytics facts',()=>{
@@ -22,18 +40,38 @@ describe('quote analytics facts',()=>{
     const facts=quoteFacts('wasatch');
     expect(facts).toHaveLength(25);
     expect(facts.find(f=>f.quote_number==='Q-24816')).toEqual({id:'q-24816',quote_number:'Q-24816',customer_id:'wasatch',rep_id:'brandi',status:'accepted',is_sample:false,
-      requested_at:'2026-09-07T15:20:00.000Z',first_sent_at:'2026-09-07T16:20:00.000Z',last_sent_at:'2026-09-07T16:20:00.000Z',responded_at:'2026-09-09T16:05:00.000Z',revisions:1,sent_total:655.25});
-    expect(facts.at(-1)).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',is_sample:true,first_sent_at:null,revisions:0,sent_total:null});
+      requested_at:'2026-09-07T15:20:00.000Z',first_sent_at:'2026-09-07T16:20:00.000Z',last_sent_at:'2026-09-07T16:20:00.000Z',responded_at:'2026-09-09T16:05:00.000Z',
+      valid_until:'2026-09-21',revisions:1,sent_total:655.25});
+    expect(facts.at(-1)).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',is_sample:true,first_sent_at:null,valid_until:null,revisions:0,sent_total:null});
     expect(facts.filter(f=>f.status==='accepted')).toHaveLength(17);
     expect(quoteFacts(null)).toHaveLength(25);
+    expect(quoteFacts(['great-basin','wasatch'])).toEqual(facts);
     expect(quoteFacts('great-basin')).toEqual([]);
+    expect(quoteFacts([])).toEqual([]);
   });
 
-  it('returns each line with its cost and the quote rep\'s floor for the category',()=>{
+  it('returns each line with its cost, Querent\'s suggestion and the quote rep\'s floor for the category',()=>{
     const sample=quoteLineFacts('wasatch').filter(l=>l.quote_id==='q-24817');
     expect(sample.map(l=>[l.sku,l.unit_price,l.unit_cost,l.margin_floor])).toEqual([['HCS-12-13-2G8',31.5,21.4,0.2],['CW-45-045-T1',36,24.1,0.25],['GLV-N8-L-1000',79,58,0.3],['RS-2-27-JH',22.95,14.2,0.2]]);
-    expect(sample[0]).toMatchObject({status:'ready_for_review',category_id:'fasteners',qty:10,suggested_price:31.5,customer_price:30.95,added_by:'querent'});
+    expect(sample[0]).toMatchObject({status:'ready_for_review',category_id:'fasteners',qty:10,suggested_price:31.5,suggested_basis:'last_paid',customer_price:30.95,added_by:'querent'});
+    expect(sample[1]).toMatchObject({suggested_basis:'contract',price_basis:'contract'});
+    expect(quoteLineFacts(['wasatch'])).toEqual(quoteLineFacts('wasatch'));
     expect(quoteLineFacts('great-basin')).toEqual([]);
+    expect(quoteLineFacts([])).toEqual([]);
+  });
+
+  it('returns the lines of each quote\'s last sent revision, as the customer saw them, with cost and the rep\'s floor',()=>{
+    const sent=sentLineFacts('wasatch');
+    expect(sent).toHaveLength(56); // the 24 sent quotes; the draft sample Q-24817 has no revision
+    expect(sent.some(l=>l.quote_id==='q-24817')).toBe(false);
+    expect(sent.filter(l=>l.quote_id==='q-24816')).toEqual([
+      {quote_id:'q-24816',revision:1,item_id:'CW-45-045-T1',sku:'CW-45-045-T1',category_id:'abrasives',qty:4,unit_price:36,unit_cost:24.1,margin_floor:0.25},
+      {quote_id:'q-24816',revision:1,item_id:'GLV-N8-L-1000',sku:'GLV-N8-L-1000',category_id:'safety',qty:4,unit_price:79,unit_cost:58,margin_floor:0.3},
+      {quote_id:'q-24816',revision:1,item_id:'FD-45-60Z',sku:'FD-45-60Z',category_id:'abrasives',qty:3,unit_price:44.25,unit_cost:expect.any(Number),margin_floor:0.25},
+    ]);
+    expect(sentLineFacts(['wasatch','great-basin'])).toEqual(sent);
+    expect(sentLineFacts('great-basin')).toEqual([]);
+    expect(sentLineFacts([])).toEqual([]);
   });
 
   it('ranks the most requested items',()=>{
@@ -43,6 +81,8 @@ describe('quote analytics facts',()=>{
       {item_id:'HN-12-13-G8',sku:'HN-12-13-G8',description:'Hex nut 1/2-13, Grade 8, yellow zinc',quote_count:5,total_qty:25},
     ]);
     expect(topRequestedItems(null)).toHaveLength(10);
+    expect(topRequestedItems(['wasatch','great-basin'],3)).toEqual(topRequestedItems('wasatch',3));
     expect(topRequestedItems('great-basin')).toEqual([]);
+    expect(topRequestedItems([])).toEqual([]);
   });
 });
