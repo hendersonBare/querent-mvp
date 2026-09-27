@@ -16,7 +16,7 @@ describe('customerQuotePreview',()=>{
   it('before the first send: the quote with no revision to show (its customer PDF doesn’t exist yet)',async()=>{
     const {customerQuotePreview}=await import('./quote-preview');
     expect(customerQuotePreview('wasatch','Q-24817',undefined,LATER)).toEqual({id:SAMPLE,quote_number:'Q-24817',status:'ready_for_review',latest_revision:0,
-      requested_at:'2026-09-23T16:14:00.000Z',shown:null,rep:{name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'}});
+      requested_at:'2026-09-23T16:14:00.000Z',shown:null,rep:{name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},response:null});
   });
 
   it('once sent: the latest revision with its total, valid-until day, PDF and whether Attach PDF was on',async()=>{
@@ -28,6 +28,30 @@ describe('customerQuotePreview',()=>{
       shown:{revision:1,sent_at:SEND,total:1122.4,valid_until:'2026-10-07',attach_pdf:true,pdf_url:'/api/quotes/q-24817/pdf?variant=customer&rev=1'}});
     expect(keys(preview).filter(k=>FORBIDDEN.test(k))).toEqual([]);
     expect(customerQuotePreview('wasatch','q-24817',1,LATER)).toEqual(preview);
+  });
+
+  it('names what the rep approved, for Accept to show locked (task 5.2): pickup or delivery, branch, ship-to, PO',async()=>{
+    const {customerQuotePreview}=await import('./quote-preview');
+    const {sendQuote}=await import('@/server/quotes/service');
+    const {updateQuoteTerms}=await import('@/server/repository');
+    updateQuoteTerms(SAMPLE,{customerPo:'7781'},SEND);
+    await sendQuote(SAMPLE,{repId:'brandi',now:SEND});
+    expect(customerQuotePreview('wasatch',SAMPLE,undefined,LATER)?.shown).toMatchObject({fulfillment:'will_call',branch:'SLC',ship_to:null,customer_po:'7781'});
+  });
+
+  it('carries Dana’s own answer while the quote is accepted or changes are requested (task 5.2)',async()=>{
+    const {customerQuotePreview}=await import('./quote-preview');
+    const {acceptQuote,duplicateQuote,requestChanges,sendQuote}=await import('@/server/quotes/service');
+    await sendQuote(SAMPLE,{repId:'brandi',now:SEND});
+    expect(customerQuotePreview('wasatch',SAMPLE,undefined,LATER)?.response).toBeNull();
+    requestChanges('wasatch',SAMPLE,{revision:1,note:'Fewer bolts, please',now:LATER});
+    expect(customerQuotePreview('wasatch',SAMPLE,undefined,LATER)?.response).toEqual({kind:'changes_requested',revision:1,note:'Fewer bolts, please'});
+    const copy=duplicateQuote(SAMPLE,{repId:'brandi',now:SEND});
+    await sendQuote(copy.id,{repId:'brandi',now:SEND});
+    acceptQuote('wasatch',copy.id,{revision:1,fulfillmentTime:'2026-09-29T16:00:00.000Z',customerPo:'PO-7781',now:LATER});
+    const accepted=customerQuotePreview('wasatch',copy.id,undefined,LATER);
+    expect(accepted).toMatchObject({status:'accepted',response:{kind:'accepted',revision:1,fulfillment_time:'2026-09-29T16:00:00.000Z',customer_po:'PO-7781'}});
+    expect(keys(accepted).filter(k=>FORBIDDEN.test(k))).toEqual([]);
   });
 
   it('offers no Download when the rep turned Attach PDF off',async()=>{

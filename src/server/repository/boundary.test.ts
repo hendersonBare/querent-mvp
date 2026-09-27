@@ -10,9 +10,11 @@ import {describe,expect,it} from 'vitest';
 //    quote service): get_price answers from repository/customer's customer-visible prices only.
 // 4. Customer routes (under src/app/, a folder or file named "customer" or "customer-*") may only
 //    use the customer-safe repository module, and customer API paths are served only from them.
-// 5. Customer routes may not import the services that read cost either, with one named exception
-//    (task 2.3): the quote intake, which prices Request quote's draft server-side and answers with
-//    customer-safe fields only. LLM code may not import the intake.
+// 5. Customer routes may not import the services that read cost either, with two named exceptions:
+//    the quote intake (task 2.3), which prices Request quote's draft server-side, and the customer
+//    response service (task 5.2), which accepts or requests changes through the quote service. Both
+//    take only customer-supplied fields and answer with customer-safe fields only. LLM code may
+//    import neither.
 // 6. The customer-facing server logic in src/server/customer/ (sidebars, item pop-up, the chat's
 //    quote notices and the PDF preview modal, task 5.1) follows the customer-route rules, with no
 //    exception: the customer-safe repository module only, and no service that reads cost.
@@ -25,13 +27,22 @@ const DB_IMPORTERS=[...SQL_HOME,'scripts/'];
 const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent|upsells-writer)\/)/;
 const CUSTOMER_MODULE='src/server/repository/customer';
 /** Server modules that read cost, margin or floors. LLM code may not import them, and customer routes only CUSTOMER_INTAKE. */
-const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake'];
+const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake','src/server/customer-response'];
 /**
  * The one cost reader a customer route may import (rule 5, task 2.3): Request quote drafts a priced
  * quote, so it needs the pricing engine. It takes only customer-supplied fields and returns only
  * customer-safe ones; its tests and the route's test deep-scan every response for cost.
  */
 const CUSTOMER_INTAKE='src/server/intake/quote-request';
+/**
+ * The second (task 5.2): Accept and Request changes from the PDF preview modal go through the quote
+ * service, which loads the internal quote. It takes only the revision, the time and PO or the note,
+ * for the session customer, and answers with the customer-safe preview; its tests and the routes'
+ * tests deep-scan every answer for cost.
+ */
+const CUSTOMER_RESPONSE='src/server/customer-response/service';
+/** The only cost readers a customer route may import: exactly these modules, not their folders. */
+const CUSTOMER_COST_EXCEPTIONS=[CUSTOMER_INTAKE,CUSTOMER_RESPONSE];
 /** Customer routes: under src/app/, a folder or file named "customer" or "customer-*" (not the rep's "customers" views). */
 const CUSTOMER_ROUTE=/^src\/app\/(?:.+\/)?customer(?:-[^/.]*)?(?:\/|\.tsx?$)/;
 /** Customer-facing server logic (rule 6). */
@@ -85,7 +96,7 @@ export function violations(file:string,text:string){
   }
   if(!isTest(file)&&CUSTOMER_ROUTE.test(file)){
     found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer routes may only use ${CUSTOMER_MODULE})`));
-    found.push(...imports.filter(target=>readsCost(target)&&target!==CUSTOMER_INTAKE).map(target=>`${file} imports ${target} (it reads cost; the one cost reader customer routes may call is ${CUSTOMER_INTAKE})`));
+    found.push(...imports.filter(target=>readsCost(target)&&!CUSTOMER_COST_EXCEPTIONS.includes(target)).map(target=>`${file} imports ${target} (it reads cost; the only cost readers customer routes may call are ${CUSTOMER_COST_EXCEPTIONS.join(' and ')})`));
   }
   if(!isTest(file)&&file.startsWith(CUSTOMER_SERVER)){
     found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer-facing code may only use ${CUSTOMER_MODULE})`));
@@ -106,6 +117,9 @@ describe('repository boundary',()=>{
     expect(files).toContain('src/server/chat/live.ts');
     expect(files).toContain('src/server/upsells-writer/claude.ts');
     expect(files).toContain('src/app/api/query/customer/quote-requests/route.ts');
+    expect(files).toContain('src/app/api/query/customer/quotes/[id]/accept/route.ts');
+    expect(files).toContain('src/app/api/query/customer/quotes/[id]/request-changes/route.ts');
+    expect(files).toContain('src/server/customer-response/service.ts');
     expect(files).toContain('src/server/customer/notices.ts');
     expect(files).toContain('src/server/customer/quote-preview.ts');
     expect(files.length).toBeGreaterThan(40);
@@ -186,6 +200,23 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/chat/clarify.ts',"import {requestQuote} from '@/server/intake/quote-request';")).toHaveLength(1);
     expect(violations('src/server/pipeline.ts',"import {requestQuote} from './intake/quote-request';")).toHaveLength(1);
     expect(violations('src/app/api/rep/route.ts',"import {priceLines} from '@/server/pricing/service';")).toEqual([]);
+  });
+
+  it('let customer routes call the customer response service, and only that file of its folder (task 5.2)',()=>{
+    for(const route of ['src/app/api/query/customer/quotes/[id]/accept/route.ts','src/app/api/query/customer/quotes/[id]/request-changes/route.ts']){
+      expect(violations(route,"import {acceptCustomerQuote,parseIdempotencyKey} from '@/server/customer-response/service';")).toEqual([]);
+      // Not the quote service it wraps, not the rest of its folder.
+      expect(violations(route,"import {acceptQuote} from '@/server/quotes/service';")).toHaveLength(1);
+      expect(violations(route,"import {x} from '@/server/customer-response';")).toHaveLength(1);
+      expect(violations(route,"import {x} from '@/server/customer-response/other';")).toHaveLength(1);
+      expect(violations(route,"import {quote} from '@/server/repository';")).toHaveLength(1);
+    }
+    // LLM code and the customer-facing server logic (rule 6, no exception) may not reach it.
+    expect(violations('src/server/chat/tools.ts',"import {acceptCustomerQuote} from '@/server/customer-response/service';")).toHaveLength(1);
+    expect(violations('src/server/pipeline.ts',"import {requestCustomerChanges} from './customer-response/service';")).toHaveLength(1);
+    expect(violations('src/server/customer/notices.ts',"import {acceptCustomerQuote} from '@/server/customer-response/service';")).toHaveLength(1);
+    // Rep-side code may.
+    expect(violations('src/app/api/rep/route.ts',"import {acceptCustomerQuote} from '@/server/customer-response/service';")).toEqual([]);
   });
 
   it('keep the customer-facing server logic on the customer-safe module and off cost readers, with no exception (task 5.1)',()=>{
