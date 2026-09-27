@@ -138,7 +138,7 @@ describe('worksheetModel',()=>{
     const sent:PdfQuote={...DRAFT,draft:false,date:'2026-09-23T17:00:00.000Z'};
     const m=worksheetModel(sent,CONTEXT,{...FACTS,asOf:'2026-09-27T02:40:00.000Z',blockers:null,lines:[{...LINE_FACTS[0],cost_source:'item'},...LINE_FACTS.slice(1)]});
     expect(m.checks).toBeNull();
-    expect(m.stamps).toEqual(['Sample data']);
+    expect(m.stamps).toEqual(['As sent Sep 23, 2026','Sample data']);
     expect(m.title).toBe('Internal worksheet Q-24817 rev 1');
     expect(m.filename).toBe('Herrick Industrial Supply quote Q-24817 rev 1 - internal worksheet.pdf');
     expect(m.lines[0].cost).toBe('$21.40*');

@@ -9,6 +9,8 @@ export type PdfRevision=number|'draft'|null;
  */
 export const PDF_VARIANTS=['customer','internal'] as const;
 export type PdfVariant=typeof PDF_VARIANTS[number];
+/** The only variant a customer may get; every other one is rep-only. */
+export const CUSTOMER_VARIANT:PdfVariant='customer';
 
 export type PdfQuery={ok:true;variant:PdfVariant;rev:PdfRevision}|{ok:false;detail:string};
 

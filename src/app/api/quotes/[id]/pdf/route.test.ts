@@ -76,7 +76,7 @@ describe('the customer (Dana)',()=>{
   });
 
   it('refuses an unknown variant or a malformed rev before looking anything up',async()=>{
-    for(const query of ['?variant=internal','?rev=0','?rev=abc','?rev=-1','?rev=1.5']){
+    for(const query of ['?variant=worksheet','?variant=INTERNAL','?rev=0','?rev=abc','?rev=-1','?rev=1.5']){
       expect((await call('Q-24816',query,'customer')).status).toBe(400);
     }
   });
@@ -136,6 +136,63 @@ describe('a sent revision is frozen (spec §5.4): the PDF the customer saw can a
       await updateLiveRecord('branches','slc','address','1480 W 2100 S');
       await updateLiveRecord('branches','slc','will_call_phone','(801) 555-0120');
       resetSampleQuote();
+    }
+  });
+});
+
+describe('the internal worksheet, variant=internal (task 4.2): rep-only',()=>{
+  const isPdf=async(response:Response)=>new TextDecoder().decode((await response.clone().arrayBuffer()).slice(0,5))==='%PDF-';
+
+  it('asks for a workspace without a session',async()=>{
+    for(const query of ['?variant=internal','?variant=internal&rev=draft','?variant=internal&rev=1']){
+      const response=await call('Q-24816',query);
+      expect(response.status).toBe(401);
+      expect(await isPdf(response)).toBe(false);
+    }
+  });
+
+  it('is 403 for the customer, with no PDF, whatever the quote: hers, a draft, another customer\'s or none',async()=>{
+    for(const [id,query] of [['Q-24816','?variant=internal'],['Q-24816','?variant=internal&rev=1'],['q-24816','?variant=internal&rev=draft'],['Q-24817','?variant=internal&rev=draft'],
+      ['Q-24817','?variant=internal'],[otherCustomersQuote,'?variant=internal'],['q-nope','?variant=internal&rev=2']]){
+      const response=await call(id,query,'customer');
+      expect(response.status,`${id}${query}`).toBe(403);
+      expect(response.headers.get('content-type')).toMatch(/^application\/json/);
+      expect(await isPdf(response)).toBe(false);
+      expect(await detail(response)).toBe('Supplier access required.');
+    }
+  });
+
+  it('gives Brandi the worksheet of the Q-24817 draft: inline, uncached, named as internal, with the banner and cost',async()=>{
+    const response=await call('Q-24817','?variant=internal&rev=draft','supplier');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/pdf');
+    expect(response.headers.get('content-disposition')).toMatch(/^inline; filename="Herrick Industrial Supply quote Q-24817 rev 1 draft - internal worksheet\.pdf"/);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    const {text}=await pdfText(await response.arrayBuffer());
+    for(const field of ['CONFIDENTIAL — INTERNAL','QUOTE WORKSHEET','Q-24817 · Rev 1','Total $1,122.40','Last paid $21.40 32.1% 20%','Below Brandi\'s 30% Safety & PPE floor','Why this price?','Open balance $18,420.00'])expect(text).toContain(field);
+  });
+
+  it('gives Brandi a sent revision\'s worksheet, and the same 404 and 409 answers as the customer quote',async()=>{
+    const sent=await call('Q-24816','?variant=internal','supplier');
+    expect(sent.status).toBe(200);
+    expect(sent.headers.get('content-disposition')).toMatch(/filename="Herrick Industrial Supply quote Q-24816 rev 1 - internal worksheet\.pdf"/);
+    expect((await pdfText(await sent.arrayBuffer())).text).toContain('Contract $24.10 33.1% 25%');
+    expect((await call(otherCustomersQuote,'?variant=internal','supplier')).status).toBe(200);
+    const unsent=await call('Q-24817','?variant=internal','supplier');
+    expect(unsent.status).toBe(404);
+    expect(await detail(unsent)).toBe('Q-24817 hasn\'t been sent yet. Preview the draft with rev=draft.');
+    const accepted=await call('Q-24816','?variant=internal&rev=draft','supplier');
+    expect(accepted.status).toBe(409);
+    expect(await detail(accepted)).toBe('Q-24816 has no draft to preview: it is accepted. Open rev 1 instead.');
+    expect((await call('q-nope','?variant=internal','supplier')).status).toBe(404);
+  });
+
+  it('leaves the customer quote as it was: still no cost, margin or Querent\'s reasoning for Dana or for Brandi',async()=>{
+    const {quote}=await import('@/server/repository');
+    for(const [query,persona] of [['?variant=customer','customer'],['','customer'],['?variant=customer&rev=1','supplier']] as const){
+      const response=await call('Q-24816',query,persona);
+      expect(response.status).toBe(200);
+      expect(internalLeaks((await pdfText(await response.arrayBuffer())).text,quote('q-24816')!.lines)).toEqual([]);
     }
   });
 });

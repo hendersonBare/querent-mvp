@@ -174,7 +174,7 @@ export function worksheetModel(q:PdfQuote,ctx:PdfContext,facts:WorksheetFacts):W
     title:`Internal worksheet ${ref}${q.draft?' (draft)':''}`,
     filename:frame.filename.replace(/\.pdf$/,' - internal worksheet.pdf'),
     banner:{title:CONFIDENTIAL,note:'Cost and margin. Do not send to the customer.'},
-    stamps:q.draft?['Draft · not sent',frame.footer.sample]:[frame.footer.sample],
+    stamps:[q.draft?'Draft · not sent':`As sent ${formatDay(q.date)}`,frame.footer.sample],
     lines,profit,credit,
     notes:facts.notes.map(n=>({meta:`${n.rep_name} · ${formatMoment(n.created_at)}`,body:n.body.trim()})).filter(n=>n.body),
     checks,asOf,
