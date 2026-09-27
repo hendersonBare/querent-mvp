@@ -15,6 +15,15 @@ export function createConversation({id=randomUUID(),customerId,contactId=null,at
 }
 export function conversation(customerId:string,conversationId:string){return one<Conversation>(`${CONVERSATION} WHERE id=? AND customer_id=?`,conversationId,customerId);}
 
+/**
+ * The customer's most recently active conversation: the one with the newest message, or, for a
+ * conversation with no messages yet, the newest start. undefined when the customer has none.
+ */
+export function latestConversation(customerId:string){
+  return one<Conversation>(`SELECT c.id,c.customer_id,c.contact_id,c.started_at FROM conversations c LEFT JOIN messages m ON m.conversation_id=c.id
+    WHERE c.customer_id=? GROUP BY c.id ORDER BY max(coalesce(m.created_at,c.started_at)) DESC,c.started_at DESC,c.rowid DESC LIMIT 1`,customerId);
+}
+
 type MessageRow=Omit<ChatMessage,'payload'>&{payload:string|null};
 const MESSAGE='SELECT m.id,m.conversation_id,m.role,m.kind,m.content,m.payload,m.created_at FROM messages m';
 const toMessage=(row:MessageRow):ChatMessage=>({...row,payload:row.payload===null?null:JSON.parse(row.payload)});
