@@ -39,7 +39,7 @@ async function signInAsBrandi(page: Page) {
 }
 /** Dana at Wasatch, in her own browser context (her own session cookie). */
 async function signInAsDana(browser: Browser) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   await page.goto("/");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
@@ -159,6 +159,7 @@ test("floors: changing Brandi's floor changes the below-floor warning on her quo
   await saveFloor(page, "Safety & PPE", "30");
   await openQuotes(page);
   await expect(sampleMargin(page)).toContainText("2 lines below floor");
+  await screenshot(page, testInfo, "quotes-after-floor-change-1440");
 
   // Saved floors survive a reload; 0.1 point is the precision.
   await openSettings(page, "Margin floors");
@@ -198,6 +199,7 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   const refused = await ask(dana, STOCK_QUESTION);
   await expect(refused).toContainText("Stock levels aren't available in chat for your account. Brandi Gallegos can check for you: (801) 111-2222");
   await expect(refused).not.toContainText("64 at SLC");
+  await screenshot(dana, testInfo, "dana-stock-refused-1440");
 
   // All customers shows the mix; only Wasatch changed.
   await page.getByLabel("Viewing").selectOption("all");
