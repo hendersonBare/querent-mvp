@@ -1,10 +1,11 @@
 'use client';
-import {useCallback,useId} from 'react';
+import {useCallback,useEffect,useId} from 'react';
 import type {CustomerQuoteSummary} from '@/domain';
 import type {API} from '@/lib/contracts';
 import {usePoll} from '@/lib/use-poll';
 import {emitOpenQuote} from './open-quote';
 import {quoteButtonLabel,STATUS_CHIPS} from './quote-label';
+import {onQuotesChanged} from './quotes-changed';
 
 // Right sidebar (spec §3): one button per quote, newest first, labelled "Quote · date · $total"
 // with a status chip. The server sends the status to show now, so an overdue sent quote reads
@@ -12,7 +13,8 @@ import {quoteButtonLabel,STATUS_CHIPS} from './quote-label';
 
 export function QuotesSidebar({api,now}:{api:API;now?:string}){
   const load=useCallback(()=>api.get<CustomerQuoteSummary[]>('customer/quotes'),[api]);
-  const {data,error}=usePoll(load);
+  const {data,error,refresh}=usePoll(load);
+  useEffect(()=>onQuotesChanged(()=>void refresh()),[refresh]);
   const heading=useId();
   const at=now??new Date().toISOString();
   return <div className="cx-quotes-panel">

@@ -29,6 +29,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   isCategory:()=>customer.isCategory('pricing'),
   accountSummary:()=>customer.accountSummary('wasatch'),
   assignedRep:()=>customer.assignedRep('wasatch'),
+  deliveryAddress:()=>customer.deliveryAddress('wasatch'),
   departments:()=>customer.departments(),
   supplier:()=>customer.supplier(),
   branches:()=>customer.branches(),
