@@ -109,6 +109,42 @@ describe('live mode (API key set, QUERENT_SCRIPTED unset)',()=>{
   });
 });
 
+describe('a quote sent into the conversation (task 5.1): the chat carries on, in both modes',()=>{
+  async function sendInto(conversationId:string){
+    const {createQuote}=await import('./repository');
+    const {sendQuote}=await import('./quotes/service');
+    const q=createQuote({customerId:'wasatch',contactId:'dana',conversationId,fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5}]});
+    await sendQuote(q.id,{repId:'brandi',message:'Hi Dana, <b>here</b> it is',now:new Date().toISOString()});
+    return q;
+  }
+
+  it('scripted: the next question is answered as usual; the history has the turns, the notices the message',async()=>{
+    scriptedEnv();
+    const {ask}=await import('./pipeline');
+    const {history}=await import('./repository/customer');
+    const {chatNotices}=await import('./customer/notices');
+    await ask('wasatch','conv-scripted-sent',STOCK,{contactId:'dana'});
+    const q=await sendInto('conv-scripted-sent');
+    const after=await ask('wasatch','conv-scripted-sent',STOCK,{contactId:'dana'});
+    expect(after.answer).toContain('64 at SLC, 22 at Ogden and 8 at Provo');
+    expect(history('wasatch','conv-scripted-sent').map(t=>t.question)).toEqual([STOCK,STOCK]);
+    expect(chatNotices('wasatch','conv-scripted-sent').filter(n=>n.conversation_id==='conv-scripted-sent').map(n=>[n.quote_id,n.text])).toEqual([[q.id,'Hi Dana, <b>here</b> it is']]);
+  });
+
+  it('live: Claude never sees the notice, so its turns still alternate user / assistant',async()=>{
+    process.env.ANTHROPIC_API_KEY='sk-test-not-used';delete process.env.QUERENT_SCRIPTED;
+    const {ask}=await import('./pipeline');
+    const {chatNotices}=await import('./customer/notices');
+    claude.turns.push([{type:'text',text:'Hello again.'}]);
+    await ask('wasatch','conv-live-sent','Hi',{contactId:'dana'});
+    const q=await sendInto('conv-live-sent');
+    claude.turns.push([{type:'text',text:'You’re welcome.'}]);
+    expect((await ask('wasatch','conv-live-sent','Thanks for the quote')).answer).toBe('You’re welcome.');
+    expect(claude.requests.at(-1)!.messages).toEqual([{role:'user',content:'Hi'},{role:'assistant',content:'Hello again.'},{role:'user',content:'Thanks for the quote'}]);
+    expect(chatNotices('wasatch','conv-live-sent').filter(n=>n.conversation_id==='conv-live-sent').map(n=>n.quote_id)).toEqual([q.id]);
+  });
+});
+
 describe('failures',()=>{
   it('answer with an apology and log an error outcome',async()=>{
     scriptedEnv();
