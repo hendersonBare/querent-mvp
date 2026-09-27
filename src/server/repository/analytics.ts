@@ -1,5 +1,5 @@
 import 'server-only';
-import type {QuoteFact,QuoteLineFact,RequestedItem} from '@/domain';
+import type {QuoteFact,QuoteLineFact,RequestedItem,SentLineFact} from '@/domain';
 import {categories,type Analytics,type Category} from '@/lib/contracts';
 import {aggregateAccess} from './access';
 import {customerIds} from './accounts';
@@ -52,6 +52,20 @@ export function quoteLineFacts(scope:CustomerScope){
   return all<QuoteLineFact>(`SELECT l.quote_id,q.status,l.item_id,i.sku,i.category_id,l.qty,l.unit_price,l.price_basis,l.suggested_price,l.suggested_basis,l.customer_price,l.unit_cost,f.margin_floor,l.added_by
     FROM quote_lines l JOIN quotes q ON q.id=l.quote_id JOIN items i ON i.id=l.item_id LEFT JOIN rep_category_floors f ON f.rep_id=q.rep_id AND f.category_id=i.category_id
     WHERE q.customer_id IN (SELECT value FROM json_each(?)) ORDER BY q.requested_at,q.quote_number,l.line_no`,bindScope(scope));
+}
+
+/**
+ * Internal: the lines of each quote's last sent revision (the snapshot the customer saw), with
+ * each line's cost and the floor for (quote rep x category): margin vs floor. A quote the rep is
+ * editing after a change request still reads as sent until it is sent again.
+ */
+export function sentLineFacts(scope:CustomerScope){
+  return all<SentLineFact>(`SELECT q.id quote_id,v.revision,i.id item_id,i.sku,i.category_id,json_extract(l.value,'$.qty') qty,json_extract(l.value,'$.unit_price') unit_price,
+      coalesce((SELECT d.unit_cost FROM quote_lines d WHERE d.quote_id=q.id AND d.item_id=i.id ORDER BY d.line_no LIMIT 1),i.cost) unit_cost,f.margin_floor
+    FROM quotes q JOIN quote_revisions v ON v.quote_id=q.id AND v.revision=(SELECT max(r.revision) FROM quote_revisions r WHERE r.quote_id=q.id)
+    JOIN json_each(v.snapshot,'$.lines') l JOIN items i ON i.sku=json_extract(l.value,'$.sku')
+    LEFT JOIN rep_category_floors f ON f.rep_id=q.rep_id AND f.category_id=i.category_id
+    WHERE q.customer_id IN (SELECT value FROM json_each(?)) ORDER BY q.requested_at,q.quote_number,l.key`,bindScope(scope));
 }
 
 /** Items on the most quotes (then the most qty). */

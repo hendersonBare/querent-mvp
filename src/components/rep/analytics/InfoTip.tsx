@@ -5,12 +5,16 @@ import s from './Analytics.module.css';
 
 const GUTTER=16,GAP=8,MAX_WIDTH=300;
 
+interface Place {top:number;left:number;width:number}
+
 /**
  * The "i" next to an Analytics number (spec §4: every number says how it's calculated). Hover,
- * focus or tap shows the explanation; Escape, blur, scrolling or leaving hides it. The text is
- * also the button's accessible description, so a screen reader hears it on focus.
+ * focus or tap shows the explanation; Escape, blur or leaving hides it. The text is also the
+ * button's accessible description, so a screen reader hears it on focus.
  *
  * The tip is position: fixed and clamped to the viewport, so it never widens the page at 390px.
+ * Scrolling and resizing move it with its button rather than hiding it: tabbing to an "i" below
+ * the fold scrolls the page, and that scroll must not close the tip the focus just opened.
  */
 export function InfoTip({topic,children}:{
   /** What it explains, for the button's name: "How {topic} is calculated". */
@@ -18,35 +22,33 @@ export function InfoTip({topic,children}:{
   children:ReactNode;
 }){
   const [open,setOpen]=useState(false);
-  const [place,setPlace]=useState<{top:number;left:number;width:number}|null>(null);
+  const [place,setPlace]=useState<Place|null>(null);
   const button=useRef<HTMLButtonElement>(null),tip=useRef<HTMLSpanElement>(null);
   const id=useId();
 
-  const show=useCallback(()=>{
+  /** Below the button, or above it when there is no room below; clamped inside the viewport's width. */
+  const position=useCallback(()=>{
     const rect=button.current?.getBoundingClientRect();
-    if(rect){
-      const viewport=document.documentElement.clientWidth||window.innerWidth;
-      const width=Math.min(MAX_WIDTH,viewport-2*GUTTER);
-      const left=Math.max(GUTTER,Math.min(rect.left+rect.width/2-width/2,viewport-GUTTER-width));
-      setPlace({top:rect.bottom+GAP,left,width});
-    }
-    setOpen(true);
+    if(!rect)return;
+    const viewport=document.documentElement.clientWidth||window.innerWidth;
+    const width=Math.min(MAX_WIDTH,viewport-2*GUTTER);
+    const left=Math.max(GUTTER,Math.min(rect.left+rect.width/2-width/2,viewport-GUTTER-width));
+    const height=tip.current?.offsetHeight??0,above=rect.top-GAP-height;
+    const top=rect.bottom+GAP+height>window.innerHeight-GAP&&above>=GAP?above:rect.bottom+GAP;
+    setPlace(p=>p&&p.top===top&&p.left===left&&p.width===width?p:{top,left,width});
   },[]);
+  const show=useCallback(()=>{position();setOpen(true);},[position]);
   const hide=useCallback(()=>setOpen(false),[]);
 
-  // Not enough room below: show it above the button instead.
-  useLayoutEffect(()=>{
-    if(!open||!place||!tip.current||!button.current)return;
-    const height=tip.current.offsetHeight,rect=button.current.getBoundingClientRect(),above=rect.top-GAP-height;
-    if(rect.bottom+GAP+height>window.innerHeight-GAP&&above>=GAP)setPlace(p=>p&&p.top!==above?{...p,top:above}:p);
-  },[open,place]);
+  // Once the tip is showing (at its width), measure its height and settle above or below.
+  useLayoutEffect(()=>{if(open)position();},[open,place?.width,position]);
 
   useEffect(()=>{
     if(!open)return;
     const escape=(event:KeyboardEvent)=>{if(event.key==='Escape')hide();};
-    window.addEventListener('keydown',escape);window.addEventListener('scroll',hide,true);window.addEventListener('resize',hide);
-    return()=>{window.removeEventListener('keydown',escape);window.removeEventListener('scroll',hide,true);window.removeEventListener('resize',hide);};
-  },[open,hide]);
+    window.addEventListener('keydown',escape);window.addEventListener('scroll',position,true);window.addEventListener('resize',position);
+    return()=>{window.removeEventListener('keydown',escape);window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
+  },[open,hide,position]);
 
   return <span className={s.tipAnchor} onMouseEnter={show} onMouseLeave={hide}>
     <button ref={button} type="button" className={s.tipButton} aria-label={`How ${topic} is calculated`} aria-describedby={id}

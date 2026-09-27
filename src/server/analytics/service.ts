@@ -1,7 +1,7 @@
 import 'server-only';
 import type {CustomerListItem} from '@/domain';
 import {expireOverdueQuotes} from '@/server/quotes/service';
-import {aggregateAccess,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,topRequestedItems} from '@/server/repository';
+import {aggregateAccess,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems} from '@/server/repository';
 import {
   TOP_ITEMS,extraGp,hoursSaved,marginVsFloor,questionsAnswered,quotedVsAccepted,turnaround,weeklyTrend,winRateCard,type RepAnalytics,
 } from './metrics';
@@ -51,7 +51,7 @@ export function repAnalytics(repId:string,{customerId=null,now=clock()}:RepAnaly
     hours_saved:hoursSaved(quotes),
     extra_gp:extraGp(quotes,lines),
     weekly:weeklyTrend(quotes,now),
-    margin:marginVsFloor(quotes,lines,productCategories()),
+    margin:marginVsFloor(sentLineFacts(ids),productCategories()),
     top_items:topRequestedItems(ids,TOP_ITEMS),
     questions:questionsAnswered(questionOutcomes(ids)),
     queries:analytics(ids),

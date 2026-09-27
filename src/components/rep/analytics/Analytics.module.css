@@ -255,11 +255,6 @@
 .toggle:hover {
   background: var(--rep-surface-2);
 }
-.toggle[aria-pressed="true"] {
-  border-color: var(--rep-ink);
-  background: var(--rep-ink);
-  color: var(--rep-bg);
-}
 
 /* ---- Weekly column chart ---- */
 .plot {

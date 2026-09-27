@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {analytics,questionOutcomes,quoteFacts,quoteLineFacts,topRequestedItems} from './analytics';
+import {analytics,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems} from './analytics';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -58,6 +58,20 @@ describe('quote analytics facts',()=>{
     expect(quoteLineFacts(['wasatch'])).toEqual(quoteLineFacts('wasatch'));
     expect(quoteLineFacts('great-basin')).toEqual([]);
     expect(quoteLineFacts([])).toEqual([]);
+  });
+
+  it('returns the lines of each quote\'s last sent revision, as the customer saw them, with cost and the rep\'s floor',()=>{
+    const sent=sentLineFacts('wasatch');
+    expect(sent).toHaveLength(56); // the 24 sent quotes; the draft sample Q-24817 has no revision
+    expect(sent.some(l=>l.quote_id==='q-24817')).toBe(false);
+    expect(sent.filter(l=>l.quote_id==='q-24816')).toEqual([
+      {quote_id:'q-24816',revision:1,item_id:'CW-45-045-T1',sku:'CW-45-045-T1',category_id:'abrasives',qty:4,unit_price:36,unit_cost:24.1,margin_floor:0.25},
+      {quote_id:'q-24816',revision:1,item_id:'GLV-N8-L-1000',sku:'GLV-N8-L-1000',category_id:'safety',qty:4,unit_price:79,unit_cost:58,margin_floor:0.3},
+      {quote_id:'q-24816',revision:1,item_id:'FD-45-60Z',sku:'FD-45-60Z',category_id:'abrasives',qty:3,unit_price:44.25,unit_cost:expect.any(Number),margin_floor:0.25},
+    ]);
+    expect(sentLineFacts(['wasatch','great-basin'])).toEqual(sent);
+    expect(sentLineFacts('great-basin')).toEqual([]);
+    expect(sentLineFacts([])).toEqual([]);
   });
 
   it('ranks the most requested items',()=>{

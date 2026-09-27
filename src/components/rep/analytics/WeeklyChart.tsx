@@ -43,7 +43,7 @@ export function WeeklyChart({weeks}:{weeks:WeekPoint[]}){
           <li><span className={s.keyWon} aria-hidden="true"/>Won</li>
           <li><span className={s.keyOther} aria-hidden="true"/>Lost or still open</li>
         </ul>
-        <button type="button" className={s.toggle} aria-pressed={table} onClick={()=>setTable(t=>!t)}>Show table</button>
+        <button type="button" className={s.toggle} onClick={()=>setTable(t=>!t)}>{table?'Show chart':'Show table'}</button>
       </div>}
     </div>
     <p className={s.panelSummary}>{total?`${plural(total,'quote')} requested in the last ${n} weeks, ${won} won so far.`:`No quotes requested in the last ${n} weeks.`}</p>

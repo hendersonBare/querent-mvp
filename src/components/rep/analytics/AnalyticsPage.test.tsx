@@ -96,12 +96,17 @@ describe('All customers',()=>{
     expect(within(chart).queryByRole('status')).not.toBeInTheDocument();
 
     fireEvent.click(within(chart).getByRole('button',{name:'Show table'}));
-    expect(within(chart).getByRole('button',{name:'Show table'})).toHaveAttribute('aria-pressed','true');
     const rows=within(within(chart).getByRole('table')).getAllByRole('row');
     expect(rows).toHaveLength(27);
     expect(rows[0]).toHaveTextContent('Week ofRequestedWonLostOpen');
     expect(rows[1]).toHaveTextContent('Sep 211001');
     expect(rows[3]).toHaveTextContent('Sep 71100');
+    // The button says what it will do next.
+    expect(within(chart).queryByRole('button',{name:'Show table'})).not.toBeInTheDocument();
+    fireEvent.click(within(chart).getByRole('button',{name:'Show chart'}));
+    expect(within(chart).queryByRole('table')).not.toBeInTheDocument();
+    expect(within(chart).getByRole('group')).toBeInTheDocument();
+    expect(within(chart).getByRole('button',{name:'Show table'})).toBeInTheDocument();
   });
 
   it('shows margin vs floor, top items and questions answered without a rep',async()=>{

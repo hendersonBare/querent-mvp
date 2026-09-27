@@ -20,4 +20,15 @@ export interface QuoteLineFact {
   margin_floor:number|null;added_by:LineSource;
 }
 
-export interface RequestedItem {item_id:string;sku:string;description:string;quote_count:number;total_qty:number}
+/**
+ * Internal: one line of a quote's last sent revision, as the customer saw it (the frozen
+ * snapshot), with its cost and the floor for (quote rep x item category). unit_cost is the draft
+ * line's, frozen when the line was written, or the item's if the rep has since removed the line.
+ */
+export interface SentLineFact {
+  quote_id:string;revision:number;item_id:string;sku:string;category_id:string;qty:number;unit_price:number;unit_cost:number;
+  /** null when the quote rep has no floor row for the category (use DEFAULT_FLOOR). */
+  margin_floor:number|null;
+}
+
+export interface RequestedItem{item_id:string;sku:string;description:string;quote_count:number;total_qty:number}

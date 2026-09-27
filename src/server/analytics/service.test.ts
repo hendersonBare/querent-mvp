@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {explainQuoteGp,querentFoundGp} from '@/server/pricing';
-import {acceptQuote,duplicateQuote,sendQuote} from '@/server/quotes/service';
-import {customers,quote,quotes} from '@/server/repository';
+import {acceptQuote,duplicateQuote,requestChanges,sendQuote} from '@/server/quotes/service';
+import {customers,quote,quotes,updateQuoteLine} from '@/server/repository';
 import {SEED_DATE,useSeededDatabase} from '@/server/repository/test-db';
 import {analyticsScope,repAnalytics} from './service';
 
@@ -149,12 +149,26 @@ describe('live changes (these write to the database, so they run last)',()=>{
     expect(after.margin.categories.find(c=>c.category_id==='safety')).toMatchObject({lines:14,below_floor:4});
   });
 
+  it('keeps margin vs floor on the prices the customer was sent while the rep reworks a quote after a change request',async()=>{
+    const before=brandi(null,'2026-09-24T18:00:00.000Z').margin;
+    const copy=duplicateQuote('Q-24806',{repId:'brandi',now:'2026-09-24T18:00:00.000Z'}); // 4 gloves at $78.00, 2 glasses at $29.40
+    await sendQuote(copy.id,{repId:'brandi',now:'2026-09-24T18:30:00.000Z'});
+    const sent=brandi(null,'2026-09-24T19:00:00.000Z').margin;
+    expect(sent.overall.lines).toBe(before.overall.lines+2);
+    expect(Math.round(sent.overall.revenue*100)).toBe(Math.round((before.overall.revenue+4*78+2*29.4)*100));
+    requestChanges('wasatch',copy.id,{revision:1,note:'Can you do better on the gloves?',now:'2026-09-24T19:30:00.000Z'});
+    const gloves=quote(copy.id)!.lines.find(l=>l.sku==='GLV-N8-L-1000')!;
+    updateQuoteLine(copy.id,gloves.id,{unitPrice:40,priceBasis:'custom'},'2026-09-24T19:45:00.000Z'); // a draft far under the 30% floor
+    expect(brandi(null,'2026-09-24T20:00:00.000Z').margin).toEqual(sent);
+  });
+
   it('stores the expiry of an overdue sent quote before counting it as lost',async()=>{
     const copy=duplicateQuote('Q-24816',{repId:'brandi',now:'2026-09-24T18:00:00.000Z'});
     await sendQuote(copy.id,{repId:'brandi',now:'2026-09-24T19:00:00.000Z'}); // valid until Oct 8
-    expect(brandi(null,'2026-10-08T23:00:00.000Z').win_rate).toMatchObject({won:18,lost:7,open:1});
+    // Open: this copy, and the reworked copy of Q-24806 from the test above (changes requested, so it never expires).
+    expect(brandi(null,'2026-10-08T23:00:00.000Z').win_rate).toMatchObject({won:18,lost:7,open:2});
     expect(quote(copy.id)!.status).toBe('sent');
-    expect(brandi(null,'2026-10-09T00:00:00.000Z').win_rate).toEqual({rate:18/26,won:18,lost:8,open:0});
+    expect(brandi(null,'2026-10-09T00:00:00.000Z').win_rate).toEqual({rate:18/26,won:18,lost:8,open:1});
     expect(quote(copy.id)!.status).toBe('expired');
   });
 });

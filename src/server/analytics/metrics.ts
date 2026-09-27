@@ -1,4 +1,4 @@
-import type {CustomerListItem,ProductCategory,QuoteFact,QuoteLineFact,RequestedItem} from '@/domain';
+import type {CustomerListItem,ProductCategory,QuoteFact,QuoteLineFact,RequestedItem,SentLineFact} from '@/domain';
 import type {AccessRule,Analytics} from '@/lib/contracts';
 import {DEFAULT_FLOOR,margin,priceBelowFloor} from '@/server/floors';
 import {gpVsCustomer,querentFoundGp} from '@/server/pricing';
@@ -98,6 +98,8 @@ export interface ExtraGp {
  * scarcity) and the rep kept it (the final price is Querent's, to the cent). It is querentFoundGp()
  * over those lines, so contract lines (binding, not Querent's choice) and lines at or below
  * customer price add nothing. A price the rep raised further on their own isn't Querent's find.
+ * It reads the quote lines: an accepted quote is final (no more edits), so they are the lines of
+ * the revision the customer accepted, and they still carry Querent's suggestion.
  */
 export function extraGp(quotes:readonly QuoteFact[],lines:readonly QuoteLineFact[]):ExtraGp{
   const accepted=new Set(quotes.filter(q=>q.status==='accepted').map(q=>q.id));
@@ -155,15 +157,16 @@ const emptyTotals=():Totals=>({revenue:0,cost:0,floorRevenue:0,lines:0,below:0})
 const figures=(t:Totals):MarginFigures=>({margin:t.revenue>0?margin(t.revenue,t.cost):null,floor:t.revenue>0?t.floorRevenue/t.revenue:null,revenue:dollars(t.revenue),lines:t.lines,below_floor:t.below});
 
 /**
- * Average margin vs floor over the priced lines of sent quotes (the prices the customer saw), per
- * product category and overall. Both are weighted by line revenue, so a big line counts for more,
- * as it does in a quote's own margin (spec §5.2). A rep with no floor row uses DEFAULT_FLOOR (20%).
+ * Average margin vs floor over the lines of each quote's last sent revision (the prices the
+ * customer saw, from the frozen snapshot: a draft the rep is reworking after a change request
+ * doesn't count until it is sent again), per product category and overall. Both are weighted by
+ * line revenue, so a big line counts for more, as it does in a quote's own margin (spec §5.2). A
+ * rep with no floor row uses DEFAULT_FLOOR (20%).
  */
-export function marginVsFloor(quotes:readonly QuoteFact[],lines:readonly QuoteLineFact[],categories:readonly ProductCategory[]):MarginVsFloor{
-  const sentIds=new Set(quotes.filter(sent).map(q=>q.id));
+export function marginVsFloor(lines:readonly SentLineFact[],categories:readonly ProductCategory[]):MarginVsFloor{
   const overall=emptyTotals(),byCategory=new Map<string,Totals>();
   for(const l of lines){
-    if(!sentIds.has(l.quote_id)||l.unit_price===null||!(l.unit_price>0)||!(l.qty>0))continue;
+    if(!(l.unit_price>0)||!(l.qty>0))continue;
     const floor=l.margin_floor??DEFAULT_FLOOR,revenue=cents(l.qty*l.unit_price),cost=cents(l.qty*l.unit_cost),below=priceBelowFloor(l.unit_price,l.unit_cost,floor)?1:0;
     let category=byCategory.get(l.category_id);
     if(!category)byCategory.set(l.category_id,category=emptyTotals());

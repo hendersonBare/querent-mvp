@@ -51,6 +51,47 @@ async function shoot(page: Page, testInfo: TestInfo, name: string) {
   if (SHOTS) await page.screenshot({ fullPage: true, path: `${SHOTS}/${name}.png` });
 }
 
+/** Every "i" on the page, in tab order. */
+const INFO_TOPICS = [
+  "median time to send", "win rate", "dollars quoted and accepted", "hours saved", "extra GP Querent found",
+  "the weekly trend", "average margin vs floor", "top requested items", "questions answered without a rep",
+  "total queries", "estimated time saved", "queries by category",
+];
+
+/**
+ * Real Tab presses from the top of the page to each "i" in turn: each one must show its tip on
+ * focus, on screen, including the ones below the fold that Tab scrolls into view (verifier
+ * finding on 1b2e843: the scroll that focus causes used to hide the tip at once).
+ */
+async function tabThroughInfoTips(page: Page, viewport: { width: number; height: number }) {
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
+  const belowFold = [];
+  for (const topic of INFO_TOPICS) {
+    const name = `How ${topic} is calculated`;
+    // boundingBox is relative to the viewport: below the fold means Tab will have to scroll to it.
+    const box = (await page.getByRole("button", { name }).boundingBox())!;
+    if (box.y + box.height > viewport.height) belowFold.push(topic);
+    let presses = 0;
+    while (!(await page.evaluate((label) => document.activeElement?.getAttribute("aria-label") === label, name))) {
+      await page.keyboard.press("Tab");
+      expect(++presses, `Tab never reached "${name}"`).toBeLessThan(40);
+    }
+    const tip = page.getByRole("tooltip");
+    await expect(tip, `the tip for ${topic}`).toBeVisible();
+    await expect(tip).toContainText(/\w/);
+    const tipBox = (await tip.boundingBox())!;
+    expect(tipBox.y).toBeGreaterThanOrEqual(0);
+    expect(tipBox.y + tipBox.height).toBeLessThanOrEqual(viewport.height);
+    expect(tipBox.x + tipBox.width).toBeLessThanOrEqual(viewport.width);
+  }
+  // The ones that matter most: Tab had to scroll to reach them.
+  expect(belowFold.length).toBeGreaterThan(0);
+  return belowFold;
+}
+
 /** The five cards read Brandi's seed numbers (All customers or Wasatch). */
 async function expectSeedCards(page: Page) {
   await expect(card(page, "Median time to send")).toContainText("1 h 33 min");
@@ -104,7 +145,8 @@ test("desktop: all of Brandi's customers, then a placeholder customer", async ({
   await expect(chart.getByRole("status")).toContainText("Week of Sep 21");
   await chart.getByRole("button", { name: "Show table" }).click();
   await expect(chart.getByRole("table").getByRole("row")).toHaveCount(27);
-  await chart.getByRole("button", { name: "Show table" }).click();
+  await chart.getByRole("button", { name: "Show chart" }).click();
+  await expect(chart.getByRole("table")).toHaveCount(0);
 
   await expect(card(page, "Average margin vs floor")).toContainText("Safety & PPE");
   await expect(card(page, "Average margin vs floor")).toContainText("3 lines under the 30% floor");
@@ -133,6 +175,19 @@ test("desktop: all of Brandi's customers, then a placeholder customer", async ({
   await page.getByLabel("Viewing").selectOption("wasatch");
   await expectSeedCards(page);
 });
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  test(`keyboard (${viewport.width}px): Tab to every "i", including below the fold, shows its tip`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await openAnalytics(page);
+    await expectSeedCards(page);
+    const belowFold = await tabThroughInfoTips(page, viewport);
+    expect(belowFold).toContain("queries by category");
+    // Shift+Tab back up the page shows the previous one (estimated time saved) too.
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("tooltip")).toContainText("For each question Querent answered");
+  });
+}
 
 test("phone (390px): the cards and charts fit, tooltips stay on screen, nothing scrolls sideways", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });

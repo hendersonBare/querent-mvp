@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import type {ProductCategory,QuoteFact,QuoteLineFact} from '@/domain';
+import type {ProductCategory,QuoteFact,QuoteLineFact,SentLineFact} from '@/domain';
 import {
   MINUTES_SAVED_PER_QUOTE,extraGp,hoursSaved,marginVsFloor,median,questionsAnswered,quotedVsAccepted,turnaround,weekStart,weeklyTrend,winRateCard,
 } from './metrics';
@@ -142,17 +142,18 @@ describe('weekly quotes and wins',()=>{
 describe('average margin vs floor (task 1.2 rules)',()=>{
   const categories:ProductCategory[]=[{id:'fasteners',name:'Fasteners',sort_order:1},{id:'abrasives',name:'Abrasives & Cutting',sort_order:2},{id:'safety',name:'Safety & PPE',sort_order:3}];
 
-  it('weights margin and floor by line revenue over the priced lines of sent quotes, per category and overall',()=>{
-    const sent=fact({status:'accepted'}),sent2=fact({status:'expired'}),unsent=draft();
+  const sentLine=(quoteId:string,overrides:Partial<SentLineFact>={}):SentLineFact=>
+    ({quote_id:quoteId,revision:1,item_id:'HCS',sku:'HCS',category_id:'fasteners',qty:10,unit_price:31.5,unit_cost:21.4,margin_floor:0.2,...overrides});
+
+  it('weights margin and floor by line revenue over the lines customers were sent, per category and overall',()=>{
     const lines=[
-      line(sent.id,{qty:10,unit_price:30,unit_cost:21,margin_floor:0.2}), // revenue 300, cost 210 (30%)
-      line(sent2.id,{qty:5,unit_price:20,unit_cost:17,margin_floor:0.2}), // revenue 100, cost 85 (15%, below the 20% floor)
-      line(sent.id,{category_id:'safety',qty:4,unit_price:79,unit_cost:58,margin_floor:0.3}), // revenue 316, cost 232 (26.6%, below 30%)
-      line(sent.id,{category_id:'abrasives',qty:2,unit_price:null,unit_cost:24.1,margin_floor:0.25}), // not priced
-      line(sent.id,{category_id:'abrasives',qty:0,unit_price:36,unit_cost:24.1,margin_floor:0.25}), // zero qty: no revenue
-      line(unsent.id,{qty:100,unit_price:1,unit_cost:0.99}), // not sent
+      sentLine('q-a',{qty:10,unit_price:30,unit_cost:21,margin_floor:0.2}), // revenue 300, cost 210 (30%)
+      sentLine('q-b',{qty:5,unit_price:20,unit_cost:17,margin_floor:0.2}), // revenue 100, cost 85 (15%, below the 20% floor)
+      sentLine('q-a',{category_id:'safety',qty:4,unit_price:79,unit_cost:58,margin_floor:0.3}), // revenue 316, cost 232 (26.6%, below 30%)
+      sentLine('q-a',{category_id:'abrasives',qty:0,unit_price:36,unit_cost:24.1,margin_floor:0.25}), // zero qty: no revenue
+      sentLine('q-a',{category_id:'abrasives',qty:2,unit_price:0,unit_cost:24.1,margin_floor:0.25}), // $0: no margin to weigh
     ];
-    const result=marginVsFloor([sent,sent2,unsent],lines,categories);
+    const result=marginVsFloor(lines,categories);
     const close=(value:number)=>expect.closeTo(value,10);
     expect(result.overall).toEqual({margin:close((716-527)/716),floor:close((400*0.2+316*0.3)/716),revenue:716,lines:3,below_floor:2});
     expect(result.categories).toEqual([
@@ -162,10 +163,9 @@ describe('average margin vs floor (task 1.2 rules)',()=>{
   });
 
   it('uses the default 20% floor when the rep has no floor row, and is empty with nothing sent',()=>{
-    const sent=fact();
-    expect(marginVsFloor([sent],[line(sent.id,{qty:1,unit_price:10,unit_cost:9,margin_floor:null})],categories).overall)
+    expect(marginVsFloor([sentLine('q-a',{qty:1,unit_price:10,unit_cost:9,margin_floor:null})],categories).overall)
       .toEqual({margin:expect.closeTo(0.1,10),floor:expect.closeTo(0.2,10),revenue:10,lines:1,below_floor:1});
-    expect(marginVsFloor([draft()],[],categories)).toEqual({overall:{margin:null,floor:null,revenue:0,lines:0,below_floor:0},categories:[]});
+    expect(marginVsFloor([],categories)).toEqual({overall:{margin:null,floor:null,revenue:0,lines:0,below_floor:0},categories:[]});
   });
 });
 
