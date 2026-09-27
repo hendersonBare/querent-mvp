@@ -126,17 +126,30 @@ describe('editing lines, terms, fulfillment and freight',()=>{
     expect(addQuoteLine(q.id,{itemId:'LW-12-ZP',qty:5})?.line_no).toBe(4);
   });
 
-  it('restores a removed line under its old number, or at the end once the number is taken (task 3.3 Undo)',()=>{
-    const q=newQuote();addQuoteLine(q.id,{itemId:'HN-12-13-G5',qty:5});addQuoteLine(q.id,{itemId:'FW-12-SAE',qty:5});
-    removeQuoteLine(q.id,`${q.id}-2`);
-    const back=restoreQuoteLine(q.id,2,{itemId:'HN-12-13-G5',qty:5,unitPrice:9.5,priceBasis:'custom',requestedText:'nuts',addedBy:'upsell'},T2);
-    expect(back).toMatchObject({id:`${q.id}-2`,line_no:2,sku:'HN-12-13-G5',unit_price:9.5,requested_text:'nuts',added_by:'upsell'});
+  it('restores a removed line under its old number, with who added it, its match score and request as removed (task 3.3 Undo, cleanup 13)',()=>{
+    const q=newQuote();addQuoteLine(q.id,{itemId:'HN-12-13-G5',qty:5,requestedText:'nuts',matchScore:0.81,addedBy:'upsell'});addQuoteLine(q.id,{itemId:'FW-12-SAE',qty:5});
+    removeQuoteLine(q.id,`${q.id}-2`,T1);
+    const back=restoreQuoteLine(q.id,2,{itemId:'HN-12-13-G5',qty:5,unitPrice:9.5,priceBasis:'custom'},T2);
+    expect(back).toMatchObject({id:`${q.id}-2`,line_no:2,sku:'HN-12-13-G5',unit_price:9.5,requested_text:'nuts',match_score:0.81,added_by:'upsell'});
     expect(back!.unit_cost).toBeGreaterThan(0);
     expect(quote(q.id)).toMatchObject({updated_at:T2});
     expect(quote(q.id)?.lines.map(l=>l.line_no)).toEqual([1,2,3]);
-    expect(restoreQuoteLine(q.id,2,{itemId:'LW-12-ZP',qty:1})?.line_no).toBe(4);
-    expect(restoreQuoteLine(q.id,0,{itemId:'LW-12-ZP',qty:1})?.line_no).toBe(5);
-    expect(restoreQuoteLine('nope',2,{itemId:'LW-12-ZP',qty:1})).toBeUndefined();
+    // Once only; and only a line that was removed, of that item, from that quote.
+    expect(restoreQuoteLine(q.id,2,{itemId:'HN-12-13-G5',qty:5})).toBeUndefined();
+    expect(restoreQuoteLine(q.id,9,{itemId:'LW-12-ZP',qty:1})).toBeUndefined();
+    removeQuoteLine(q.id,`${q.id}-3`);
+    expect(restoreQuoteLine(q.id,3,{itemId:'LW-12-ZP',qty:1})).toBeUndefined();
+    expect(restoreQuoteLine(newQuote().id,3,{itemId:'FW-12-SAE',qty:1})).toBeUndefined();
+    expect(restoreQuoteLine('nope',3,{itemId:'FW-12-SAE',qty:1})).toBeUndefined();
+    expect(quote(q.id)?.lines.map(l=>l.line_no)).toEqual([1,2]);
+  });
+
+  it('puts a restored line at the end when a line added since took its number',()=>{
+    const q=newQuote();addQuoteLine(q.id,{itemId:'HN-12-13-G5',qty:5});addQuoteLine(q.id,{itemId:'FW-12-SAE',qty:5,addedBy:'upsell'});
+    removeQuoteLine(q.id,`${q.id}-3`);
+    // The highest number is free again, so the next Add takes it.
+    expect(addQuoteLine(q.id,{itemId:'LW-12-ZP',qty:1})?.line_no).toBe(3);
+    expect(restoreQuoteLine(q.id,3,{itemId:'FW-12-SAE',qty:5})).toMatchObject({line_no:4,sku:'FW-12-SAE',added_by:'upsell'});
   });
 
   it('updates quote terms',()=>{

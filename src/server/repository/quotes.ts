@@ -122,16 +122,23 @@ export function addQuoteLine(quoteId:string,line:NewQuoteLine,at=nowIso()){
   });
 }
 
+/** What a restored line takes from the line that was removed, never from the caller. */
+type RemovedLine=Required<Pick<NewQuoteLine,'requestedText'|'matchScore'|'addedBy'>>;
+
 /**
  * Puts a removed line back under its old line number, so Undo on the rep's quote returns it to
- * its place in the grid (task 3.3). If that number is taken by then, the line goes at the end.
- * Returns undefined if the quote doesn't exist.
+ * its place in the grid (task 3.3). Who added it, its match score and the customer's words come
+ * from the removed line (removeQuoteLine keeps them), not from `line` (task 7.1). Returns
+ * undefined if the quote doesn't exist, or no line `lineNo` of that item was removed from it.
  */
-export function restoreQuoteLine(quoteId:string,lineNo:number,line:NewQuoteLine,at=nowIso()){
+export function restoreQuoteLine(quoteId:string,lineNo:number,line:Omit<NewQuoteLine,keyof RemovedLine>,at=nowIso()){
   return inTransaction(()=>{
-    if(!touch(quoteId,at))return undefined;
-    const free=Number.isInteger(lineNo)&&lineNo>0&&scalar<number>('SELECT 1 FROM quote_lines WHERE quote_id=? AND line_no=?',quoteId,lineNo)===undefined;
-    return quoteLine(quoteId,insertLine(quoteId,line,'rep',free?lineNo:undefined));
+    const removed=one<RemovedLine>('SELECT requested_text requestedText,match_score matchScore,added_by addedBy FROM quote_removed_lines WHERE quote_id=? AND line_no=? AND item_id=?',quoteId,lineNo,line.itemId);
+    if(!removed||!touch(quoteId,at))return undefined;
+    run('DELETE FROM quote_removed_lines WHERE quote_id=? AND line_no=?',quoteId,lineNo);
+    // A line added since takes the number after the highest one left, which can be this one: then the line goes at the end.
+    const free=scalar<number>('SELECT 1 FROM quote_lines WHERE quote_id=? AND line_no=?',quoteId,lineNo)===undefined;
+    return quoteLine(quoteId,insertLine(quoteId,{...line,...removed},'rep',free?lineNo:undefined));
   });
 }
 
@@ -151,9 +158,11 @@ export function updateQuoteLine(quoteId:string,lineId:string,patch:QuoteLinePatc
   });
 }
 
-/** Removes one line. Other lines keep their numbers. */
+/** Removes one line. Other lines keep their numbers. What Querent recorded about it is kept for restoreQuoteLine (Undo). */
 export function removeQuoteLine(quoteId:string,lineId:string,at=nowIso()){
   return inTransaction(()=>{
+    run(`INSERT OR REPLACE INTO quote_removed_lines(quote_id,line_no,item_id,requested_text,match_score,added_by,removed_at)
+      SELECT quote_id,line_no,item_id,requested_text,match_score,added_by,? FROM quote_lines WHERE id=? AND quote_id=?`,at,lineId,quoteId);
     const removed=run('DELETE FROM quote_lines WHERE id=? AND quote_id=?',lineId,quoteId).changes===1;
     if(removed)touch(quoteId,at);
     return removed;

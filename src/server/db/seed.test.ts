@@ -236,7 +236,10 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
     d.prepare("UPDATE quotes SET status='sent',revision=1 WHERE id='q-24817'").run();
     d.prepare("DELETE FROM quote_lines WHERE quote_id='q-24817' AND line_no=4").run();
     d.prepare("INSERT INTO quote_notes(quote_id,rep_id,body,created_at) VALUES('q-24817','brandi','Call Dana first','2026-01-01T00:00:00.000Z')").run();
+    d.prepare("INSERT INTO quote_removed_lines(quote_id,line_no,item_id,added_by,removed_at) VALUES('q-24817',4,'RS-2-27-JH','querent','2026-01-01T00:00:00.000Z')").run();
     seedSampleQuote(d,anchor);
+    // Undo can't put back a line the reset already restored.
+    expect(value("SELECT count(*) FROM quote_removed_lines WHERE quote_id='q-24817'")).toBe(0);
     expect(get("SELECT status,revision FROM quotes WHERE id='q-24817'")).toEqual({status:'ready_for_review',revision:0});
     expect(value("SELECT count(*) FROM quote_lines WHERE quote_id='q-24817'")).toBe(4);
     expect(value("SELECT count(*) FROM quote_notes WHERE quote_id='q-24817'")).toBe(0);

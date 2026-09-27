@@ -5,7 +5,7 @@ import {categories} from '../../lib/contracts';
 
 // Bump on any schema change. There are no migrations: an older database refuses to
 // open and `npm run db:reset` rebuilds and reseeds it (spec §6.6).
-export const SCHEMA_VERSION=2;
+export const SCHEMA_VERSION=3;
 
 // Tables a future ERP sync (Prophet 21 etc.) upserts into, keyed on (source, external_id).
 // Everything else is owned by Querent. Spec §6.2.
@@ -70,6 +70,9 @@ CREATE TABLE IF NOT EXISTS quotes(id TEXT PRIMARY KEY,quote_number TEXT NOT NULL
 CREATE INDEX IF NOT EXISTS quotes_customer ON quotes(customer_id,requested_at);
 -- unit_price NULL = not priced yet. suggested_* is Querent's pick; customer_price is kept for "+$X GP vs customer price".
 CREATE TABLE IF NOT EXISTS quote_lines(id TEXT PRIMARY KEY,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,line_no INTEGER NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),qty INTEGER NOT NULL CHECK(qty>=0),unit_price REAL,price_basis TEXT CHECK(price_basis IN (${PRICE_BASES})),suggested_price REAL,suggested_basis TEXT CHECK(suggested_basis IN (${PRICE_BASES})),customer_price REAL,unit_cost REAL NOT NULL,explanation TEXT,requested_text TEXT,match_score REAL,added_by TEXT NOT NULL DEFAULT 'querent' CHECK(added_by IN ('querent','rep','upsell')),UNIQUE(quote_id,line_no));
+-- A line the rep removed, kept so Undo puts it back with what Querent recorded about it (who added it,
+-- the match score, the customer's words): those come from here, never from the request (task 7.1).
+CREATE TABLE IF NOT EXISTS quote_removed_lines(quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,line_no INTEGER NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),requested_text TEXT,match_score REAL,added_by TEXT NOT NULL CHECK(added_by IN ('querent','rep','upsell')),removed_at TEXT NOT NULL,PRIMARY KEY(quote_id,line_no));
 -- Frozen copy of what the customer was sent, one row per send ("Q-24817 rev 2").
 CREATE TABLE IF NOT EXISTS quote_revisions(id TEXT PRIMARY KEY,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,revision INTEGER NOT NULL,sent_at TEXT NOT NULL,sent_by TEXT NOT NULL REFERENCES reps(id),message TEXT,attach_pdf INTEGER NOT NULL DEFAULT 1,total REAL NOT NULL,snapshot TEXT NOT NULL,UNIQUE(quote_id,revision));
 CREATE TABLE IF NOT EXISTS quote_activity(id INTEGER PRIMARY KEY AUTOINCREMENT,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,at TEXT NOT NULL,actor TEXT NOT NULL CHECK(actor IN ('customer','querent','rep','system')),actor_id TEXT,kind TEXT NOT NULL,message TEXT NOT NULL);
