@@ -18,6 +18,8 @@ import {describe,expect,it} from 'vitest';
 // 6. The customer-facing server logic in src/server/customer/ (sidebars, item pop-up, the chat's
 //    quote notices and the PDF preview modal, task 5.1) follows the customer-route rules, with no
 //    exception: the customer-safe repository module only, and no service that reads cost.
+// 7. Only test files (*.test.ts, *.test.tsx) may import the test database helpers
+//    (src/server/repository/test-db: useSeededDatabase, updateLiveRecord), which write to any table.
 
 const ROOT=resolve(__dirname,'../../..');
 const SCANNED=['src','scripts','e2e'];
@@ -47,6 +49,8 @@ const CUSTOMER_COST_EXCEPTIONS=[CUSTOMER_INTAKE,CUSTOMER_RESPONSE];
 const CUSTOMER_ROUTE=/^src\/app\/(?:.+\/)?customer(?:-[^/.]*)?(?:\/|\.tsx?$)/;
 /** Customer-facing server logic (rule 6). */
 const CUSTOMER_SERVER='src/server/customer/';
+/** Test-only database helpers (rule 7). */
+const TEST_DB='src/server/repository/test-db';
 /** A customer API path handled in code: 'customer/...' or ==='customer'. */
 const CUSTOMER_PATH=/(['"`])customer(?:\/|\1)/;
 
@@ -89,6 +93,7 @@ export function violations(file:string,text:string){
   if(!under(file,SQL_HOME))found.push(...findSql(text).map(hit=>`${file}:${hit} (SQL outside the repository)`));
   const imports=importsOf(file,text);
   if(!under(file,DB_IMPORTERS))found.push(...imports.filter(isDbModule).map(target=>`${file} imports ${target} (use the repository)`));
+  if(!isTest(file))found.push(...imports.filter(target=>target===TEST_DB).map(target=>`${file} imports ${target} (test files only)`));
   const isLlm=!isTest(file)&&(LLM_FILES.test(file)||imports.some(t=>t==='@anthropic-ai/sdk'||t.startsWith('@anthropic-ai/sdk/')));
   if(isLlm){
     found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (LLM code may only use ${CUSTOMER_MODULE})`));
@@ -154,6 +159,16 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/repository/quotes.ts',"import {db} from '../db';\nrun('DELETE FROM quotes')")).toEqual([]);
     expect(violations('scripts/reset-db.ts',"await import('../src/server/db')")).toEqual([]);
     expect(violations('scripts/x.ts',"db.prepare('SELECT 1')")).toHaveLength(1);
+  });
+
+  it('keep the test database helpers in test files (rule 7)',()=>{
+    expect(violations('src/server/rep/quotes.test.ts',"import {useSeededDatabase} from '@/server/repository/test-db';")).toEqual([]);
+    expect(violations('src/components/rep/Settings.test.tsx',"import {SEED_DATE} from '../../server/repository/test-db';")).toEqual([]);
+    expect(violations('src/server/rep/quotes.ts',"import {updateLiveRecord} from '@/server/repository/test-db';")).toHaveLength(1);
+    expect(violations('src/server/repository/quotes.ts',"import {useSeededDatabase} from './test-db';")).toHaveLength(1);
+    expect(violations('src/app/api/test/reset/route.ts',"const {updateLiveRecord}=await import('@/server/repository/test-db');")).toHaveLength(1);
+    expect(violations('src/components/rep/test-fixtures.ts',"import {SEED_DATE} from '@/server/repository/test-db';")).toHaveLength(1);
+    expect(violations('e2e/golden-quote-flow.spec.ts',"import {SEED_DATE} from '../src/server/repository/test-db';")).toHaveLength(1);
   });
 
   it('keep LLM code on the customer-safe module',()=>{
