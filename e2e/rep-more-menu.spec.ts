@@ -128,7 +128,7 @@ test("screen 06 at 1440px: Duplicate, Open customer in ERP (disabled, with its t
   await expect(moreButton(page)).toBeFocused();
 });
 
-test("Duplicate creates a new ready_for_review quote from the latest draft, opens it keeping ?customer=, and lists it", async ({ page }) => {
+test("Duplicate creates a new ready_for_review quote from the latest draft, opens it keeping ?customer=, and lists it", async ({ page }, testInfo) => {
   await openQuote(page);
   const unread = await badge(page);
   // An edit still saving when Duplicate is chosen is in the copy.
@@ -143,6 +143,7 @@ test("Duplicate creates a new ready_for_review quote from the latest draft, open
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
   await expect(page.getByText("Draft ready")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(new RegExp(`Quotes\\s*/\\s*${copy}$`));
+  await screenshot(page, testInfo, "more-menu-duplicated");
   // Copied as-is: the draft's prices, lines and request, not re-priced.
   await expect(price(page, "HCS-12-13-2G8")).toHaveValue("33.00");
   await expect(page.getByRole("rowheader")).toHaveText(SEEDED_LINES.map(([sku]) => new RegExp(sku)));
@@ -202,7 +203,7 @@ test("a double click, or choosing Duplicate again while it runs, makes one copy"
   expect(await quoteNumbers(page)).toHaveLength(before + 2);
 });
 
-test("Reset sample quote restores the seed state after edits, keeps other quotes working, and the badge stays right", async ({ page }) => {
+test("Reset sample quote restores the seed state after edits, keeps other quotes working, and the badge stays right", async ({ page }, testInfo) => {
   await openQuote(page);
   // A copy of the sample, made before the reset: it shares the sample's chat.
   await (await openMenu(page)).getByRole("menuitem", { name: "Duplicate quote" }).click();
@@ -235,6 +236,7 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   await expect(page.getByText("Draft ready")).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "2 things to check before sending" })).toBeVisible();
+  await screenshot(page, testInfo, "more-menu-reset");
   // The server has the seed too.
   const detail = (await api(page, `/api/rep/quotes/${SAMPLE}`)).body;
   expect(detail.lines.map((l: { sku: string; unit_price: number }) => [l.sku, l.unit_price.toFixed(2)])).toEqual(SEEDED_LINES);
