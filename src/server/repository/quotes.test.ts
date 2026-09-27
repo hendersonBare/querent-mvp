@@ -118,7 +118,7 @@ describe('editing lines, terms, fulfillment and freight',()=>{
     expect(()=>updateQuoteLine(q.id,lineId,{qty:-1})).toThrow(RangeError);
   });
 
-  it('removes a line without renumbering, and never reuses its number',()=>{
+  it('removes a line without renumbering; a new line takes the number after the highest one left',()=>{
     const q=newQuote();addQuoteLine(q.id,{itemId:'HN-12-13-G5',qty:5});addQuoteLine(q.id,{itemId:'FW-12-SAE',qty:5});
     expect(removeQuoteLine(q.id,`${q.id}-2`)).toBe(true);
     expect(removeQuoteLine(q.id,`${q.id}-2`)).toBe(false);

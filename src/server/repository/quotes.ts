@@ -71,7 +71,9 @@ function insertLine(quoteId:string,line:NewQuoteLine,addedBy:LineSource,atLineNo
   checkQty(line.qty);
   const cost=scalar<number>('SELECT cost FROM items WHERE id=?',line.itemId);
   if(cost===undefined)throw new Error(`Unknown item ${line.itemId}.`);
-  // Line numbers only grow, so an id built from one is never reused within the quote.
+  // A new line takes the number after the highest one on the quote. The id is built from the number,
+  // so it can come back: Undo restores a removed line under its old number and id, and removing the
+  // last line frees its number for the next Add.
   const lineNo=atLineNo??(scalar<number|null>('SELECT max(line_no) FROM quote_lines WHERE quote_id=?',quoteId)??0)+1;
   const id=`${quoteId}-${lineNo}`;
   run(`INSERT INTO quote_lines(id,quote_id,line_no,item_id,qty,unit_price,price_basis,suggested_price,suggested_basis,customer_price,unit_cost,explanation,requested_text,match_score,added_by)
