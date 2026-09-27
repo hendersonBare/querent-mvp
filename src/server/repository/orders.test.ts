@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {coPurchases,order,orderHistory,orders,orderStatus,purchasedItems} from './orders';
+import {allOrders,coPurchases,findOrder,itemSales,order,orderHistory,orders,orderStatus,purchasedItems} from './orders';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -77,5 +77,43 @@ describe('order history',()=>{
     // Before SO-51223 (2026-09-09) the wheels were bought with flap discs 3 times and never with gloves.
     expect(coPurchases('wasatch','CW-45-045-T1',{until:'2026-09-08'}).map(c=>[c.sku,c.orders_together])).toEqual([['FD-45-60Z',3],['SD-5-80-HL',1],['WB-4-CS',1]]);
     expect(coPurchases('wasatch','HCS-12-13-2G8',{since:'2025-12-01',until:'2026-06-01'}).map(c=>[c.sku,c.orders_together])).toEqual([['HN-12-13-G8',2],['FW-12-G8',1]]);
+  });
+});
+
+describe('rep portal orders (task 3.8): every customer, never cost',()=>{
+  const WASATCH={customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'};
+
+  it('lists every customer\'s orders newest first with the customer and line count, or one customer\'s',()=>{
+    const list=allOrders();
+    expect(list).toHaveLength(23);
+    expect(list[0]).toEqual({...orders('wasatch')[0],...WASATCH,line_count:3});
+    expect(list.map(o=>o.order_number)).toEqual(orders('wasatch').map(o=>o.order_number));
+    expect(allOrders({customerId:'wasatch'})).toEqual(list);
+    expect(allOrders({customerId:'great-basin'})).toEqual([]);
+    expect(allOrders({customerId:'nobody'})).toEqual([]);
+    expect(allOrders({limit:2})).toHaveLength(2);
+  });
+
+  it('finds one order by id or number, whoever the customer, with its lines',()=>{
+    expect(findOrder('SO-51223')).toEqual({...order('wasatch','SO-51223'),...WASATCH});
+    expect(findOrder('so-51223')).toEqual(findOrder('SO-51223'));
+    expect(findOrder('SO-99999')).toBeUndefined();
+  });
+
+  it('lists an item\'s recent sales newest first, optionally for one customer',()=>{
+    const bolts=itemSales('HCS-12-13-2G8');
+    expect(bolts.map(s=>[s.order_number,s.order_date,s.qty,s.unit_price])).toEqual([
+      ['SO-51221','2026-08-12',10,31.5],['SO-51213','2026-04-21',12,30.4],['SO-51209','2026-02-03',8,29.8],['SO-51204','2025-11-17',10,29.5],['SO-51201','2025-09-30',10,29.5],
+    ]);
+    expect(bolts[0]).toEqual({order_id:'so-51221',order_number:'SO-51221',order_date:'2026-08-12',customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',qty:10,unit_price:31.5});
+    expect(itemSales('HCS-12-13-2G8',{customerId:'wasatch'})).toEqual(bolts);
+    expect(itemSales('HCS-12-13-2G8',{customerId:'great-basin'})).toEqual([]);
+    expect(itemSales('HCS-12-13-2G8',{limit:2})).toHaveLength(2);
+    expect(itemSales('RS-2-27-JH')).toEqual([]);
+  });
+
+  it('never returns unit cost',()=>{
+    const keys=[...allOrders(),findOrder('SO-51223')!,...findOrder('SO-51223')!.lines,...itemSales('HCS-12-13-2G8')].flatMap(row=>Object.keys(row));
+    expect(keys.filter(k=>/cost|margin/.test(k))).toEqual([]);
   });
 });
