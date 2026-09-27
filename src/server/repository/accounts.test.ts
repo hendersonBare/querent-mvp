@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {accountSummary,assignedRep,contact,contacts,customerAccount,customerIds,customers,customerStats,departments,rep,reps,setAssignedRep,supplier} from './accounts';
+import {accountSummary,assignedRep,contact,contacts,customerAccount,customerIds,customers,customerStats,deliveryAddress,departments,rep,reps,setAssignedRep,supplier} from './accounts';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -19,6 +19,12 @@ describe('supplier and customers',()=>{
       {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos'},
     ]);
     expect(customerIds()).toEqual(customers().map(c=>c.id));
+  });
+
+  it('gives the ship-to on file as one line for delivery, or null without one (task 2.3)',()=>{
+    expect(deliveryAddress('wasatch')).toBe('1800 W 10950 S, South Jordan, UT 84095');
+    expect(deliveryAddress('great-basin')).toBeNull();
+    expect(deliveryAddress('nobody')).toBeNull();
   });
 
   it('returns the full Wasatch account with ship-to and rep',()=>{
