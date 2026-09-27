@@ -27,6 +27,14 @@ export function accountSummary(customerId:string):AccountSummary|undefined{
   return row&&{...row,rep:assignedRep(customerId)??null};
 }
 
+/** Customer-safe: the ship-to on file as one line ("1800 W 10950 S, South Jordan, UT 84095"), or null. Delivery quotes go there (task 2.3). */
+export function deliveryAddress(customerId:string):string|null{
+  const row=one<{address:string|null;city:string|null;state:string|null;zip:string|null}>('SELECT ship_to_address address,ship_to_city city,ship_to_state state,ship_to_zip zip FROM customers WHERE id=?',customerId);
+  if(!row?.address)return null;
+  const place=[row.state,row.zip].filter(Boolean).join(' ');
+  return [row.address,row.city,place].filter(Boolean).join(', ');
+}
+
 /** Internal: last order and quote win rate for the rep's Customer panel. */
 export function customerStats(customerId:string):CustomerStats{
   const last=one<{order_number:string;order_date:string;total:number}>('SELECT order_number,order_date,total FROM orders WHERE customer_id=? ORDER BY order_date DESC,order_number DESC LIMIT 1',customerId);
