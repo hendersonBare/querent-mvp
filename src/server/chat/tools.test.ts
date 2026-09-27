@@ -44,7 +44,7 @@ describe('search_items (Items & stock)',()=>{
     const result=searchItemsTool(ctx,{query:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels'});
     if(!result.ok)throw new Error(result.reason);
     expect(result.data.lines.map(l=>({said:l.requested_text,qty:l.qty,confident:l.confident,question:l.question,top:l.candidates[0]?.sku}))).toEqual([
-      {said:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts',qty:10,confident:true,question:null,top:'HCS-12-13-2G8'},
+      {said:'10 boxes of the 1/2 in grade 8 hex bolts',qty:10,confident:true,question:null,top:'HCS-12-13-2G8'},
       {said:'6 boxes of cut-off wheels',qty:6,confident:false,question:'Type 1 or Type 27 cut-off wheels?',top:'CW-45-045-T1'},
     ]);
     // Scored whole, the same request gives one verdict for the bolts, and the wheels' question is lost.

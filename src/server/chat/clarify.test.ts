@@ -34,7 +34,7 @@ const rounds=(state:ClarifyPayload)=>state.open.map(l=>[l.requested_text,l.round
 describe('line-resolution state',()=>{
   it('matches the confident lines and opens the rest in round 1 with the 1.4 question',async()=>{
     const state=await request('Please quote 10 boxes of the 1/2 in grade 8 hex bolts','6 boxes of cut-off wheels');
-    expect(state.cart).toEqual({...PICKUP_SLC,lines:[{sku:'HCS-12-13-2G8',qty:10,requested_text:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts'}]});
+    expect(state.cart).toEqual({...PICKUP_SLC,lines:[{sku:'HCS-12-13-2G8',qty:10,requested_text:'10 boxes of the 1/2 in grade 8 hex bolts'}]});
     expect(state.open).toEqual([{
       requested_text:'6 boxes of cut-off wheels',qty:6,round:1,text:'cut-off wheels',choices:[],
       // History fills only a missing size, so the type is still asked (task 1.4 carry-forward).
@@ -240,7 +240,7 @@ describe('replies',()=>{
     const r=(await ask())(ctx,before,advance(before,[{kind:'match',index:0,sku:'CW-45-045-T1'}]));
     expect(r).toMatchObject({kind:'item_popup',toolCalls:['propose_cart'],rowCount:2,categories:['items_stock'],handled:['items_stock']});
     expect(r.payload).toEqual({...PICKUP_SLC,lines:[
-      {sku:'HCS-12-13-2G8',qty:10,requested_text:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts'},
+      {sku:'HCS-12-13-2G8',qty:10,requested_text:'10 boxes of the 1/2 in grade 8 hex bolts'},
       {sku:'CW-45-045-T1',qty:6,requested_text:'6 boxes of cut-off wheels'},
     ]} satisfies ItemPopupPayload);
     expect(r.content).toMatch(/^Here is your list:\n\n- 10 × HCS-12-13-2G8 .*\n- 6 × CW-45-045-T1 .*\n\nPickup at SLC\./);
