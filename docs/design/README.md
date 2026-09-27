@@ -31,6 +31,18 @@ The build follows the mockup except where the spec decided otherwise. Verifiers:
 - ⋯ menu: **Duplicate quote**, **Reset sample quote**, and **Open customer in ERP (disabled, tooltip "Available after ERP integration")**. **No "Reassign to another rep."**
 - Send dialog: **Querent chat is the only channel** (Email and Text are not built). Attach PDF is on by default. "Send quote" opens a second **centered Confirm send** dialog: a **red Cancel** and a **Querent-green Send**, positioned away from the first button. Sending is **blocked** when the quote is unfinished: no lines, a zero qty or missing price, unresolved "call for freight", or delivery with no ship-to.
 - No manager-approval step. No email of the accepted quote to customer service; acceptance ends the MVP.
+- The mockup's page frame (the "Querent quote-to-order" title and the Flowchart / Rep portal switch) belongs to the mockup. The app is the portal inside it.
+- The price-basis dropdown under each price takes the place of the mockup's "Last paid $31.50" or "New item for them" line. Last paid is one of its options, with its price, whenever there is one.
+- The margin bar's floor marker is the quote's **blended floor** ("Marker is the 23.8% blended floor"): each line's rep × category floor, weighted by line revenue. The mockup shows a fixed 20% floor, but floors differ by category (spec §5.2).
+- Customer panel: "Last order" adds the order number ("Sep 9 · SO-51223"). "Wins on quotes" reads "71% over 12 months" as in the mockup.
+- Send dialog: besides Attach PDF there is a **Preview PDF** link (the draft as the Customer PDF), and a line under the message shows how it will read in the customer's chat.
+- Export menu: there is no "File downloads aren't available in this view" note. The mockup ran in a sandbox, and downloads work in the app.
+- Phone (390px, screen 08): the section nav is a scrolling strip under the logo, with the Viewing picker below it. Each line is a card that keeps its price, price basis, margin, total and remove button, so a rep can price a quote on a phone. The mockup's phone view shows only the item and qty.
+
+**Sample data, not layout**
+- The seeded Q-24817 is priced by the pricing engine (task 1.1), so its numbers differ from the mockup's hand-made sample: **$1,122.40** instead of **$1,109.50** (bolts $31.50 last paid, straps $22.95). **Awaiting Henderson's decision**: keep the engine's prices, or change the seed so the demo matches the mockup.
+- With those prices, "things to check before sending" shows the gloves' below-floor MARGIN check. The straps were matched with 0.90 confidence, so there is no MATCH check or "Confirm match" tag on them. Both appear for any line matched below 0.75.
+- "Valid until" on a draft follows the day it is read (the quote's valid days from now), and the unread badge counts what is unread at the time, so neither matches the mockup's fixed Oct 7 and "3".
 
 **Customer view (not in the mockup)**
 - **Left sidebar:** the assigned rep as its own section at the very top, then departments (Customer Service, AR/Finance, Warehouse/Will-call per branch). This is static seed data.
