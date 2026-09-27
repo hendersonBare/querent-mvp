@@ -22,6 +22,10 @@ const STOCK_QUESTION = "Do you have 1/2 in grade 8 hex bolts in stock?";
 const REQUEST =
   "Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We'll pick up at SLC.";
 const CLARIFYING_QUESTION = "Type 1 or Type 27 cut-off wheels?";
+/** The request's vague line, as Dana said it. */
+const VAGUE_LINE = "6 boxes of cut-off wheels";
+/** A reply that settles nothing: the next round (src/server/chat/clarify.ts). */
+const UNSURE = "Not sure";
 const CLARIFICATION = "Type 1";
 
 test.describe.configure({ mode: "serial" });
@@ -95,7 +99,7 @@ test(
   },
 );
 
-test.fixme(
+test(
   "2. Dana asks for goods with one vague line",
   { tag: "@step2", annotation: { type: "task", description: "2.2 Clarification loop" } },
   async () => {
@@ -103,8 +107,30 @@ test.fixme(
     // The bolts resolve; the cut-off wheels don't, so Querent asks instead of guessing a SKU.
     await expect(answer).toContainText("HCS-12-13-2G8");
     await expect(answer).toContainText(CLARIFYING_QUESTION);
-    // TODO(2.2): assert the clarify UI (spec §3): the question, and after 2 unanswered rounds the
-    // top 3 candidates as buttons plus Brandi's phone and email. No item pop-up yet.
+    await test.step("round 1: the question only; no candidate buttons, no rep card, no item pop-up", async () => {
+      await expect(answer.getByRole("group", { name: /^Choose the item/ })).toHaveCount(0);
+      await expect(answer.getByRole("region", { name: "Call your rep" })).toHaveCount(0);
+      await expect(answer).not.toContainText("Here is your list");
+    });
+    await test.step("round 2: a reply that settles nothing brings the top 3 candidates as buttons and Brandi's phone and email", async () => {
+      const again = await ask(dana, UNSURE);
+      await expect(again).toContainText(CLARIFYING_QUESTION);
+      const choices = again.getByRole("group", { name: `Choose the item for “${VAGUE_LINE}”` });
+      await expect(choices.getByRole("button")).toHaveCount(3);
+      await expect(choices.getByRole("button")).toContainText(["CW-45-045-T1", "CW-45-045-T27", "CW-45-090-T27"]);
+      // Candidate buttons show identity only: no price (Pricing is not asked for here) and no cost.
+      await expect(choices).not.toContainText("$");
+      await expect(again).toContainText("Not sure? Call Brandi Gallegos.");
+      const rep = again.getByRole("region", { name: "Call your rep" });
+      await expect(rep).toContainText("Brandi Gallegos");
+      await expect(rep.getByRole("link", { name: /\(801\) 111-2222/ })).toHaveAttribute("href", "tel:8011112222");
+      await expect(rep.getByRole("link", { name: "brandi.gallegos@herrickindustrial.com" })).toHaveAttribute(
+        "href",
+        "mailto:brandi.gallegos@herrickindustrial.com",
+      );
+      await expect(again.getByRole("button", { name: `Drop this line: ${VAGUE_LINE}` })).toBeVisible();
+      await expect(again).not.toContainText("Here is your list");
+    });
   },
 );
 

@@ -54,7 +54,7 @@ describe('ClarifyPanel',()=>{
   it('shows the assigned rep\'s name, phone and email to call instead',()=>{
     render(<ClarifyPanel payload={payload([line(2)])} active onSend={vi.fn()}/>);
     const rep=screen.getByRole('region',{name:'Call your rep'});
-    expect(rep).toHaveTextContent('Not sure? Call Brandi Gallegos');
+    expect(rep).toHaveTextContent('Brandi Gallegos');
     expect(rep).toHaveTextContent('Inside Sales');
     expect(within(rep).getByRole('link',{name:/\(801\) 111-2222/})).toHaveAttribute('href','tel:8011112222');
     expect(within(rep).getByRole('link',{name:'brandi.gallegos@herrickindustrial.com'})).toHaveAttribute('href','mailto:brandi.gallegos@herrickindustrial.com');
@@ -74,10 +74,10 @@ describe('ClarifyPanel',()=>{
     expect(screen.getByRole('region',{name:'Call your rep'})).toBeInTheDocument();
   });
 
-  it('points to Customer Service when no rep is assigned',()=>{
+  it('shows no rep card when no rep is assigned (the reply\'s text points to Customer Service)',()=>{
     render(<ClarifyPanel payload={payload([line(2)],null)} active onSend={vi.fn()}/>);
     expect(screen.queryByRole('region',{name:'Call your rep'})).not.toBeInTheDocument();
-    expect(screen.getByText('Not sure? Customer Service can help.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(4);
   });
 
   it('disables every button while inactive (a reply is on its way)',()=>{

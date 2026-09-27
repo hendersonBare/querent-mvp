@@ -108,7 +108,7 @@ describe('the clarifying question (task 2.2)',()=>{
   await say('not sure');
   const group=await screen.findByRole('group',{name:'Choose the item for “6 boxes of cut-off wheels”'});
   expect(within(group).getAllByRole('button')).toHaveLength(2);
-  expect(screen.getByRole('region',{name:'Call your rep'})).toHaveTextContent('Not sure? Call Brandi Gallegos');
+  expect(screen.getByRole('region',{name:'Call your rep'})).toHaveTextContent('Brandi Gallegos');
   fireEvent.click(within(group).getByRole('button',{name:/^Choose CW-45-045-T27/}));
   await waitFor(()=>expect(send).toHaveBeenLastCalledWith('customer/chat','POST',expect.objectContaining({question:'CW-45-045-T27 (Cut-off wheel 4.5 x .045 x 7/8 in, Type 27)'})));
   expect(await screen.findByText('Here is your list:')).toBeInTheDocument();

@@ -38,13 +38,14 @@ export function ClarifyPanel({payload,active,onSend}:{payload:ClarifyPayload;act
   const {rep}=payload;
   return <div className="clarify-panel">
     {later.map((line,i)=><LineChoices key={`${i}-${line.requested_text}`} line={line} active={active} onSend={onSend}/>)}
-    {rep?<section className="clarify-rep" aria-label="Call your rep">
+    {/* The reply's text already says "Not sure? Call {rep}" (or points to Customer Service when no rep is assigned). */}
+    {rep&&<section className="clarify-rep" aria-label="Call your rep">
       <span className="cx-rep-initials" aria-hidden="true">{rep.initials}</span>
       <div>
-        <p className="clarify-rep-name">Not sure? Call {rep.name}</p>
+        <p className="clarify-rep-name">{rep.name}</p>
         <small>{rep.title}</small>
         <div className="clarify-rep-links"><PhoneLink phone={rep.phone}/><MailLink email={rep.email}/></div>
       </div>
-    </section>:<p className="clarify-rep-none">Not sure? Customer Service can help.</p>}
+    </section>}
   </div>;
 }

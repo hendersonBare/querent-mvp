@@ -217,6 +217,14 @@ describe('replies',()=>{
     expect(r.payload).toMatchObject({rep:BRANDI,open:[{round:2,choices:[{sku:'CW-45-045-T1'},{sku:'CW-45-045-T27'},{sku:'CW-45-090-T27'}]}],cart:{lines:[{sku:'HCS-12-13-2G8'}]}});
   });
 
+  it('names a line by its item words, without the qty or the request words',async()=>{
+    const {advance}=await clarify();
+    for(const said of ['Please quote the cut-off wheels','Need 6 boxes of cut-off wheels','some cut-off wheels']){
+      const before=await request(said);
+      expect((await ask())(ctx,before,advance(before,[])).content).toMatch(/^I still need to know which cut-off wheels you mean\. /);
+    }
+  });
+
   it('asks about several open lines at once',async()=>{
     const {advance}=await clarify();
     const before=await request('6 boxes of cut-off wheels','2 in ratchet straps');

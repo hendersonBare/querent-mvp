@@ -345,10 +345,6 @@
   flex-wrap: wrap;
   gap: 0 18px;
 }
-.clarify-rep-none {
-  color: var(--muted);
-  font-size: 14px;
-}
 @media (max-width: 600px) {
   .clarify-choice {
     grid-template-columns: minmax(0, 1fr) auto;

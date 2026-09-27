@@ -20,8 +20,8 @@ import {proposeCartTool,type ItemSearchLine,type ToolContext} from './tools';
 //     Type 27 wheels are left) is not settling it.
 //   - A reply that settles or drops some line leaves the other open lines in their round.
 //   - From round 2, so on the second question about a line, the reply shows the line's top 3
-//     candidates as buttons and the assigned rep's name, phone and email, and the customer can drop
-//     the line. They stay until the line is matched or dropped.
+//     candidates as buttons, a Drop this line button, and the assigned rep's name, phone and email.
+//     They stay until the line is matched or dropped. (A typed "drop the wheels" works in any round.)
 //
 // The buttons send ordinary chat messages ("CW-45-045-T1 (Cut-off wheel ...)" picks a candidate,
 // `Drop "6 boxes of cut-off wheels"` drops a line), and readAction settles those before any language
@@ -44,8 +44,9 @@ const unique=<T>(values:T[])=>[...new Set(values)];
 /** "SKU (description, pack)", how chat names an item. */
 export const itemLabel=(item:{sku:string;description:string;pack:string})=>`${item.sku} (${item.description}, ${item.pack.toLowerCase()})`;
 const describeLine=(line:CartLine)=>{const item=catalogItem(line.sku);return `${line.qty} × ${item?itemLabel(item):line.sku}`;};
-/** What to call a line in a sentence: "cut-off wheels" for "6 boxes of cut-off wheels". */
-const lineName=(line:{requested_text:string})=>withoutQty(line.requested_text).replace(/^(?:the|some|any)\s+/i,'')||line.requested_text;
+/** What to call a line in a sentence: "cut-off wheels" for "6 boxes of cut-off wheels" or "Please quote the cut-off wheels". */
+const lineName=(line:{requested_text:string})=>withoutQty(line.requested_text)
+  .replace(/^(?:please\s+)?(?:quote|send|need|want|order|get)\s+(?:me\s+|us\s+)?/i,'').replace(/^(?:the|some|any)\s+/i,'')||line.requested_text;
 const quoted=(text:string)=>`“${text}”`;
 
 // ---- Pickup or delivery --------------------------------------------------------------------------
