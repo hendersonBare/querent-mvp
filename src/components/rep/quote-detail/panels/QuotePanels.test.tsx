@@ -265,7 +265,7 @@ describe('Pickup or delivery panel',()=>{
     fireEvent.click(within(panel('Pickup or delivery')).getByRole('radio',{name:'Delivery'}));
     await waitFor(()=>expect(screen.getByRole('region',{name:'4 things to check before sending'})).toBeInTheDocument());
     const checks=screen.getByRole('region',{name:'4 things to check before sending'});
-    expect(checks).toHaveTextContent('Delivery has no ship-to address: add one, or switch to will call.');
+    expect(checks).toHaveTextContent('Delivery has no ship-to address on file: switch to will call to send it.');
     expect(checks).toHaveTextContent('Freight is still call for freight: set it by hand before sending.');
     expect(summaryValue('Pickup or delivery')).toBe('Delivery · SLC · Call for freight');
     expect(panel('Pickup or delivery')).toHaveTextContent('No ship-to address on the quote: it can’t be sent as a delivery. Switch to will call.');
