@@ -56,7 +56,7 @@ test("table: each quote with its number and revision, customer, requested date, 
   await signInAsBrandi(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quotes");
   await expect(page.getByText("Viewing All customers · 2 unread quotes")).toBeVisible();
-  await expect(quotesTable(page).getByRole("columnheader")).toHaveText(["Quote", "Customer", "Requested", "Status", "Total", "Margin", "Open"]);
+  await expect(quotesTable(page).getByRole("columnheader")).toHaveText(["Quote", "Customer", "Requested", "Status", "Total", "Margin"]);
 
   // The sample quote: a draft Brandi hasn't opened, totalled live, with the gloves under her 30% PPE floor.
   const sample = quote(page, SAMPLE);

@@ -43,7 +43,7 @@ afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 describe('the table',()=>{
   it('shows the columns, and each quote with its number and revision, customer, requested date, status, total and margin',()=>{
     renderList(quoteList());
-    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Quote','Customer','Requested','Status','Total','Margin','Open']);
+    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Quote','Customer','Requested','Status','Total','Margin']);
     const accepted=within(quoteBlock('Q-24816')).getAllByRole('row')[0];
     expect(within(accepted).getByRole('rowheader')).toHaveTextContent('Q-24816rev 1');
     expect(within(accepted).getAllByRole('cell').map(c=>c.textContent)).toEqual([

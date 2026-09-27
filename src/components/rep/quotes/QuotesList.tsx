@@ -81,7 +81,8 @@ function QuotesTable({list}:{list:RepQuoteList}){
         <th role="columnheader" scope="col">Status</th>
         <th role="columnheader" scope="col" className={s.num}>Total</th>
         <th role="columnheader" scope="col" className={s.num}>Margin</th>
-        <th role="columnheader" scope="col" className={s.go}><span className={s.srOnly}>Open</span></th>
+        {/* The chevron column is decoration: the quote number is the link that opens the row. */}
+        <th className={s.go} aria-hidden="true"/>
       </tr>
     </thead>
     {list.rows.map(row=><QuoteRow key={row.id} row={row} asOf={list.as_of} href={scope.href(`/rep/quotes/${encodeURIComponent(row.quote_number)}`)}/>)}
