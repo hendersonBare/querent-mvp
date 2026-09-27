@@ -3,7 +3,7 @@ import type {ChatMessage,ClarifyPayload} from '@/domain';
 import {UNIT_QTY} from './lines';
 import {reply,repHelp as help,type ChatReply} from './reply';
 import {
-  advance,itemLabel as label,itemsDenied,pendingRequest,readAction,requestReply,startRequest,statedQty,whereIn,type LineOutcome,
+  advance,clarifyText,itemLabel as label,itemsDenied,pendingRequest,readAction,requestReply,startRequest,statedQty,whereIn,type LineOutcome,
 } from './clarify';
 import {getStockTool,searchItemsTool,toolDenied,type ItemStockAnswer,type ToolContext} from './tools';
 
@@ -22,6 +22,8 @@ export {reply,type ChatReply} from './reply';
 //   Dana: Not sure                                               -> round 2: the top 3 wheels as buttons,
 //                                                                  Brandi's contact, and Drop this line
 //   Dana: Type 1 (or presses a button)                           -> the item pop-up's cart (propose_cart)
+//
+// A stock question while a request is open gets its answer and the open question again.
 //
 // Anything off-script gets a short note that points to the customer's rep.
 
@@ -150,7 +152,12 @@ export function scriptedReply(ctx:ToolContext,message:string,history:Pick<ChatMe
       const chosen=item.vague!.choices.filter(c=>c.pattern.test(text));
       return chosen.length===1?[chosen[0].sku]:item.vague!.choices.map(c=>c.sku);
     });
-    return stockAnswer(ctx,skus);
+    const stock=stockAnswer(ctx,skus);
+    // A stock question while a request is open is answered, then the request's question is asked
+    // again: it isn't an answer, so no round passes, and the request stays open for the next reply.
+    if(pending)return requestReply(ctx,pending,pending,{toolCalls:[...(tried?.toolCalls??[]),...stock.toolCalls],rowCount:(tried?.rowCount??0)+stock.rowCount,
+      categories:stock.categories,handled:stock.handled,content:`${stock.content}\n\nBack to your quote request: ${clarifyText(pending,pending)}`});
+    return stock;
   }
   // A reply that settles no open line: the next round (./clarify.ts).
   if(pending)return requestReply(ctx,pending,advance(pending,[]),tried);

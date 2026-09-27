@@ -213,6 +213,23 @@ describe('stock questions and access',()=>{
     expect(one.content).toBe('Yes. CW-45-045-T27 (Cut-off wheel 4.5 x .045 x 7/8 in, Type 27, box of 25) is in stock: 48 at SLC, 20 at Ogden and 10 at Provo.');
   });
 
+  it('answers a stock question in the middle of a request and keeps the request open where it was (2.2 follow-up)',async()=>{
+    const [clarify,stock,popup]=await converse(REQUEST,'Do you have 1/2 in grade 8 hex bolts in stock?','Type 1');
+    // The stock answer, then the open question again; the line stays in round 1 (a side question is no answer).
+    expect(stock).toMatchObject({kind:'clarify',outcome:'answered',categories:['items_stock'],handled:['items_stock']});
+    expect(stock.toolCalls).toContain('get_stock');
+    expect(stock.content).toBe(`Yes. ${BOLTS} is in stock: 64 at SLC, 22 at Ogden and 8 at Provo.\n\nBack to your quote request: Type 1 or Type 27 cut-off wheels?`);
+    expect(stock.payload).toEqual(clarify.payload);
+    // So "Type 1" still answers the wheels.
+    expect(popup.kind).toBe('item_popup');
+    expect(lines(popup)).toEqual([['HCS-12-13-2G8',10],['CW-45-045-T1',6]]);
+    // In round 2 the buttons and Brandi come back with it.
+    const [,round2,again]=await converse(REQUEST,'not sure','Do you have 1/2 in grade 8 hex bolts in stock?');
+    expect(again.payload).toEqual(round2.payload);
+    expect(open(again)[0]).toMatchObject({round:2,choices:[T1,T27,T27_090]});
+    expect(again.content).toContain(`\n\nBack to your quote request: ${ROUND_2}`);
+  });
+
   it('does not answer stock when Items & stock is off, and points to the rep',async()=>{
     await setItemsStock(false);
     const [denied]=await converse('Do you have 1/2 in grade 8 hex bolts in stock?');
