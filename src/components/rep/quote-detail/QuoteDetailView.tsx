@@ -11,7 +11,7 @@ import {AddItem} from './AddItem';
 import {LineGrid,lineRowId} from './LineGrid';
 import {MoreMenu} from './more-menu/MoreMenu';
 import {QuotePanels} from './panels/QuotePanels';
-import {SendDialogStub} from './SendDialogStub';
+import {ApproveAndSend} from './send/ApproveAndSend';
 import {UpsellsSection} from './upsells/UpsellsSection';
 import {day,itemCount,money,requestedAt,signedMoney,timeOfDay} from './format';
 import {useMarkQuoteRead} from './use-mark-read';
@@ -45,7 +45,7 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
     requestAnimationFrame(()=>document.getElementById(lineRowId(lineId))?.scrollIntoView({behavior:'smooth',block:'center'}));
   },[]);
   const customer=quote.contact_name??quote.customer_name;
-  const fulfillment=quote.fulfillment==='delivery'?`Delivery from ${quote.branch_code}`:`Will call at ${quote.branch_code}`;
+  const closeSend=useCallback(()=>setSending(false),[]);
 
   return <>
     <QuoteHeader detail={detail} editor={editor} onApprove={()=>setSending(true)}/>
@@ -73,8 +73,7 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
         <QuotePanels editor={editor} figures={figures}/>
       </aside>
     </div>
-    {sending&&<SendDialogStub quoteNumber={quote.quote_number} recipient={customer} lineCount={lines.length} figures={figures} fulfillment={fulfillment}
-      blockers={checks.filter(c=>c.kind==='blocker')} onClose={()=>setSending(false)}/>}
+    <ApproveAndSend open={sending} editor={editor} figures={figures} checks={checks} onClose={closeSend}/>
   </>;
 }
 

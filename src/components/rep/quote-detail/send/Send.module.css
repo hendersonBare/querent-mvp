@@ -1,0 +1,219 @@
+/* Approve & send (task 3.7): the send dialog is the mockup's .modal / .dialog / .chkrow / .dwarn /
+   .field (docs/design/querent-quote-flow.html, screen 07). Confirm send is its own, narrower
+   dialog, centered, with its buttons in the middle: a red Cancel and a Querent-green Send.
+   Colours are the portal tokens from RepShell.module.css. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(10 14 16 / 0.45);
+}
+.dialog {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  background: var(--rep-surface);
+  border: 1px solid var(--rep-line);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.3);
+  display: flex;
+  flex-direction: column;
+  color: var(--rep-ink);
+}
+.dialog:focus {
+  outline: none;
+}
+.head {
+  padding: 16px 18px 6px;
+}
+.head h2 {
+  margin: 0;
+  font: 600 18px/1.2 var(--rep-display);
+}
+.sum {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--rep-muted);
+}
+.body {
+  padding: 10px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+}
+
+/* What only warns (mockup .dwarn): "Still open: …. You can send anyway." */
+.open {
+  margin: 0;
+  background: var(--rep-warn-soft);
+  color: var(--rep-warn);
+  border-radius: 8px;
+  padding: 9px 11px;
+  line-height: 1.45;
+}
+/* What blocks it: Send quote stays disabled. */
+.blocked,
+.problem {
+  margin: 0;
+  background: var(--rep-bad-soft);
+  color: var(--rep-bad);
+  border-radius: 8px;
+  padding: 9px 11px;
+  line-height: 1.45;
+}
+.blocked ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* Send by (mockup .chkrow): Querent chat is the only channel; Attach PDF; the draft preview. */
+.via {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  color: var(--rep-ink-2);
+}
+.viaLabel {
+  color: var(--rep-muted);
+}
+.via label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.via input {
+  margin: 0;
+  width: 15px;
+  height: 15px;
+}
+.preview {
+  color: var(--rep-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.preview:hover {
+  text-decoration: underline;
+}
+
+/* The message (mockup .field). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--rep-muted);
+}
+.field textarea {
+  resize: vertical;
+  min-height: 64px;
+  border: 1px solid var(--rep-line);
+  background: var(--rep-surface);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font: 13px/1.4 var(--rep-body);
+  color: var(--rep-ink);
+}
+.field textarea:focus {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 2px;
+}
+.note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--rep-muted);
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 16px;
+}
+.saving {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--rep-muted);
+}
+
+/* ---- Confirm send: separate, narrower, centered; buttons in the middle ---- */
+.confirmBackdrop {
+  z-index: 55;
+}
+.confirm {
+  width: min(400px, 100%);
+  text-align: center;
+}
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 9px 14px;
+  margin: 8px 18px 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--rep-line-2);
+  border-radius: 8px;
+  background: var(--rep-surface-2);
+  text-align: left;
+  font-size: 14px;
+}
+.facts dt {
+  color: var(--rep-muted);
+  font-size: 12.5px;
+  padding-top: 1px;
+}
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.facts dd span {
+  display: block;
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--rep-muted);
+}
+.facts dd[data-warn] {
+  color: var(--rep-warn);
+}
+.confirmProblem {
+  margin: 10px 18px 0;
+  text-align: left;
+  font-size: 13px;
+}
+.confirmFoot {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 18px 18px;
+}
+.cancel,
+.go {
+  min-width: 124px;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font: 600 14px/1.3 var(--rep-body);
+  color: #ffffff;
+  cursor: pointer;
+}
+.cancel {
+  background: var(--rep-bad);
+}
+.go {
+  background: var(--rep-accent);
+}
+.cancel:hover:not(:disabled),
+.go:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+.cancel:disabled,
+.go:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
