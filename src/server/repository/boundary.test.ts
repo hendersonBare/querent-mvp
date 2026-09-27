@@ -2,10 +2,14 @@ import {readdirSync,readFileSync} from 'node:fs';
 import {join,posix,relative,resolve,sep} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
-// Architecture guard (spec §6.1, task 0.3): every read and write goes through the repository.
+// Architecture guard (spec §6.1, §6.3; tasks 0.3 and 2.1): every read and write goes through the repository.
 // 1. No SQL outside src/server/repository/ and src/server/db/ (connection, schema, seed).
 // 2. Only those folders (plus scripts/, for db:reset) may import the db module or better-sqlite3.
-// 3. LLM code may only use the customer-safe repository module, so a chat tool can't reach cost.
+// 3. LLM code may only use the customer-safe repository module, so a chat tool can't reach cost,
+//    and may not import the services that read cost and margin (pricing, floors, upsells, the
+//    quote service): get_price answers from repository/customer's customer-visible prices only.
+// 4. Customer routes (under src/app/, a folder or file named "customer" or "customer-*") may only
+//    use the customer-safe repository module, and customer API paths are served only from them.
 
 const ROOT=resolve(__dirname,'../../..');
 const SCANNED=['src','scripts','e2e'];
@@ -14,6 +18,12 @@ const DB_IMPORTERS=[...SQL_HOME,'scripts/'];
 /** LLM code: the chat pipeline, anything under these folders, and any file that imports the Anthropic SDK. */
 const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent)\/)/;
 const CUSTOMER_MODULE='src/server/repository/customer';
+/** Server modules that read cost, margin or floors. LLM code may not import them. */
+const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service'];
+/** Customer routes: under src/app/, a folder or file named "customer" or "customer-*" (not the rep's "customers" views). */
+const CUSTOMER_ROUTE=/^src\/app\/(?:.+\/)?customer(?:-[^/.]*)?(?:\/|\.tsx?$)/;
+/** A customer API path handled in code: 'customer/...' or ==='customer'. */
+const CUSTOMER_PATH=/(['"`])customer(?:\/|\1)/;
 
 const SQL_PATTERNS=[
   /\.prepare\s*\(/,
@@ -45,15 +55,23 @@ export function importsOf(file:string,text:string){
 
 const isDbModule=(target:string)=>target==='better-sqlite3'||target==='src/server/db'||target.startsWith('src/server/db/');
 const isInternalRepository=(target:string)=>(target==='src/server/repository'||target.startsWith('src/server/repository/'))&&target!==CUSTOMER_MODULE;
+const readsCost=(target:string)=>COST_READERS.some(m=>target===m||target.startsWith(`${m}/`));
 const under=(file:string,folders:string[])=>folders.some(folder=>file.startsWith(folder));
+const isTest=(file:string)=>/\.test\.tsx?$/.test(file);
 
 export function violations(file:string,text:string){
   const found:string[]=[];
   if(!under(file,SQL_HOME))found.push(...findSql(text).map(hit=>`${file}:${hit} (SQL outside the repository)`));
   const imports=importsOf(file,text);
   if(!under(file,DB_IMPORTERS))found.push(...imports.filter(isDbModule).map(target=>`${file} imports ${target} (use the repository)`));
-  const isLlm=!/\.test\.tsx?$/.test(file)&&(LLM_FILES.test(file)||imports.some(t=>t==='@anthropic-ai/sdk'||t.startsWith('@anthropic-ai/sdk/')));
-  if(isLlm)found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (LLM code may only use ${CUSTOMER_MODULE})`));
+  const isLlm=!isTest(file)&&(LLM_FILES.test(file)||imports.some(t=>t==='@anthropic-ai/sdk'||t.startsWith('@anthropic-ai/sdk/')));
+  if(isLlm){
+    found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (LLM code may only use ${CUSTOMER_MODULE})`));
+    found.push(...imports.filter(readsCost).map(target=>`${file} imports ${target} (it reads cost; LLM code gets customer-visible prices from ${CUSTOMER_MODULE})`));
+  }
+  if(!isTest(file)&&CUSTOMER_ROUTE.test(file))found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer routes may only use ${CUSTOMER_MODULE})`));
+  if(!isTest(file)&&file.startsWith('src/app/api/')&&!CUSTOMER_ROUTE.test(file))
+    found.push(...text.split('\n').flatMap((line,i)=>CUSTOMER_PATH.test(line)?[`${file}:${i+1}: ${line.trim()} (serve customer paths from a customer route file)`]:[]));
   return found;
 }
 
@@ -62,11 +80,13 @@ describe('repository boundary',()=>{
 
   it('scans the whole app',()=>{
     expect(files).toContain('src/app/api/query/[...path]/route.ts');
+    expect(files).toContain('src/app/api/query/[...path]/customer.ts');
     expect(files).toContain('src/server/pipeline.ts');
+    expect(files).toContain('src/server/chat/live.ts');
     expect(files.length).toBeGreaterThan(40);
   });
 
-  it('finds no SQL or database access outside the repository, and LLM code uses only the customer module',()=>{
+  it('finds no SQL or database access outside the repository, and LLM code and customer routes use only the customer module',()=>{
     const found=files.flatMap(file=>violations(file,readFileSync(join(ROOT,file),'utf8')));
     expect(found).toEqual([]);
   });
@@ -104,5 +124,32 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/answer.ts',"import Anthropic from '@anthropic-ai/sdk';\nimport {quote} from '@/server/repository';")).toHaveLength(1);
     expect(violations('src/server/chat/tools.test.ts',"import {quote} from '@/server/repository';")).toEqual([]);
     expect(violations('src/app/api/route.ts',"import {quote} from '@/server/repository';")).toEqual([]);
+  });
+
+  it('keep LLM code away from the services that read cost (task 1.1 carry-forward)',()=>{
+    expect(violations('src/server/chat/live.ts',"import {suggestPrice} from '@/server/pricing';")).toHaveLength(1);
+    expect(violations('src/server/chat/tools.ts',"import {floorFor} from '@/server/floors/service';")).toHaveLength(1);
+    expect(violations('src/server/pipeline.ts',"import {upsellsFor} from './upsells';")).toHaveLength(1);
+    expect(violations('src/server/chat/x.ts',"import {sendQuote} from '../quotes/service';")).toHaveLength(1);
+    expect(violations('src/server/answer.ts',"import Anthropic from '@anthropic-ai/sdk';\nimport {explain} from '@/server/pricing/explain';")).toHaveLength(1);
+    // The pure quote lifecycle and matching barrels read no cost.
+    expect(violations('src/server/chat/tools.ts',"import {matchLine} from '@/server/matching';\nimport {canSend} from '@/server/quotes';")).toEqual([]);
+    // Rep-side code may use them.
+    expect(violations('src/app/api/rep/route.ts',"import {suggestPrice} from '@/server/pricing';")).toEqual([]);
+    expect(violations('src/server/pricing/service.test.ts',"import {suggestPrice} from '@/server/pricing';")).toEqual([]);
+  });
+
+  it('keep customer routes on the customer-safe module, and customer paths in customer route files (task 0.3 carry-forward)',()=>{
+    expect(violations('src/app/api/query/[...path]/customer.ts',"import {history} from '@/server/repository/customer';")).toEqual([]);
+    expect(violations('src/app/api/query/[...path]/customer.ts',"const {history}=await import('@/server/repository');")).toHaveLength(1);
+    expect(violations('src/app/api/customer/quotes/route.ts',"import {quote} from '@/server/repository/quotes';")).toHaveLength(1);
+    expect(violations('src/app/customer/page.tsx',"import {quotes} from '@/server/repository';")).toHaveLength(1);
+    expect(violations('src/app/api/query/[...path]/route.ts',"if(path==='customer/panel')return json(aggregateAccess([id]));")).toHaveLength(1);
+    expect(violations('src/app/api/query/[...path]/route.ts',"if(segments[0]==='customer')return x;")).toHaveLength(1);
+    expect(violations('src/app/api/query/[...path]/route.ts',"if(user.role==='customer_user'&&user.customer_id)return customerRoute(request);")).toEqual([]);
+    expect(violations('src/app/api/query/[...path]/route.ts',"import {customerIds,customers} from '@/server/repository';")).toEqual([]);
+    // The rep's Customers views are not customer routes.
+    expect(violations('src/app/customers/page.tsx',"import {customers} from '@/server/repository';")).toEqual([]);
+    expect(violations('src/app/api/query/[...path]/route.ts',"if(path==='supplier/customers')return json(customers());")).toEqual([]);
   });
 });

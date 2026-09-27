@@ -24,6 +24,7 @@ const ALL_ITEMS=()=>customer.catalogItems().map(i=>i.id);
 /** One representative call per export, on data that exists, so every field is present. */
 const calls:Record<keyof typeof customer,()=>unknown>={
   access:()=>customer.access('wasatch'),
+  customerAccessRules:()=>customer.customerAccessRules('wasatch'),
   enabledCategories:()=>customer.enabledCategories('wasatch'),
   isCategory:()=>customer.isCategory('pricing'),
   accountSummary:()=>customer.accountSummary('wasatch'),
@@ -51,7 +52,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   customerQuote:()=>customer.customerQuote('wasatch','Q-24816'),
   customerQuotes:()=>customer.customerQuotes('wasatch'),
 };
-const RETURNS_NOTHING=new Set(['appendLog','isCategory']);
+const RETURNS_NOTHING=new Set(['isCategory']);
 
 describe('customer-safe repository module',()=>{
   it('has a guard call for every export',()=>{

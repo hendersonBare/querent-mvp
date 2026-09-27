@@ -4,8 +4,16 @@
 
 export type ChatMode='scripted'|'live';
 
+/** The live model when ANTHROPIC_MODEL is not set (spec §6.5). */
+export const DEFAULT_MODEL='claude-sonnet-5';
+
 /** `scripted` when QUERENT_SCRIPTED=1 or no ANTHROPIC_API_KEY is set, otherwise `live`. */
 export function chatMode(env:Record<string,string|undefined>=process.env):ChatMode{
   const forced=/^(1|true)$/i.test(env.QUERENT_SCRIPTED?.trim()??'');
   return forced||!env.ANTHROPIC_API_KEY?.trim()?'scripted':'live';
+}
+
+/** The model live chat calls: ANTHROPIC_MODEL, or the default. */
+export function chatModel(env:Record<string,string|undefined>=process.env){
+  return env.ANTHROPIC_MODEL?.trim()||DEFAULT_MODEL;
 }

@@ -1,11 +1,12 @@
 import "server-only";
 import type { ChatAnswer } from "@/lib/contracts";
+import { liveReply } from "./chat/live";
 import { chatMode } from "./chat/mode";
-import { reply, scriptedReply, type ChatReply } from "./chat/scripted";
+import { reply, type ChatReply } from "./chat/reply";
+import { scriptedReply } from "./chat/scripted";
 import {
   addMessage,
   appendLog,
-  assignedRep,
   conversation,
   conversationMessages,
   createConversation,
@@ -13,21 +14,11 @@ import {
 
 // The customer chat pipeline. Each turn is stored in the conversation (messages, with the
 // reply's kind and payload, e.g. the item pop-up's cart) and in the query log behind analytics.
-// Scripted chat answers without an API key (spec §6.5, task 0.4). Tool-calling chat over the
-// repository is task 2.1; until it lands, live mode gives a holding answer that points to the rep.
+// Live mode is Claude with typed tools over the customer-safe repository (task 2.1); scripted
+// mode answers without an API key or with QUERENT_SCRIPTED=1 (spec §6.5, task 0.4).
 
 /** The conversation id belongs to another customer. */
 export class ConversationNotFoundError extends Error {}
-
-function holdingReply(customerId: string): ChatReply {
-  const rep = assignedRep(customerId);
-  return reply({
-    outcome: "no_rows",
-    content: rep
-      ? `Querent is being upgraded to handle quote requests, so I can't look that up yet. ${rep.name} can help right away: ${rep.phone} or ${rep.email}.`
-      : "Querent is being upgraded to handle quote requests, so I can't look that up yet. Please call Herrick customer service.",
-  });
-}
 
 /** Opens the customer's conversation, creating it on the first message. */
 function openConversation(customerId: string, conversationId: string, contactId: string | null) {
@@ -56,7 +47,7 @@ export async function ask(
     result =
       chatMode() === "scripted"
         ? scriptedReply({ customerId }, question, earlier)
-        : holdingReply(customerId);
+        : await liveReply({ customerId }, question, earlier);
   } catch (error) {
     console.error("Chat pipeline failed", error);
     result = reply({ outcome: "error", content: "We couldn’t complete that lookup. Please try again." });

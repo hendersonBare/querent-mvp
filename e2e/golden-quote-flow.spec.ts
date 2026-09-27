@@ -84,13 +84,14 @@ test("0. Setup: fresh seed on the mockup's day, scripted chat, both personas sig
   await expect(brandi.locator(".sidebar-footer")).toContainText("Brandi Gallegos");
 });
 
-test.fixme(
+test(
   "1. Dana asks about stock → answer",
   { tag: "@step1", annotation: { type: "task", description: "2.1 Tool-calling chat" } },
   async () => {
     const answer = await ask(dana, STOCK_QUESTION);
+    // Stock at every branch, from the get_stock tool (spec §1 step 2).
     await expect(answer).toContainText("HCS-12-13-2G8");
-    await expect(answer).toContainText("64 at SLC");
+    await expect(answer).toContainText("64 at SLC, 22 at Ogden and 8 at Provo");
   },
 );
 

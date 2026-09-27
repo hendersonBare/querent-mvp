@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {access,aggregateAccess,enabledCategories,isCategory,setAccess} from './access';
+import {access,aggregateAccess,customerAccessRules,enabledCategories,isCategory,setAccess} from './access';
 import {customerIds} from './accounts';
 import {useSeededDatabase} from './test-db';
 
@@ -34,6 +34,14 @@ describe('customer access toggles',()=>{
     expect(aggregateAccess(customerIds()).find(r=>r.category==='pricing')?.enabled).toBeNull();
     setAccess('wasatch','pricing',true);
     expect(enabledCategories('wasatch').has('pricing')).toBe(true);
+  });
+
+  it('gives one customer only their enabled categories, each with their rep (the chat rep panel)',()=>{
+    setAccess('wasatch','account',false);
+    expect(customerAccessRules('wasatch').map(r=>r.category)).toEqual(['items_stock','pricing','orders_quotes']);
+    expect(customerAccessRules('wasatch')[0]).toEqual({category:'items_stock',enabled:true,rep_id:'brandi',mixed_rep:false,rep_name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'});
+    setAccess('wasatch','account',true);
+    expect(customerAccessRules('wasatch')).toHaveLength(4);
   });
 
   it('turns a category off for every customer when the scope is all',()=>{

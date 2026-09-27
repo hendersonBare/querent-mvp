@@ -45,8 +45,18 @@ describe('query log',()=>{
   });
 
   it('logs a chat question and returns it in that conversation\'s history',()=>{
-    appendLog({customerId:'wasatch',conversationId:'conv-test',question:'Q?',categories:['items_stock'],handled:['items_stock'],toolCalls:['search_items'],rowCount:1,latency:12,outcome:'answered',answer:'A.',at:'2026-09-24T10:00:00.000Z'});
-    expect(history('wasatch','conv-test')).toEqual([{id:expect.any(String),question:'Q?',answer:'A.',categories:['items_stock'],outcome:'answered',row_count:1,timestamp:'2026-09-24T10:00:00.000Z',sql:null}]);
+    createConversation({id:'conv-log',customerId:'wasatch'});
+    expect(appendLog({customerId:'wasatch',conversationId:'conv-log',question:'Q?',categories:['items_stock'],handled:['items_stock'],toolCalls:['search_items'],rowCount:1,latency:12,outcome:'answered',answer:'A.',at:'2026-09-24T10:00:00.000Z'})).toBe(true);
+    expect(history('wasatch','conv-log')).toEqual([{id:expect.any(String),question:'Q?',answer:'A.',categories:['items_stock'],outcome:'answered',row_count:1,timestamp:'2026-09-24T10:00:00.000Z',sql:null}]);
+    expect(history('great-basin','conv-log')).toEqual([]);
+  });
+
+  it('writes nothing to a conversation that isn\'t the customer\'s (task 0.3 carry-forward)',()=>{
+    const entry={question:'Not mine',categories:[],handled:[],toolCalls:[],rowCount:0,latency:1,outcome:'answered',answer:'x'};
+    // conv-test is great-basin's (created above); wasatch may not log against it, nor against a conversation that doesn't exist.
+    expect(appendLog({...entry,customerId:'wasatch',conversationId:'conv-test'})).toBe(false);
+    expect(appendLog({...entry,customerId:'wasatch',conversationId:'no-such-conversation'})).toBe(false);
     expect(history('great-basin','conv-test')).toEqual([]);
+    expect(history('wasatch','conv-test')).toEqual([]);
   });
 });

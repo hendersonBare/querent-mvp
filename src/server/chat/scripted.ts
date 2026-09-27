@@ -1,8 +1,12 @@
 import 'server-only';
-import type {Branch,CartLine,ChatMessage,ChatReplyKind,ClarifyPayload,Fulfillment,ItemCandidate,ItemPopupPayload} from '@/domain';
-import type {Category,ChatAnswer} from '@/lib/contracts';
-import {assignedRep,branches,catalogItem} from '@/server/repository/customer';
+import type {Branch,CartLine,ChatMessage,ClarifyPayload,Fulfillment,ItemCandidate,ItemPopupPayload} from '@/domain';
+import type {Category} from '@/lib/contracts';
+import {branches,catalogItem} from '@/server/repository/customer';
+import {UNIT_QTY,quantityOf} from './lines';
+import {reply,repHelp as help,type ChatReply} from './reply';
 import {getStockTool,proposeCartTool,searchItemsTool,type ItemStockAnswer,type ToolContext} from './tools';
+
+export {reply,type ChatReply} from './reply';
 
 // Scripted chat (spec §6.5): a deterministic Dana conversation that needs no API key. CI and every
 // E2E run use it. The script knows a few phrasings; the data behind every answer comes from the
@@ -15,19 +19,6 @@ import {getStockTool,proposeCartTool,searchItemsTool,type ItemStockAnswer,type T
 //   Dana: Type 1                                                 -> the item pop-up's cart (propose_cart)
 //
 // Anything off-script gets a short note that points to the customer's rep.
-
-export interface ChatReply {
-  kind:ChatReplyKind;
-  /** Markdown shown in the chat bubble. */
-  content:string;
-  payload:ClarifyPayload|ItemPopupPayload|null;
-  /** Information categories the message asked about, and those actually answered. */
-  categories:Category[];
-  handled:Category[];
-  toolCalls:string[];
-  rowCount:number;
-  outcome:ChatAnswer['outcome'];
-}
 
 interface ScriptItem {
   /** How Querent names the item in a reply, e.g. "which cut-off wheels you mean". */
@@ -53,29 +44,27 @@ const SCRIPT:ScriptItem[]=[
 
 const REQUEST=/\b(?:need|want|order|quote|send|request|buy|get\s+(?:me|us)|pick\s*up|deliver(?:y|ed)?|ship)\b/i;
 const DELIVERY=/\bdeliver(?:y|ed)?\b|\bship(?:ped|ping)?\b/i;
-const UNIT_QTY=/(?<![\d/.-])(\d{1,4})\s*(?:boxes|box|bx|cases?|cs|packs?|pk|each|ea|pcs|pieces|rolls?|pairs?|units?)\b/i;
-const LEADING_QTY=/^(?:(?:please|can\s+you|could\s+you|i|we|i'd|we'd|like|would|need|want|order|quote|send|get|me|us|also)\s+)*(\d{1,4})(?![\d/.-])/i;
 /** Clause breaks: punctuation (not a decimal point), and "and" / "plus" / "also" / "then". */
 const CLAUSE=/[,;!?]|\.(?!\d)|\b(?:and|plus|also|then)\b/i;
 
 const clauses=(text:string)=>text.split(CLAUSE).map(c=>c.trim()).filter(Boolean);
 const count=(n:number)=>n>0?n:undefined;
-/** A qty stated in the clause: "10 boxes", or a leading number ("6 cut-off wheels"). "1/2 in" is a size, not a qty. */
-function qtyIn(clause:string){
-  const unit=UNIT_QTY.exec(clause)?.[1]??LEADING_QTY.exec(clause)?.[1];
-  return unit===undefined?undefined:count(Number(unit));
-}
+/** A qty stated in the clause: "10 boxes", or a leading number ("6 cut-off wheels"). "1/2 in" is a size, not a qty (./lines.ts). */
+const qtyIn=(clause:string)=>quantityOf(clause)??undefined;
 const joinAnd=(parts:string[])=>parts.length<2?parts.join(''):`${parts.slice(0,-1).join(', ')} and ${parts.at(-1)}`;
 const label=(item:{sku:string;description:string;pack:string})=>`${item.sku} (${item.description}, ${item.pack.toLowerCase()})`;
 const shortDate=(day:string)=>new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
 
-function repHelp(ctx:ToolContext,lead:string){
-  const rep=assignedRep(ctx.customerId);
-  return rep?`${lead.replace('{rep}',rep.name)}: ${rep.phone} or ${rep.email}.`:'Herrick customer service can help.';
-}
+const repHelp=(ctx:ToolContext,lead:string)=>help(ctx.customerId,lead);
 
-/** A reply with defaults: plain text, answered, no categories, tools or payload. */
-export const reply=(r:Partial<ChatReply>&Pick<ChatReply,'content'>):ChatReply=>({kind:'text',payload:null,categories:[],handled:[],toolCalls:[],rowCount:0,outcome:'answered',...r});
+/** Asking for goods (matching, clarifying, the pop-up) is logged under Items & stock, the toggle its tools check. */
+const ITEMS:Category[]=['items_stock'];
+
+/** Items & stock is off for this customer: no item matching in chat, so point to the rep. */
+const itemsDenied=(ctx:ToolContext,toolCalls:string[])=>reply({
+  content:`I can't look up items in chat for your account. ${repHelp(ctx,'{rep} can take your order')}`,
+  categories:ITEMS,toolCalls,outcome:'restricted',
+});
 
 /** A choice picks a candidate when exactly one choice (or one candidate SKU) matches the text. */
 function pick(text:string,candidates:ItemCandidate[],item?:ScriptItem){
@@ -122,12 +111,13 @@ function describeLine(line:CartLine){const item=catalogItem(line.sku);return `${
 
 function itemPopup(ctx:ToolContext,cart:ItemPopupPayload,toolCalls:string[]):ChatReply{
   const result=proposeCartTool(ctx,cart);
-  if(!result.ok)return reply({content:`I couldn't build your list. ${repHelp(ctx,'{rep} can help')}`,toolCalls:[...toolCalls,'propose_cart'],outcome:'no_rows'});
+  if(!result.ok&&result.reason==='restricted')return itemsDenied(ctx,[...toolCalls,'propose_cart']);
+  if(!result.ok)return reply({content:`I couldn't build your list. ${repHelp(ctx,'{rep} can help')}`,categories:ITEMS,toolCalls:[...toolCalls,'propose_cart'],outcome:'no_rows'});
   const payload=result.data;
   const branch=branches().find(b=>b.id===payload.branch_id)!;
   const where=payload.fulfillment==='will_call'?`Pickup at ${branch.code}`:`Delivery from ${branch.code}`;
   return reply({
-    kind:'item_popup',payload,toolCalls:[...toolCalls,'propose_cart'],rowCount:payload.lines.length,
+    kind:'item_popup',payload,categories:ITEMS,handled:ITEMS,toolCalls:[...toolCalls,'propose_cart'],rowCount:payload.lines.length,
     content:`Here is your list:\n\n${payload.lines.map(l=>`- ${describeLine(l)}`).join('\n')}\n\n${where}. Check the quantities, choose pickup or delivery, then press Request quote.`,
   });
 }
@@ -138,7 +128,7 @@ function clarify(ctx:ToolContext,payload:ClarifyPayload,toolCalls:string[]):Chat
   const content=round<2
     ?`${cart.lines.length?`Got it: ${joinAnd(cart.lines.map(describeLine))}.\n\n`:''}${question}`
     :`I still need to know which ${name} you mean. ${question}\n\n${line.candidates.map(c=>`- ${label(c)}`).join('\n')}\n\nNot sure? ${repHelp(ctx,'{rep} can help')}`;
-  return reply({kind:'clarify',payload,content,toolCalls,rowCount:line.candidates.length});
+  return reply({kind:'clarify',payload,content,categories:ITEMS,handled:ITEMS,toolCalls,rowCount:line.candidates.length});
 }
 
 /** Dana asks for goods: match each scripted line, then ask about the first vague one or open the pop-up. */
@@ -154,7 +144,8 @@ function request(ctx:ToolContext,text:string,mentioned:ScriptItem[]):ChatReply{
     if(item.sku){cart.lines.push({sku:catalogItem(item.sku)?.sku??item.sku,qty,requested_text});continue;}
     const found=searchItemsTool(ctx,{query:item.vague!.query});
     toolCalls.push('search_items');
-    const candidates:ItemCandidate[]=found.ok?found.data.candidates.map(({sku,description,pack,category_name})=>({sku,description,pack,category_name})):[];
+    if(!found.ok&&found.reason==='restricted')return itemsDenied(ctx,toolCalls);
+    const candidates:ItemCandidate[]=found.ok?(found.data.lines[0]?.candidates??[]).map(({sku,description,pack,category_name})=>({sku,description,pack,category_name})):[];
     const chosen=pick(said.join(' '),candidates,item);
     if(chosen)cart.lines.push({sku:chosen.sku,qty,requested_text});
     else if(!open){open={requested_text,qty,candidates};openItem=item;}

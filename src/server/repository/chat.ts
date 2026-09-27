@@ -36,10 +36,15 @@ export function addMessage(customerId:string,conversationId:string,{id=randomUUI
 
 export interface QueryLogEntry {customerId:string;conversationId:string;question:string;categories:Category[];handled:Category[];toolCalls:string[];rowCount:number;latency:number;outcome:string;answer:string;at?:string}
 
-/** Logs one chat question and answer (feeds history and analytics). */
+/**
+ * Logs one chat question and answer (feeds history and analytics) in one of the customer's
+ * conversations. Returns false, writing nothing, if the conversation isn't this customer's.
+ */
 export function appendLog(entry:QueryLogEntry){
+  if(!conversation(entry.customerId,entry.conversationId))return false;
   run('INSERT INTO query_logs(id,customer_id,conversation_id,question,categories,handled_categories,tool_calls,row_count,latency_ms,outcome,answer,timestamp) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
     randomUUID(),entry.customerId,entry.conversationId,entry.question,JSON.stringify(entry.categories),JSON.stringify(entry.handled),JSON.stringify(entry.toolCalls),entry.rowCount,entry.latency,entry.outcome,entry.answer,entry.at??nowIso());
+  return true;
 }
 
 /** The customer's logged questions and answers in one conversation, oldest first. */
