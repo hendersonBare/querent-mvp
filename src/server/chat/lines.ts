@@ -7,7 +7,12 @@
 // sentence end, and at a comma / "and" / "plus" / "&" only when a count follows. So "nuts and
 // washers" stays one line, while "bolts and 6 cut-off wheels" becomes two.
 
-/** One line of a request. `text` is what the scorer sees; `said` is the customer's words for it. */
+/**
+ * One line of a request. `text` is what the scorer sees; `said` is the customer's words for it,
+ * without the request words in front ("10 boxes of the 1/2 in grade 8 hex bolts", not "Please
+ * quote 10 boxes of ..."): it labels the line in clarifying questions, the Drop button and the
+ * quote's "requested" text.
+ */
 export interface RequestLine {said:string;text:string;qty:number|null}
 
 const UNITS='boxes|box|bx|cases?|cs|packs?|pks?|pkgs?|packages?|each|ea|pcs|pieces?|rolls?|pairs?|prs?|units?|bags?|cartons?|ctns?|bundles?|dozen|doz';
@@ -31,6 +36,11 @@ const HARD=new RegExp(String.raw`\r?\n|;|•|${ABBREVIATION}(?<=[a-z)\]])\.(?=\s
 /** Soft breaks start a new line only when a count follows. The separator is kept so a rejoined line reads as typed. */
 const SOFT=/(\s*,\s*|\s*&\s*|\s+and\s+|\s+plus\s+)/i;
 const BULLET=/^\s*(?:[-*]|\d{1,2}[.)])\s+/;
+
+/** Request words in front of a line: "please quote", "can you send us", "I need", "we'd like". Not counts or item words. */
+const REQUEST_WORDS=/^(?:(?:please|pls|kindly|can\s+you|could\s+you|would\s+you|i'd\s+like(?:\s+to)?|we'd\s+like(?:\s+to)?|i\s+(?:need|want)|we\s+(?:need|want)|quote|send|get|order|need|want|me|us)\s+)+/i;
+/** `said` without the request words in front, unless nothing would be left. */
+const withoutRequestWords=(said:string)=>said.replace(REQUEST_WORDS,'').trim()||said;
 
 const count=(raw:string|undefined)=>{const n=raw===undefined?NaN:Number(raw);return Number.isInteger(n)&&n>0?n:null;};
 const tidy=(text:string)=>text.replace(/\s+/g,' ').replace(/^[\s,.:;&-]+|[\s,:;&-]+$/g,'').replace(/^(?:and|plus)\s+/i,'').trim();
@@ -73,8 +83,8 @@ export function splitRequest(request:string):RequestLine[]{
     }
     lines.push(current);
   }
-  return lines.map(tidy).filter(Boolean).flatMap(said=>{
-    const text=withoutQty(said);
-    return text?[{said,text,qty:quantityOf(said)}]:[];
+  return lines.map(tidy).filter(Boolean).flatMap(line=>{
+    const text=withoutQty(line);
+    return text?[{said:withoutRequestWords(line),text,qty:quantityOf(line)}]:[];
   });
 }

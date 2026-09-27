@@ -18,13 +18,13 @@ const CONTEXT:ItemPopupContext={
   branches:[{id:'slc',code:'SLC',name:'Salt Lake City'}],stock_shown:true,ship_to:null,rep_name:'Brandi Gallegos',
 };
 const POPUP_TEXT='Here is your list: two items.';
-const POPUP:ChatAnswer={answer:POPUP_TEXT,sql:null,categories:['items_stock'],outcome:'answered',row_count:2,kind:'item_popup',payload:PAYLOAD};
+const POPUP:ChatAnswer={answer:POPUP_TEXT,categories:['items_stock'],outcome:'answered',row_count:2,kind:'item_popup',payload:PAYLOAD};
 const CONFIRMATION='Sent to Brandi for review. Your quote number is **Q-24818**. Brandi will price it and send it to you here in chat.';
 const RESULT:QuoteRequestResult={quote:{id:'q-24818',quote_number:'Q-24818',status:'ready_for_review'},replayed:false,turn:{
-  id:'m-2',question:'Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1 (pickup at SLC).',answer:CONFIRMATION,sql:null,categories:[],outcome:'answered',row_count:2,
+  id:'m-2',question:'Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1 (pickup at SLC).',answer:CONFIRMATION,categories:[],outcome:'answered',row_count:2,
   kind:'quote_requested',payload:{quote_id:'q-24818',quote_number:'Q-24818',status:'ready_for_review',popup_message_id:'p-1'},
 }};
-const turn=(t:Partial<ChatTurn>&Pick<ChatTurn,'id'|'question'|'answer'>):ChatTurn=>({sql:null,categories:[],outcome:'answered',row_count:0,...t});
+const turn=(t:Partial<ChatTurn>&Pick<ChatTurn,'id'|'question'|'answer'>):ChatTurn=>({categories:[],outcome:'answered',row_count:0,...t});
 
 function makeApi(history:ChatTurn[]=[]){
   const get=vi.fn(async(path:string):Promise<unknown>=>{

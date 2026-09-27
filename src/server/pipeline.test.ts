@@ -40,7 +40,9 @@ describe('scripted mode (no API key, or QUERENT_SCRIPTED=1)',()=>{
     const {ask}=await import('./pipeline');
     const {conversation,conversationMessages,history}=await import('./repository/customer');
     const stock=await ask('wasatch','conv-scripted',STOCK,{contactId:'dana'});
-    expect(stock).toMatchObject({sql:null,categories:['items_stock'],outcome:'answered',row_count:1,kind:'text',payload:null});
+    expect(stock).toMatchObject({categories:['items_stock'],outcome:'answered',row_count:1,kind:'text',payload:null});
+    // No SQL is generated or returned (spec §6.1): the old text-to-SQL `sql` field is gone.
+    expect(stock).not.toHaveProperty('sql');
     expect(stock.answer).toContain('64 at SLC, 22 at Ogden and 8 at Provo');
     const clarify=await ask('wasatch','conv-scripted',REQUEST,{contactId:'dana'});
     expect(clarify).toMatchObject({kind:'clarify',outcome:'answered',payload:{open:[{question:'Type 1 or Type 27 cut-off wheels?',round:1}]}});
@@ -89,7 +91,7 @@ describe('live mode (API key set, QUERENT_SCRIPTED unset)',()=>{
       [{type:'text',text:'Yes. HCS-12-13-2G8 is in stock: 64 at SLC, 22 at Ogden and 8 at Provo.'}],
     );
     const result=await ask('wasatch','conv-live',STOCK);
-    expect(result).toMatchObject({sql:null,categories:['items_stock'],outcome:'answered',row_count:1,kind:'text',payload:null,
+    expect(result).toMatchObject({categories:['items_stock'],outcome:'answered',row_count:1,kind:'text',payload:null,
       answer:'Yes. HCS-12-13-2G8 is in stock: 64 at SLC, 22 at Ogden and 8 at Provo.'});
     expect(claude.requests.at(-2)!.messages.slice(0,3)).toEqual([{role:'user',content:'Hi'},{role:'assistant',content:'Hello again.'},{role:'user',content:STOCK}]);
     expect(history('wasatch','conv-live').map(t=>[t.question,t.outcome,t.categories])).toEqual([['Hi','answered',[]],[STOCK,'answered',['items_stock']]]);

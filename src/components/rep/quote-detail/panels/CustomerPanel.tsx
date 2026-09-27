@@ -26,10 +26,9 @@ function taxText(c:PanelCustomer){
   return '—';
 }
 
+/** "71% over 12 months", as in the mockup: quotes requested in the last WIN_RATE_MONTHS (server/rep/quote-panels). */
 function winText({win_rate:w}:PanelCustomer){
-  if(w.rate===null)return 'No decided quotes yet';
-  const decided=w.won+w.lost;
-  return `${wholePercent(w.rate)} · ${w.won} of ${decided} decided`;
+  return w.rate===null?'No decided quotes in 12 months':`${wholePercent(w.rate)} over 12 months`;
 }
 
 type Copied='copied'|'blocked'|null;
@@ -71,7 +70,7 @@ export function CustomerPanel({detail,quoteTotal}:{detail:QuoteDetail;quoteTotal
       <dt>Open balance</dt><dd>{money(c.open_balance)}</dd>
       <dt>Credit limit</dt><dd>{c.credit_limit===null?'None on file':money(c.credit_limit)}</dd>
       <dt>Last order</dt><dd>{c.last_order?`${day(c.last_order.order_date,detail.as_of)} · ${c.last_order.order_number}`:'None yet'}</dd>
-      <dt>Win rate</dt><dd>{winText(c)}</dd>
+      <dt>Wins on quotes</dt><dd>{winText(c)}</dd>
       <dt>Tax status</dt><dd>{taxText(c)}</dd>
     </dl>
     {bar&&c.credit_limit!==null

@@ -115,7 +115,8 @@ export function checkFulfillmentTime({day,time,fulfillment,now}:FulfillmentTimeI
   const what=fulfillment==='delivery'?'delivery':'pickup';
   if(!isDay(day))return {problem:`Choose a ${what} day.`};
   if(!SLOT.test(time))return {problem:`Choose a ${what} time.`};
-  if(!TIME_SLOTS.includes(time))return {problem:`Choose a ${what} time between ${slotLabel(TIME_SLOTS[0])} and ${slotLabel(TIME_SLOTS.at(-1)!)}.`};
+  // Off the grid ("10:15") or outside it ("18:00"): say what the grid is, 30-minute slots.
+  if(!TIME_SLOTS.includes(time))return {problem:`${what==='delivery'?'Delivery':'Pickup'} times are every 30 minutes, on the hour or half hour, from ${slotLabel(TIME_SLOTS[0])} to ${slotLabel(TIME_SLOTS.at(-1)!)}. Choose one of those.`};
   if(day<branchDay(now))return {problem:`That day has passed. Choose ${dayLabel(earliestDay(now))} or later.`};
   if(day>latestDay(now))return {problem:`Choose a day within the next ${MAX_DAYS_AHEAD} days.`};
   if(!isWeekday(day))return {problem:`${what==='delivery'?'Delivery':'Pickup'} is Monday to Friday. Choose a weekday.`};

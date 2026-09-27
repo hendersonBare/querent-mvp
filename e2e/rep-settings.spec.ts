@@ -2,7 +2,8 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 
 // Settings (task 6.1; spec §4, §5.2, §6.3): Rep assignments, Customer access, My margin floors,
 // Pricing & delivery and Data sources, and what each change does elsewhere:
-//   - a floor moves the "N lines below floor" warning on the Quotes list (task 3.2);
+//   - a floor moves the "N lines below floor" warning on the Quotes list (task 3.2) and the red
+//     warning above a line's price on the quote detail (task 3.3);
 //   - turning a category off makes Dana's chat refuse it and point her to her rep (task 2.1);
 //   - reassigning a customer moves Dana's rep card, but never Brandi's existing quotes.
 //
@@ -83,6 +84,15 @@ async function saveFloor(page: Page, category: string, value: string) {
   await row.getByRole("button", { name: "Save" }).click();
   await expect(row.getByRole("status")).toHaveText("Saved");
 }
+/** Opens the sample quote from the Quotes list. */
+async function openSample(page: Page) {
+  await openQuotes(page);
+  await page.getByRole("link", { name: SAMPLE, exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
+}
+/** The red below-floor warnings on the quote detail, by SKU: the note directly above each line's price. */
+const floorNote = (page: Page, sku: string) =>
+  page.getByRole("rowheader", { name: new RegExp(sku) }).locator("xpath=ancestor::tbody[1]").getByRole("note");
 async function noSidewaysScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 }
@@ -152,6 +162,10 @@ test("floors: changing Brandi's floor changes the below-floor warning on her quo
   await openQuotes(page);
   await expect(sampleMargin(page)).toContainText("32.2%");
   await expect(sampleMargin(page)).not.toContainText("below floor");
+  // ...and the quote detail drops the gloves' red warning.
+  await openSample(page);
+  await expect(page.getByRole("rowheader", { name: /GLV-N8-L-1000/ })).toBeVisible();
+  await expect(page.getByRole("note")).toHaveCount(0);
 
   // Raise Fasteners over the bolts' 32.1% and put PPE back: two lines below floor.
   await openSettings(page, "Margin floors");
@@ -160,6 +174,12 @@ test("floors: changing Brandi's floor changes the below-floor warning on her quo
   await openQuotes(page);
   await expect(sampleMargin(page)).toContainText("2 lines below floor");
   await screenshot(page, testInfo, "quotes-after-floor-change-1440");
+  // The quote detail warns above both prices, each with the floor that applies (spec §5.2).
+  await openSample(page);
+  await expect(page.getByRole("note")).toHaveCount(2);
+  await expect(floorNote(page, "HCS-12-13-2G8")).toHaveText("Below Brandi's 35% Fasteners floor");
+  await expect(floorNote(page, "GLV-N8-L-1000")).toHaveText("Below Brandi's 30% Safety & PPE floor");
+  await screenshot(page, testInfo, "quote-detail-after-floor-change-1440");
 
   // Saved floors survive a reload; 0.1 point is the precision.
   await openSettings(page, "Margin floors");
@@ -182,6 +202,8 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
   await page.getByLabel("Viewing").selectOption("wasatch");
+  // The pick is in the URL before the nav links carry it: wait, or Settings opens for All customers.
+  await expect(page).toHaveURL(/[?&]customer=wasatch(&|$)/);
   await openSettings(page, "Customer access");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
   await expect(page.getByText("Viewing Wasatch Mechanical Contractors")).toBeVisible();
@@ -206,8 +228,10 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access$/);
   await expect(page.getByText("On for some customers")).toBeVisible();
 
-  // Back on: Dana gets stock again.
+  // Back on: Dana gets stock again. Wait for Wasatch's view first, so the switch is Wasatch's alone.
   await page.getByLabel("Viewing").selectOption("wasatch");
+  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
+  await expect(page.getByText("Viewing Wasatch Mechanical Contractors")).toBeVisible();
   await page.getByRole("switch", { name: "Items & stock" }).click();
   await expect(page.getByRole("switch", { name: "Items & stock" })).toHaveAttribute("aria-checked", "true");
   await expect(await ask(dana, STOCK_QUESTION)).toContainText("64 at SLC");
@@ -227,6 +251,7 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
   await screenshot(page, testInfo, "settings-assignments-reassigned-1440");
   // The "Viewing" picker's rep follows.
   await page.getByLabel("Viewing").selectOption("wasatch");
+  await expect(page).toHaveURL(/[?&]customer=wasatch(&|$)/);
   await expect(page.getByRole("banner")).toContainText("WAS-1142 · Rep Mara Jensen");
 
   // Dana's rep card and chat's "call your rep" name Mara now.

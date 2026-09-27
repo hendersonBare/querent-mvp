@@ -4,7 +4,7 @@ import {usePathname,useRouter,useSearchParams} from 'next/navigation';
 import type {CustomerListItem} from '@/domain';
 import type {API} from '@/lib/contracts';
 import type {RepBadges} from '@/server/rep/badges';
-import {apiScope,scopeFrom,scopedHref} from './scope';
+import {scopeFrom,scopedHref} from './scope';
 
 // What every rep portal page can use: the signed-in rep, the customer list, the API client, the
 // nav badges (useRepPortal), and the "Viewing" picker's scope (useRepScope). RepShell provides it.
@@ -36,8 +36,6 @@ export function useRepPortal():RepPortalValue{
 export interface RepScope {
   /** The picked customer's id, or null for All customers. */
   customerId:string|null;
-  /** The supplier API's scope segment: 'all' or the customer id. */
-  scope:string;
   /** The picked customer, or null for All customers. */
   customer:CustomerListItem|null;
   /** "All customers" or the picked customer's name. */
@@ -59,6 +57,6 @@ export function useRepScope():RepScope{
   },[router,pathname,query]);
   return useMemo(()=>{
     const customer=customers.find(c=>c.id===customerId)??null;
-    return {customerId,scope:apiScope(customerId),customer,label:customer?.name??'All customers',setCustomer,href:(path:string)=>scopedHref(path,customerId)};
+    return {customerId,customer,label:customer?.name??'All customers',setCustomer,href:(path:string)=>scopedHref(path,customerId)};
   },[customers,customerId,setCustomer]);
 }

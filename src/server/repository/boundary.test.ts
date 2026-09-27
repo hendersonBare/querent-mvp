@@ -18,6 +18,10 @@ import {describe,expect,it} from 'vitest';
 // 6. The customer-facing server logic in src/server/customer/ (sidebars, item pop-up, the chat's
 //    quote notices and the PDF preview modal, task 5.1) follows the customer-route rules, with no
 //    exception: the customer-safe repository module only, and no service that reads cost.
+// 7. Only test files (*.test.ts, *.test.tsx) may import the test database helpers
+//    (src/server/repository/test-db: useSeededDatabase, updateLiveRecord), which write to any table.
+// Rules 3 to 6 hold transitively too: a file may not reach what it may not import through a helper
+// or a re-export (reachViolations below; the exceptions count only as a route's direct imports).
 
 const ROOT=resolve(__dirname,'../../..');
 const SCANNED=['src','scripts','e2e'];
@@ -47,6 +51,8 @@ const CUSTOMER_COST_EXCEPTIONS=[CUSTOMER_INTAKE,CUSTOMER_RESPONSE];
 const CUSTOMER_ROUTE=/^src\/app\/(?:.+\/)?customer(?:-[^/.]*)?(?:\/|\.tsx?$)/;
 /** Customer-facing server logic (rule 6). */
 const CUSTOMER_SERVER='src/server/customer/';
+/** Test-only database helpers (rule 7). */
+const TEST_DB='src/server/repository/test-db';
 /** A customer API path handled in code: 'customer/...' or ==='customer'. */
 const CUSTOMER_PATH=/(['"`])customer(?:\/|\1)/;
 
@@ -89,6 +95,7 @@ export function violations(file:string,text:string){
   if(!under(file,SQL_HOME))found.push(...findSql(text).map(hit=>`${file}:${hit} (SQL outside the repository)`));
   const imports=importsOf(file,text);
   if(!under(file,DB_IMPORTERS))found.push(...imports.filter(isDbModule).map(target=>`${file} imports ${target} (use the repository)`));
+  if(!isTest(file))found.push(...imports.filter(target=>target===TEST_DB).map(target=>`${file} imports ${target} (test files only)`));
   const isLlm=!isTest(file)&&(LLM_FILES.test(file)||imports.some(t=>t==='@anthropic-ai/sdk'||t.startsWith('@anthropic-ai/sdk/')));
   if(isLlm){
     found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (LLM code may only use ${CUSTOMER_MODULE})`));
@@ -104,6 +111,89 @@ export function violations(file:string,text:string){
   }
   if(!isTest(file)&&file.startsWith('src/app/api/')&&!CUSTOMER_ROUTE.test(file))
     found.push(...text.split('\n').flatMap((line,i)=>CUSTOMER_PATH.test(line)?[`${file}:${i+1}: ${line.trim()} (serve customer paths from a customer route file)`]:[]));
+  return found;
+}
+
+// ---- Transitive imports (rules 3 to 6) ----
+// violations() reads a file's own imports. A customer route or LLM file could still reach cost
+// through a helper that imports pricing, or through a module that re-exports it, so rules 3 to 6
+// also walk the module graph: every local module the file imports, what those import, and so on.
+// The walk stops at the customer-safe repository module, the sanctioned boundary. A customer
+// route's two named exceptions count only as the route's own direct imports, and past them the
+// walk follows only what they re-export: anything an exception re-exports, the route can import
+// through it. (A module reached through a helper is never an exception.)
+
+/** A module's id: its repo path without the extension or a trailing /index, as imports name it. */
+export const moduleId=(path:string)=>path.replace(/\.(?:tsx?|jsx?|mjs|cjs)$/,'').replace(/\/index$/,'');
+
+/** Local names an import clause binds, each with its imported module: `a, {b as c, type d}`, `* as ns`. */
+function importBindings(file:string,text:string){
+  const bindings=new Map<string,string>();
+  for(const m of text.matchAll(/\bimport\s+(?:type\s+)?([\w$\s,{}*]+?)\s*from\s*(['"])([^'"]+)\2/g)){
+    const [target]=importsOf(file,`from '${m[3]}'`);
+    const clause=m[1];
+    const named=/\{([^}]*)\}/.exec(clause)?.[1]??'';
+    const outside=clause.replace(/\{[^}]*\}/,'');
+    for(const part of named.split(','))
+      {const name=part.trim().replace(/^type\s+/,'').split(/\s+as\s+/).at(-1)?.trim();if(name)bindings.set(name,target);}
+    for(const part of outside.split(',')){const name=part.trim().replace(/^\*\s*as\s+/,'');if(/^[\w$]+$/.test(name))bindings.set(name,target);}
+  }
+  return bindings;
+}
+
+/** Modules `text` re-exports: `export * from 'm'`, `export {a} from 'm'`, and `export {a}` of a binding imported from 'm'. */
+export function reexportsOf(file:string,text:string){
+  const from=[...text.matchAll(/\bexport\s+(?:type\s+)?(?:\*(?:\s*as\s+[\w$]+)?|\{[^}]*\})\s*from\s*(['"])([^'"]+)\1/g)]
+    .flatMap(m=>importsOf(file,`from '${m[2]}'`));
+  const bindings=importBindings(file,text);
+  const local=[...text.matchAll(/\bexport\s+(?:type\s+)?\{([^}]*)\}(?!\s*from\b)/g)].flatMap(m=>m[1].split(','))
+    .map(part=>part.trim().replace(/^type\s+/,'').split(/\s+as\s+/)[0].trim()).flatMap(name=>bindings.has(name)?[bindings.get(name)!]:[]);
+  return [...new Set([...from,...local])].map(moduleId);
+}
+
+export interface ModuleNode {file:string;imports:string[];reexports:string[]}
+
+/** The local module graph of `sources` (repo path to text), keyed by module id. */
+export function moduleGraph(sources:ReadonlyMap<string,string>){
+  const graph=new Map<string,ModuleNode>();
+  for(const [file,text] of sources)graph.set(moduleId(file),{file,imports:[...new Set(importsOf(file,text).map(moduleId))],reexports:reexportsOf(file,text)});
+  return graph;
+}
+
+/** Why `target` is off limits to customer routes, customer-facing code and LLM code, or null. */
+const offLimits=(target:string)=>isInternalRepository(target)?`the internal repository; use ${CUSTOMER_MODULE}`:readsCost(target)?'it reads cost':null;
+
+/**
+ * Off-limits modules `file` reaches through at least one other module, as "a -> b -> c (why)".
+ * Its own direct imports are violations()'s. Applies to customer routes, customer-facing server
+ * code and LLM code (rules 3 to 6); other files, and tests, have no such rule.
+ */
+export function reachViolations(graph:ReadonlyMap<string,ModuleNode>,file:string){
+  if(isTest(file))return [];
+  const imports=graph.get(moduleId(file))?.imports??[];
+  const llm=LLM_FILES.test(file)||imports.some(t=>t==='@anthropic-ai/sdk'||t.startsWith('@anthropic-ai/sdk/'));
+  const route=CUSTOMER_ROUTE.test(file);
+  if(!llm&&!route&&!file.startsWith(CUSTOMER_SERVER))return [];
+  const exceptions:readonly string[]=route&&!llm?CUSTOMER_COST_EXCEPTIONS:[];
+  const start=moduleId(file);
+  const found:string[]=[];
+  const seen=new Set<string>();
+  const queue:{id:string;chain:string[];reexportsOnly:boolean}[]=[{id:start,chain:[start],reexportsOnly:false}];
+  while(queue.length){
+    const {id,chain,reexportsOnly}=queue.shift()!;
+    const node=graph.get(id);
+    if(!node)continue;
+    for(const target of reexportsOnly?node.reexports:node.imports){
+      const key=`${target}|${reexportsOnly}`;
+      if(target===start||target===CUSTOMER_MODULE||seen.has(key))continue;
+      seen.add(key);
+      const next=[...chain,target];
+      if(next.length===2&&exceptions.includes(target)){queue.push({id:target,chain:next,reexportsOnly:true});continue;}
+      const why=offLimits(target);
+      if(why){if(next.length>2)found.push(`${next.join(' -> ')} (${why})`);continue;}
+      queue.push({id:target,chain:next,reexportsOnly});
+    }
+  }
   return found;
 }
 
@@ -130,6 +220,14 @@ describe('repository boundary',()=>{
     expect(found).toEqual([]);
   });
 
+  it('finds no customer route, customer-facing code or LLM code reaching cost or the internal repository through another module',()=>{
+    const graph=moduleGraph(new Map(files.map(file=>[file,readFileSync(join(ROOT,file),'utf8')])));
+    // The walk sees the real graph: the chat pipeline imports scripted chat, and the quote intake imports pricing.
+    expect(graph.get('src/server/pipeline')?.imports).toContain('src/server/chat/scripted');
+    expect(graph.get('src/server/intake/quote-request')?.imports).toEqual(expect.arrayContaining(['src/server/pricing','src/server/pricing/service']));
+    expect(files.flatMap(file=>reachViolations(graph,file))).toEqual([]);
+  });
+
   it('keeps every file it scans inside the repo',()=>{
     for(const file of files)expect(relative(ROOT,join(ROOT,file)).startsWith('..')).toBe(false);
   });
@@ -154,6 +252,16 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/repository/quotes.ts',"import {db} from '../db';\nrun('DELETE FROM quotes')")).toEqual([]);
     expect(violations('scripts/reset-db.ts',"await import('../src/server/db')")).toEqual([]);
     expect(violations('scripts/x.ts',"db.prepare('SELECT 1')")).toHaveLength(1);
+  });
+
+  it('keep the test database helpers in test files (rule 7)',()=>{
+    expect(violations('src/server/rep/quotes.test.ts',"import {useSeededDatabase} from '@/server/repository/test-db';")).toEqual([]);
+    expect(violations('src/components/rep/Settings.test.tsx',"import {SEED_DATE} from '../../server/repository/test-db';")).toEqual([]);
+    expect(violations('src/server/rep/quotes.ts',"import {updateLiveRecord} from '@/server/repository/test-db';")).toHaveLength(1);
+    expect(violations('src/server/repository/quotes.ts',"import {useSeededDatabase} from './test-db';")).toHaveLength(1);
+    expect(violations('src/app/api/test/reset/route.ts',"const {updateLiveRecord}=await import('@/server/repository/test-db');")).toHaveLength(1);
+    expect(violations('src/components/rep/test-fixtures.ts',"import {SEED_DATE} from '@/server/repository/test-db';")).toHaveLength(1);
+    expect(violations('e2e/golden-quote-flow.spec.ts',"import {SEED_DATE} from '../src/server/repository/test-db';")).toHaveLength(1);
   });
 
   it('keep LLM code on the customer-safe module',()=>{
@@ -227,6 +335,71 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/customer/notices.ts',"import {requestQuote} from '@/server/intake/quote-request';")).toHaveLength(1);
     expect(violations('src/server/customer/sidebar.ts',"import {floorFor} from '../floors';")).toHaveLength(1);
     expect(violations('src/server/customer/notices.test.ts',"import {quote} from '@/server/repository';")).toEqual([]);
+  });
+
+  describe('follow imports and re-exports through other modules (cleanup 7)',()=>{
+    const ROUTE='src/app/api/query/customer/quote-requests/route.ts';
+    const ACCEPT='src/app/api/query/customer/quotes/[id]/accept/route.ts';
+    const reach=(sources:Record<string,string>,file:string)=>reachViolations(moduleGraph(new Map(Object.entries(sources))),file);
+
+    it('reads re-exports: export * / {a} from, and export {a} of an imported binding',()=>{
+      expect(reexportsOf('src/server/x.ts',"export * from './a';\nexport {b,c as d} from '@/server/b';\nexport type {E} from '../lib/e';")).toEqual(['src/server/a','src/server/b','src/lib/e']);
+      expect(reexportsOf('src/server/x.ts',"import {priceLines as p,type Q} from '@/server/pricing/service';\nimport * as floors from '@/server/floors';\nimport def,{x} from './d';\nexport {p,floors as f,def};")).toEqual(['src/server/pricing/service','src/server/floors','src/server/d']);
+      // Importing without re-exporting is not a re-export.
+      expect(reexportsOf('src/server/x.ts',"import {priceLines} from '@/server/pricing/service';\nexport {other};\nexport const y=1;")).toEqual([]);
+      expect(moduleId('src/server/pricing/index.ts')).toBe('src/server/pricing');
+      expect(moduleId('src/server/pricing/index')).toBe('src/server/pricing');
+    });
+
+    it('catch a customer route reaching cost or the internal repository through a helper',()=>{
+      const helper='src/lib/quote-help.ts';
+      expect(reach({[ROUTE]:"import {help} from '@/lib/quote-help';",[helper]:"import {priceLines} from '@/server/pricing/service';"},ROUTE))
+        .toEqual(['src/app/api/query/customer/quote-requests/route -> src/lib/quote-help -> src/server/pricing/service (it reads cost)']);
+      expect(reach({[ROUTE]:"import {help} from '@/lib/quote-help';",[helper]:"import {x} from './deeper';",'src/lib/deeper.ts':"import {quote} from '@/server/repository/quotes';"},ROUTE))
+        .toEqual([expect.stringMatching(/quote-help -> src\/lib\/deeper -> src\/server\/repository\/quotes \(the internal repository/)]);
+      // A helper that re-exports a cost reader is the same.
+      expect(reach({[ROUTE]:"import {priceLines} from './prices';",'src/app/api/query/customer/quote-requests/prices.ts':"export {priceLines} from '@/server/pricing/service';"},ROUTE)).toHaveLength(1);
+      // Clean helpers, and the customer-safe module (which itself re-exports internal modules), pass.
+      expect(reach({[ROUTE]:"import {help} from '@/lib/quote-help';",[helper]:"import {history} from '@/server/repository/customer';\nimport {canSend} from '@/server/quotes';",
+        'src/server/repository/customer.ts':"export {history} from './chat';",'src/server/quotes/index.ts':"export * from './lifecycle';"},ROUTE)).toEqual([]);
+    });
+
+    it('let a customer route import its two named exceptions directly, which may read cost, but not what they re-export',()=>{
+      const intake='src/server/intake/quote-request.ts';
+      const response='src/server/customer-response/service.ts';
+      const readsPricing="import {priceLines} from '@/server/pricing/service';\nimport {quote} from '@/server/repository';\nexport function requestQuote(){}";
+      expect(reach({[ROUTE]:"import {requestQuote} from '@/server/intake/quote-request';",[intake]:readsPricing},ROUTE)).toEqual([]);
+      expect(reach({[ACCEPT]:"import {acceptCustomerQuote} from '@/server/customer-response/service';",[response]:"import {acceptQuote} from '@/server/quotes/service';"},ACCEPT)).toEqual([]);
+      // A re-export from an exception hands the route a cost reader: export {a} from, export *, or a re-exported import.
+      for(const text of [
+        "export {priceLines} from '@/server/pricing/service';",
+        "export * from '@/server/floors/service';",
+        "import {priceLines} from '@/server/pricing/service';\nexport {priceLines};",
+        "import {quote} from '@/server/repository';\nexport {quote as internalQuote};",
+      ])expect(reach({[ROUTE]:"import {requestQuote,priceLines} from '@/server/intake/quote-request';",[intake]:text},ROUTE)).toHaveLength(1);
+      // ...also through a chain of re-exports.
+      expect(reach({[ACCEPT]:"import {x} from '@/server/customer-response/service';",[response]:"export * from '@/lib/parts';",'src/lib/parts.ts':"export {sendQuote} from '@/server/quotes/service';"},ACCEPT))
+        .toEqual(['src/app/api/query/customer/quotes/[id]/accept/route -> src/server/customer-response/service -> src/lib/parts -> src/server/quotes/service (it reads cost)']);
+      // Safe re-exports from an exception pass.
+      expect(reach({[ROUTE]:"import {requestQuote,QUOTE_LIMIT} from '@/server/intake/quote-request';",[intake]:`${readsPricing}\nexport {QUOTE_LIMIT} from '@/lib/limits';`,'src/lib/limits.ts':'export const QUOTE_LIMIT=1;'},ROUTE)).toEqual([]);
+      // An exception reached through a helper is no exception.
+      expect(reach({[ROUTE]:"import {x} from '@/lib/quote-help';",'src/lib/quote-help.ts':"import {requestQuote} from '@/server/intake/quote-request';",[intake]:readsPricing},ROUTE)).toHaveLength(1);
+    });
+
+    it('catch LLM code and customer-facing server code reaching cost through a helper, with no exception',()=>{
+      const helper='src/lib/wording.ts';
+      const viaHelper={[helper]:"import {suggestPrice} from '@/server/pricing';"};
+      expect(reach({'src/server/chat/tools.ts':"import {w} from '@/lib/wording';",...viaHelper},'src/server/chat/tools.ts')).toHaveLength(1);
+      expect(reach({'src/server/answer.ts':"import Anthropic from '@anthropic-ai/sdk';\nimport {w} from '@/lib/wording';",...viaHelper},'src/server/answer.ts')).toHaveLength(1);
+      expect(reach({'src/server/customer/notices.ts':"import {w} from '@/lib/wording';",...viaHelper},'src/server/customer/notices.ts')).toHaveLength(1);
+      const intake={'src/lib/intake-help.ts':"import {requestQuote} from '@/server/intake/quote-request';"};
+      expect(reach({'src/server/pipeline.ts':"import {x} from '@/lib/intake-help';",...intake},'src/server/pipeline.ts')).toHaveLength(1);
+      expect(reach({'src/server/customer/sidebar.ts':"import {x} from '@/lib/intake-help';",...intake},'src/server/customer/sidebar.ts')).toHaveLength(1);
+      // Rep-side code and tests have no such rule; a cycle ends the walk.
+      expect(reach({'src/server/rep/quotes.ts':"import {w} from '@/lib/wording';",...viaHelper},'src/server/rep/quotes.ts')).toEqual([]);
+      expect(reach({'src/server/chat/tools.test.ts':"import {w} from '@/lib/wording';",...viaHelper},'src/server/chat/tools.test.ts')).toEqual([]);
+      expect(reach({'src/server/chat/a.ts':"import {b} from '@/lib/b';",'src/lib/b.ts':"import {a} from '@/server/chat/a';"},'src/server/chat/a.ts')).toEqual([]);
+    });
   });
 
   it('keep customer routes on the customer-safe module, and customer paths in customer route files (task 0.3 carry-forward)',()=>{

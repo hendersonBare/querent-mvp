@@ -161,7 +161,8 @@ export function updateMyFloor(actingRepId:string,input:unknown):RepFloorSet{
   const categoryId=text(request.category_id);
   if(!repId||!categoryId)throw new SettingsError('Choose a rep and a product category.');
   const pct=request.floor_pct;
-  if(typeof pct!=='number'||!Number.isFinite(pct))throw new SettingsError(FLOOR_RANGE);
+  // Checked before rounding: -0.01% to -0.05% would round to 0.0% and pass as a floor of zero.
+  if(typeof pct!=='number'||!Number.isFinite(pct)||pct<0)throw new SettingsError(FLOOR_RANGE);
   // toPrecision drops float noise, as the floor rules do (29.95 * 10 is 299.49999999999994).
   const tenths=Math.round(Number((pct*10).toPrecision(12)));
   if(tenths<0||tenths>MAX_FLOOR_TENTHS)throw new SettingsError(FLOOR_RANGE);

@@ -12,7 +12,7 @@ const figuresOf=(detail:ReturnType<typeof sampleDetail>)=>quoteFigures(detail.li
 const summaryOf=(detail=sampleDetail(),terms:string|null=null)=>quoteSummaryText(summaryQuoteOf(detail,detail.lines,figuresOf(detail),terms));
 
 const SAMPLE_TEXT=[
-  'Quote Q-24817 rev 1 for Wasatch Mechanical Contractors (Dana Ortiz)',
+  'Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)',
   'Valid until Oct 9, 2026 · Will call at SLC',
   '',
   '10 x HCS-12-13-2G8 Hex cap screw 1/2-13 x 2 in (Box of 50) @ $31.50 = $315.00',
@@ -41,20 +41,21 @@ describe('quoteSummaryText',()=>{
     expect(text).not.toMatch(/cost|margin|floor|\bGP\b|%|basis|last paid|\blist\b|\bcontract\b|suggest|querent|why this price|internal/i);
   });
 
-  it('numbers the revision a send would store on a draft, and the sent one otherwise',()=>{
+  it('numbers the revision a send would store on a draft, marked as a draft, and the sent one otherwise',()=>{
+    // Changes requested: Dana holds rev 1, so rev 2 must not pass for a quote she was sent (cleanup 16).
     const revising=sampleDetail({quote:{status:'changes_requested',revision:1}});
-    expect(summaryOf(revising).split('\n')[0]).toBe('Quote Q-24817 rev 2 for Wasatch Mechanical Contractors (Dana Ortiz)');
+    expect(summaryOf(revising).split('\n')[0]).toBe('Quote Q-24817 rev 2 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)');
     const sent=sampleDetail({editable:false,valid_until:'2026-10-07',quote:{status:'sent',revision:1,valid_until:'2026-10-07'}});
     expect(summaryOf(sent).split('\n').slice(0,2)).toEqual(['Quote Q-24817 rev 1 for Wasatch Mechanical Contractors (Dana Ortiz)','Valid until Oct 7, 2026 · Will call at SLC']);
   });
 
   it('adds the payment terms when it has them, and leaves out a missing contact',()=>{
     const text=summaryOf(sampleDetail({quote:{contact_name:null}}),'Net 30');
-    expect(text.split('\n').slice(0,2)).toEqual(['Quote Q-24817 rev 1 for Wasatch Mechanical Contractors','Valid until Oct 9, 2026 · Net 30 · Will call at SLC']);
+    expect(text.split('\n').slice(0,2)).toEqual(['Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors','Valid until Oct 9, 2026 · Net 30 · Will call at SLC']);
   });
 
   it('shows delivery with the ship-to, and leaves an open price, call for freight and the total to be confirmed',()=>{
-    const q:SummaryQuote={quote_number:'Q-24830',revision:1,customer:{name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'},contact:'Dana Ortiz',
+    const q:SummaryQuote={quote_number:'Q-24830',revision:1,draft:false,customer:{name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'},contact:'Dana Ortiz',
       valid_until:'2026-10-09',terms:null,fulfillment:'delivery',branch:'SLC',ship_to:'1800 W 10950 S, South Jordan, UT 84095',
       lines:[{sku:'FD-45-60Z',description:'Flap disc 4.5 in, 60 grit zirconia',pack:'Box of 10',qty:2,unit_price:null,total:null},
         {sku:'RIV-18-AL',description:'Blind rivet 1/8 in, aluminum',pack:'Each',qty:500,unit_price:0.0825,total:41.25}],
@@ -84,7 +85,7 @@ describe('quoteSummaryText',()=>{
 
   it('copies only customer fields from the detail: nothing else rides along',()=>{
     const q=summaryQuoteOf(sampleDetail(),SAMPLE_LINES,figuresOf(sampleDetail()));
-    expect(Object.keys(q).sort()).toEqual(['branch','contact','customer','freight','fulfillment','lines','quote_number','revision','ship_to','subtotal','terms','total','valid_until']);
+    expect(Object.keys(q).sort()).toEqual(['branch','contact','customer','draft','freight','fulfillment','lines','quote_number','revision','ship_to','subtotal','terms','total','valid_until']);
     for(const line of q.lines)expect(Object.keys(line).sort()).toEqual(['description','pack','qty','sku','total','unit_price']);
   });
 });

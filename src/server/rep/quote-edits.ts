@@ -55,7 +55,11 @@ const Basis=z.enum(PRICE_BASES,{error:`Choose a price basis: ${PRICE_BASES.join(
 export const LinePatchBody:z.ZodType<LinePatch>=z.strictObject({qty:Qty.optional(),basis:Basis.optional(),unitPrice:Money.nullable().optional()})
   .refine(b=>b.qty!==undefined||b.basis!==undefined||b.unitPrice!==undefined,{error:'Nothing to change: send qty, basis or unitPrice.'});
 
-/** POST a line: an item by id or SKU at a qty (1 by default). `restore` puts a removed line back (Undo). */
+/**
+ * POST a line: an item by id or SKU at a qty (1 by default). `restore` puts a removed line back
+ * (Undo) under its old number, at the price it had; who added it, its match score and the
+ * customer's words come from the removed line on the server, never from the request.
+ */
 export const NewLineBody=z.strictObject({
   itemId:z.string({error:'Choose an item.'}).trim().min(1,{error:'Choose an item.'}).max(80),
   qty:Qty.default(1),
@@ -63,10 +67,7 @@ export const NewLineBody=z.strictObject({
     lineNo:z.number().int().positive(),
     unitPrice:Money.nullable(),
     basis:Basis.nullable(),
-    requestedText:z.string().max(1000).nullable().optional(),
-    matchScore:z.number().min(0).max(1).nullable().optional(),
-    addedBy:z.enum(['querent','rep','upsell']).optional(),
-  }).optional(),
+  },{error:'Undo sends only the line number, price and price basis.'}).optional(),
 });
 export type NewLine=z.infer<typeof NewLineBody>;
 
@@ -125,7 +126,8 @@ export interface AddLineOptions extends QuoteDetailOptions {source?:'rep'|'upsel
 /**
  * POST /api/rep/quotes/<id>/lines: adds an item (by id or SKU) at the end, priced by the engine
  * at its qty (Querent's pick is the starting price, as for a drafted line). With `restore`, puts
- * a removed line back under its old number with its price, basis and what the customer asked for.
+ * a removed line back under its old number with its price and basis, and with who added it, its
+ * match score and what the customer asked for as the server kept them when it was removed.
  */
 export async function addRepQuoteLine(repId:string,quoteIdOrNumber:string,body:unknown,{now=clock(),provider,source='rep'}:AddLineOptions={}):Promise<{detail:QuoteDetail;line_id:string}>{
   const input=parse(NewLineBody,body);
@@ -135,10 +137,9 @@ export async function addRepQuoteLine(repId:string,quoteIdOrNumber:string,body:u
     if(!item)throw new QuoteActionError('invalid_input',`No item ${input.itemId} in the catalog.`);
     const [priced]=priceLines({customerId:q.customer_id,repId:q.rep_id,branchId:q.branch_id,lines:[{itemId:item.id,qty:input.qty}],on:pricingDay(now)});
     const {restore}=input;
-    const fields={itemId:item.id,qty:input.qty,...(priced?draftLineFields(priced):{}),
-      requestedText:restore?.requestedText??null,matchScore:restore?.matchScore??null,addedBy:restore?.addedBy??source};
-    const stored=restore?restoreQuoteLine(q.id,restore.lineNo,fields,now):addQuoteLine(q.id,fields,now);
-    if(!stored)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
+    const fields={itemId:item.id,qty:input.qty,...(priced?draftLineFields(priced):{})};
+    const stored=restore?restoreQuoteLine(q.id,restore.lineNo,fields,now):addQuoteLine(q.id,{...fields,addedBy:source},now);
+    if(!stored)throw new QuoteActionError('not_found',restore?`No removed line ${restore.lineNo} of ${item.sku} to put back on ${q.quote_number}.`:`No quote ${quoteIdOrNumber}.`);
     if(restore){
       const line=detailLines(quote(q.id)!,now).find(l=>l.id===stored.id)!;
       saveLine(q,restoredPrice(line,restore.basis,restore.unitPrice),now);

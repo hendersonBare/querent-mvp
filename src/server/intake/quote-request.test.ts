@@ -54,7 +54,7 @@ describe('Request quote',()=>{
     const {requestQuote,quote,repBadges}=await services();
     const {id,popup}=await popupConversation();
     expect(popup).toEqual({fulfillment:'will_call',branch_id:'slc',lines:[
-      {sku:'HCS-12-13-2G8',qty:10,requested_text:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts'},
+      {sku:'HCS-12-13-2G8',qty:10,requested_text:'10 boxes of the 1/2 in grade 8 hex bolts'},
       {sku:'CW-45-045-T1',qty:6,requested_text:'6 boxes of cut-off wheels'},
     ]});
     const badge=repBadges('brandi',{now:NOW}).quotes;
@@ -69,7 +69,7 @@ describe('Request quote',()=>{
     // Priced like the mockup's sample quote (same SKUs and qty): last paid on the bolts, the contract on the wheels.
     const sample=quote('q-24817')!;
     expect(q.lines.map(l=>[l.sku,l.qty,l.suggested_basis,l.added_by,l.requested_text])).toEqual([
-      ['HCS-12-13-2G8',10,'last_paid','querent','Please quote 10 boxes of the 1/2 in grade 8 hex bolts'],
+      ['HCS-12-13-2G8',10,'last_paid','querent','10 boxes of the 1/2 in grade 8 hex bolts'],
       ['CW-45-045-T1',6,'contract','querent','6 boxes of cut-off wheels'],
     ]);
     q.lines.forEach((line,i)=>{
@@ -99,7 +99,8 @@ describe('Request quote',()=>{
 
     const answer=`Sent to Brandi for review. Your quote number is **${created.quote_number}**. Brandi will price it and send it to you here in chat.`;
     const question='Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1 (pickup at SLC).';
-    expect(turn).toMatchObject({question,answer,kind:'quote_requested',outcome:'answered',categories:[],sql:null});
+    expect(turn).toMatchObject({question,answer,kind:'quote_requested',outcome:'answered',categories:[]});
+    expect(turn).not.toHaveProperty('sql');
     const payload=turn.payload as QuoteRequestedPayload;
     expect(payload).toMatchObject({quote_id:created.id,quote_number:created.quote_number,status:'ready_for_review'});
 

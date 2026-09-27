@@ -50,19 +50,6 @@
 .shrink {
   min-width: 0;
 }
-.pill {
-  display: inline-flex;
-  align-items: center;
-  font: 600 10.5px/1 var(--rep-body);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 4px 7px;
-  border-radius: 999px;
-  white-space: nowrap;
-  background: var(--rep-accent-soft);
-  color: var(--rep-accent);
-}
-
 /* Sub-sections of a page (Settings): the mockup's segmented .tabs control. */
 .tabs {
   display: inline-flex;

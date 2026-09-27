@@ -23,7 +23,7 @@ const {RepShell}=await import('../RepShell');
 const {QuoteDetailView}=await import('./QuoteDetailView');
 
 // ---- A fake rep API over one quote ----
-let server:{lines:DetailLine[];unread:number;status:number|null};
+let server:{lines:DetailLine[];removed:DetailLine[];unread:number;status:number|null};
 const detailOf=(lines:DetailLine[])=>sampleDetail({lines});
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input),method=init?.method??'GET';
@@ -36,12 +36,15 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
     server.lines=server.lines.map(l=>l.id===line[1]?applyPatch(l,body)!:l);
     return Response.json(detailOf(server.lines));
   }
-  if(line&&method==='DELETE'){server.lines=server.lines.filter(l=>l.id!==line[1]);return Response.json(detailOf(server.lines));}
+  if(line&&method==='DELETE'){server.removed.push(...server.lines.filter(l=>l.id===line[1]));server.lines=server.lines.filter(l=>l.id!==line[1]);return Response.json(detailOf(server.lines));}
   if(url==='/api/rep/quotes/q-24817/lines'&&method==='POST'){
     const item=Object.values(ITEMS).find(i=>i.sku===body.itemId)!;
     const n=body.restore?.lineNo??Math.max(0,...server.lines.map(l=>l.line_no))+1;
     const price=body.restore?body.restore.unitPrice:item.customer_price;
-    const added=detailLine(item,{n,qty:body.qty,unit_price:price,price_basis:body.restore?body.restore.basis:'customer',added_by:body.restore?.addedBy??'rep'});
+    // Like the server, a restored line keeps who added it, its match score and the request from the removed line.
+    const was=body.restore&&server.removed.find(l=>l.line_no===body.restore.lineNo);
+    const added=detailLine(item,{n,qty:body.qty,unit_price:price,price_basis:body.restore?body.restore.basis:'customer',added_by:was?.added_by??'rep',
+      requested_text:was?.requested_text??null,match_score:was?.match_score??null});
     server.lines=[...server.lines,added].sort((a,b)=>a.line_no-b.line_no);
     return Response.json({detail:detailOf(server.lines),line_id:added.id},{status:201});
   }
@@ -57,7 +60,7 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
 });
 const calls=(method:string,match:RegExp)=>fetchMock.mock.calls.filter(([url,init])=>(init?.method??'GET')===method&&match.test(String(url)));
 
-beforeEach(()=>{server={lines:[...SAMPLE_LINES],unread:1,status:null};fetchMock.mockClear();vi.stubGlobal('fetch',fetchMock);});
+beforeEach(()=>{server={lines:[...SAMPLE_LINES],removed:[],unread:1,status:null};fetchMock.mockClear();vi.stubGlobal('fetch',fetchMock);});
 afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
@@ -249,8 +252,8 @@ describe('add, remove and undo',()=>{
     fireEvent.click(screen.getByRole('button',{name:'Undo'}));
     expect(screen.getAllByRole('rowheader').map(h=>within(h).getByText(/^[A-Z]{2,3}-/).textContent)).toEqual(['HCS-12-13-2G8','CW-45-045-T1','GLV-N8-L-1000','RS-2-27-JH']);
     await waitFor(()=>expect(calls('POST',/lines$/)).toHaveLength(1));
-    expect(JSON.parse(String(calls('POST',/lines$/)[0][1]!.body))).toEqual({itemId:'CW-45-045-T1',qty:6,
-      restore:{lineNo:2,unitPrice:36,basis:'contract',requestedText:'the usual cut-off wheels',matchScore:0.95,addedBy:'querent'}});
+    // Undo sends the line's number, price and basis only: who added it, its match score and Dana's words stay on the server.
+    expect(JSON.parse(String(calls('POST',/lines$/)[0][1]!.body))).toEqual({itemId:'CW-45-045-T1',qty:6,restore:{lineNo:2,unitPrice:36,basis:'contract'}});
     await settle();
     expect(totalsText()).toContain('Items$1,122.40');
     expect(screen.queryByRole('button',{name:'Undo'})).toBeNull();

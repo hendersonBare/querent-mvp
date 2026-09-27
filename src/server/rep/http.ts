@@ -12,9 +12,20 @@ export const NO_STORE={'Cache-Control':'no-store'} as const;
 /** A JSON response that is never cached. */
 export const repJson=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:NO_STORE});
 
-/** The request's JSON body, or undefined when it has none or it isn't JSON (the validator then refuses it). */
-export async function jsonBody(request:Request):Promise<unknown>{
-  try{return await request.json();}catch{return undefined;}
+const NOT_AN_OBJECT='The request body must be a JSON object.';
+
+/**
+ * The request's JSON body, for the route's validator: {} when there is none, so the validator
+ * names what is missing. A body that isn't a JSON object (not JSON, or an array, number, string
+ * or null) is refused here (invalid_input, 400) in plain words rather than the validator's.
+ */
+export async function jsonBody(request:Request):Promise<Record<string,unknown>>{
+  const text=await request.text();
+  if(!text.trim())return {};
+  let body:unknown;
+  try{body=JSON.parse(text);}catch{throw new QuoteActionError('invalid_input',NOT_AN_OBJECT);}
+  if(typeof body!=='object'||body===null||Array.isArray(body))throw new QuoteActionError('invalid_input',NOT_AN_OBJECT);
+  return body as Record<string,unknown>;
 }
 
 /**

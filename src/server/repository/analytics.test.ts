@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {analytics,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems} from './analytics';
+import {appendLog,createConversation} from './chat';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -32,6 +33,21 @@ describe('query analytics',()=>{
     expect(questionOutcomes(['wasatch','great-basin'])).toEqual({answered:37,no_rows:3});
     expect(questionOutcomes('great-basin')).toEqual({});
     expect(questionOutcomes([])).toEqual({});
+  });
+
+  it('leaves Request quote out: it is logged as a chat turn (tool call request_quote), but asks nothing (cleanup 6)',()=>{
+    const before={queries:analytics('wasatch'),outcomes:questionOutcomes('wasatch')};
+    createConversation({id:'conv-analytics',customerId:'wasatch'});
+    const log=(question:string,toolCalls:string[],handled:('items_stock')[]=[])=>expect(appendLog({customerId:'wasatch',conversationId:'conv-analytics',question,
+      categories:handled,handled,toolCalls,rowCount:2,latency:0,outcome:'answered',answer:'Sent to Brandi for review.'})).toBe(true);
+    log('Request quote: 10 × HCS-12-13-2G8 (pickup at SLC).',['request_quote']);
+    log('Request quote: 2 × FD-45-60Z (pickup at SLC).',['search_items','request_quote'],['items_stock']);
+    expect(analytics('wasatch')).toEqual(before.queries);
+    expect(questionOutcomes('wasatch')).toEqual(before.outcomes);
+    // A real question in the same chat still counts.
+    log('Do you have flap discs in stock?',['get_stock'],['items_stock']);
+    expect(analytics('wasatch').total_queries).toBe(before.queries.total_queries+1);
+    expect(questionOutcomes('wasatch')).toEqual({...before.outcomes,answered:before.outcomes.answered+1});
   });
 });
 

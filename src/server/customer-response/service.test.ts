@@ -85,7 +85,7 @@ describe('acceptCustomerQuote',()=>{
     refused({...ACCEPT,day:'2026-09-23'},'That day has passed. Choose Thu Sep 24 or later.');
     refused({...ACCEPT,day:'2026-09-24',time:'09:30'},'Choose a pickup time at least an hour from now.');
     refused({...ACCEPT,day:'2026-09-26'},'Pickup is Monday to Friday. Choose a weekday.');
-    refused({...ACCEPT,time:'18:00'},'Choose a pickup time between 7:00 AM and 4:00 PM.');
+    refused({...ACCEPT,time:'18:00'},'Pickup times are every 30 minutes, on the hour or half hour, from 7:00 AM to 4:00 PM. Choose one of those.');
     refused({...ACCEPT,day:'2026-09-25T10:00'},'Choose a pickup day.');
     refused({...ACCEPT,po:'   '},'Enter your PO number.');
     refused({...ACCEPT,po:'x'.repeat(41)},'Keep the PO number to 40 characters.');

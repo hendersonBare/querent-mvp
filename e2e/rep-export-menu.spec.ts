@@ -167,11 +167,28 @@ test("Line items (CSV) downloads a UTF-8 spreadsheet of the customer quote's lin
 
 test("an edit still saving is in the export: the CSV waits for it", async ({ page }) => {
   await openQuote(page);
+  // Hold the qty save for a moment before it reaches the server, so the export is chosen while it
+  // is still in flight: only a download that waits for the save (ExportMenu's flush) sees qty 12.
+  let saved = 0;
+  await page.route("**/api/rep/quotes/q-24817/lines/*", async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const response = await route.fetch();
+    saved = Date.now(); // the server has the new qty; the page hears so next
+    await route.fulfill({ response });
+  });
+  let requested = 0;
+  page.on("request", (r) => {
+    if (r.url().includes("/lines.csv")) requested = Date.now();
+  });
   const bolts = page.getByRole("textbox", { name: "Quantity for HCS-12-13-2G8" });
   await bolts.fill("12");
   await bolts.press("Enter");
-  // Straight to the menu, without waiting for "All changes saved".
+  // Straight to the menu, while the save is held.
+  await expect(page.getByText("Saving…")).toBeVisible();
   const { body } = await download(page, /^Line items \(CSV\)/, `/api/rep/quotes/q-24817/lines.csv?rev=draft`);
+  expect(saved, "the qty save never finished").toBeGreaterThan(0);
+  expect(requested, "the CSV was requested before the save finished").toBeGreaterThanOrEqual(saved);
   expect(csvRows(body)[1]).toMatch(/^1,HCS-12-13-2G8,"Hex cap screw 1\/2-13 x 2 in, Grade 8, yellow zinc",12,Box of 50,/);
 });
 
@@ -189,8 +206,8 @@ test("Copy quote summary puts plain text on the clipboard, with no cost or margi
     .toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   expect(copied).toBe(
     [
-      "Quote Q-24817 rev 1 for Wasatch Mechanical Contractors (Dana Ortiz)",
-      `Valid until ${validUntil} · Will call at SLC`,
+      "Quote Q-24817 rev 1 (draft, not sent) for Wasatch Mechanical Contractors (Dana Ortiz)",
+      `Valid until ${validUntil} · Net 30 · Will call at SLC`,
       "",
       "10 x HCS-12-13-2G8 Hex cap screw 1/2-13 x 2 in (Box of 50) @ $31.50 = $315.00",
       "6 x CW-45-045-T1 Cut-off wheel 4.5 x .045 x 7/8 in (Box of 25) @ $36.00 = $216.00",

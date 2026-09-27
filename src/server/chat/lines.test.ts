@@ -6,10 +6,21 @@ const lines=(text:string)=>splitRequest(text).map(l=>[l.text,l.qty]);
 describe('splitRequest',()=>{
   it('splits Dana\'s request into one line per item, each without its qty',()=>{
     expect(splitRequest('Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We\'ll pick up at SLC.')).toEqual([
-      {said:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts',text:'the 1/2 in grade 8 hex bolts',qty:10},
+      {said:'10 boxes of the 1/2 in grade 8 hex bolts',text:'the 1/2 in grade 8 hex bolts',qty:10},
       {said:'6 boxes of cut-off wheels',text:'cut-off wheels',qty:6},
       {said:'We\'ll pick up at SLC',text:'We\'ll pick up at SLC',qty:null},
     ]);
+  });
+
+  it('labels each line in the customer\'s words without the request words in front (2.2 follow-up)',()=>{
+    const said=(text:string)=>splitRequest(text).map(l=>l.said);
+    expect(said('Please quote 2 boxes of hex bolts')).toEqual(['2 boxes of hex bolts']);
+    expect(said('Can you send us 12 ratchet straps and 6 boxes of cut-off wheels')).toEqual(['12 ratchet straps','6 boxes of cut-off wheels']);
+    expect(said('Please quote the cut-off wheels')).toEqual(['the cut-off wheels']);
+    expect(said("We'd like to order nitrile gloves, large")).toEqual(['nitrile gloves, large']);
+    expect(said('I need 4 cases of gloves')).toEqual(['4 cases of gloves']);
+    // Item words are never taken: "quote" or "send" later in the line stays.
+    expect(said('hex bolts, quote 10 boxes')).toEqual(['hex bolts, quote 10 boxes']);
   });
 
   it('splits at line breaks, semicolons and bullets whatever follows',()=>{

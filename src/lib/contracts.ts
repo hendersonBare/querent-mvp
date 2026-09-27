@@ -9,14 +9,13 @@ export interface AccessRule {category:Category;enabled:boolean|null;rep_id:strin
 export interface Rep {id:string;name:string;phone:string;email:string;initials?:string;title?:string}
 export interface Customer {id:string;name:string;account_number?:string}
 export interface Analytics {total_queries:number;minutes_saved:number;hours_saved:string;categories:{category:Category;count:number;rep_name:string}[]}
-export interface Dashboard {access:AccessRule[];analytics:Analytics}
 export interface ERPStatus {last_updated:string|null;events:{id:number;timestamp:string;message:string}[]}
 /**
  * One chat reply. kind 'clarify' carries a ClarifyPayload (Querent's question about a vague line),
  * 'item_popup' an ItemPopupPayload (the cart the item pop-up opens with) and 'quote_requested' a
  * QuoteRequestedPayload (the quote Request quote created); plain text has no payload.
  */
-export interface ChatAnswer {answer:string;sql:string|null;categories:Category[];outcome:'answered'|'no_rows'|'error'|'restricted';row_count:number;kind?:ChatReplyKind;payload?:ClarifyPayload|ItemPopupPayload|QuoteRequestedPayload|null}
+export interface ChatAnswer {answer:string;categories:Category[];outcome:'answered'|'no_rows'|'error'|'restricted';row_count:number;kind?:ChatReplyKind;payload?:ClarifyPayload|ItemPopupPayload|QuoteRequestedPayload|null}
 export interface ChatTurn extends ChatAnswer {id:string;question:string;timestamp?:string}
 
 /**

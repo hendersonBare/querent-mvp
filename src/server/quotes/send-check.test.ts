@@ -58,12 +58,12 @@ describe('sendBlockers',()=>{
 
   it('blocks a delivery with no ship-to, and says freight is unpriced too',()=>{
     expect(sendBlockers({...delivery,ship_to_address:null},noShipToFreight).map(b=>b.code)).toEqual(['no_ship_to','call_for_freight']);
-    expect(sendBlockers({...delivery,ship_to_address:'   '},noShipToFreight)[0]).toEqual({code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address: add one, or switch to will call.'});
+    expect(sendBlockers({...delivery,ship_to_address:'   '},noShipToFreight)[0]).toEqual({code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address on file: switch to will call to send it.'});
   });
 
   it('still blocks a delivery with no ship-to after a freight override clears call-for-freight',()=>{
     expect(overridden.unresolved).toBe(false);
-    expect(sendBlockers({...delivery,ship_to_address:null},overridden)).toEqual([{code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address: add one, or switch to will call.'}]);
+    expect(sendBlockers({...delivery,ship_to_address:null},overridden)).toEqual([{code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address on file: switch to will call to send it.'}]);
   });
 
   it('does not need a ship-to for will call',()=>{

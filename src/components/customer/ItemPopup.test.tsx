@@ -21,7 +21,7 @@ const CONTEXT:ItemPopupContext={
 };
 const RESULT:QuoteRequestResult={quote:{id:'q-24818',quote_number:'Q-24818',status:'ready_for_review'},replayed:false,turn:{
   id:'m-1',question:'Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1 (pickup at SLC).',answer:'Sent to Brandi for review. Your quote number is **Q-24818**.',
-  sql:null,categories:[],outcome:'answered',row_count:2,kind:'quote_requested',payload:{quote_id:'q-24818',quote_number:'Q-24818',status:'ready_for_review',popup_message_id:'p-1'},
+  categories:[],outcome:'answered',row_count:2,kind:'quote_requested',payload:{quote_id:'q-24818',quote_number:'Q-24818',status:'ready_for_review',popup_message_id:'p-1'},
 }};
 
 function setup({context=CONTEXT,send=vi.fn().mockResolvedValue(RESULT),active=true,requested=null as string|null,autoOpen=true}={}){

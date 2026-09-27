@@ -14,7 +14,7 @@ export const SEED_DATE='2026-09-23';
  * The live fields a sent revision's PDF must not follow (task 4.1), and the item cost the internal
  * worksheet must not follow for a line still on the quote (task 4.2).
  */
-const LIVE_FIELDS={customers:['terms'],reps:['title','phone','email'],branches:['name','address','will_call_phone'],items:['cost']} as const;
+const LIVE_FIELDS={customers:['terms'],reps:['name','title','phone','email'],branches:['name','address','will_call_phone'],items:['cost']} as const;
 type LiveTable=keyof typeof LIVE_FIELDS;
 
 /**

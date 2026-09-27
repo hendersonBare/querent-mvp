@@ -82,7 +82,9 @@ describe('checkFulfillmentTime',()=>{
     expect(check('2026-10-03','10:00')).toEqual({problem:'Pickup is Monday to Friday. Choose a weekday.'});
     expect(check('2026-10-04','10:00',NOW,'delivery')).toEqual({problem:'Delivery is Monday to Friday. Choose a weekday.'});
     expect(check('2026-11-27','10:00')).toEqual({problem:'Choose a day within the next 60 days.'});
-    for(const time of ['06:30','16:30','10:15','22:00'])expect(check('2026-09-29',time),time).toEqual({problem:'Choose a pickup time between 7:00 AM and 4:00 PM.'});
+    // The message names the 30-minute grid, so an off-grid time like 10:15 is explained, not just refused (5.2 follow-up).
+    for(const time of ['06:30','16:30','10:15','22:00'])expect(check('2026-09-29',time),time).toEqual({problem:'Pickup times are every 30 minutes, on the hour or half hour, from 7:00 AM to 4:00 PM. Choose one of those.'});
+    expect(check('2026-09-29','10:45',NOW,'delivery')).toEqual({problem:'Delivery times are every 30 minutes, on the hour or half hour, from 7:00 AM to 4:00 PM. Choose one of those.'});
   });
 
   it('refuses anything that isn’t a day and a time',()=>{

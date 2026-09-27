@@ -91,9 +91,9 @@ test("1440px (screen 03): five closed panels under the summary card, then each o
   await expect(customer).toContainText("Dana Ortiz");
   await expect(customer).toContainText("Purchasing · (801) 555-0142");
   await expect(customer.getByRole("button", { name: "Copy Dana Ortiz’s phone number" })).toBeVisible();
-  await expect(customer.locator("dt")).toHaveText(["Account", "Terms", "Open balance", "Credit limit", "Last order", "Win rate", "Tax status"]);
-  await expect(customer.locator("dd")).toHaveText(["WAS-1142", "Net 30 · nothing past due", "$18,420.00", "$50,000.00", "Sep 9 · SO-51223", "68% · 17 of 25 decided", "Taxable, UT"]);
-  // 17 of the seeded 24 were won; the fixture's overdue quote (sent 20 days ago, valid 14) counts as lost.
+  await expect(customer.locator("dt")).toHaveText(["Account", "Terms", "Open balance", "Credit limit", "Last order", "Wins on quotes", "Tax status"]);
+  await expect(customer.locator("dd")).toHaveText(["WAS-1142", "Net 30 · nothing past due", "$18,420.00", "$50,000.00", "Sep 9 · SO-51223", "68% over 12 months", "Taxable, UT"]);
+  // 17 of the seeded 24 were won (all requested in the last 12 months); the fixture's overdue quote (sent 20 days ago, valid 14) counts as lost: 17 of 25.
   await expect(creditLine(customer)).toHaveText("Credit used, with this quote: 39%");
   const bar = customer.getByTestId("credit-bar");
   await expect(bar.locator('[data-segment="open"]')).toHaveAttribute("style", /width:\s*36\.84%/);

@@ -36,10 +36,14 @@ function FreightDetails({freight,origin}:{freight:FreightDisplay;origin:string})
   </>;
 }
 
-function OverrideForm({freight,busy,onSave,onCancel}:{freight:FreightDisplay;busy:boolean;onSave:(amount:number,reason:string)=>Promise<string|null>;onCancel:()=>void}){
+/** What the rep has typed in the override form. FulfillmentPanel keeps it, so closing the panel (which unmounts its body) doesn't lose it. */
+interface OverrideDraft {amount:string;reason:string}
+const draftFor=(freight:FreightDisplay):OverrideDraft=>({amount:priceInput(freight.override?.amount??freight.computedAmount),reason:freight.override?.reason??''});
+
+function OverrideForm({draft,onChange,busy,onSave,onCancel}:{draft:OverrideDraft;onChange:(draft:OverrideDraft)=>void;busy:boolean;
+  onSave:(amount:number,reason:string)=>Promise<string|null>;onCancel:()=>void}){
   const id=useId();
-  const [amount,setAmount]=useState(()=>priceInput(freight.override?.amount??freight.computedAmount));
-  const [reason,setReason]=useState(freight.override?.reason??'');
+  const {amount,reason}=draft;
   const [problem,setProblem]=useState<string|null>(null);
   async function submit(event:FormEvent){
     event.preventDefault();
@@ -51,10 +55,10 @@ function OverrideForm({freight,busy,onSave,onCancel}:{freight:FreightDisplay;bus
   return <form className={p.override} onSubmit={submit} aria-label="Set freight by hand" noValidate>
     <div className={p.field}>
       <label htmlFor={`${id}-amount`}>Freight amount</label>
-      <span className={p.money}><span aria-hidden="true">$</span><input id={`${id}-amount`} inputMode="decimal" autoComplete="off" value={amount} onChange={event=>setAmount(event.target.value)} autoFocus/></span>
+      <span className={p.money}><span aria-hidden="true">$</span><input id={`${id}-amount`} inputMode="decimal" autoComplete="off" value={amount} onChange={event=>onChange({...draft,amount:event.target.value})} autoFocus/></span>
     </div>
     <label className={p.field}>Reason (required, logged in Activity)
-      <textarea value={reason} onChange={event=>setReason(event.target.value)} maxLength={300} rows={2} required aria-required="true"
+      <textarea value={reason} onChange={event=>onChange({...draft,reason:event.target.value})} maxLength={300} rows={2} required aria-required="true"
         placeholder="e.g. Liftgate truck needed at the job site"/>
     </label>
     {problem&&<p className={p.error} role="alert">{problem}</p>}
@@ -71,7 +75,9 @@ export function FulfillmentPanel({detail,items,save}:{detail:QuoteDetail;items:n
   const [pending,setPending]=useState<{fulfillment?:Fulfillment;branchId?:string}|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
-  const [overriding,setOverriding]=useState(false);
+  // The override form's draft while it is open (null when closed); kept here so closing the panel keeps it.
+  const [override,setOverride]=useState<OverrideDraft|null>(null);
+  const overriding=override!==null;
   const fulfillment=pending?.fulfillment??quote.fulfillment;
   const branchId=pending?.branchId??quote.branch_id;
   const freight=freightDisplay(detail.freight,items,detail.delivery_rates,quote.branch_code);
@@ -86,7 +92,7 @@ export function FulfillmentPanel({detail,items,save}:{detail:QuoteDetail;items:n
   const change=(patch:{fulfillment?:Fulfillment;branchId?:string})=>{setPending(patch);void run(()=>save('fulfillment','PATCH',patch));};
   async function saveOverride(amount:number,reason:string){
     const problem=await run(()=>save('freight','PUT',{amount,reason}));
-    if(!problem)setOverriding(false);
+    if(!problem)setOverride(null);
     return problem;
   }
 
@@ -123,9 +129,9 @@ export function FulfillmentPanel({detail,items,save}:{detail:QuoteDetail;items:n
       {freight.override&&<p className={p.fnote}><span className={p.muted}>Distance-based freight would be </span>{freight.computedAmount===null?'call for freight':money(freight.computedAmount)}.</p>}
       <FreightDetails freight={freight} origin={quote.branch_code}/>
       {editable&&(overriding
-        ?<OverrideForm freight={freight} busy={busy} onSave={saveOverride} onCancel={()=>setOverriding(false)}/>
+        ?<OverrideForm draft={override} onChange={setOverride} busy={busy} onSave={saveOverride} onCancel={()=>setOverride(null)}/>
         :<div className={p.actions}>
-          <button type="button" className={p.miniBtn} onClick={()=>{setError(null);setOverriding(true);}} disabled={busy}>{freight.override?'Change freight':'Set freight by hand'}</button>
+          <button type="button" className={p.miniBtn} onClick={()=>{setError(null);setOverride(draftFor(freight));}} disabled={busy}>{freight.override?'Change freight':'Set freight by hand'}</button>
           {freight.override&&<button type="button" className={p.linkBtn} onClick={()=>void run(()=>save('freight','DELETE'))} disabled={busy}>Use distance-based freight</button>}
         </div>)}
     </section>

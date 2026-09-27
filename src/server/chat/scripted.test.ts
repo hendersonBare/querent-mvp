@@ -31,7 +31,7 @@ const T27_090=wheel('CW-45-090-T27','4.5 x .090 x 7/8 in, Type 27');
 const T1_6=wheel('CW-6-045-T1','6 x .045 x 7/8 in, Type 1');
 const FLAP={sku:'FD-45-60Z',description:expect.stringContaining('Flap disc'),pack:expect.any(String),category_name:'Abrasives & Cutting'};
 const REQUEST='Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We\'ll pick up at SLC.';
-const BOLTS_LINE={sku:'HCS-12-13-2G8',qty:10,requested_text:'Please quote 10 boxes of the 1/2 in grade 8 hex bolts'};
+const BOLTS_LINE={sku:'HCS-12-13-2G8',qty:10,requested_text:'10 boxes of the 1/2 in grade 8 hex bolts'};
 const BRANDI={name:'Brandi Gallegos',initials:'BG',title:expect.any(String),phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'};
 const ROUND_2='I still need to know which cut-off wheels you mean. Type 1 or Type 27 cut-off wheels?\n\nChoose one below, or drop the line. Not sure? Call Brandi Gallegos.';
 
@@ -122,16 +122,16 @@ describe('the clarification loop: rounds, candidate buttons and the rep',()=>{
   it('a typed drop works too, and dropping the only line leaves nothing to quote',async()=>{
     const [,dropped]=await converse('Please quote 6 boxes of cut-off wheels','drop the wheels');
     expect(dropped).toMatchObject({kind:'text',payload:null,categories:['items_stock']});
-    expect(dropped.content).toMatch(/^Dropped “Please quote 6 boxes of cut-off wheels”\. That leaves nothing to quote/);
+    expect(dropped.content).toMatch(/^Dropped “6 boxes of cut-off wheels”\. That leaves nothing to quote/);
   });
 
   it('keeps each line\'s own round: settling one line leaves the other where it was',async()=>{
     const [first,second]=await converse('Please quote 2 boxes of hex bolts and 6 boxes of cut-off wheels','the 1/2 in grade 8 ones');
     expect(open(first).map(l=>[l.requested_text,l.question,l.round])).toEqual([
-      ['Please quote 2 boxes of hex bolts','Grade 5 or Grade 8 hex cap screws?',1],
+      ['2 boxes of hex bolts','Grade 5 or Grade 8 hex cap screws?',1],
       ['6 boxes of cut-off wheels','Type 1 or Type 27 cut-off wheels?',1],
     ]);
-    expect(first.content).toBe('I need a detail on 2 lines:\n\n- Please quote 2 boxes of hex bolts: Grade 5 or Grade 8 hex cap screws?\n- 6 boxes of cut-off wheels: Type 1 or Type 27 cut-off wheels?');
+    expect(first.content).toBe('I need a detail on 2 lines:\n\n- 2 boxes of hex bolts: Grade 5 or Grade 8 hex cap screws?\n- 6 boxes of cut-off wheels: Type 1 or Type 27 cut-off wheels?');
     expect(second.payload).toMatchObject({cart:{lines:[{sku:'HCS-12-13-2G8',qty:2}]},open:[{requested_text:'6 boxes of cut-off wheels',round:1,choices:[]}],rep:null});
     expect(second.content).toBe(`Got it: 2 × ${BOLTS}.\n\nType 1 or Type 27 cut-off wheels?`);
   });
@@ -181,7 +181,7 @@ describe('quote requests',()=>{
     const [popup]=await converse('Need 4 boxes of Type 1 cut-off wheels and 2 boxes of the 1/2 in grade 8 hex bolts, delivered from Ogden');
     expect(popup).toMatchObject({kind:'item_popup',toolCalls:['search_items','propose_cart']});
     expect(popup.payload).toEqual({fulfillment:'delivery',branch_id:'ogden',lines:[
-      {sku:'CW-45-045-T1',qty:4,requested_text:'Need 4 boxes of Type 1 cut-off wheels'},
+      {sku:'CW-45-045-T1',qty:4,requested_text:'4 boxes of Type 1 cut-off wheels'},
       {sku:'HCS-12-13-2G8',qty:2,requested_text:'2 boxes of the 1/2 in grade 8 hex bolts'},
     ]});
     expect(popup.content).toContain('Delivery from Ogden.');
@@ -211,6 +211,23 @@ describe('stock questions and access',()=>{
       +'- CW-45-045-T27 (Cut-off wheel 4.5 x .045 x 7/8 in, Type 27, box of 25): 48 at SLC, 20 at Ogden and 10 at Provo');
     const [one]=await converse('How many type 27 cut-off wheels are on hand?');
     expect(one.content).toBe('Yes. CW-45-045-T27 (Cut-off wheel 4.5 x .045 x 7/8 in, Type 27, box of 25) is in stock: 48 at SLC, 20 at Ogden and 10 at Provo.');
+  });
+
+  it('answers a stock question in the middle of a request and keeps the request open where it was (2.2 follow-up)',async()=>{
+    const [clarify,stock,popup]=await converse(REQUEST,'Do you have 1/2 in grade 8 hex bolts in stock?','Type 1');
+    // The stock answer, then the open question again; the line stays in round 1 (a side question is no answer).
+    expect(stock).toMatchObject({kind:'clarify',outcome:'answered',categories:['items_stock'],handled:['items_stock']});
+    expect(stock.toolCalls).toContain('get_stock');
+    expect(stock.content).toBe(`Yes. ${BOLTS} is in stock: 64 at SLC, 22 at Ogden and 8 at Provo.\n\nBack to your quote request: Type 1 or Type 27 cut-off wheels?`);
+    expect(stock.payload).toEqual(clarify.payload);
+    // So "Type 1" still answers the wheels.
+    expect(popup.kind).toBe('item_popup');
+    expect(lines(popup)).toEqual([['HCS-12-13-2G8',10],['CW-45-045-T1',6]]);
+    // In round 2 the buttons and Brandi come back with it.
+    const [,round2,again]=await converse(REQUEST,'not sure','Do you have 1/2 in grade 8 hex bolts in stock?');
+    expect(again.payload).toEqual(round2.payload);
+    expect(open(again)[0]).toMatchObject({round:2,choices:[T1,T27,T27_090]});
+    expect(again.content).toContain(`\n\nBack to your quote request: ${ROUND_2}`);
   });
 
   it('does not answer stock when Items & stock is off, and points to the rep',async()=>{

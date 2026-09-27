@@ -56,4 +56,3 @@ export const CONTRACTS=[
   {id:'wasatch-2026-abrasives',contract_number:'WAS-C-2026-01',name:'Abrasives supply agreement',starts:-265,ends:99,lines:[['CW-45-045-T1',36.00],['CW-45-045-T27',37.40],['CW-6-045-T1',48.50],['FD-45-60Z',44.25],['FD-45-80Z',44.25]] as [string,number][]},
   {id:'wasatch-2025-ppe',contract_number:'WAS-C-2025-02',name:'PPE pricing agreement (expired)',starts:-630,ends:-266,lines:[['GLV-N8-L-1000',74.00],['SG-CLR-AF',27.50]] as [string,number][]},
 ];
-export const ACTIVE_CONTRACT=CONTRACTS[0];

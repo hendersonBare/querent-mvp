@@ -21,7 +21,7 @@ it('sits between the contacts and quotes sidebars, with New conversation above t
  expect(screen.getByRole('main')).toContainElement(box);
 });
 it('starts a new conversation from the chat toolbar',async()=>{
- const send=vi.fn().mockResolvedValue({answer:'Answered.',sql:null,categories:['account'],outcome:'answered',row_count:0} satisfies ChatAnswer);
+ const send=vi.fn().mockResolvedValue({answer:'Answered.',categories:['account'],outcome:'answered',row_count:0} satisfies ChatAnswer);
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'What is our open balance?'}});
@@ -33,7 +33,7 @@ it('starts a new conversation from the chat toolbar',async()=>{
  expect(localStorage.getItem('querent-conversation-u1')).not.toBe(first);
 });
 it('submits a question on send and renders the answer',async()=>{
- const answer:ChatAnswer={answer:'PO-48213 shipped Sep 12.',sql:null,categories:['orders_quotes'],outcome:'answered',row_count:1};
+ const answer:ChatAnswer={answer:'PO-48213 shipped Sep 12.',categories:['orders_quotes'],outcome:'answered',row_count:1};
  const send=vi.fn().mockResolvedValue(answer);
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
@@ -44,7 +44,7 @@ it('submits a question on send and renders the answer',async()=>{
  expect(screen.getByText('DO',{selector:'.user-avatar'})).toBeInTheDocument();
 });
 it('submits a question on Enter without Shift',async()=>{
- const answer:ChatAnswer={answer:'Answered.',sql:null,categories:['account'],outcome:'answered',row_count:0};
+ const answer:ChatAnswer={answer:'Answered.',categories:['account'],outcome:'answered',row_count:0};
  const send=vi.fn().mockResolvedValue(answer);
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
@@ -54,7 +54,7 @@ it('submits a question on Enter without Shift',async()=>{
  expect(await screen.findByText('Answered.')).toBeInTheDocument();
 });
 it('renders a combined answer covering more than one category',async()=>{
- const answer:ChatAnswer={answer:'PO-48213 is shipped. Your financing balance is unavailable here.',sql:'select 1',categories:['orders_quotes','account'],outcome:'answered',row_count:1};
+ const answer:ChatAnswer={answer:'PO-48213 is shipped. Your financing balance is unavailable here.',categories:['orders_quotes','account'],outcome:'answered',row_count:1};
  const send=vi.fn().mockResolvedValue(answer);
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
@@ -62,26 +62,14 @@ it('renders a combined answer covering more than one category',async()=>{
  fireEvent.click(screen.getByLabelText('Send question'));
  expect(await screen.findByText(/PO-48213 is shipped/)).toBeInTheDocument();
 });
-it('renders the restricted message without a query disclosure',async()=>{
- const answer:ChatAnswer={answer:'That information isn’t available here.',sql:null,categories:['pricing'],outcome:'restricted',row_count:0};
+it('renders the restricted message',async()=>{
+ const answer:ChatAnswer={answer:'That information isn’t available here.',categories:['pricing'],outcome:'restricted',row_count:0};
  const send=vi.fn().mockResolvedValue(answer);
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'What are my financing balances?'}});
  fireEvent.click(screen.getByLabelText('Send question'));
  expect(await screen.findByText('That information isn’t available here.')).toBeInTheDocument();
- expect(screen.queryByText('Show query')).not.toBeInTheDocument();
-});
-it('does not expose executed SQL in the customer chat',async()=>{
- const answer:ChatAnswer={answer:'You have 12 hydraulic filters in stock.',sql:'select * from items',categories:['items_stock'],outcome:'answered',row_count:1};
- const send=vi.fn().mockResolvedValue(answer);
- render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
- const box=await screen.findByLabelText('Ask a question');
- fireEvent.change(box,{target:{value:'What hydraulic filters are in stock?'}});
- fireEvent.click(screen.getByLabelText('Send question'));
- await screen.findByText('You have 12 hydraulic filters in stock.');
- expect(screen.queryByText('Show query')).not.toBeInTheDocument();
- expect(screen.queryByText('select * from items')).not.toBeInTheDocument();
 });
 describe('the clarifying question (task 2.2)',()=>{
  const wheel=(sku:string,type:string)=>({sku,description:`Cut-off wheel 4.5 x .045 x 7/8 in, Type ${type}`,pack:'Box of 25',category_name:'Abrasives & Cutting'});
@@ -89,7 +77,7 @@ describe('the clarifying question (task 2.2)',()=>{
  const rep={name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'};
  const clarify=(round:number):ChatAnswer=>({
   answer:round<2?'Type 1 or Type 27 cut-off wheels?':'I still need to know which cut-off wheels you mean. Type 1 or Type 27 cut-off wheels?',
-  sql:null,categories:['items_stock'],outcome:'answered',row_count:2,kind:'clarify',
+  categories:['items_stock'],outcome:'answered',row_count:2,kind:'clarify',
   payload:{open:[{requested_text:'6 boxes of cut-off wheels',qty:6,question:'Type 1 or Type 27 cut-off wheels?',round,text:'cut-off wheels',candidates:[T1,T27],choices:round<2?[]:[T1,T27]}],
    cart:{fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10}]},dropped:[],rep:round<2?null:rep},
  });
@@ -99,7 +87,7 @@ describe('the clarifying question (task 2.2)',()=>{
   fireEvent.click(screen.getByLabelText('Send question'));
  }
  it('shows only the question in round 1, then candidate buttons and the rep in round 2; a button sends the pick',async()=>{
-  const popup:ChatAnswer={answer:'Here is your list:',sql:null,categories:['items_stock'],outcome:'answered',row_count:2,kind:'item_popup',payload:{fulfillment:'will_call',branch_id:'slc',lines:[]}};
+  const popup:ChatAnswer={answer:'Here is your list:',categories:['items_stock'],outcome:'answered',row_count:2,kind:'item_popup',payload:{fulfillment:'will_call',branch_id:'slc',lines:[]}};
   const send=vi.fn().mockResolvedValueOnce(clarify(1)).mockResolvedValueOnce(clarify(2)).mockResolvedValueOnce(popup);
   render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
   await say('Please quote 6 boxes of cut-off wheels');
@@ -117,7 +105,7 @@ describe('the clarifying question (task 2.2)',()=>{
   expect(screen.getByText('CW-45-045-T27 (Cut-off wheel 4.5 x .045 x 7/8 in, Type 27)',{selector:'.question-bubble'})).toBeInTheDocument();
  });
  it('drops a line from the button',async()=>{
-  const send=vi.fn().mockResolvedValueOnce(clarify(2)).mockResolvedValueOnce({answer:'Dropped.',sql:null,categories:['items_stock'],outcome:'answered',row_count:0});
+  const send=vi.fn().mockResolvedValueOnce(clarify(2)).mockResolvedValueOnce({answer:'Dropped.',categories:['items_stock'],outcome:'answered',row_count:0});
   render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
   await say('Please quote 6 boxes of cut-off wheels');
   fireEvent.click(await screen.findByRole('button',{name:'Drop this line: 6 boxes of cut-off wheels'}));
@@ -141,7 +129,7 @@ it('keeps a message sent before the history has loaded',async()=>{
   if(path.startsWith('customer/history/')) return new Promise<ChatTurn[]>(resolve=>{loaded=resolve;});
   throw new Error(`unexpected get ${path}`);
  }) as unknown as API['get'];
- const send=vi.fn().mockResolvedValue({answer:'Answered.',sql:null,categories:[],outcome:'answered',row_count:0} satisfies ChatAnswer);
+ const send=vi.fn().mockResolvedValue({answer:'Answered.',categories:[],outcome:'answered',row_count:0} satisfies ChatAnswer);
  render(<CustomerChat api={makeApi(get,send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  await waitFor(()=>expect(get).toHaveBeenCalledWith(expect.stringMatching(/^customer\/history\//)));

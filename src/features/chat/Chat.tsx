@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import type { ClarifyPayload, ItemPopupPayload, QuoteNotice, QuoteRequestedPayload } from "@/domain";
 import type { API, ChatAnswer, ChatTurn, Principal, QuoteRequestResult } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
+import { everyWhileVisible } from "@/lib/use-poll";
 import { ClarifyPanel } from "@/components/customer/ClarifyPanel";
 import { CustomerLayout } from "@/components/customer/CustomerLayout";
 import { ItemPopup } from "@/components/customer/ItemPopup";
@@ -88,7 +89,8 @@ export function CustomerChat({
   useEffect(() => {
     if (!noticesFor || noticesFor !== conversation) return;
     let cancelled = false;
-    const id = setInterval(() => {
+    // Only while the tab is visible: a hidden chat skips the poll and catches up when shown.
+    const stop = everyWhileVisible(() => {
       api
         .get<QuoteNotice[]>(`customer/notices/${conversation}`)
         .then((sent) => {
@@ -104,7 +106,7 @@ export function CustomerChat({
     }, noticePollMs);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      stop();
     };
   }, [api, conversation, noticesFor, noticePollMs]);
   useEffect(() => {
@@ -122,7 +124,6 @@ export function CustomerChat({
         id,
         question: text,
         answer: "",
-        sql: null,
         categories: [],
         outcome: "answered",
         row_count: 0,

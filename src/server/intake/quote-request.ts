@@ -84,7 +84,7 @@ function requestBehind(messages:readonly ChatMessage[],popupIndex:number){
 function earlierTurn(messages:readonly ChatMessage[],confirmation:ChatMessage):ChatTurn{
   const asked=messages.slice(0,messages.indexOf(confirmation)).findLast(m=>m.role==='customer');
   const payload=confirmation.payload as QuoteRequestedPayload;
-  return {id:confirmation.id,question:asked?.content??'Request quote',answer:confirmation.content,sql:null,categories:[],outcome:'answered',row_count:0,
+  return {id:confirmation.id,question:asked?.content??'Request quote',answer:confirmation.content,categories:[],outcome:'answered',row_count:0,
     kind:'quote_requested',payload,timestamp:confirmation.created_at};
 }
 
@@ -169,7 +169,7 @@ export function requestQuote(who:QuoteRequester,body:unknown,{now=new Date().toI
     addMessage(customerId,input.conversation_id,{role:'customer',content:question});
     const confirmation=addMessage(customerId,input.conversation_id,{role:'assistant',kind:'quote_requested',content:answer,payload})!;
     appendLog({customerId,conversationId:input.conversation_id,question,categories:[],handled:[],toolCalls:['request_quote'],rowCount:lines.length,latency:0,outcome:'answered',answer});
-    const turn:ChatTurn={id:confirmation.id,question,answer,sql:null,categories:[],outcome:'answered',row_count:lines.length,kind:'quote_requested',payload,timestamp:confirmation.created_at};
+    const turn:ChatTurn={id:confirmation.id,question,answer,categories:[],outcome:'answered',row_count:lines.length,kind:'quote_requested',payload,timestamp:confirmation.created_at};
     return {quote:{id:q.id,quote_number:q.quote_number,status:q.status},turn,replayed:false};
   });
 }

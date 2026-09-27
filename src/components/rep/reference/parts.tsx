@@ -3,7 +3,8 @@ import Link from 'next/link';
 import type {OrderStatus,QuoteStatus} from '@/domain';
 import page from '../RepPage.module.css';
 import {scopedHref} from '../scope';
-import {ORDER_STATUS,QUOTE_STATUS} from './format';
+import {REP_STATUS} from '../quotes/labels';
+import {ORDER_STATUS} from './format';
 import s from './Reference.module.css';
 
 // Building blocks for the rep's Customers, Orders and Items pages (task 3.8). No hooks: the pages
@@ -71,8 +72,9 @@ export function RecordNotFound({title,heading,body,back}:{title:string;heading:s
   </>;
 }
 
+/** A quote's status chip, in the Quotes list's words and tones (REP_STATUS, task 3.2). */
 export function QuoteStatusChip({status}:{status:QuoteStatus}){
-  const {label,tone}=QUOTE_STATUS[status];
+  const {label,tone}=REP_STATUS[status];
   return <span className={s.chip} data-tone={tone}>{label}</span>;
 }
 

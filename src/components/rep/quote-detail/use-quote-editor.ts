@@ -175,7 +175,8 @@ export function useQuoteEditor(initial:QuoteDetail){
     const line=linesRef.current.find(l=>l.id===lineId);
     if(!line)return;
     draft(lineId,null);
-    const restore:NewLine['restore']={lineNo:line.line_no,unitPrice:line.unit_price,basis:line.price_basis,requestedText:line.requested_text,matchScore:line.match_score,addedBy:line.added_by};
+    // Who added the line, its match score and the customer's words: the server keeps those itself.
+    const restore:NewLine['restore']={lineNo:line.line_no,unitPrice:line.unit_price,basis:line.price_basis};
     enqueue({kind:'remove',lineId},{label:`Removed ${shortName(line.description)}`,inverse:{kind:'add',itemId:line.item_id,qty:line.qty,restore,preview:line}});
   },[draft,enqueue]);
 

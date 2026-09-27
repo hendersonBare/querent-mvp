@@ -36,7 +36,7 @@ export function sendBlockers(q:SendCheckQuote,freight:Pick<QuoteFreight,'unresol
     if(l.unit_price===null||!Number.isFinite(l.unit_price))blockers.push({code:'no_price',line_id:l.id,message:`${name} has no price.`});
     else if(l.unit_price<0)blockers.push({code:'no_price',line_id:l.id,message:`${name} has a price below $0.`});
   }
-  if(q.fulfillment==='delivery'&&!q.ship_to_address?.trim())blockers.push({code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address: add one, or switch to will call.'});
+  if(q.fulfillment==='delivery'&&!q.ship_to_address?.trim())blockers.push({code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address on file: switch to will call to send it.'});
   if(freight.unresolved)blockers.push({code:'call_for_freight',line_id:null,message:'Freight is still call for freight: set it by hand before sending.'});
   return blockers;
 }

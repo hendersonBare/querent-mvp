@@ -169,18 +169,46 @@ describe('adding, removing and putting back a line',()=>{
     expect(repo.quoteActivity('q-24817').at(-1)).toMatchObject({kind:'line_removed',message:'Brandi removed Cut-off wheel 4.5 x .045 x 7/8 in (CW-45-045-T1)'});
     await expect(edits.removeRepQuoteLine('brandi','Q-24817','q-24817-2')).rejects.toMatchObject({code:'not_found'});
 
-    const {detail}=await edits.addRepQuoteLine('brandi','Q-24817',{itemId:'CW-45-045-T1',qty:6,
-      restore:{lineNo:2,unitPrice:36,basis:'contract',requestedText:'the usual cut-off wheels',matchScore:0.95,addedBy:'querent'}},{now:NOW});
+    // Undo sends the number, price and basis; who added the line, its match score and Dana's words come from the removed line.
+    const {detail}=await edits.addRepQuoteLine('brandi','Q-24817',{itemId:'CW-45-045-T1',qty:6,restore:{lineNo:2,unitPrice:36,basis:'contract'}},{now:NOW});
     expect(detail.lines.map(l=>[l.line_no,l.sku,l.unit_price,l.price_basis])).toEqual([
       [1,'HCS-12-13-2G8',31.5,'last_paid'],[2,'CW-45-045-T1',36,'contract'],[3,'GLV-N8-L-1000',79,'last_paid'],[4,'RS-2-27-JH',21.5,'custom'],
     ]);
     expect(detail.lines[1]).toMatchObject({requested_text:'the usual cut-off wheels',match_score:0.95,added_by:'querent'});
     expect(repo.quoteActivity('q-24817').at(-1)!.message).toBe('Brandi put back Cut-off wheel 4.5 x .045 x 7/8 in (CW-45-045-T1)');
+    // Put back once: a second Undo of the same line finds nothing to restore.
+    await expect(edits.addRepQuoteLine('brandi','Q-24817',{itemId:'CW-45-045-T1',qty:6,restore:{lineNo:2,unitPrice:36,basis:'contract'}},{now:NOW}))
+      .rejects.toMatchObject({code:'not_found',message:'No removed line 2 of CW-45-045-T1 to put back on Q-24817.'});
 
-    // A custom price comes back as it was.
+    // A custom price comes back as it was, and the line is still Querent's.
     await edits.removeRepQuoteLine('brandi','Q-24817',straps.id,{now:NOW});
     const back=await edits.addRepQuoteLine('brandi','Q-24817',{itemId:'RS-2-27-JH',qty:12,restore:{lineNo:4,unitPrice:21.5,basis:'custom'}},{now:NOW});
-    expect(line(back.detail,straps.id)).toMatchObject({unit_price:21.5,price_basis:'custom',added_by:'rep'});
+    expect(line(back.detail,straps.id)).toMatchObject({unit_price:21.5,price_basis:'custom',added_by:'querent',match_score:0.9,
+      requested_text:'2 in ratchet straps, maybe 12 (then: 27 ft with J-hooks)'});
+  });
+
+  it('never takes who added a line, its match score or the request from the client (cleanup 13)',async()=>{
+    const {edits,repo}=await load();
+    const before=repo.quote('q-24817')!.lines.length;
+    // The old Undo payload's provenance fields are refused outright.
+    for(const extra of [{addedBy:'querent'},{matchScore:0.99},{requestedText:'what Dana never said'}]){
+      await expect(edits.addRepQuoteLine('brandi','Q-24817',{itemId:'FD-45-60Z',qty:2,restore:{lineNo:9,unitPrice:40,basis:'custom',...extra}},{now:NOW}))
+        .rejects.toMatchObject({code:'invalid_input'});
+    }
+    // Restoring a line that was never removed (here, one the rep never had) is refused, so an Add can't pass for Querent's line.
+    await expect(edits.addRepQuoteLine('brandi','Q-24817',{itemId:'FD-45-60Z',qty:2,restore:{lineNo:9,unitPrice:40,basis:'custom'}},{now:NOW}))
+      .rejects.toMatchObject({code:'not_found'});
+    // Nor another item under a removed line's number: the record is for the item that was removed.
+    await edits.removeRepQuoteLine('brandi','Q-24817','q-24817-3',{now:NOW});
+    await expect(edits.addRepQuoteLine('brandi','Q-24817',{itemId:'FD-45-60Z',qty:2,restore:{lineNo:3,unitPrice:40,basis:'custom'}},{now:NOW}))
+      .rejects.toMatchObject({code:'not_found'});
+    expect(repo.quote('q-24817')!.lines).toHaveLength(before-1);
+    // A rep's own added line comes back as the rep's, with no match score.
+    const {line_id}=await edits.addRepQuoteLine('brandi','Q-24817',{itemId:'FD-45-60Z',qty:2},{now:NOW});
+    const added=repo.quote('q-24817')!.lines.find(l=>l.id===line_id)!;
+    await edits.removeRepQuoteLine('brandi','Q-24817',line_id,{now:NOW});
+    const {detail}=await edits.addRepQuoteLine('brandi','Q-24817',{itemId:'FD-45-60Z',qty:2,restore:{lineNo:added.line_no,unitPrice:40,basis:'custom'}},{now:NOW});
+    expect(line(detail,line_id)).toMatchObject({added_by:'rep',match_score:null,requested_text:null});
   });
 });
 
