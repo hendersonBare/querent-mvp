@@ -1,6 +1,6 @@
 import type {DeliveryRates} from '@/domain';
 import {CALL_FOR_FREIGHT,formatUsd,priceDelivery,type FreightOverride,type FreightQuote,type QuoteFreight} from '@/server/freight/engine';
-import {cents} from '@/server/quotes';
+import {creditUse,type CreditUse} from '@/server/pdf/worksheet';
 
 // The quote detail's side panels (spec §4, §5.3; task 3.4): the credit bar's numbers and the
 // freight as the Pickup or delivery panel shows it. Pure and client-safe, like ./quote-math: the
@@ -8,27 +8,11 @@ import {cents} from '@/server/quotes';
 
 // ---- Credit ----
 
-export interface CreditUse {
-  /** open balance / credit limit */
-  used:number;
-  /** (open balance + this quote) / credit limit */
-  withQuote:number;
-  /** How far this quote takes the account past its limit, in dollars (0 when it doesn't). A warning only. */
-  overBy:number;
-}
-
-/**
- * The credit bar's numbers (spec §4): the same formula as the internal worksheet's credit block
- * (task 4.2), so the screen and the PDF agree. Null without a positive credit limit. A missing
- * open balance counts as $0. `quoteTotal` is the quote total the summary card shows (items +
- * freight), or the items alone while freight is still call for freight.
- */
-export function creditUse(limit:number|null,openBalance:number|null,quoteTotal:number):CreditUse|null{
-  if(limit===null||!Number.isFinite(limit)||limit<=0)return null;
-  const open=openBalance!==null&&Number.isFinite(openBalance)?openBalance:0;
-  const withQuote=cents(open+quoteTotal);
-  return {used:open/limit,withQuote:withQuote/limit,overBy:Math.max(0,cents(withQuote-limit))};
-}
+// One formula for credit use, shared with the internal worksheet's credit block (task 4.2), so
+// the screen and the PDF always agree: open ÷ limit, and (open + this quote) ÷ limit, where this
+// quote is the total the summary card shows (items + freight), or the items alone while freight
+// is still call for freight. Null without a positive credit limit; a missing open balance is $0.
+export {creditUse,type CreditUse} from '@/server/pdf/worksheet';
 
 /** Credit use in whole percent, as the worksheet prints it: "39%". */
 export const creditPercent=(fraction:number)=>`${Math.round(fraction*100)}%`;
