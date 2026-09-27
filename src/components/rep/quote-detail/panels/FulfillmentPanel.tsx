@@ -47,9 +47,10 @@ function OverrideForm({freight,busy,onSave,onCancel}:{freight:FreightDisplay;bus
     setProblem(await onSave(value,reason.trim()));
   }
   return <form className={p.override} onSubmit={submit} aria-label="Set freight by hand" noValidate>
-    <label className={p.field} htmlFor={`${id}-amount`}>Freight amount
-      <span className={p.money}>$<input id={`${id}-amount`} inputMode="decimal" autoComplete="off" value={amount} onChange={event=>setAmount(event.target.value)} autoFocus/></span>
-    </label>
+    <div className={p.field}>
+      <label htmlFor={`${id}-amount`}>Freight amount</label>
+      <span className={p.money}><span aria-hidden="true">$</span><input id={`${id}-amount`} inputMode="decimal" autoComplete="off" value={amount} onChange={event=>setAmount(event.target.value)} autoFocus/></span>
+    </div>
     <label className={p.field}>Reason (required, logged in Activity)
       <textarea value={reason} onChange={event=>setReason(event.target.value)} maxLength={300} rows={2} required aria-required="true"
         placeholder="e.g. Liftgate truck needed at the job site"/>
