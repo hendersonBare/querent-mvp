@@ -2,6 +2,7 @@
 import {Fragment,useId,useState,type FormEvent} from 'react';
 import type {Fulfillment} from '@/domain';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
+import {fulfillmentTimeLabel} from '@/server/quotes';
 import {parseMoney} from '@/server/rep/quote-math';
 import {freightDisplay,type FreightDisplay} from '@/server/rep/quote-panels-math';
 import {money,priceInput} from '../format';
@@ -15,7 +16,8 @@ import p from './Panels.module.css';
 // the branch (the freight origin and the stock the grid shows), the ship-to, and freight with its
 // road miles and formula (task 1.3), re-priced on the live items subtotal like the totals. The rep
 // can set freight by hand with a required reason (logged in Activity), or go back to distance-based
-// freight. An override resolves "call for freight" but never a delivery with no ship-to.
+// freight. An override resolves "call for freight" but never a delivery with no ship-to. Once the
+// customer accepts (task 5.2), the pickup or delivery time they chose shows here and in the summary.
 
 const MODES:{value:Fulfillment;label:string}[]=[{value:'will_call',label:'Will call'},{value:'delivery',label:'Delivery'}];
 const REASON_REQUIRED='Say why freight is set by hand.';
@@ -90,7 +92,9 @@ export function FulfillmentPanel({detail,items,save}:{detail:QuoteDetail;items:n
 
   const mode=quote.fulfillment==='delivery'?'Delivery':'Will call';
   const unresolved=quote.fulfillment==='delivery'&&freight.callForFreight;
-  const value=[mode,quote.branch_code,unresolved?'Call for freight':quote.requested_date&&dayWithWeekday(quote.requested_date)].filter(Boolean).join(' · ');
+  const confirmed=quote.fulfillment_time?fulfillmentTimeLabel(quote.fulfillment_time):null;
+  const value=[mode,quote.branch_code,confirmed??(unresolved?'Call for freight':quote.requested_date&&dayWithWeekday(quote.requested_date))].filter(Boolean).join(' · ');
+  const who=quote.contact_name?.trim().split(/\s+/)[0]??quote.customer_name;
   const noShipTo=quote.fulfillment==='delivery'&&!quote.ship_to_address?.trim();
 
   return <Panel label="Pickup or delivery" value={value} tone={unresolved||noShipTo?'bad':undefined}>
@@ -108,6 +112,7 @@ export function FulfillmentPanel({detail,items,save}:{detail:QuoteDetail;items:n
       ?<p className={p.fnote} data-tone="bad">No ship-to address on the quote: it can’t be sent as a delivery. Switch to will call.</p>
       :<p className={p.fnote}><span className={p.muted}>Ship to </span>{quote.ship_to_address}</p>)}
     {quote.requested_date&&<p className={p.fnote}><span className={p.muted}>{quote.fulfillment==='delivery'?'Delivery':'Pickup'} requested for </span>{dayWithWeekday(quote.requested_date)}</p>}
+    {confirmed&&<p className={p.fnote}><span className={p.muted}>{quote.fulfillment==='delivery'?'Delivery':'Pickup'} time {who} chose on accepting: </span><b>{confirmed}</b></p>}
 
     <section className={p.freight} aria-label="Freight">
       <p className={p.freightTotal}>

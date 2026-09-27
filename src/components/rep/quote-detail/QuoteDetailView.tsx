@@ -2,6 +2,7 @@
 import {useCallback,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {ChevronRight} from 'lucide-react';
+import {fulfillmentTimeLabel} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
 import {useRepScope} from '../context';
@@ -118,8 +119,12 @@ function StatusBanner({detail}:{detail:QuoteDetail}){
       return <p className={s.banner} data-tone="changes"><strong>{who} asked for changes{quote.responded_at&&` on ${day(quote.responded_at,as_of)}`}:</strong> <q>{quote.change_request_note}</q></p>;
     case 'sent':
       return <p className={s.banner}><strong>Sent to {who} as rev {quote.revision}{quote.sent_at&&` on ${day(quote.sent_at,as_of)}`}.</strong> It can’t be edited unless they ask for changes.</p>;
-    case 'accepted':
-      return <p className={s.banner} data-tone="accepted"><strong>{who} accepted rev {quote.revision}{quote.responded_at&&` on ${day(quote.responded_at,as_of)}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;
+    case 'accepted':{
+      // What the customer sent with Accept (task 5.2): their PO and the pickup or delivery time.
+      const answer=[quote.customer_po&&`PO ${quote.customer_po}`,
+        quote.fulfillment_time&&`${quote.fulfillment==='delivery'?'delivery':'pickup'} ${fulfillmentTimeLabel(quote.fulfillment_time)} ${quote.fulfillment==='delivery'?'from':'at'} ${quote.branch_code}`].filter(Boolean).join(', ');
+      return <p className={s.banner} data-tone="accepted"><strong>{who} accepted rev {quote.revision}{quote.responded_at&&` on ${day(quote.responded_at,as_of)}`}{answer&&` with ${answer}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;
+    }
     case 'expired':
       return <p className={s.banner}><strong>Expired{quote.valid_until&&`: it was valid until ${day(quote.valid_until,as_of)}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;
     default:

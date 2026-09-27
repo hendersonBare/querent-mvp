@@ -179,6 +179,14 @@ describe('Customer panel',()=>{
 });
 
 describe('Pickup or delivery panel',()=>{
+  it('after the customer accepts, shows the time they chose, and Quote terms their PO (task 5.2)',()=>{
+    renderPage(detailOf(server,{editable:false,quote:{...detailOf(server).quote,status:'accepted',revision:1,valid_until:'2026-10-07',customer_po:'7781',
+      fulfillment_time:'2026-09-29T16:00:00.000Z'},valid_until:'2026-10-07'}));
+    expect(summaryValue('Pickup or delivery')).toBe('Will call · SLC · Tue Sep 29, 10:00 AM');
+    expect(panel('Pickup or delivery')).toHaveTextContent('Pickup time Dana chose on accepting: Tue Sep 29, 10:00 AM');
+    expect(summaryValue('Quote terms')).toBe('Valid until Oct 7 · PO 7781');
+  });
+
   it('switches to delivery: saved, freight priced by distance with miles and formula, and the totals and credit follow',async()=>{
     renderPage();
     const box=panel('Pickup or delivery');

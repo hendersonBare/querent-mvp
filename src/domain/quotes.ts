@@ -122,10 +122,24 @@ export interface CustomerQuotePreview {
   requested_at:string;
   shown:{revision:number;sent_at:string;total:number;valid_until:string|null;attach_pdf:boolean;
     /** GET /api/quotes/<id>/pdf?variant=customer&rev=<n>: shown inline, and downloaded when attach_pdf. */
-    pdf_url:string}|null;
+    pdf_url:string;
+    /**
+     * What the rep approved in this revision (task 5.2): pickup (will call) or delivery, from which
+     * branch (its code), to which address, and the PO they printed. Accept shows them locked.
+     */
+    fulfillment:Fulfillment;branch:string;ship_to:string|null;customer_po:string|null}|null;
   /** The rep who owns the quote, to name in the modal's notes. */
   rep:Pick<Rep,'name'|'phone'|'email'>|null;
+  /** What the customer answered on the latest revision (task 5.2), while the quote is accepted or changes are requested. */
+  response:CustomerQuoteResponse|null;
 }
+
+/** Customer-safe: the customer's own answer to a sent revision (task 5.2). */
+export type CustomerQuoteResponse=
+  |{kind:'accepted';revision:number;
+    /** The pickup or delivery time they chose (an ISO instant), and their PO. */
+    fulfillment_time:string|null;customer_po:string|null}
+  |{kind:'changes_requested';revision:number;note:string};
 
 // Write inputs. Unit cost is never an input: the repository copies it from the item when a line is written.
 
