@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useId,useRef,useState,type KeyboardEvent} from 'react';
+import {useEffect,useId,useRef,useState,type CSSProperties,type KeyboardEvent} from 'react';
 import {ChevronDown} from 'lucide-react';
 import type {PriceBasis} from '@/domain';
 import {BASIS_LABELS,type PriceOption} from '@/server/pricing';
@@ -10,6 +10,20 @@ import s from './QuoteDetail.module.css';
 // each with its dollar value, and Querent's pick in bold. A listbox rather than a <select>, since
 // an <option> can't reliably show bold text. Choosing a basis prices the line at it; Custom keeps
 // the typed price. A basis the line has no price for is listed but can't be chosen.
+// The list is fixed to the viewport under its button (above it near the bottom of the screen),
+// so the grid's scroll container neither clips it nor scrolls when it opens; scrolling the page
+// or resizing closes it.
+
+/** The list's width, for keeping it on screen. */
+const LIST_WIDTH=264;
+/** Below this much room under the button, the list opens upward. */
+const LIST_ROOM=250;
+
+function placeUnder(button:HTMLElement):CSSProperties{
+  const rect=button.getBoundingClientRect(),width=window.innerWidth,height=window.innerHeight;
+  const right=Math.max(8,Math.min(width-rect.right,width-LIST_WIDTH-8));
+  return height-rect.bottom<LIST_ROOM&&rect.top>height-rect.bottom?{right,bottom:height-rect.top+4}:{right,top:rect.bottom+4};
+}
 
 export interface PriceBasisSelectProps {
   options:readonly PriceOption[];
@@ -26,6 +40,7 @@ export interface PriceBasisSelectProps {
 export function PriceBasisSelect({options,value,onChange,label,disabled,asOf}:PriceBasisSelectProps){
   const [open,setOpen]=useState(false);
   const [active,setActive]=useState(0);
+  const [place,setPlace]=useState<CSSProperties>({});
   const wrap=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null),list=useRef<HTMLUListElement>(null);
   const listId=useId();
   const usable=(i:number)=>options[i]?.available;
@@ -33,15 +48,18 @@ export function PriceBasisSelect({options,value,onChange,label,disabled,asOf}:Pr
 
   useEffect(()=>{
     if(!open)return;
-    list.current?.focus();
+    list.current?.focus({preventScroll:true});
     const outside=(event:PointerEvent)=>{if(!wrap.current?.contains(event.target as Node))setOpen(false);};
+    const away=(event:Event)=>{if(!list.current?.contains(event.target as Node))setOpen(false);};
     document.addEventListener('pointerdown',outside);
-    return()=>document.removeEventListener('pointerdown',outside);
+    window.addEventListener('scroll',away,true);window.addEventListener('resize',away);
+    return()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('scroll',away,true);window.removeEventListener('resize',away);};
   },[open]);
 
   function show(){
     const selected=options.findIndex(o=>o.basis===value);
     setActive(selected>=0?selected:Math.max(0,options.findIndex(o=>o.available)));
+    if(button.current)setPlace(placeUnder(button.current));
     setOpen(true);
   }
   function close(refocus=true){setOpen(false);if(refocus)button.current?.focus();}
@@ -74,7 +92,7 @@ export function PriceBasisSelect({options,value,onChange,label,disabled,asOf}:Pr
       aria-label={`${label}: ${current}`} disabled={disabled} onClick={()=>open?close():show()} onKeyDown={onButtonKey}>
       {current}<ChevronDown aria-hidden="true" size={12} strokeWidth={2}/>
     </button>
-    {open&&<ul ref={list} id={listId} className={s.basisList} role="listbox" aria-label={label} tabIndex={-1}
+    {open&&<ul ref={list} id={listId} className={s.basisList} style={place} role="listbox" aria-label={label} tabIndex={-1}
       aria-activedescendant={`${listId}-${active}`} onKeyDown={onListKey}>
       {options.map((option,i)=>{
         const detail=optionNote(option,asOf);

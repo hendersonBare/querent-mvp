@@ -333,8 +333,11 @@
 }
 .switch input {
   appearance: none;
+  flex: none;
   width: 30px;
   height: 17px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
   background: var(--rep-line);
   position: relative;
@@ -358,6 +361,9 @@
 }
 .switch input:checked::after {
   left: 15px;
+}
+.switch input:focus {
+  outline: none;
 }
 .switch input:focus-visible {
   outline: 2px solid var(--rep-accent);
@@ -515,7 +521,15 @@
   border-bottom: 1px solid var(--rep-line-2);
   text-align: right;
   vertical-align: middle;
-  font-weight: 400;
+}
+/* globals.css styles every th as a column header and every td as nowrap; a line's item cell is neither. */
+.lines tbody th {
+  font: 400 14px/1.45 var(--rep-body);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--rep-ink);
+  background: transparent;
+  white-space: normal;
 }
 .lines .itemCol {
   text-align: left;
@@ -732,11 +746,9 @@
   display: none;
 }
 .basisList {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
+  position: fixed;
   z-index: 25;
-  min-width: 264px;
+  width: 264px;
   margin: 0;
   padding: 4px;
   list-style: none;
@@ -799,16 +811,25 @@
 }
 
 /* "Why this price?" row */
-.why > td {
+.lines .why > td {
   background: var(--rep-surface-2);
+  white-space: normal;
   text-align: left !important;
   padding: 4px 16px 16px 46px !important;
   border-bottom: 1px solid var(--rep-line-2);
 }
 .whyGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 32px;
+}
+.whyGrid > section {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+/* The tables keep their natural width; the text sections share what is left. */
+.whyGrid > .whyTable {
+  flex: 0 0 auto;
 }
 .whyGrid h4 {
   margin: 0 0 7px;
@@ -1132,6 +1153,7 @@
   .line .rmCol {
     grid-area: rm;
     width: auto;
+    justify-self: end;
   }
   .priceCell {
     grid-area: price;
@@ -1193,12 +1215,12 @@
   .why[hidden] {
     display: none;
   }
-  .why > td {
+  .lines .why > td {
     display: block;
     padding: 4px 12px 14px 38px !important;
   }
-  .whyGrid {
-    grid-template-columns: minmax(0, 1fr);
+  .whyGrid > .whyTable {
+    flex: 1 1 100%;
   }
   .totals {
     gap: 5px 20px;

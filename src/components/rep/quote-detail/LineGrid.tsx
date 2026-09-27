@@ -168,7 +168,7 @@ function WhyThisPrice({line,figures,floorLabel,customerFirstName,asOf,editable,o
       {offPick&&line.unit_price!==null&&<p className={s.whyNote}>You priced it at {line.price_basis?BASIS_LABELS[line.price_basis]:'Custom'}, {money(line.unit_price)}.</p>}
       <p className={s.whyNote}>{floorLabel}{lastPaid&&<> · Last paid {money(lastPaid.price)} on {day(lastPaid.date,asOf)}</>}</p>
     </section>
-    {priced&&<section>
+    {priced&&<section className={s.whyTable}>
       <h4>Price options</h4>
       <table className={s.mini}>
         <thead><tr><th scope="col">Basis</th><th scope="col">Price</th><th scope="col">Margin</th><th scope="col"><span className={s.srOnly}>Use</span></th></tr></thead>
@@ -182,7 +182,7 @@ function WhyThisPrice({line,figures,floorLabel,customerFirstName,asOf,editable,o
         })}</tbody>
       </table>
     </section>}
-    <section>
+    <section className={s.whyTable}>
       <h4>Stock by branch</h4>
       {branches.length?<table className={s.mini}>
         <thead><tr><th scope="col">Branch</th><th scope="col">On hand</th><th scope="col">On order</th></tr></thead>
