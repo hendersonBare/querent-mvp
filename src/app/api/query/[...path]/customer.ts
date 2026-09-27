@@ -1,6 +1,7 @@
 import 'server-only';
 import {NextResponse,type NextRequest} from 'next/server';
 import type {Principal} from '@/lib/contracts';
+import {chatNotices} from '@/server/customer/notices';
 import {ask,ConversationNotFoundError} from '@/server/pipeline';
 import {customerAccessRules,history} from '@/server/repository/customer';
 
@@ -16,6 +17,8 @@ export async function customerRoute(request:NextRequest,user:Principal&{customer
   if(area!=='customer')return undefined;
   if(request.method==='GET'&&name==='panel'&&segments.length===2)return NextResponse.json(customerAccessRules(user.customer_id));
   if(request.method==='GET'&&name==='history'&&id)return NextResponse.json(history(user.customer_id,id));
+  // The "quote is ready" messages for the chat on screen (task 5.1): history() has no row for them.
+  if(request.method==='GET'&&name==='notices'&&id&&segments.length===3)return NextResponse.json(chatNotices(user.customer_id,id));
   if(request.method==='POST'&&name==='chat'&&segments.length===2){
     const body=await request.json().catch(()=>({}));
     if(typeof body.question!=='string'||!body.question.trim()||body.question.length>4000||typeof body.conversation_id!=='string'||!body.conversation_id.trim()||body.conversation_id.length>100)return fail('Enter a valid question.',422);

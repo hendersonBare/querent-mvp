@@ -9,7 +9,7 @@ import {onQuotesChanged} from './quotes-changed';
 
 // Right sidebar (spec §3): one button per quote, newest first, labelled "Quote · date · $total"
 // with a status chip. The server sends the status to show now, so an overdue sent quote reads
-// Expired. Clicking emits "open quote" for the PDF preview modal (task 5.1).
+// Expired. Clicking emits "open quote": the PDF preview modal (task 5.1) opens on the latest revision sent.
 
 export function QuotesSidebar({api,now}:{api:API;now?:string}){
   const load=useCallback(()=>api.get<CustomerQuoteSummary[]>('customer/quotes'),[api]);

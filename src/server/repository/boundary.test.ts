@@ -13,6 +13,9 @@ import {describe,expect,it} from 'vitest';
 // 5. Customer routes may not import the services that read cost either, with one named exception
 //    (task 2.3): the quote intake, which prices Request quote's draft server-side and answers with
 //    customer-safe fields only. LLM code may not import the intake.
+// 6. The customer-facing server logic in src/server/customer/ (sidebars, item pop-up, the chat's
+//    quote notices and the PDF preview modal, task 5.1) follows the customer-route rules, with no
+//    exception: the customer-safe repository module only, and no service that reads cost.
 
 const ROOT=resolve(__dirname,'../../..');
 const SCANNED=['src','scripts','e2e'];
@@ -31,6 +34,8 @@ const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells
 const CUSTOMER_INTAKE='src/server/intake/quote-request';
 /** Customer routes: under src/app/, a folder or file named "customer" or "customer-*" (not the rep's "customers" views). */
 const CUSTOMER_ROUTE=/^src\/app\/(?:.+\/)?customer(?:-[^/.]*)?(?:\/|\.tsx?$)/;
+/** Customer-facing server logic (rule 6). */
+const CUSTOMER_SERVER='src/server/customer/';
 /** A customer API path handled in code: 'customer/...' or ==='customer'. */
 const CUSTOMER_PATH=/(['"`])customer(?:\/|\1)/;
 
@@ -82,6 +87,10 @@ export function violations(file:string,text:string){
     found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer routes may only use ${CUSTOMER_MODULE})`));
     found.push(...imports.filter(target=>readsCost(target)&&target!==CUSTOMER_INTAKE).map(target=>`${file} imports ${target} (it reads cost; the one cost reader customer routes may call is ${CUSTOMER_INTAKE})`));
   }
+  if(!isTest(file)&&file.startsWith(CUSTOMER_SERVER)){
+    found.push(...imports.filter(isInternalRepository).map(target=>`${file} imports ${target} (customer-facing code may only use ${CUSTOMER_MODULE})`));
+    found.push(...imports.filter(readsCost).map(target=>`${file} imports ${target} (it reads cost; customer-facing code may not)`));
+  }
   if(!isTest(file)&&file.startsWith('src/app/api/')&&!CUSTOMER_ROUTE.test(file))
     found.push(...text.split('\n').flatMap((line,i)=>CUSTOMER_PATH.test(line)?[`${file}:${i+1}: ${line.trim()} (serve customer paths from a customer route file)`]:[]));
   return found;
@@ -97,6 +106,8 @@ describe('repository boundary',()=>{
     expect(files).toContain('src/server/chat/live.ts');
     expect(files).toContain('src/server/upsells-writer/claude.ts');
     expect(files).toContain('src/app/api/query/customer/quote-requests/route.ts');
+    expect(files).toContain('src/server/customer/notices.ts');
+    expect(files).toContain('src/server/customer/quote-preview.ts');
     expect(files.length).toBeGreaterThan(40);
   });
 
@@ -175,6 +186,16 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/chat/clarify.ts',"import {requestQuote} from '@/server/intake/quote-request';")).toHaveLength(1);
     expect(violations('src/server/pipeline.ts',"import {requestQuote} from './intake/quote-request';")).toHaveLength(1);
     expect(violations('src/app/api/rep/route.ts',"import {priceLines} from '@/server/pricing/service';")).toEqual([]);
+  });
+
+  it('keep the customer-facing server logic on the customer-safe module and off cost readers, with no exception (task 5.1)',()=>{
+    expect(violations('src/server/customer/notices.ts',"import {quoteNotices} from '@/server/repository/customer';\nimport {effectiveStatus} from '@/server/quotes';")).toEqual([]);
+    expect(violations('src/server/customer/quote-preview.ts',"import {quote} from '@/server/repository';")).toHaveLength(1);
+    expect(violations('src/server/customer/quote-preview.ts',"import {quoteRevision} from '@/server/repository/quotes';")).toHaveLength(1);
+    expect(violations('src/server/customer/notices.ts',"import {sendQuote} from '@/server/quotes/service';")).toHaveLength(1);
+    expect(violations('src/server/customer/notices.ts',"import {requestQuote} from '@/server/intake/quote-request';")).toHaveLength(1);
+    expect(violations('src/server/customer/sidebar.ts',"import {floorFor} from '../floors';")).toHaveLength(1);
+    expect(violations('src/server/customer/notices.test.ts',"import {quote} from '@/server/repository';")).toEqual([]);
   });
 
   it('keep customer routes on the customer-safe module, and customer paths in customer route files (task 0.3 carry-forward)',()=>{

@@ -75,6 +75,17 @@ export interface QuoteReadyPayload {
   pdf_url:string;
 }
 
+/**
+ * Customer-safe: one `quote_ready` message as the customer's chat shows it (task 5.1): the
+ * payload's fields, rebuilt one by one, plus where and when it was posted and the rep's text.
+ */
+export interface QuoteNotice extends QuoteReadyPayload {
+  /** The message id. */
+  id:string;conversation_id:string;created_at:string;
+  /** The rep's message from the send dialog: plain text, possibly empty. Render it as text, never as Markdown or HTML. */
+  text:string;
+}
+
 /** What a chat reply's `kind` can be. The quote flow adds more (quote_ready is a notice, not a reply). */
 export type ChatReplyKind='text'|'clarify'|'item_popup'|'quote_requested';
 

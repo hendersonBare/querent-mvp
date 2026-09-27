@@ -281,7 +281,8 @@ export function customerQuote(customerId:string,quoteIdOrNumber:string):Customer
 /**
  * Customer-safe: one revision the rep sent on one of the customer's quotes (by id or number), the
  * latest when `revision` is omitted, with the quote's own rep (quotes are never reassigned). This
- * is what the customer PDF prints (task 4.1). Undefined for another customer's quote, an unknown
+ * is what the customer PDF prints (task 4.1) and the preview modal shows, with whether the rep left
+ * Attach PDF on for it (task 5.1). Undefined for another customer's quote, an unknown
  * one, or a revision that was never sent, so a draft's unreviewed prices never reach the customer.
  */
 export function customerQuoteRevision(customerId:string,quoteIdOrNumber:string,revision?:number):CustomerQuoteRevision|undefined{
@@ -292,5 +293,5 @@ export function customerQuoteRevision(customerId:string,quoteIdOrNumber:string,r
     :one<RevisionRow>(`${REVISION} WHERE quote_id=? AND revision=?`,q.id,revision);
   if(!row)return undefined;
   const rep=one<Rep>('SELECT id,name,initials,title,phone,email FROM reps WHERE id=?',q.rep_id)??null;
-  return {quote_id:q.id,revision:row.revision,sent_at:row.sent_at,snapshot:customerSnapshot(JSON.parse(row.snapshot) as QuoteSnapshot),rep};
+  return {quote_id:q.id,revision:row.revision,sent_at:row.sent_at,attach_pdf:bool(row.attach_pdf),snapshot:customerSnapshot(JSON.parse(row.snapshot) as QuoteSnapshot),rep};
 }

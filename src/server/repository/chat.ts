@@ -1,6 +1,6 @@
 import 'server-only';
 import {randomUUID} from 'node:crypto';
-import type {ChatMessage,Conversation,MessageRole} from '@/domain';
+import {QUOTE_READY_KIND,type ChatMessage,type Conversation,type MessageRole,type QuoteNotice} from '@/domain';
 import type {Category,ChatTurn} from '@/lib/contracts';
 import {all,nowIso,one,run} from './sql';
 
@@ -41,6 +41,33 @@ export function addMessage(customerId:string,conversationId:string,{id=randomUUI
   if(!conversation(customerId,conversationId))return undefined;
   run('INSERT INTO messages(id,conversation_id,role,kind,content,payload,created_at) VALUES(?,?,?,?,?,?,?)',id,conversationId,role,kind,content,payload===null?null:JSON.stringify(payload),at);
   return toMessage(one<MessageRow>(`${MESSAGE} WHERE m.id=?`,id)!);
+}
+
+/** The payload's fields, copied one by one and type-checked; undefined when any is missing or of the wrong type. */
+function noticeFields(payload:unknown):Omit<QuoteNotice,'id'|'conversation_id'|'created_at'|'text'>|undefined{
+  if(!payload||typeof payload!=='object')return undefined;
+  const p=payload as Record<string,unknown>;
+  const text=(key:string)=>typeof p[key]==='string';
+  if(!text('quote_id')||!text('quote_number')||!Number.isInteger(p.revision)||typeof p.total!=='number'||!Number.isFinite(p.total)
+    ||!text('valid_until')||!text('headline')||typeof p.attach_pdf!=='boolean'||!text('pdf_url'))return undefined;
+  return {quote_id:p.quote_id as string,quote_number:p.quote_number as string,revision:p.revision as number,total:p.total as number,valid_until:p.valid_until as string,
+    headline:p.headline as string,attach_pdf:p.attach_pdf as boolean,pdf_url:p.pdf_url as string};
+}
+
+/**
+ * Customer-safe: the "quote is ready" messages Approve & send posted in the customer's chat (task
+ * 3.7), oldest first, in all their conversations or only `conversationId`. history() leaves them
+ * out (they have no query-log row), so the chat reads them here (task 5.1). Only a message about one
+ * of the customer's own quotes is returned, with its payload rebuilt field by field; a malformed one
+ * is skipped.
+ */
+export function quoteNotices(customerId:string,conversationId:string|null=null):QuoteNotice[]{
+  return all<MessageRow>(`${MESSAGE} JOIN conversations c ON c.id=m.conversation_id JOIN quotes q ON q.id=json_extract(m.payload,'$.quote_id') AND q.customer_id=c.customer_id
+    WHERE c.customer_id=? AND m.kind=? AND (? IS NULL OR m.conversation_id=?) ORDER BY m.created_at,m.rowid`,customerId,QUOTE_READY_KIND,conversationId,conversationId)
+    .flatMap(row=>{
+      const fields=noticeFields(toMessage(row).payload);
+      return fields?[{id:row.id,conversation_id:row.conversation_id,created_at:row.created_at,text:row.content,...fields}]:[];
+    });
 }
 
 export interface QueryLogEntry {customerId:string;conversationId:string;question:string;categories:Category[];handled:Category[];toolCalls:string[];rowCount:number;latency:number;outcome:string;answer:string;at?:string}
