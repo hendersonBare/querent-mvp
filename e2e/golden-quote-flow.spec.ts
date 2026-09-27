@@ -273,12 +273,63 @@ test(
   },
 );
 
-test.fixme(
+test(
   "6. Brandi Approve & send → Confirm (rep half)",
   { tag: "@step6", annotation: { type: "task", description: "3.7 Approve & send dialog" } },
   async () => {
-    // TODO(3.7): Approve & send → send dialog (Querent chat only, Attach PDF on) → Send quote →
-    // centered Confirm send dialog (red Cancel, Querent-green Send) → Send. Status becomes sent (rev 1).
+    // Brandi is still on the quote from step 5, with the bolts priced below floor.
+    await expect(brandi.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
+    await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${flow.quoteNumber}$`));
+    const total = (await brandi.getByLabel("Quote totals").getByRole("definition").last().textContent())!.trim();
+    const sendQuote = brandi.getByRole("button", { name: "Send quote" });
+    let sendQuoteBox: { x: number; y: number; width: number; height: number };
+
+    await test.step("the send dialog: Querent chat only, Attach PDF on, an editable message", async () => {
+      await brandi.getByRole("button", { name: "Approve & send" }).click();
+      const dialog = brandi.getByRole("dialog", { name: "Send quote to Dana Ortiz" });
+      await expect(dialog).toContainText(`2 items · ${total} before tax · Will call at SLC`);
+      // The below-floor bolts only warn: Send quote stays enabled.
+      await expect(dialog.getByText(/^Still open:/)).toContainText("below Brandi's 20% Fasteners floor");
+      const via = dialog.getByRole("group", { name: "Send by" });
+      await expect(via.getByRole("checkbox")).toHaveCount(2);
+      await expect(via.getByRole("checkbox", { name: "Querent chat" })).toBeChecked();
+      await expect(via.getByRole("checkbox", { name: "Querent chat" })).toBeDisabled();
+      await expect(via.getByRole("checkbox", { name: "Attach PDF" })).toBeChecked();
+      await dialog.getByRole("textbox", { name: "Message to Dana" }).fill(`Hi Dana, here is ${flow.quoteNumber}. Thanks, Brandi`);
+      await expect(sendQuote).toBeEnabled();
+      sendQuoteBox = (await sendQuote.boundingBox())!;
+    });
+
+    await test.step("Send quote → the centered Confirm send: red Cancel, Querent-green Send, away from Send quote", async () => {
+      await sendQuote.click();
+      const confirm = brandi.getByRole("alertdialog", { name: "Confirm send" });
+      await expect(confirm).toContainText(`Quote${flow.quoteNumber} rev 1`);
+      await expect(confirm).toContainText("ToDana Ortiz, Wasatch Mechanical Contractors");
+      await expect(confirm).toContainText(`Total${total}before tax`);
+      await expect(confirm).toContainText("Below floor1 line");
+      const viewport = brandi.viewportSize()!;
+      const box = (await confirm.boundingBox())!;
+      expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(2);
+      expect(Math.abs(box.y + box.height / 2 - viewport.height / 2)).toBeLessThan(2);
+      await expect(confirm.getByRole("button", { name: "Cancel" })).toHaveCSS("background-color", "rgb(192, 57, 43)");
+      const send = confirm.getByRole("button", { name: "Send", exact: true });
+      await expect(send).toHaveCSS("background-color", "rgb(14, 124, 116)");
+      const s = (await send.boundingBox())!;
+      const overlaps =
+        s.x < sendQuoteBox.x + sendQuoteBox.width && sendQuoteBox.x < s.x + s.width && s.y < sendQuoteBox.y + sendQuoteBox.height && sendQuoteBox.y < s.y + s.height;
+      expect(overlaps, "Send sits where Send quote was").toBe(false);
+      await send.click();
+      await expect(confirm).toBeHidden();
+    });
+
+    await test.step("the quote is sent as rev 1", async () => {
+      await expect(brandi.getByText(`Sent ${flow.quoteNumber} rev 1 to Dana in Querent chat`)).toBeVisible();
+      await expect(brandi.getByText(/^Sent to Dana as rev 1 on /)).toBeVisible();
+      await expect(brandi.locator("h1 + *")).toHaveText("Sent");
+      await expect(brandi.getByRole("button", { name: "Approve & send" })).toBeDisabled();
+      const detail = await brandi.evaluate((number) => fetch(`/api/rep/quotes/${number}`).then((r) => r.json()), flow.quoteNumber);
+      expect(detail.quote).toMatchObject({ status: "sent", revision: 1 });
+    });
   },
 );
 
