@@ -20,10 +20,10 @@ describe('ItemsList',()=>{
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Items');
     expect(screen.getByText(/Herrick’s catalog · 2 items · stock at SLC, Ogden and Provo/)).toBeInTheDocument();
     expect(screen.getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Item','Category','List price','SLC','Ogden','Provo','Total']);
-    // Item, category, list price, then available at SLC, Ogden, Provo (with what's on order), and the total.
+    // Item (with the list price phones show under it), category, list price, then available at SLC, Ogden, Provo (with what's on order), and the total.
     expect(screen.getAllByRole('row').slice(1).map(r=>r.textContent)).toEqual([
-      'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zincHCS-12-13-2G8 · Box of 50Fasteners$38.956422894',
-      'Ratchet strap 2 in x 27 ft, 3,333 lb WLL, J-hooksRS-2-27-JH · EachMaterial Handling & Tie-downs$28.507200+24 on order27',
+      'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zincHCS-12-13-2G8 · Box of 50List $38.95Fasteners$38.956422894',
+      'Ratchet strap 2 in x 27 ft, 3,333 lb WLL, J-hooksRS-2-27-JH · EachList $28.50Material Handling & Tie-downs$28.507200+24 on order27',
     ]);
     expect(screen.getByRole('link',{name:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc'})).toHaveAttribute('href','/rep/items/HCS-12-13-2G8');
   });

@@ -29,10 +29,12 @@ export function OrdersList({rows,viewing}:{rows:OrderListRow[];viewing:Viewing})
           <tbody>{rows.map(o=><tr key={o.id}>
             <th scope="row">
               <Link className={s.name} href={hrefFor(viewing,`/rep/orders/${encodeURIComponent(o.order_number)}`)}>{o.order_number}</Link>
-              {(o.po_number||o.quote_number)&&<span className={s.sub}>{[o.po_number&&`PO ${o.po_number}`,o.quote_number&&`from ${o.quote_number}`].filter(Boolean).join(' · ')}</span>}
+              {(o.po_number||o.quote_number)&&<span className={s.sub}>
+                {o.po_number&&<span className={s.ref}>PO {o.po_number}</span>}{o.po_number&&o.quote_number&&' · '}{o.quote_number&&<span className={s.ref}>from {o.quote_number}</span>}
+              </span>}
             </th>
             {allCustomers&&<td className={s.wide}>{o.customer_name}<span className={`${s.sub} ${s.mono}`}>{o.account_number}</span></td>}
-            <td className={s.nowrap}>{day(o.order_date)}</td>
+            <td className={s.date}>{day(o.order_date)}</td>
             <td className={`${s.wide} ${s.nowrap}`}>{fulfillment(o.fulfillment,o.branch_code)}</td>
             <td><OrderStatusChip status={o.status}/></td>
             <td className={`${s.num} ${s.wide}`}>{o.line_count}</td>

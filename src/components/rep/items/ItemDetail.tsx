@@ -46,7 +46,7 @@ export function ItemDetail({view,viewing}:{view:ItemView;viewing:Viewing}){
             <tbody>{sales.map((sale,i)=><tr key={`${sale.order_id}-${i}`}>
               <th scope="row"><Link className={s.name} href={hrefFor(viewing,`/rep/orders/${encodeURIComponent(sale.order_number)}`)}>{sale.order_number}</Link></th>
               {allCustomers&&<td className={s.wide}>{sale.customer_name}</td>}
-              <td className={s.nowrap}>{day(sale.order_date)}</td>
+              <td className={s.date}>{day(sale.order_date)}</td>
               <td className={s.num}>{sale.qty}</td>
               <td className={s.num}>{money(sale.unit_price)}</td>
             </tr>)}</tbody>

@@ -94,7 +94,7 @@ function RecentOrders({view,viewing}:{view:CustomerView;viewing:Viewing}){
           <Link className={s.name} href={hrefFor(viewing,`/rep/orders/${encodeURIComponent(o.order_number)}`)}>{o.order_number}</Link>
           {o.po_number&&<span className={s.sub}>PO {o.po_number}</span>}
         </th>
-        <td className={s.nowrap}>{day(o.order_date)}</td>
+        <td className={s.date}>{day(o.order_date)}</td>
         <td className={s.wide}>{fulfillment(o.fulfillment,o.branch_code)}</td>
         <td><OrderStatusChip status={o.status}/></td>
         <td className={s.num}>{money(o.total)}</td>
@@ -117,7 +117,7 @@ function RecentQuotes({view,viewing}:{view:CustomerView;viewing:Viewing}){
           <Link className={s.name} href={hrefFor(viewing,`/rep/quotes/${encodeURIComponent(q.quote_number)}`)} prefetch={false}>{q.quote_number}</Link>
           <span className={s.sub}>{revision(q.revision)} · {count(q.line_count,'line')}</span>
         </th>
-        <td className={s.nowrap}>{day(q.requested_at)}</td>
+        <td className={s.date}>{day(q.requested_at)}</td>
         <td><QuoteStatusChip status={q.status}/></td>
         <td className={s.num}>{q.sent_total===null?<span className={s.muted}>Not sent</span>:money(q.sent_total)}</td>
       </tr>)}</tbody>

@@ -46,7 +46,7 @@ function CustomerRow({row,viewing,mine}:{row:CustomerDirectoryRow;viewing:Viewin
     <td>{row.rep_name??<span className={s.muted}>Unassigned</span>}{mine&&<span className={s.tag}>You</span>}</td>
     <td className={s.wide}>{onFile?row.terms??'—':<span className={s.muted}>Not on file</span>}</td>
     <td className={`${s.num} ${s.wide}`}>{onFile?<>{money(row.open_balance)}{row.credit_limit!==null&&<span className={s.sub}>of {money(row.credit_limit)}</span>}</>:<span className={s.muted}>—</span>}</td>
-    <td className={s.nowrap}>{row.last_order_date?day(row.last_order_date):<span className={s.muted}>No orders yet</span>}</td>
+    <td className={s.date}>{row.last_order_date?day(row.last_order_date):<span className={s.muted}>No orders yet</span>}</td>
     <td className={`${s.num} ${s.wide}`}>{row.order_count}</td>
     <td className={`${s.num} ${s.wide}`}>{row.quote_count}</td>
   </tr>;

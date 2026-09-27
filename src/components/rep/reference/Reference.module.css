@@ -139,12 +139,19 @@
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
+/* Undo the old app's global th/td look (globals.css: grey uppercase headers, no wrapping). */
 .table th,
 .table td {
   padding: 11px 10px;
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid var(--rep-line-2);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: inherit;
+  background: none;
+  white-space: normal;
 }
 .table thead th {
   padding-block: 9px;
@@ -215,8 +222,14 @@
 .muted {
   color: var(--rep-muted);
 }
-.nowrap {
+.table .nowrap,
+.table .date,
+.sku,
+.ref {
   white-space: nowrap;
+}
+.phoneOnly {
+  display: none;
 }
 .strong {
   font-weight: 600;
@@ -407,6 +420,12 @@
 @media (max-width: 560px) {
   .wide {
     display: none;
+  }
+  .phoneOnly {
+    display: block;
+  }
+  .table .date {
+    white-space: normal;
   }
   .table th,
   .table td {
