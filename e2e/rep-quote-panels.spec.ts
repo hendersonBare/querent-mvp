@@ -253,6 +253,69 @@ test("quote terms, internal notes and Activity: saved, logged newest first, and 
   await expect((await open(page, "Internal notes")).getByRole("list", { name: "Internal notes" })).toContainText("Dana will push back on the glove price.");
 });
 
+test("Reset sample quote (⋯ menu, task 3.5) puts every panel back to the seed after its reload", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1057 });
+  await openQuote(page);
+  const seededUntil = (await summaryOf(page, "Quote terms").textContent())!.match(/Valid until (.+)$/)![1];
+
+  // Edit every panel through the UI: delivery with a freight override, terms, PO, an internal note.
+  const box = await open(page, "Pickup or delivery");
+  await chooseMode(box, "Delivery");
+  await saved(page);
+  await box.getByRole("button", { name: "Set freight by hand" }).click();
+  await box.getByRole("textbox", { name: "Freight amount" }).fill("80");
+  await box.getByRole("textbox", { name: /Reason/ }).fill("Liftgate truck for the job site");
+  await box.getByRole("button", { name: "Save freight" }).click();
+  await expect(box.getByRole("region", { name: "Freight" })).toContainText("Freight (set by rep)$80.00");
+  const terms = await open(page, "Quote terms");
+  await terms.getByRole("combobox", { name: "Valid for" }).selectOption("30");
+  await saved(page);
+  await terms.getByRole("textbox", { name: "Customer PO number" }).fill("7781");
+  await terms.getByRole("textbox", { name: "Customer PO number" }).press("Enter");
+  await expect(summaryOf(page, "Quote terms")).toContainText("PO 7781");
+  const notes = await open(page, "Internal notes");
+  await notes.getByRole("textbox", { name: "Only your team sees these" }).fill("Dana will push back on the glove price.");
+  await notes.getByRole("button", { name: "Add note" }).click();
+  await expect(summaryOf(page, "Internal notes")).toContainText("1 note");
+  // The printed note is still being typed when the rep opens the menu: leaving the field saves it,
+  // and Reset waits for that save, so nothing lands on the sample after its reset.
+  await terms.getByRole("textbox", { name: "Note printed on the quote" }).fill("Straps ship from Ogden.");
+  await expect(summaryOf(page, "Pickup or delivery")).toContainText("Delivery · SLC");
+  await expect(summaryOf(page, "Activity")).not.toContainText("3 events");
+
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menu", { name: "More actions" }).getByRole("menuitem", { name: "Reset sample quote" }).click();
+  await expect(page.getByText("Sample quote reset")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/rep/quotes/${SAMPLE}\\?customer=wasatch$`));
+
+  // After the reload, every panel shows the seed again.
+  await expect(rail(page).locator("details > summary")).toHaveText([
+    /^Customer\s*Net 30 · 39% of credit$/,
+    /^Pickup or delivery\s*Will call · SLC · Thu Sep 24$/,
+    new RegExp(`^Quote terms\\s*Valid until ${seededUntil}$`),
+    /^Internal notes\s*None$/,
+    /^Activity\s*3 events$/,
+  ]);
+  const fulfillment = await open(page, "Pickup or delivery");
+  await expect(fulfillment.getByRole("radio", { name: "Will call" })).toBeChecked();
+  await expect(fulfillment.getByRole("region", { name: "Freight" })).toContainText("Freight$0.00");
+  await expect(fulfillment.getByRole("region", { name: "Freight" })).not.toContainText("set by rep");
+  const reset = await open(page, "Quote terms");
+  await expect(reset.getByRole("combobox", { name: "Valid for" })).toHaveValue("14");
+  await expect(reset.getByRole("textbox", { name: "Customer PO number" })).toHaveValue("");
+  await expect(reset.getByRole("textbox", { name: "Note printed on the quote" })).toHaveValue("");
+  await expect((await open(page, "Internal notes")).getByRole("list", { name: "Internal notes" })).toHaveCount(0);
+  await expect(creditLine(await open(page, "Customer"))).toHaveText("Credit used, with this quote: 39%");
+  await expect(totals(page)).toContainText("Freight (will call)$0.00");
+  await expect(totals(page)).toContainText("Quote total$1,122.40");
+  await attachScreenshot(page, testInfo, "panels-after-reset", rail(page));
+  // The server has the seed too.
+  const detail = (await api(page, `/api/rep/quotes/${SAMPLE}`)).body;
+  expect(detail.quote).toMatchObject({ fulfillment: "will_call", branch_id: "slc", freight_override: null, freight_override_reason: null, valid_days: 14, customer_po: null, customer_note: null });
+  expect(detail.panels.notes).toEqual([]);
+  expect(detail.panels.activity).toHaveLength(3);
+});
+
 test("sent, accepted and expired quotes: panels read-only and every panel edit refused (409); changes_requested is editable", async ({ page }) => {
   await openQuote(page, made.sent);
   const box = await open(page, "Pickup or delivery");
