@@ -2,7 +2,7 @@ import {describe,expect,it} from 'vitest';
 import type {Quote,QuoteSnapshot} from '@/domain';
 import {
   addQuoteActivity,addQuoteLine,addQuoteNote,addQuoteRevision,createQuote,customerQuote,customerQuoteRevision,customerQuotes,markQuoteRead,quote,quoteActivity,quoteByNumber,quoteNotes,
-  quoteRevision,quoteRevisions,quotes,removeQuoteLine,resetSampleQuote,saveQuoteTransition,setFreightOverride,unreadQuoteCount,updateQuoteFulfillment,updateQuoteLine,updateQuoteTerms,
+  quoteRevision,quoteRevisions,quotes,removeQuoteLine,resetSampleQuote,restoreQuoteLine,saveQuoteTransition,setFreightOverride,unreadQuoteCount,updateQuoteFulfillment,updateQuoteLine,updateQuoteTerms,
 } from './quotes';
 import {inTransaction} from './sql';
 import {useSeededDatabase} from './test-db';
@@ -124,6 +124,19 @@ describe('editing lines, terms, fulfillment and freight',()=>{
     expect(removeQuoteLine(q.id,`${q.id}-2`)).toBe(false);
     expect(quote(q.id)?.lines.map(l=>l.line_no)).toEqual([1,3]);
     expect(addQuoteLine(q.id,{itemId:'LW-12-ZP',qty:5})?.line_no).toBe(4);
+  });
+
+  it('restores a removed line under its old number, or at the end once the number is taken (task 3.3 Undo)',()=>{
+    const q=newQuote();addQuoteLine(q.id,{itemId:'HN-12-13-G5',qty:5});addQuoteLine(q.id,{itemId:'FW-12-SAE',qty:5});
+    removeQuoteLine(q.id,`${q.id}-2`);
+    const back=restoreQuoteLine(q.id,2,{itemId:'HN-12-13-G5',qty:5,unitPrice:9.5,priceBasis:'custom',requestedText:'nuts',addedBy:'upsell'},T2);
+    expect(back).toMatchObject({id:`${q.id}-2`,line_no:2,sku:'HN-12-13-G5',unit_price:9.5,requested_text:'nuts',added_by:'upsell'});
+    expect(back!.unit_cost).toBeGreaterThan(0);
+    expect(quote(q.id)).toMatchObject({updated_at:T2});
+    expect(quote(q.id)?.lines.map(l=>l.line_no)).toEqual([1,2,3]);
+    expect(restoreQuoteLine(q.id,2,{itemId:'LW-12-ZP',qty:1})?.line_no).toBe(4);
+    expect(restoreQuoteLine(q.id,0,{itemId:'LW-12-ZP',qty:1})?.line_no).toBe(5);
+    expect(restoreQuoteLine('nope',2,{itemId:'LW-12-ZP',qty:1})).toBeUndefined();
   });
 
   it('updates quote terms',()=>{

@@ -200,20 +200,75 @@ test(
   },
 );
 
-test.fixme(
+test(
   "5. Brandi opens it from the unread badge, switches a price basis, types a below-floor price → red warning",
   { tag: "@step5", annotation: { type: "task", description: "3.3 Quote detail" } },
   async () => {
+    // The bolts are on both the sample and the quote Dana requests in step 4.
+    const SKU = "HCS-12-13-2G8";
+    const line = () => brandi.getByRole("rowheader", { name: new RegExp(SKU) }).locator("xpath=ancestor::tbody[1]");
+    const price = () => line().getByRole("textbox", { name: `Unit price for ${SKU}` });
+    const basis = () => line().getByRole("button", { name: new RegExp(`^Price basis for ${SKU}: `) });
+    const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
     await test.step("open the quote from the unread badge", async () => {
-      // TODO(3.3): Quotes nav shows the unread badge; open flow.quoteNumber from the list.
+      await brandi.goto("/rep/quotes");
+      const quotes = brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ });
+      await expect(quotes).toHaveAccessibleName(/^Quotes \d+ unread$/);
+      const unread = Number((await quotes.textContent())!.match(/\d+/)![0]);
+      await quotes.click();
+      const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: flow.quoteNumber, exact: true }) });
+      await expect(row.getByRole("rowheader")).toHaveText(/^Unread: /);
+      await row.getByRole("link", { name: flow.quoteNumber, exact: true }).click();
+      await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${flow.quoteNumber}$`));
+      await expect(brandi.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
+      await expect(brandi.getByText("Draft ready")).toBeVisible();
+      // Opening it cleared its unread flag, so the badge dropped by one.
+      await expect(quotes).toHaveAccessibleName(unread > 1 ? `Quotes ${unread - 1} unread` : "Quotes");
     });
+
     await test.step("switch a line's price basis", async () => {
-      // TODO(3.3): the price-basis dropdown lists Contract / Customer / List / Last paid / Custom
-      // with $ values, Querent's pick in bold; choosing another basis updates the line total.
+      await basis().click();
+      const list = brandi.getByRole("listbox", { name: `Price basis for ${SKU}` });
+      const options = list.getByRole("option");
+      await expect(options).toHaveText([/^Contract/, /^Customer.*\$\d/, /^List.*\$\d/, /^Last paid.*\$\d/, /^Custom/]);
+      // Querent's pick is bold, and it is the only bold option.
+      const pick = options.filter({ has: brandi.locator("strong") });
+      await expect(pick).toHaveCount(1);
+      await expect(pick).toContainText("Querent’s pick");
+      // Switch to another basis (List, unless List is already the line's basis).
+      const current = (await basis().innerText()).trim();
+      const target = options.filter({ hasText: current === "List" ? /^Customer/ : /^List/ });
+      const targetPrice = Number((await target.innerText()).match(/\$([\d,]+\.\d\d)/)![1].replace(/,/g, ""));
+      await target.click();
+      await expect(list).toHaveCount(0);
+      await expect(price()).toHaveValue(targetPrice.toFixed(2));
+      const qty = Number(await line().getByRole("textbox", { name: `Quantity for ${SKU}` }).inputValue());
+      await expect(line().getByRole("cell").nth(5)).toHaveText(usd(qty * targetPrice));
+      await expect(brandi.getByText("All changes saved")).toBeVisible();
     });
+
     await test.step("a below-floor price shows the red warning above the price field", async () => {
-      // TODO(3.3): type a custom price below the floor → "Below Brandi's N% <category> floor"
-      // appears directly above that price field. It never blocks.
+      await expect(line().getByRole("note")).toHaveCount(0);
+      await price().fill("22.00");
+      await price().press("Tab");
+      const warning = line().getByRole("note");
+      await expect(warning).toHaveText("Below Brandi's 20% Fasteners floor");
+      await expect(basis()).toHaveAccessibleName(`Price basis for ${SKU}: Custom`);
+      await expect(price()).toHaveAttribute("aria-describedby", (await warning.getAttribute("id"))!);
+      // Directly above the price field: its bottom edge just over the field, and overlapping it sideways.
+      const w = (await warning.boundingBox())!;
+      const p = (await price().boundingBox())!;
+      expect(w.y + w.height).toBeLessThanOrEqual(p.y);
+      expect(p.y - (w.y + w.height)).toBeLessThan(16);
+      expect(w.x).toBeLessThan(p.x + p.width);
+      expect(w.x + w.width).toBeGreaterThan(p.x);
+      // It never blocks: Approve & send stays available, and the price is saved.
+      await expect(brandi.getByRole("button", { name: "Approve & send" })).toBeEnabled();
+      await expect(brandi.getByText("All changes saved")).toBeVisible();
+      await brandi.reload();
+      await expect(price()).toHaveValue("22.00");
+      await expect(line().getByRole("note")).toHaveText("Below Brandi's 20% Fasteners floor");
     });
   },
 );
