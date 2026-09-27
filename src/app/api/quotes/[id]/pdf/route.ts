@@ -13,6 +13,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 // - the customer: only their own quotes, and only revisions the rep sent. A draft (e.g. Q-24817
 //   in ready_for_review) has unreviewed prices, so it is 404 like any quote they can't see.
 // - the rep: any sent revision, or rev=draft to preview the unsent draft (the 3.7 send dialog).
+//   Like the Quotes list, Brandi (supplier_admin) sees every customer's quotes.
 // - no session: 401. Unknown ids, other customers' quotes and unsent revisions: 404.
 
 export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){
@@ -25,7 +26,8 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
     if(!user.customer_id)return pdfError('Customer access required.',403);
     return customerQuotePdf(user.customer_id,id,query.rev);
   }
-  if(user.role!=='supplier_admin')return pdfError('Not found.',404);
+  // The rep check of /api/rep/badges (task 3.1).
+  if(user.role!=='supplier_admin'||!user.rep_id)return pdfError('Supplier access required.',403);
   const pdf=await repCustomerPdf(id,query.rev);
   return pdf.ok?pdfResponse(pdf.model):pdfError(pdf.detail,pdf.status);
 }
