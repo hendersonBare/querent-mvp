@@ -32,7 +32,7 @@ const NOT_EDITABLE:Partial<Record<QuoteStatus,(n:string)=>string>>={
 };
 
 /** The rep's quote, if its status allows edits right now; throws not_found or illegal_transition (409). */
-function editableQuote(repId:string,quoteIdOrNumber:string,now:string):Quote{
+export function editableQuote(repId:string,quoteIdOrNumber:string,now:string):Quote{
   const q=repQuote(repId,quoteIdOrNumber);
   if(!q)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
   const status=effectiveStatus(q,now);

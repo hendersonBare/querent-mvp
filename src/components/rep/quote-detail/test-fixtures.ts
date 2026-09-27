@@ -2,6 +2,7 @@ import type {ItemStock,PriceSources,QuoteLine} from '@/domain';
 import type {FloorRow} from '@/server/floors';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import type {DetailLine} from '@/server/rep/quote-math';
+import {SAMPLE_PANELS} from './panels/test-fixtures';
 
 // Quote detail fixtures for unit and component tests (task 3.3): the seeded sample Q-24817 as
 // GET /api/rep/quotes/Q-24817 returns it on the mockup's day (seed 2026-09-23), priced by the
@@ -83,6 +84,7 @@ export function sampleDetail({quote,...overrides}:Partial<Omit<QuoteDetail,'quot
     freight:{computed:{rule:'will_call',amount:0,miles:null,formula:null,explanation:'Will call at SLC: no freight.'},override:null,amount:0,source:'computed',unresolved:false},
     delivery_rates:{base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75},
     send_check:{can_send:true,status_problem:null,blockers:[],below_floor_count:1,subtotal:1122.4,total:1122.4,revision:1},
+    panels:SAMPLE_PANELS,
     ...overrides,
   };
 }

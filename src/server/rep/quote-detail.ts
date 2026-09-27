@@ -7,6 +7,7 @@ import {canEditDraft,effectiveStatus,validUntilFor} from '@/server/quotes';
 import {sendCheck,type SendCheck} from '@/server/quotes/service';
 import {contact,deliveryRates,pricingSettings,priceSources,repFloors,stockForItems} from '@/server/repository';
 import type {DetailLine} from './quote-math';
+import {quotePanels,type QuotePanels} from './quote-panels';
 import {repQuote} from './quotes';
 
 // The rep's quote detail (spec §4, task 3.3): GET /api/rep/quotes/<id> and the /rep/quotes/<id>
@@ -36,6 +37,8 @@ export interface QuoteDetail {
   delivery_rates:DeliveryRates;
   /** sendCheck (task 1.5) on the saved draft: what blocks Approve & send, and the floor count. */
   send_check:Pick<SendCheck,'can_send'|'status_problem'|'blockers'|'below_floor_count'|'subtotal'|'total'|'revision'>;
+  /** The side panels (task 3.4): customer and credit, branches, internal notes, Activity. */
+  panels:QuotePanels;
 }
 
 export interface QuoteDetailOptions {now?:string;provider?:DistanceProvider}
@@ -68,7 +71,8 @@ export async function quoteDetailOf(q:Quote,{now=clock(),provider}:QuoteDetailOp
     floors:repFloors(q.rep_id).map(({rep_id,category_id,margin_floor})=>({rep_id,category_id,margin_floor})),
     freight:check.freight,delivery_rates:deliveryRates(),
     send_check:{can_send:check.can_send,status_problem:check.status_problem,blockers:check.blockers,below_floor_count:check.below_floor_count,
-      subtotal:check.subtotal,total:check.total,revision:check.revision}};
+      subtotal:check.subtotal,total:check.total,revision:check.revision},
+    panels:quotePanels(q,now)};
 }
 
 /** One of the rep's quotes, by id or number, with everything the detail page needs; undefined if it isn't theirs. */
