@@ -67,6 +67,9 @@ it('serves the "quote is ready" messages for the chat on screen (task 5.1), neve
 
 it('keeps customers out of supplier routes, and suppliers out of customer routes',async()=>{
   expect((await call('GET','supplier/customers')).status).toBe(403);
+  // The old supplier dashboard API is gone: the rep portal reads /api/rep/* (analytics, quotes, settings).
+  for(const path of ['supplier/customers','supplier/reps','supplier/dashboard/all','supplier/dashboard/wasatch'])
+    expect((await call('GET',path,{persona:'supplier'})).status,path).toBe(404);
   expect((await call('GET','customer/nothing-here')).status).toBe(403);
   // The old chat rep panel (customer/panel) is gone: the left sidebar reads customer/contacts (task 2.4).
   expect((await call('GET','customer/panel')).status).toBe(403);

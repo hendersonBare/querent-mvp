@@ -14,7 +14,15 @@ vi.mock('next/navigation',()=>({
 vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;children?:ReactNode})=><a href={href} {...rest}>{children}</a>}));
 
 const {RepShell}=await import('./RepShell');
-const {SectionPlaceholder}=await import('./RepPage');
+const {RepPageHeader}=await import('./RepPage');
+const {useRepPortal,useRepScope}=await import('./context');
+
+/** A page in the shell that shows what the shell gives it: the picked customer and the unread quotes. */
+function ScopedPage(){
+  const scope=useRepScope();
+  const {badges}=useRepPortal();
+  return <RepPageHeader title="Quotes" description={<>Viewing {scope.label}{badges.quotes>0&&<> · {badges.quotes} unread {badges.quotes===1?'quote':'quotes'}</>}</>}/>;
+}
 const {SettingsSection}=await import('./SettingsSection');
 const {settingsFixture}=await import('./settings/test-fixtures');
 
@@ -24,20 +32,17 @@ const customers:CustomerListItem[]=[
   {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos'},
 ];
 const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'};
-const dashboard={access:[{category:'pricing',enabled:true,rep_id:'brandi',mixed_rep:false,rep_name:'Brandi Gallegos',phone:null,email:null}],
-  analytics:{total_queries:7,minutes_saved:60,hours_saved:'1.0',categories:[]}};
 
 let badgeCount=1;
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
   if(url==='/api/rep/badges')return Response.json({quotes:badgeCount});
   if(url==='/api/session'&&init?.method==='DELETE')return Response.json({ok:true});
-  if(url.startsWith('/api/query/supplier/dashboard/'))return Response.json(dashboard);
   if(url==='/api/query/erp/status')return Response.json({last_updated:null,events:[]});
   return Response.json({detail:'Not found.'},{status:404});
 });
 
-function renderShell(children:ReactNode=<SectionPlaceholder title="Quotes" showUnreadQuotes heading="Your quotes will be listed here" body="Soon."/>,initialBadges={quotes:1}){
+function renderShell(children:ReactNode=<ScopedPage/>,initialBadges={quotes:1}){
   return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={customers} initialBadges={initialBadges}>{children}</RepShell>);
 }
 const at=(pathname:string,query='')=>{nav.pathname=pathname;nav.query=query;};

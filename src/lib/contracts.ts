@@ -9,7 +9,6 @@ export interface AccessRule {category:Category;enabled:boolean|null;rep_id:strin
 export interface Rep {id:string;name:string;phone:string;email:string;initials?:string;title?:string}
 export interface Customer {id:string;name:string;account_number?:string}
 export interface Analytics {total_queries:number;minutes_saved:number;hours_saved:string;categories:{category:Category;count:number;rep_name:string}[]}
-export interface Dashboard {access:AccessRule[];analytics:Analytics}
 export interface ERPStatus {last_updated:string|null;events:{id:number;timestamp:string;message:string}[]}
 /**
  * One chat reply. kind 'clarify' carries a ClarifyPayload (Querent's question about a vague line),
