@@ -32,7 +32,7 @@ const NOT_EDITABLE:Partial<Record<QuoteStatus,(n:string)=>string>>={
 };
 
 /** The rep's quote, if its status allows edits right now; throws not_found or illegal_transition (409). */
-function editableQuote(repId:string,quoteIdOrNumber:string,now:string):Quote{
+export function editableQuote(repId:string,quoteIdOrNumber:string,now:string):Quote{
   const q=repQuote(repId,quoteIdOrNumber);
   if(!q)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
   const status=effectiveStatus(q,now);
@@ -119,12 +119,15 @@ export async function editRepQuoteLine(repId:string,quoteIdOrNumber:string,lineI
   return freshDetail(quoteId,{now,provider});
 }
 
+/** Who adds a line: the rep (Add item), or the rep taking one of Querent's suggestions (task 3.6, set server-side only). */
+export interface AddLineOptions extends QuoteDetailOptions {source?:'rep'|'upsell'}
+
 /**
  * POST /api/rep/quotes/<id>/lines: adds an item (by id or SKU) at the end, priced by the engine
  * at its qty (Querent's pick is the starting price, as for a drafted line). With `restore`, puts
  * a removed line back under its old number with its price, basis and what the customer asked for.
  */
-export async function addRepQuoteLine(repId:string,quoteIdOrNumber:string,body:unknown,{now=clock(),provider}:QuoteDetailOptions={}):Promise<{detail:QuoteDetail;line_id:string}>{
+export async function addRepQuoteLine(repId:string,quoteIdOrNumber:string,body:unknown,{now=clock(),provider,source='rep'}:AddLineOptions={}):Promise<{detail:QuoteDetail;line_id:string}>{
   const input=parse(NewLineBody,body);
   const {quoteId,lineId}=inTransaction(()=>{
     const q=editableQuote(repId,quoteIdOrNumber,now);
@@ -133,7 +136,7 @@ export async function addRepQuoteLine(repId:string,quoteIdOrNumber:string,body:u
     const [priced]=priceLines({customerId:q.customer_id,repId:q.rep_id,branchId:q.branch_id,lines:[{itemId:item.id,qty:input.qty}],on:pricingDay(now)});
     const {restore}=input;
     const fields={itemId:item.id,qty:input.qty,...(priced?draftLineFields(priced):{}),
-      requestedText:restore?.requestedText??null,matchScore:restore?.matchScore??null,addedBy:restore?.addedBy??'rep' as const};
+      requestedText:restore?.requestedText??null,matchScore:restore?.matchScore??null,addedBy:restore?.addedBy??source};
     const stored=restore?restoreQuoteLine(q.id,restore.lineNo,fields,now):addQuoteLine(q.id,fields,now);
     if(!stored)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
     if(restore){
@@ -142,7 +145,7 @@ export async function addRepQuoteLine(repId:string,quoteIdOrNumber:string,body:u
     }
     const who=firstName(q.rep_name);
     addQuoteActivity(q.id,{actor:'rep',actorId:repId,kind:restore?'line_restored':'line_added',at:now,
-      message:restore?`${who} put back ${named(stored)}`:`${who} added ${named(stored)}, qty ${stored.qty}`});
+      message:restore?`${who} put back ${named(stored)}`:`${who} added ${named(stored)}, qty ${stored.qty}${source==='upsell'?', suggested by Querent':''}`});
     return {quoteId:q.id,lineId:stored.id};
   });
   return {detail:await freshDetail(quoteId,{now,provider}),line_id:lineId};
