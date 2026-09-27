@@ -1,4 +1,4 @@
-import {fireEvent,render,screen,within} from '@testing-library/react';
+import {act,fireEvent,render,screen,within} from '@testing-library/react';
 import {describe,expect,it,vi} from 'vitest';
 import {linePricing} from '@/server/rep/quote-math';
 import {PriceBasisSelect} from './PriceBasisSelect';
@@ -82,6 +82,20 @@ describe('price-basis dropdown',()=>{
     const contract=screen.getByRole('option',{name:/Contract/});
     expect(contract).toHaveTextContent('ContractQuerent’s pickWAS-C-2026-01$36.00');
     expect(contract.querySelector('strong')).toHaveTextContent('Contract');
+  });
+
+  it('stays open and follows its button when the page scrolls (it is fixed to the viewport)',async()=>{
+    const {button}=renderSelect();
+    let top=400;
+    button.getBoundingClientRect=()=>({top,bottom:top+20,left:900,right:980,width:80,height:20,x:900,y:top,toJSON:()=>({})});
+    fireEvent.click(button);
+    const list=screen.getByRole('listbox');
+    expect(list.style.top).toBe('424px');
+    top=100;
+    fireEvent.scroll(window);
+    await act(async()=>{await new Promise(resolve=>requestAnimationFrame(()=>resolve(null)));});
+    expect(screen.getByRole('listbox')).toBe(list);
+    expect(list.style.top).toBe('124px');
   });
 
   it('can be disabled (read-only quotes)',()=>{

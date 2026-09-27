@@ -11,8 +11,9 @@ import s from './QuoteDetail.module.css';
 // an <option> can't reliably show bold text. Choosing a basis prices the line at it; Custom keeps
 // the typed price. A basis the line has no price for is listed but can't be chosen.
 // The list is fixed to the viewport under its button (above it near the bottom of the screen),
-// so the grid's scroll container neither clips it nor scrolls when it opens; scrolling the page
-// or resizing closes it.
+// so the grid's scroll container neither clips it nor scrolls when it opens. It follows the
+// button when the page scrolls or resizes: closing on scroll would race the scroll that brought
+// the button into view.
 
 /** The list's width, for keeping it on screen. */
 const LIST_WIDTH=264;
@@ -50,10 +51,17 @@ export function PriceBasisSelect({options,value,onChange,label,disabled,asOf}:Pr
     if(!open)return;
     list.current?.focus({preventScroll:true});
     const outside=(event:PointerEvent)=>{if(!wrap.current?.contains(event.target as Node))setOpen(false);};
-    const away=(event:Event)=>{if(!list.current?.contains(event.target as Node))setOpen(false);};
+    let frame=0;
+    const follow=()=>{
+      cancelAnimationFrame(frame);
+      frame=requestAnimationFrame(()=>{if(button.current)setPlace(placeUnder(button.current));});
+    };
     document.addEventListener('pointerdown',outside);
-    window.addEventListener('scroll',away,true);window.addEventListener('resize',away);
-    return()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('scroll',away,true);window.removeEventListener('resize',away);};
+    window.addEventListener('scroll',follow,{capture:true,passive:true});window.addEventListener('resize',follow);
+    return()=>{
+      cancelAnimationFrame(frame);
+      document.removeEventListener('pointerdown',outside);window.removeEventListener('scroll',follow,{capture:true});window.removeEventListener('resize',follow);
+    };
   },[open]);
 
   function show(){
