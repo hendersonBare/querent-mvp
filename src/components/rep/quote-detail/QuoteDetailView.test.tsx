@@ -82,13 +82,14 @@ describe('header and panels',()=>{
     for(const name of ['Save draft','Export','More actions','Approve & send'])expect(screen.getByRole('button',{name})).toBeEnabled();
   });
 
-  it('opens the Export and ⋯ menus (Export’s items come later), and Approve & send opens the send summary',()=>{
+  it('opens the Export and ⋯ menus, and Approve & send opens the send summary',()=>{
     renderPage();
     fireEvent.click(screen.getByRole('button',{name:'More actions'}));
     expect(within(screen.getByRole('menu',{name:'More actions'})).getAllByRole('menuitem').map(i=>i.textContent))
       .toEqual(['Duplicate quote','Open customer in ERP','Reset sample quote']);
     fireEvent.click(screen.getByRole('button',{name:'Export'}));
-    expect(screen.getByRole('menu',{name:'Export'})).toBeInTheDocument();
+    expect(within(screen.getByRole('menu',{name:'Export'})).getAllByRole('menuitem').map(i=>i.firstChild?.textContent))
+      .toEqual(['Customer quote (PDF)','Internal worksheet (PDF)','Line items (CSV)','Copy quote summary']);
     fireEvent.click(screen.getByRole('button',{name:'Approve & send'}));
     const dialog=screen.getByRole('dialog',{name:'Approve & send Q-24817'});
     expect(dialog).toHaveTextContent('To Dana Ortiz in Querent chat · 4 items · $1,122.40 before tax · Will call at SLC');
