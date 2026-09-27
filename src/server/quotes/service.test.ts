@@ -107,6 +107,11 @@ describe('send: ready_for_review --> sent (rev 1)',()=>{
     expect(revision).toMatchObject({id:'q-24817-r1',revision:1,sent_at:SEND,sent_by:'brandi',message:'Hi Dana, here is your quote.',attach_pdf:true,total:1122.4});
     expect(revision.snapshot).toEqual({quote_number:'Q-24817',revision:1,sent_at:SEND,customer:{name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'},contact:'Dana Ortiz',
       rep:'Brandi Gallegos',fulfillment:'will_call',branch:'SLC',ship_to:null,valid_days:14,valid_until:'2026-10-07',customer_po:null,customer_note:null,subtotal:1122.4,freight:0,total:1122.4,
+      freight_miles:null,
+      // What the customer PDF prints around the quote, frozen at send (task 4.1).
+      terms:'Net 30',
+      rep_contact:{name:'Brandi Gallegos',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},
+      letterhead:{supplier:'Herrick Industrial Supply',website:'herrickindustrial.com',branch:'Salt Lake City',address:'1480 W 2100 S',city:'Salt Lake City',state:'UT',zip:'84119',phone:'(801) 555-0120'},
       lines:[
         {sku:'HCS-12-13-2G8',description:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc',pack:'Box of 50',qty:10,unit_price:31.5,total:315},
         {sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',pack:'Box of 25',qty:6,unit_price:36,total:216},

@@ -50,6 +50,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   purchasedItems:()=>customer.purchasedItems('wasatch'),
   customerPrices:()=>customer.customerPrices('wasatch',ALL_ITEMS(),ON),
   customerQuote:()=>customer.customerQuote('wasatch','Q-24816'),
+  customerQuoteRevision:()=>customer.customerQuoteRevision('wasatch','Q-24816'),
   customerQuotes:()=>customer.customerQuotes('wasatch'),
 };
 const RETURNS_NOTHING=new Set(['isCategory']);
