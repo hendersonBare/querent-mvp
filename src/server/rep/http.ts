@@ -1,5 +1,6 @@
 import 'server-only';
 import {NextResponse,type NextRequest} from 'next/server';
+import {QuoteActionError} from '@/server/quotes';
 import {principal} from '@/server/session';
 
 // The rep portal's API routes (/api/rep/*) serve the supplier persona only: they carry margin,
@@ -10,6 +11,20 @@ export const NO_STORE={'Cache-Control':'no-store'} as const;
 
 /** A JSON response that is never cached. */
 export const repJson=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:NO_STORE});
+
+/** The request's JSON body, or undefined when it has none or it isn't JSON (the validator then refuses it). */
+export async function jsonBody(request:Request):Promise<unknown>{
+  try{return await request.json();}catch{return undefined;}
+}
+
+/**
+ * The response for a refused quote action (QuoteActionError): its HTTP status, with the message
+ * as `detail` and its `code`. Anything else is rethrown (a 500).
+ */
+export function repError(error:unknown){
+  if(error instanceof QuoteActionError)return repJson({detail:error.message,code:error.code},error.httpStatus);
+  throw error;
+}
 
 /**
  * A route handler for the signed-in rep. `handle` gets the rep's id from the session, never

@@ -66,13 +66,13 @@ export function unreadQuoteCount(repId:string){return scalar<number>('SELECT cou
 
 function checkQty(qty:number){if(!Number.isInteger(qty)||qty<0)throw new RangeError(`Quantity must be a whole number of at least 0 (got ${qty}).`);}
 
-/** Writes one line; unit cost is copied from the item, never taken from the caller. */
-function insertLine(quoteId:string,line:NewQuoteLine,addedBy:LineSource){
+/** Writes one line; unit cost is copied from the item, never taken from the caller. `atLineNo` must be free (restoreQuoteLine checks). */
+function insertLine(quoteId:string,line:NewQuoteLine,addedBy:LineSource,atLineNo?:number){
   checkQty(line.qty);
   const cost=scalar<number>('SELECT cost FROM items WHERE id=?',line.itemId);
   if(cost===undefined)throw new Error(`Unknown item ${line.itemId}.`);
   // Line numbers only grow, so an id built from one is never reused within the quote.
-  const lineNo=(scalar<number|null>('SELECT max(line_no) FROM quote_lines WHERE quote_id=?',quoteId)??0)+1;
+  const lineNo=atLineNo??(scalar<number|null>('SELECT max(line_no) FROM quote_lines WHERE quote_id=?',quoteId)??0)+1;
   const id=`${quoteId}-${lineNo}`;
   run(`INSERT INTO quote_lines(id,quote_id,line_no,item_id,qty,unit_price,price_basis,suggested_price,suggested_basis,customer_price,unit_cost,explanation,requested_text,match_score,added_by)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,id,quoteId,lineNo,line.itemId,line.qty,line.unitPrice??null,line.priceBasis??null,line.suggestedPrice??null,line.suggestedBasis??null,
@@ -119,6 +119,19 @@ export function addQuoteLine(quoteId:string,line:NewQuoteLine,at=nowIso()){
   return inTransaction(()=>{
     if(!touch(quoteId,at))return undefined;
     return quoteLine(quoteId,insertLine(quoteId,line,'rep'));
+  });
+}
+
+/**
+ * Puts a removed line back under its old line number, so Undo on the rep's quote returns it to
+ * its place in the grid (task 3.3). If that number is taken by then, the line goes at the end.
+ * Returns undefined if the quote doesn't exist.
+ */
+export function restoreQuoteLine(quoteId:string,lineNo:number,line:NewQuoteLine,at=nowIso()){
+  return inTransaction(()=>{
+    if(!touch(quoteId,at))return undefined;
+    const free=Number.isInteger(lineNo)&&lineNo>0&&scalar<number>('SELECT 1 FROM quote_lines WHERE quote_id=? AND line_no=?',quoteId,lineNo)===undefined;
+    return quoteLine(quoteId,insertLine(quoteId,line,'rep',free?lineNo:undefined));
   });
 }
 
