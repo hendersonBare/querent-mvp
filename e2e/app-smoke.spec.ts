@@ -36,7 +36,6 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await expect(
     page.getByRole("button", { name: "Account: Brandi Gallegos" }),
   ).toHaveText("BG");
-  await expect(page.getByText("Rep assignments")).toHaveCount(0);
   const viewing = page.getByLabel("Viewing");
   await expect(viewing.locator("option")).toHaveText([
     "All customers",
@@ -47,7 +46,7 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   ]);
   await viewing.selectOption("wasatch");
 
-  // Customer access and the Data browser now live under Settings.
+  // Customer access lives under Settings (task 6.1; e2e/rep-settings.spec.ts covers every tab).
   await page
     .getByRole("navigation", { name: "Rep portal" })
     .getByRole("link", { name: "Settings" })
@@ -65,17 +64,6 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await expect(pricing).toHaveAttribute("aria-checked", "false");
   await pricing.click();
   await expect(pricing).toHaveAttribute("aria-checked", "true");
-
-  await page.getByRole("link", { name: "Data browser", exact: true }).click();
-  await expect(page.getByRole("cell", { name: "HCS-12-13-2G8" })).toBeVisible();
-  await page.getByLabel("Data category").selectOption("orders_quotes");
-  await expect(page.getByRole("cell", { name: "SO-51223" })).toBeVisible();
-  // Placeholder customers have no orders (the browser resets its category on scope change).
-  await viewing.selectOption("great-basin");
-  // Wait for the new scope to land before picking again, or the scope change resets the pick.
-  await expect(page).toHaveURL(/customer=great-basin/);
-  await page.getByLabel("Data category").selectOption("orders_quotes");
-  await expect(page.getByText("No records in this category.")).toBeVisible();
 });
 
 test("customer experience fits a phone viewport", async ({ page }) => {

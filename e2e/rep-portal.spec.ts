@@ -81,18 +81,17 @@ test("nav: the header matches mockup 03 and every section opens its own page", a
     await expect(portalNav(page).locator('[aria-current="page"]')).toHaveCount(1);
   }
 
-  // The old supplier sections live on: query analytics under Analytics, the rest under Settings.
+  // The old supplier sections live on: query analytics under Analytics, the rest under Settings
+  // (task 6.1; e2e/rep-settings.spec.ts covers each tab).
   await sectionLink(page, "Analytics").click();
   await expect(page.getByRole("heading", { name: "Queries by category" })).toBeVisible();
   await sectionLink(page, "Settings").click();
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(tabs.getByRole("link")).toHaveText(["Customer access", "Data browser", "Data sources"]);
+  await expect(tabs.getByRole("link")).toHaveText(["Rep assignments", "Customer access", "Margin floors", "Pricing & delivery", "Data sources"]);
+  await tabs.getByRole("link", { name: "Customer access" }).click();
   await expect(page.getByRole("switch", { name: "Pricing" })).toBeVisible();
-  await tabs.getByRole("link", { name: "Data browser" }).click();
-  await expect(page.getByRole("cell", { name: "HCS-12-13-2G8" })).toBeVisible();
   await tabs.getByRole("link", { name: "Data sources" }).click();
   await expect(page.getByRole("heading", { name: "Herrick Industrial Supply ERP" })).toBeVisible();
-  await expect(page.getByText("Rep assignments")).toHaveCount(0);
 
   // /rep opens Quotes.
   await page.goto("/rep");
@@ -142,16 +141,14 @@ test("picker: Viewing changes the scope of analytics and lists, and every nav li
   await expect(page.getByText("Viewing Great Basin Fabrication")).toBeVisible();
   await sectionLink(page, "Settings").click();
   await expect(viewing).toHaveValue("great-basin");
-  await page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Data browser" }).click();
-  await expect(page).toHaveURL(/\/rep\/settings\?tab=data&customer=great-basin$/);
-  await page.getByLabel("Data category").selectOption("orders_quotes");
-  await expect(page.getByText("No records in this category.")).toBeVisible();
+  await page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Customer access" }).click();
+  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=great-basin$/);
+  await expect(page.getByText("What Querent answers in chat for Great Basin Fabrication.")).toBeVisible();
 
-  // Switching customer keeps the page; Wasatch has the orders.
+  // Switching customer keeps the page and its tab.
   await viewing.selectOption("wasatch");
-  await expect(page).toHaveURL(/\/rep\/settings\?tab=data&customer=wasatch$/);
-  await page.getByLabel("Data category").selectOption("orders_quotes");
-  await expect(page.getByRole("cell", { name: "SO-51223" })).toBeVisible();
+  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
+  await expect(page.getByText("What Querent answers in chat for Wasatch Mechanical Contractors.")).toBeVisible();
 
   // A reload keeps the scope.
   await page.reload();
