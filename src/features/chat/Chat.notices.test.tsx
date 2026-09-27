@@ -109,6 +109,28 @@ describe('quote notices in the chat',()=>{
     }finally{window.removeEventListener(QUOTES_CHANGED_EVENT,changed);}
   });
 
+  it('stops polling for notices while the tab is hidden, and checks again as soon as it is shown',async()=>{
+    const {api,get}=makeApi();
+    const polls=()=>get.mock.calls.filter(([p])=>p===`customer/notices/${CONVERSATION}`).length;
+    const setVisibility=(state:'hidden'|'visible')=>{
+      Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>state});
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    try{
+      render(<CustomerChat api={api} user={user} signOut={()=>{}} noticePollMs={20}/>);
+      await screen.findByText('Your open balance is $18,420.00.');
+      await waitFor(()=>expect(polls()).toBeGreaterThan(2));
+      setVisibility('hidden');
+      const hiddenAt=polls();
+      await act(async()=>{await new Promise(resolve=>setTimeout(resolve,150));});
+      expect(polls()).toBe(hiddenAt);
+      setVisibility('visible');
+      expect(polls()).toBe(hiddenAt+1);
+    }finally{
+      Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});
+    }
+  });
+
   it('a question asked after the notice goes after it',async()=>{
     const {api}=makeApi({notices:()=>[notice('n1','2026-09-23T19:00:00.000Z')]});
     render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
