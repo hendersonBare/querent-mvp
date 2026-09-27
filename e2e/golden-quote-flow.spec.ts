@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import { extractText, getDocumentProxy } from "unpdf";
 
 // Golden quote flow: workflow steps 1–8 of docs/design/querent-quote-flow.html, end to end
 // (spec §1, §7 Definition of done item 3). One test per step, in order, sharing Dana's and
-// Brandi's browser sessions. Every step starts as `test.fixme`; the task named in its `task`
-// annotation builds the step, removes the fixme and makes it pass. Step 6 has a rep half (3.7)
-// and a customer half (5.1), so it is two tests.
+// Brandi's browser sessions. Every step started as `test.fixme`; the task named in its `task`
+// annotation built the step, removed the fixme and made it pass. Since task 5.2 every step runs.
+// Step 6 has a rep half (3.7) and a customer half (5.1), so it is two tests.
 //
 // Chat runs in scripted mode (spec §6.5): deterministic and offline, the same in CI and locally.
 // Before the spec, beforeAll resets the database to the seed pinned to the mockup's day through
@@ -379,9 +380,9 @@ test(
       const p = (await preview.boundingBox())!;
       expect(p.x + p.width - (d.x + d.width), "Download sits at the right edge").toBeLessThan(80);
       expect(d.y - p.y, "Download sits at the top").toBeLessThan(60);
-      // The action bar waits for 5.2: Accept and Request changes are there, not yet usable.
-      await expect(preview.getByRole("button", { name: "Accept" })).toBeDisabled();
-      await expect(preview.getByRole("button", { name: "Request changes" })).toBeDisabled();
+      // The action bar (5.2): Accept and Request changes are ready for steps 7 and 8.
+      await expect(preview.getByRole("button", { name: "Accept" })).toBeEnabled();
+      await expect(preview.getByRole("button", { name: "Request changes" })).toBeEnabled();
     });
 
     await test.step("Download saves the customer PDF", async () => {
@@ -403,34 +404,189 @@ test(
   },
 );
 
-test.fixme(
+/** The note Dana sends with Request changes in step 7. */
+const CHANGE_NOTE = "Can you make the bolts 12 boxes? Thanks, Dana";
+/** Dana's PO in step 8. */
+const PO = "WMC-7781";
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** A weekday at least a day ahead in the branches' time zone (Mountain), as YYYY-MM-DD: always a valid pickup day. */
+function pickupDay() {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
+  const day = new Date(`${today}T12:00:00.000Z`);
+  do day.setUTCDate(day.getUTCDate() + 1);
+  while (day.getUTCDay() === 0 || day.getUTCDay() === 6);
+  return day.toISOString().slice(0, 10);
+}
+/** "Tue Sep 29" for a YYYY-MM-DD day. */
+const weekdayDay = (day: string) =>
+  new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })
+    .format(new Date(`${day}T00:00:00.000Z`))
+    .replace(",", "");
+
+/** Spec §3's Confirm: centered on screen, with a red Cancel and a Querent-green Send (Confirm send's colours, step 6). */
+async function expectCenteredConfirm(page: Page, confirm: Locator) {
+  const viewport = page.viewportSize()!;
+  const box = (await confirm.boundingBox())!;
+  expect(Math.abs(box.x + box.width / 2 - viewport.width / 2)).toBeLessThan(2);
+  expect(Math.abs(box.y + box.height / 2 - viewport.height / 2)).toBeLessThan(2);
+  await expect(confirm.getByRole("button", { name: "Cancel" })).toHaveCSS("background-color", "rgb(192, 57, 43)");
+  await expect(confirm.getByRole("button", { name: "Send", exact: true })).toHaveCSS("background-color", "rgb(14, 124, 116)");
+}
+
+/** Brandi's Quotes badge, read in her page (the session cookie is Secure in production). */
+const repBadge = () => brandi.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.quotes as number));
+/** The chat's "Quote … is ready" message for the latest send. */
+const readyNotice = () => dana.getByRole("article", { name: new RegExp(`^Quote ${flow.quoteNumber} is ready: ${escaped(flow.total)}, `) });
+
+test(
   "7. Dana Request changes (note) → Confirm → Brandi edits and sends rev 2",
   { tag: "@step7", annotation: { type: "task", description: "5.2 Accept / Request changes" } },
   async () => {
+    const preview = dana.getByRole("dialog", { name: `Quote ${flow.quoteNumber}` });
+    const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: flow.quoteNumber });
+    const unread = await repBadge();
+
     await test.step("Dana requests changes with a note", async () => {
-      // TODO(5.2): Request changes → required note → centered Confirm dialog → Send.
+      await button.click();
+      await expect(preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 1` })).toHaveAttribute("data-state", "ready");
+      await preview.getByRole("button", { name: "Request changes" }).click();
+      const form = preview.getByRole("form", { name: `Request changes to ${flow.quoteNumber} rev 1` });
+      // The note is required.
+      await form.getByRole("button", { name: "Review request" }).click();
+      await expect(form.getByRole("alert")).toHaveText("Say what should change: a note is required.");
+      await form.getByLabel("What should Brandi change?").fill(CHANGE_NOTE);
+      await form.getByRole("button", { name: "Review request" }).click();
+      const confirm = dana.getByRole("alertdialog", { name: "Confirm change request" });
+      await expect(confirm).toContainText(`Send your change request for ${flow.quoteNumber} rev 1 to Brandi?`);
+      await expect(confirm).toContainText(`Quote${flow.quoteNumber} rev 1`);
+      await expect(confirm).toContainText("ToBrandi Gallegos");
+      await expect(confirm).toContainText(`Note${CHANGE_NOTE}`);
+      await expectCenteredConfirm(dana, confirm);
+      await confirm.getByRole("button", { name: "Send", exact: true }).click();
+      await expect(confirm).toBeHidden();
+      await expect(preview.locator(".cx-chip")).toHaveText("Changes requested");
+      await expect(preview.getByRole("group", { name: "Respond to this quote" })).toContainText("You asked for changes to rev 1. Brandi is revising the quote.");
+      await expect(preview.getByRole("button", { name: "Accept" })).toBeDisabled();
+      await expect(button.locator(".cx-chip")).toHaveText("Changes requested");
+      await preview.getByRole("button", { name: "Close" }).click();
+      await expect(preview).toBeHidden();
     });
+
     await test.step("Brandi edits the quote and sends rev 2", async () => {
-      // TODO(5.2): the Quotes list highlights changes_requested with Dana's note; Brandi edits a
-      // line, then Approve & send → Confirm; Dana's chat and sidebar show rev 2.
+      // The badge, and the Quotes list: the row highlighted, with Dana's note.
+      await expect.poll(repBadge).toBe(unread + 1);
+      await brandi.goto("/rep/quotes");
+      const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: flow.quoteNumber, exact: true }) });
+      await expect(row).toHaveAttribute("data-status", "changes_requested");
+      await expect(row.getByRole("rowheader")).toHaveText(/^Unread: /);
+      await expect(row.getByText(/^Dana Ortiz asked for changes · /)).toBeVisible();
+      await expect(row.getByText(CHANGE_NOTE)).toBeVisible();
+      await row.getByRole("link", { name: flow.quoteNumber, exact: true }).click();
+      await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${flow.quoteNumber}$`));
+      await expect(brandi.locator("h1 + *")).toHaveText("Changes requested");
+      await expect(brandi.getByText(CHANGE_NOTE)).toBeVisible();
+      // Editable again (1.5 canEditDraft): Brandi makes the bolts 12 boxes, as Dana asked.
+      const qty = brandi.getByRole("textbox", { name: "Quantity for HCS-12-13-2G8" });
+      await expect(qty).toBeEditable();
+      await qty.fill("12");
+      await qty.press("Tab");
+      await expect(brandi.getByText("All changes saved")).toBeVisible();
+      flow.total = (await brandi.getByLabel("Quote totals").getByRole("definition").last().textContent())!.trim();
+      await brandi.getByRole("button", { name: "Approve & send" }).click();
+      const dialog = brandi.getByRole("dialog", { name: "Send quote to Dana Ortiz" });
+      await dialog.getByRole("textbox", { name: "Message to Dana" }).fill("Hi Dana, 12 boxes of bolts on rev 2. Thanks, Brandi");
+      await dialog.getByRole("button", { name: "Send quote" }).click();
+      const confirm = brandi.getByRole("alertdialog", { name: "Confirm send" });
+      await expect(confirm).toContainText(`Quote${flow.quoteNumber} rev 2`);
+      await expect(confirm).toContainText(`Total${flow.total}before tax`);
+      await confirm.getByRole("button", { name: "Send", exact: true }).click();
+      await expect(brandi.getByText(`Sent ${flow.quoteNumber} rev 2 to Dana in Querent chat`)).toBeVisible();
+      await expect(brandi.locator("h1 + *")).toHaveText("Sent");
+    });
+
+    await test.step("Dana's chat and sidebar show rev 2", async () => {
+      await expect(readyNotice()).toBeVisible();
+      await expect(readyNotice().locator(".qn-text")).toHaveText("Hi Dana, 12 boxes of bolts on rev 2. Thanks, Brandi");
+      await expect(button).toContainText(flow.total);
+      await expect(button.locator(".cx-chip")).toHaveText("Sent");
     });
   },
 );
 
-test.fixme(
+test(
   "8. Dana Accept (pickup time, PO) → Confirm → Brandi sees Accepted; both PDFs download and validate",
   { tag: "@step8", annotation: { type: "task", description: "5.2 Accept / Request changes" } },
   async () => {
+    const preview = dana.getByRole("dialog", { name: `Quote ${flow.quoteNumber}` });
+    const day = pickupDay();
+    const when = `${weekdayDay(day)}, 10:00 AM`;
+    const unread = await repBadge();
+
     await test.step("Dana accepts with a pickup time and PO", async () => {
-      // TODO(5.2): Accept (branch and pickup/delivery locked) → pickup time + PO → centered
-      // Confirm ("Accept <quote> rev 2 for $X, pickup … at SLC, PO …?") → Send.
+      await readyNotice().getByRole("button", { name: "View quote" }).click();
+      await expect(preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 2` })).toHaveAttribute("data-state", "ready");
+      await preview.getByRole("button", { name: "Accept" }).click();
+      const form = preview.getByRole("form", { name: `Accept ${flow.quoteNumber} rev 2` });
+      // Branch and pickup are locked to what Brandi approved.
+      await expect(form.getByRole("radio", { name: "Pickup" })).toBeChecked();
+      await expect(form.getByRole("radio", { name: "Pickup" })).toBeDisabled();
+      await expect(form.getByRole("radio", { name: "Delivery" })).toBeDisabled();
+      await expect(form.getByRole("combobox", { name: "Branch" })).toHaveValue("SLC");
+      await expect(form.getByRole("combobox", { name: "Branch" })).toBeDisabled();
+      // The day can't be in the past.
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date());
+      expect((await form.getByLabel("Pickup day").getAttribute("min"))! >= today).toBe(true);
+      await form.getByLabel("Pickup day").fill(day);
+      await form.getByLabel("Pickup time").selectOption({ label: "10:00 AM" });
+      await form.getByLabel("PO number").fill(PO);
+      await form.getByRole("button", { name: "Review and accept" }).click();
+      const confirm = dana.getByRole("alertdialog", { name: "Confirm acceptance" });
+      await expect(confirm).toContainText(`Accept ${flow.quoteNumber} rev 2 for ${flow.total}, pickup ${when} at SLC, PO ${PO}?`);
+      await expect(confirm).toContainText(`PO${PO}`);
+      await expectCenteredConfirm(dana, confirm);
+      await confirm.getByRole("button", { name: "Send", exact: true }).click();
+      await expect(confirm).toBeHidden();
+      await expect(preview.locator(".cx-chip")).toHaveText("Accepted");
+      await expect(preview.getByRole("group", { name: "Respond to this quote" })).toContainText(`You accepted rev 2 with PO ${PO}: pickup ${when} at SLC.`);
+      await expect(preview.getByRole("button", { name: "Accept" })).toBeDisabled();
+      const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: flow.quoteNumber });
+      await expect(button.locator(".cx-chip")).toHaveText("Accepted");
+      await preview.getByRole("button", { name: "Close" }).click();
     });
+
     await test.step("Brandi sees Accepted", async () => {
-      // TODO(5.2): badge + activity entry; the quote's status chip reads Accepted.
+      // Badge + activity entry; the status chip reads Accepted, with the PO and the pickup time.
+      await expect.poll(repBadge).toBe(unread + 1);
+      await brandi.goto(`/rep/quotes/${flow.quoteNumber}`);
+      await expect(brandi.locator("h1 + *")).toHaveText("Accepted");
+      await expect(brandi.getByText(new RegExp(`^Dana accepted rev 2 on [A-Z][a-z]{2} \\d{1,2} with PO ${PO}, pickup ${when} at SLC\\.`))).toBeVisible();
+      await brandi.getByRole("group", { name: "Activity" }).locator("summary").click();
+      await expect(brandi.getByRole("list", { name: "Activity, newest first" }).getByRole("listitem").first()).toContainText(
+        `Dana accepted ${flow.quoteNumber} rev 2 (${flow.total}) with PO ${PO}, pickup at SLC`,
+      );
+      await expect(brandi.getByRole("group", { name: "Quote terms" }).locator("summary")).toContainText(`PO ${PO}`);
+      await expect(brandi.getByRole("group", { name: "Pickup or delivery" }).locator("summary")).toContainText(when);
+      await expect(brandi.getByRole("button", { name: "Approve & send" })).toBeDisabled();
     });
+
     await test.step("the Customer PDF and the Internal worksheet download and validate", async () => {
-      // TODO(5.2): download both (Export menu, 4.3) and check each starts with "%PDF-" and
-      // names flow.quoteNumber.
+      const exports = [
+        [/^Customer quote \(PDF\)/, "customer"],
+        [/^Internal worksheet \(PDF\)/, "internal"],
+      ] as const;
+      for (const [item, variant] of exports) {
+        await brandi.getByRole("button", { name: "Export" }).click();
+        const menu = brandi.getByRole("menu", { name: "Export" });
+        const [file] = await Promise.all([brandi.waitForEvent("download"), menu.getByRole("menuitem", { name: item }).click()]);
+        expect(file.suggestedFilename(), variant).toContain(`${flow.quoteNumber} rev 2`);
+        const body = await readFile((await file.path())!);
+        expect(body.subarray(0, 5).toString(), variant).toBe("%PDF-");
+        const { text } = await extractText(await getDocumentProxy(new Uint8Array(body)), { mergePages: true });
+        expect(text, variant).toContain(flow.quoteNumber);
+        if (variant === "internal") expect(text).toContain("CONFIDENTIAL");
+        else expect(text).not.toMatch(/cost|margin|floor/i);
+      }
     });
   },
 );

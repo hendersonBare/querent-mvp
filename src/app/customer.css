@@ -1334,7 +1334,6 @@
   background: white;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   text-align: center;
-  animation: ip-in 0.14s ease-out;
 }
 .qc-dialog:focus {
   outline: none;

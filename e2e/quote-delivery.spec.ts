@@ -4,8 +4,8 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
 // Quote delivery (task 5.1, spec §3): when Brandi sends a quote, Dana's chat gets "Quote Q-… is
 // ready: $X, valid until …" with Brandi's message as plain text and View quote, which opens the
 // PDF preview modal: the customer PDF drawn inline, Download at the top right (when Attach PDF was
-// on), and the Accept / Request changes bar for 5.2, disabled for now. The right sidebar's quote
-// buttons open the same modal. Dana only ever sees her own quotes.
+// on), and the Accept / Request changes bar (task 5.2, e2e/quote-response.spec.ts). The right
+// sidebar's quote buttons open the same modal. Dana only ever sees her own quotes.
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts):
 // start your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots
@@ -121,7 +121,7 @@ test("the message is still there after a reload", async () => {
   await expect(notice(dana, SAMPLE).locator(".qn-text")).toHaveText(MESSAGE);
 });
 
-test("View quote opens the preview: the customer PDF inline, Download at the top right, the action bar disabled", async ({}, testInfo) => {
+test("View quote opens the preview: the customer PDF inline, Download at the top right, the action bar ready", async ({}, testInfo) => {
   await notice(dana, SAMPLE).getByRole("button", { name: "View quote" }).click();
   const modal = preview(dana, SAMPLE);
   await expect(modal).toBeVisible();
@@ -144,9 +144,11 @@ test("View quote opens the preview: the customer PDF inline, Download at the top
   const m = (await modal.boundingBox())!;
   expect(m.x + m.width - (d.x + d.width)).toBeLessThan(80);
   expect(d.y - m.y).toBeLessThan(60);
-  await expect(modal.getByRole("button", { name: "Accept" })).toBeDisabled();
-  await expect(modal.getByRole("button", { name: "Request changes" })).toBeDisabled();
-  await expect(modal.getByRole("group", { name: "Respond to this quote" })).toContainText("reply to Brandi in chat");
+  // Task 5.2 replaced the "reply to Brandi in chat" placeholder with the real actions.
+  await expect(modal.getByRole("button", { name: "Accept" })).toBeEnabled();
+  await expect(modal.getByRole("button", { name: "Request changes" })).toBeEnabled();
+  await expect(modal.getByRole("group", { name: "Respond to this quote" })).toContainText("Accept it with a pickup time and your PO, or ask Brandi for changes.");
+  await expect(modal.getByRole("group", { name: "Respond to this quote" })).not.toContainText("reply to Brandi in chat");
   await dana.screenshot({ path: testInfo.outputPath("5.1-modal-1440.png") });
 
   await test.step("Download saves the customer PDF, named for the quote", async () => {
