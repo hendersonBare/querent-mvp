@@ -99,6 +99,12 @@ function panel(label:string){
   }
   return details;
 }
+/** Closes the panel labelled `label`, as clicking its summary does. */
+function closePanel(label:string){
+  const details=screen.getByRole('group',{name:label}) as HTMLDetailsElement;
+  details.open=false;
+  fireEvent(details,new Event('toggle'));
+}
 const summaryValue=(label:string)=>screen.getByRole('group',{name:label}).querySelector('summary')!.lastElementChild!.textContent;
 const creditLine=()=>within(panel('Customer')).getByTestId('credit-bar').querySelector('p')!.textContent;
 const totalsText=()=>screen.getByLabelText('Quote totals').textContent;
@@ -247,6 +253,30 @@ describe('Pickup or delivery panel',()=>{
     await settle();
     expect(within(panel('Pickup or delivery')).getByRole('region',{name:'Freight'})).toHaveTextContent('Freight$62.50');
     expect(totalsText()).toContain('Quote total$1,184.90');
+  });
+
+  it('keeps what the rep typed when a panel is closed and opened again (3.4 follow-up)',()=>{
+    server.fulfillment='delivery';
+    renderPage();
+    const form=()=>within(panel('Pickup or delivery')).getByRole('form',{name:'Set freight by hand'});
+    fireEvent.click(within(panel('Pickup or delivery')).getByRole('button',{name:'Set freight by hand'}));
+    fireEvent.change(within(form()).getByRole('textbox',{name:'Freight amount'}),{target:{value:'95'}});
+    fireEvent.change(within(form()).getByRole('textbox',{name:/Reason/}),{target:{value:'Liftgate truck'}});
+    const note=()=>within(panel('Internal notes')).getByRole('textbox');
+    fireEvent.change(note(),{target:{value:'Call Dana before 3'}});
+    closePanel('Pickup or delivery');
+    closePanel('Internal notes');
+    expect(screen.queryByRole('form',{name:'Set freight by hand'})).toBeNull();
+    // Reopened: the half-done override and note are still there, unsaved.
+    expect(within(form()).getByRole('textbox',{name:'Freight amount'})).toHaveValue('95');
+    expect(within(form()).getByRole('textbox',{name:/Reason/})).toHaveValue('Liftgate truck');
+    expect(note()).toHaveValue('Call Dana before 3');
+    expect(calls('PUT',/freight/)).toHaveLength(0);
+    // Cancel drops the draft: the next override starts from the computed freight again.
+    fireEvent.click(within(form()).getByRole('button',{name:'Cancel'}));
+    fireEvent.click(within(panel('Pickup or delivery')).getByRole('button',{name:'Set freight by hand'}));
+    expect(within(form()).getByRole('textbox',{name:'Freight amount'})).toHaveValue('62.50');
+    expect(within(form()).getByRole('textbox',{name:/Reason/})).toHaveValue('');
   });
 
   it('counts freight in the credit bar, as the summary card\'s total does',async()=>{
