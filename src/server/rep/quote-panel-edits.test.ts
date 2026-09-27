@@ -48,6 +48,20 @@ describe('the panels in the detail',()=>{
     const {panels}=(await detail.repQuoteDetail('brandi','Q-24817',{now:NOW}))!;
     expect(panels.customer.win_rate).toEqual({rate:17/25,won:17,lost:8,open:1});
   });
+
+  it('counts only quotes requested in the last 12 months, as the panel says (3.4 follow-up)',async()=>{
+    const {detail,service}=await load();
+    const winRate=async()=>(await detail.repQuoteDetail('brandi','Q-24817',{now:NOW}))!.panels.customer.win_rate;
+    const before=await winRate();
+    // Sent and let lapse 13 months back: outside the window, so not a loss.
+    const old=service.duplicateQuote('Q-24817',{repId:'brandi',now:'2025-08-20T15:00:00.000Z'});
+    await service.sendQuote(old.id,{repId:'brandi',now:'2025-08-20T16:00:00.000Z'});
+    expect(await winRate()).toEqual(before);
+    // Eleven months back it counts.
+    const recent=service.duplicateQuote('Q-24817',{repId:'brandi',now:'2025-10-20T15:00:00.000Z'});
+    await service.sendQuote(recent.id,{repId:'brandi',now:'2025-10-20T16:00:00.000Z'});
+    expect(await winRate()).toEqual({...before,lost:before.lost+1,rate:before.won/(before.won+before.lost+1)});
+  });
 });
 
 describe('pickup or delivery',()=>{

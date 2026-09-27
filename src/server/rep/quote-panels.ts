@@ -19,7 +19,10 @@ export interface PanelCustomer {
   open_balance:number|null;past_due_balance:number|null;credit_limit:number|null;
   tax_status:'taxable'|'exempt'|null;tax_state:string|null;
   last_order:{order_number:string;order_date:string;total:number}|null;
-  /** winRate() (task 1.5) over the customer's quotes: accepted = won, expired (or sent past valid_until) = lost. */
+  /**
+   * winRate() (task 1.5) over the customer's quotes requested in the last WIN_RATE_MONTHS: accepted
+   * = won, expired (or sent past valid_until) = lost. The mockup's "71% over 12 months".
+   */
   win_rate:{rate:number|null;won:number;lost:number;open:number};
 }
 
@@ -33,6 +36,16 @@ export interface QuotePanels {
   activity:QuoteActivity[];
 }
 
+/** The Customer panel's win rate looks back this many months. */
+export const WIN_RATE_MONTHS=12;
+
+/** `iso` moved back `months` calendar months (UTC). */
+function monthsBefore(iso:string,months:number){
+  const date=new Date(iso);
+  date.setUTCMonth(date.getUTCMonth()-months);
+  return date.toISOString();
+}
+
 function panelContact(q:Quote):PanelContact|null{
   const person=(q.contact_id?contact(q.contact_id):undefined)??contacts(q.customer_id)[0];
   return person?{name:person.name,title:person.title,phone:person.phone,email:person.email}:null;
@@ -41,7 +54,8 @@ function panelContact(q:Quote):PanelContact|null{
 /** The side panels' facts for a quote the rep may see, as of `now` (win rate reads effective statuses). */
 export function quotePanels(q:Quote,now:string):QuotePanels{
   const account=customerAccount(q.customer_id);
-  const {rate,won,lost,open}=winRate(quotes({customerId:q.customer_id}),now);
+  const since=monthsBefore(now,WIN_RATE_MONTHS);
+  const {rate,won,lost,open}=winRate(quotes({customerId:q.customer_id}).filter(x=>x.requested_at>=since),now);
   return {
     customer:{
       contact:panelContact(q),account_number:account?.account_number??q.account_number,terms:account?.terms??null,

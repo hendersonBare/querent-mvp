@@ -135,7 +135,7 @@ describe('Customer panel',()=>{
     expect(customer).toHaveTextContent('Dana OrtizPurchasing · (801) 555-0142');
     expect([...customer.querySelectorAll('dt')].map((dt,i)=>`${dt.textContent}: ${customer.querySelectorAll('dd')[i].textContent}`)).toEqual([
       'Account: WAS-1142','Terms: Net 30 · nothing past due','Open balance: $18,420.00','Credit limit: $50,000.00','Last order: Sep 9 · SO-51223',
-      'Win rate: 71% · 17 of 24 decided','Tax status: Taxable, UT',
+      'Wins on quotes: 71% over 12 months','Tax status: Taxable, UT',
     ]);
     fireEvent.click(within(customer).getByRole('button',{name:'Copy Dana Ortiz’s phone number'}));
     await settle();
