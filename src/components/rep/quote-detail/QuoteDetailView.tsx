@@ -9,6 +9,7 @@ import {StatusChip} from '../quotes/QuotesList';
 import {ActionMenu} from './ActionMenu';
 import {AddItem} from './AddItem';
 import {LineGrid,lineRowId} from './LineGrid';
+import {MoreMenu} from './more-menu/MoreMenu';
 import {SendDialogStub} from './SendDialogStub';
 import {day,itemCount,money,requestedAt,signedMoney,timeOfDay} from './format';
 import {useMarkQuoteRead} from './use-mark-read';
@@ -100,7 +101,7 @@ function QuoteHeader({detail,editor,onApprove}:{detail:QuoteDetail;editor:QuoteE
         <ActionMenu buttonClassName={s.btn} menuLabel="Export" items={[]} emptyNote="Exports (customer PDF, internal worksheet, CSV, copy summary) arrive here soon.">
           Export<ChevronDown aria-hidden="true" size={13} strokeWidth={2} className={s.caret}/>
         </ActionMenu>
-        <ActionMenu buttonClassName={`${s.btn} ${s.sq}`} label="More actions" menuLabel="More actions" items={[]} emptyNote="More actions arrive here soon.">⋯</ActionMenu>
+        <MoreMenu quote={quote} flush={editor.flush} buttonClassName={`${s.btn} ${s.sq}`}/>
         <button type="button" className={`${s.btn} ${s.primary}`} onClick={onApprove} disabled={!editable}>Approve &amp; send</button>
       </div>
     </div>

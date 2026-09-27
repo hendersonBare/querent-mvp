@@ -148,6 +148,47 @@
   font-size: 12.5px;
   color: var(--rep-muted);
 }
+.menu hr {
+  border: 0;
+  border-top: 1px solid var(--rep-line-2);
+  margin: 4px 2px;
+}
+/* A menu item's tooltip (why it is disabled): on hover, keyboard focus or a tap (task 3.5) */
+.menuTipWrap {
+  position: relative;
+  display: grid;
+}
+.menuTip {
+  position: absolute;
+  left: 6px;
+  bottom: calc(100% - 2px);
+  z-index: 1;
+  max-width: calc(100% - 12px);
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--rep-ink);
+  color: var(--rep-surface);
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.12s, transform 0.12s, visibility 0.12s;
+}
+.menuTipWrap:hover .menuTip,
+.menuTipWrap:focus-within .menuTip,
+.menuTipWrap[data-open] .menuTip {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menuTip {
+    transition: none;
+  }
+}
 
 /* Read-only reason, or the customer's change request */
 .banner {

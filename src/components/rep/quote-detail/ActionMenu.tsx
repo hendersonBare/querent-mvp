@@ -1,10 +1,12 @@
 'use client';
-import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
+import {Fragment,useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import s from './QuoteDetail.module.css';
 
 // A header menu on the quote (mockup .menu-wrap / .menu): the Export menu (its entries arrive
-// with task 4.3) and the ⋯ menu (Duplicate, Reset sample, Open in ERP: task 3.5). Until a task
-// adds its items, the menu says what will be there instead of opening empty.
+// with task 4.3) and the ⋯ menu (Duplicate, Reset sample, Open in ERP: task 3.5, see
+// ./more-menu). Until a task adds its items, the menu says what will be there instead of opening
+// empty. Arrow keys move through every item, disabled ones included, so a disabled item's
+// tooltip can be read (WAI-ARIA menu pattern); a disabled item never runs.
 
 export interface MenuItem {
   label:string;
@@ -14,6 +16,14 @@ export interface MenuItem {
   disabled?:boolean;
   /** Tooltip, e.g. why an item is disabled. */
   title?:string;
+  /**
+   * A tooltip drawn by the menu (e.g. why the item is disabled): shown on hover, on keyboard
+   * focus and when the item is tapped, and read as the item's description. Works on touch
+   * screens, where a native `title` never shows.
+   */
+  tooltip?:string;
+  /** A divider above the item (mockup: before Reset sample quote). */
+  separator?:boolean;
 }
 
 export interface ActionMenuProps {
@@ -42,7 +52,7 @@ export function ActionMenu({children,label,menuLabel,items,emptyNote,buttonClass
     return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
   },[open]);
   function moveFocus(step:number){
-    const entries=[...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')??[])];
+    const entries=[...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')??[])];
     if(!entries.length)return;
     const at=entries.indexOf(document.activeElement as HTMLElement);
     entries[(at+step+entries.length)%entries.length].focus();
@@ -52,10 +62,25 @@ export function ActionMenu({children,label,menuLabel,items,emptyNote,buttonClass
       onClick={()=>setOpen(o=>!o)}>{children}</button>
     {open&&<div ref={menu} id={menuId} className={s.menu} role="menu" aria-label={menuLabel} tabIndex={-1}
       onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();moveFocus(event.key==='ArrowDown'?1:-1);}}}>
-      {items.length?items.map(item=><button key={item.label} type="button" role="menuitem" aria-disabled={item.disabled||undefined} title={item.title}
-        onClick={()=>{if(item.disabled)return;setOpen(false);item.onSelect();}}>
-        {item.label}{item.hint&&<small>{item.hint}</small>}
-      </button>):<p className={s.menuNote}>{emptyNote}</p>}
+      {items.length?items.map((item,i)=><Fragment key={item.label}>
+        {item.separator&&i>0&&<hr/>}
+        <MenuEntry item={item} tooltipId={`${menuId}-tip-${i}`} onChosen={()=>setOpen(false)}/>
+      </Fragment>):<p className={s.menuNote}>{emptyNote}</p>}
     </div>}
+  </div>;
+}
+
+function MenuEntry({item,tooltipId,onChosen}:{item:MenuItem;tooltipId:string;onChosen:()=>void}){
+  const [tipOpen,setTipOpen]=useState(false);
+  const entry=<button type="button" role="menuitem" aria-disabled={item.disabled||undefined} title={item.title} aria-describedby={item.tooltip?tooltipId:undefined}
+    onClick={()=>{
+      if(item.disabled){if(item.tooltip)setTipOpen(o=>!o);return;}
+      onChosen();item.onSelect();
+    }}>
+    {item.label}{item.hint&&<small>{item.hint}</small>}
+  </button>;
+  if(!item.tooltip)return entry;
+  return <div role="none" className={s.menuTipWrap} data-open={tipOpen||undefined}>
+    {entry}<span role="tooltip" id={tooltipId} className={s.menuTip}>{item.tooltip}</span>
   </div>;
 }

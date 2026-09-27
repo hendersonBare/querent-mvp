@@ -1,0 +1,58 @@
+/* The ⋯ menu's messages (task 3.5): the mockup's .toast, bottom center, over the page. The menu
+   itself is 3.3's ActionMenu (QuoteDetail.module.css .menu). */
+
+.region {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  transform: translateX(-50%);
+  z-index: 60;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--rep-ink);
+  color: var(--rep-bg);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+  pointer-events: auto;
+  animation: rise 0.2s ease-out;
+}
+.toast[data-tone="error"] {
+  background: var(--rep-bad);
+  color: #ffffff;
+}
+.toast button {
+  flex: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.toast button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
