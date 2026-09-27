@@ -35,7 +35,8 @@ export function CustomerChat({
     api
       .get<ChatTurn[]>(`customer/history/${conversation}`)
       .then((result) => {
-        if (!cancelled) setTurns(result);
+        // A message sent before the history arrived stays, after the history.
+        if (!cancelled) setTurns((current) => [...result, ...current]);
       })
       .catch((e) => {
         if (!cancelled) setError(String(e));

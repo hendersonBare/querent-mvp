@@ -134,6 +134,23 @@ describe('the clarifying question (task 2.2)',()=>{
   expect(await screen.findByRole('group',{name:'Choose the item for “6 boxes of cut-off wheels”'})).toBeInTheDocument();
  });
 });
+it('keeps a message sent before the history has loaded',async()=>{
+ let loaded:(turns:ChatTurn[])=>void=()=>{};
+ const get=vi.fn(async(path:string):Promise<any>=>{
+  if(path in sidebarRoutes) return sidebarRoutes[path as keyof typeof sidebarRoutes];
+  if(path.startsWith('customer/history/')) return new Promise<ChatTurn[]>(resolve=>{loaded=resolve;});
+  throw new Error(`unexpected get ${path}`);
+ }) as unknown as API['get'];
+ const send=vi.fn().mockResolvedValue({answer:'Answered.',sql:null,categories:[],outcome:'answered',row_count:0} satisfies ChatAnswer);
+ render(<CustomerChat api={makeApi(get,send)} user={user} signOut={()=>{}}/>);
+ const box=await screen.findByLabelText('Ask a question');
+ await waitFor(()=>expect(get).toHaveBeenCalledWith(expect.stringMatching(/^customer\/history\//)));
+ fireEvent.change(box,{target:{value:'Hi'}});
+ fireEvent.click(screen.getByLabelText('Send question'));
+ loaded([]);
+ expect(await screen.findByText('Answered.')).toBeInTheDocument();
+ expect(screen.getByText('Hi',{selector:'.question-bubble'})).toBeInTheDocument();
+});
 it('recovers from an API failure by restoring the question and showing an error',async()=>{
  const send=vi.fn().mockRejectedValue(new Error('The request could not be completed. Please try again.'));
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
