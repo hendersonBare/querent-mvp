@@ -1,5 +1,5 @@
 import 'server-only';
-import type {AccountSummary,Contact,CustomerAccount,CustomerListItem,CustomerStats,Department,Rep,Supplier} from '@/domain';
+import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,Supplier} from '@/domain';
 import {all,bool,one,run} from './sql';
 
 const REP='SELECT id,name,initials,title,phone,email FROM reps';
@@ -9,6 +9,14 @@ export function supplier(){return one<Supplier>('SELECT id,name,address,city,sta
 export function customerIds(){return all<{id:string}>('SELECT id FROM customers ORDER BY name').map(c=>c.id);}
 /** Every customer with its one rep: the customer picker, Customers list and Rep assignments. */
 export function customers(){return all<CustomerListItem>('SELECT c.id,c.name,c.account_number,r.id rep_id,r.name rep_name FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id ORDER BY c.name');}
+
+/** Internal: the rep's Customers list (task 3.8). Every customer by name with its rep, terms, balance and order and quote counts. */
+export function customerDirectory(){
+  return all<CustomerDirectoryRow>(`SELECT c.id,c.name,c.account_number,r.id rep_id,r.name rep_name,c.terms,c.credit_limit,c.open_balance,
+      (SELECT count(*) FROM orders o WHERE o.customer_id=c.id) order_count,(SELECT max(o.order_date) FROM orders o WHERE o.customer_id=c.id) last_order_date,
+      (SELECT count(*) FROM quotes q WHERE q.customer_id=c.id) quote_count
+    FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id ORDER BY c.name`);
+}
 
 type CustomerRow=Omit<CustomerAccount,'ship_to'|'rep'>&{ship_to_name:string|null;ship_to_address:string|null;ship_to_city:string|null;ship_to_state:string|null;ship_to_zip:string|null;ship_to_lat:number|null;ship_to_lng:number|null};
 

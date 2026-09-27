@@ -1,10 +1,16 @@
 import type {Metadata} from 'next';
-import {SectionPlaceholder} from '@/components/rep/RepPage';
+import {CATEGORY_PARAM,ItemsList} from '@/components/rep/items/ItemsList';
+import {itemList,pickedCustomer} from '@/server/rep/reference';
+import {signedInRepId} from '@/server/rep/session';
 
 export const metadata:Metadata={title:'Items'};
 
-/** Items (spec §4): read-only list and detail views, task 3.8. */
-export default function ItemsPage(){
-  return <SectionPlaceholder title="Items" heading="The catalog will be listed here"
-    body="Each item with its SKU, pack, list price and stock at SLC, Ogden and Provo, read-only from your ERP data."/>;
+type SearchParams=Promise<Record<string,string|string[]|undefined>>;
+
+/** Items (spec §4, task 3.8): the catalog with list price, category and stock per branch, read-only, by category (?category=). */
+export default async function ItemsPage({searchParams}:{searchParams:SearchParams}){
+  await signedInRepId();
+  const params=await searchParams;
+  const category=params[CATEGORY_PARAM];
+  return <ItemsList list={itemList({category:typeof category==='string'?category:null})} viewing={pickedCustomer(params)}/>;
 }

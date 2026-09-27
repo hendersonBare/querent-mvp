@@ -11,6 +11,18 @@ export interface OrderLine {line_no:number;item_id:string;sku:string;description
 
 export interface Order extends OrderSummary {lines:OrderLine[]}
 
+/** Whose order it is: the rep portal's Orders views cover every customer (task 3.8). */
+export interface OrderCustomer {customer_id:string;customer_name:string;account_number:string}
+
+/** One row of the rep's Orders list. */
+export interface OrderListRow extends OrderSummary,OrderCustomer {line_count:number}
+
+/** One order with its customer and lines: the rep's order detail. */
+export interface CustomerOrder extends Order,OrderCustomer {}
+
+/** One order line for an item, with the order and customer: an item's recent sales (rep Items detail). */
+export interface ItemSale {order_id:string;order_number:string;order_date:string;customer_id:string;customer_name:string;qty:number;unit_price:number}
+
 /** One purchased line with its order (the get_order_history tool). */
 export interface PurchaseLine {order_number:string;order_date:string;po_number:string|null;item_id:string;sku:string;description:string;pack:string;qty:number;unit_price:number}
 
