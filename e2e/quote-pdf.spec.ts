@@ -95,6 +95,45 @@ test("Dana can't get an unsent quote, a draft, or anything that isn't hers; no s
   expect((await get(nobody, "/api/quotes/Q-24816/pdf")).status).toBe(401);
 });
 
+// Internal worksheet (task 4.2): variant=internal is the rep's full picture on paper, rep-only.
+
+test("Brandi gets the internal worksheet of the Q-24817 draft: CONFIDENTIAL banner, cost, margin, floor, basis, why, credit", async () => {
+  const response = await get(brandi, "/api/quotes/Q-24817/pdf?variant=internal&rev=draft");
+  expect(response.status).toBe(200);
+  expect(response.headers["content-type"]).toBe("application/pdf");
+  expect(response.headers["content-disposition"]).toContain('inline; filename="Herrick Industrial Supply quote Q-24817 rev 1 draft - internal worksheet.pdf"');
+  expect(response.headers["cache-control"]).toBe("private, no-store");
+  const text = await pdfText(response.body);
+  for (const field of [
+    "CONFIDENTIAL — INTERNAL", "QUOTE WORKSHEET", "Q-24817 · Rev 1", "Wasatch Mechanical Contractors", "Terms Net 30", "Total $1,122.40", "via Querent",
+    "Last paid $21.40 32.1% 20%", "Contract $24.10 33.1% 25%", "Last paid $58.00 26.6% 30%", "Customer $14.20 38.1% 20%",
+    "Below Brandi's 30% Safety & PPE floor", "Why this price? Last paid $31.50 on Aug 12, above customer price $30.95.",
+    "Last paid $31.50 on Aug 12, 2026.", "Cost of goods $761.00 Gross profit $361.40 Margin 32.2%",
+    "Open balance $18,420.00", "Credit used 37%", "Credit used, with this quote 39%", "INTERNAL NOTES", "BEFORE SENDING",
+  ]) expect(text).toContain(field);
+});
+
+test("Brandi gets a sent revision's worksheet; Dana gets 403 and no PDF for any internal worksheet; no session gets 401", async () => {
+  const sent = await get(brandi, "/api/quotes/Q-24816/pdf?variant=internal&rev=1");
+  expect(sent.status).toBe(200);
+  const text = await pdfText(sent.body);
+  expect(text).toContain("CONFIDENTIAL — INTERNAL");
+  expect(text).toContain("4 $79.00 $316.00 Custom $58.00 26.6% 30%");
+  expect(text).toContain("Q-24816 rev 1 as sent on");
+  for (const url of [
+    "/api/quotes/Q-24816/pdf?variant=internal",
+    "/api/quotes/Q-24816/pdf?variant=internal&rev=1",
+    "/api/quotes/Q-24817/pdf?variant=internal&rev=draft",
+    "/api/quotes/q-nope/pdf?variant=internal",
+  ]) {
+    const response = await get(dana, url);
+    expect(response.status, url).toBe(403);
+    expect(response.body.subarray(0, 5).toString()).not.toBe("%PDF-");
+    expect(response.json()).toEqual({ detail: "Supplier access required." });
+  }
+  expect((await get(nobody, "/api/quotes/Q-24816/pdf?variant=internal")).status).toBe(401);
+});
+
 test("Brandi previews the unsent Q-24817 draft with rev=draft; without rev there is nothing sent yet", async () => {
   const draft = await get(brandi, "/api/quotes/Q-24817/pdf?variant=customer&rev=draft");
   expect(draft.status).toBe(200);
@@ -104,4 +143,28 @@ test("Brandi previews the unsent Q-24817 draft with rev=draft; without rev there
   expect(text).toContain("Total $1,122.40");
   expect(text).not.toMatch(/\bcosts?\b|margin|\bGP\b|%|last paid/i);
   expect((await get(brandi, "/api/quotes/Q-24817/pdf")).status).toBe(404);
+});
+
+// Runs last: the test-only hook (task 3.2) adds quotes, among them a draft for Mara's customer.
+test("Brandi can't open another rep's quote in either variant: Mara's quote is 404, as in her Quotes list", async ({ playwright }, testInfo) => {
+  const api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL! });
+  let otherRep = "";
+  try {
+    const response = await api.post("/api/test/rep-quotes");
+    expect(response.status(), "POST /api/test/rep-quotes failed: start the server with QUERENT_E2E_RESET=1").toBe(200);
+    otherRep = (await response.json()).other_rep;
+  } finally {
+    await api.dispose();
+  }
+  expect(otherRep).toMatch(/^Q-\d+$/);
+  for (const url of [
+    `/api/quotes/${otherRep}/pdf?rev=draft`,
+    `/api/quotes/${otherRep}/pdf?variant=customer&rev=draft`,
+    `/api/quotes/${otherRep}/pdf?variant=internal&rev=draft`,
+    `/api/quotes/${otherRep}/pdf?variant=internal`,
+  ]) {
+    const response = await get(brandi, url);
+    expect(response.status, url).toBe(404);
+    expect(response.json()).toEqual({ detail: "Quote not found." });
+  }
 });

@@ -103,6 +103,10 @@ const count=new Intl.NumberFormat('en-US');
 // Days are UTC, like every date in the app.
 const longDay=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
 const day=(isoOrDay:string|null)=>isoOrDay?longDay.format(new Date(/^\d{4}-\d{2}-\d{2}$/.test(isoOrDay)?`${isoOrDay}T00:00:00.000Z`:isoOrDay)):NONE;
+/** The PDFs' formats, shared with the internal worksheet (task 4.2): "$1,122.40", "$0.0825", "Sep 23, 2026". */
+export const formatAmount=(amount:number)=>usd.format(amount);
+export const formatUnitPrice=(amount:number)=>unitUsd.format(amount);
+export const formatDay=day;
 const cityLine=(p:{city:string;state:string;zip:string})=>`${p.city}, ${p.state} ${p.zip}`;
 const clean=(text:string|null)=>text?.trim()||null;
 
