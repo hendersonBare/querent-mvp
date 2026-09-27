@@ -153,10 +153,7 @@ export function pendingRequest(history:readonly {role:string;kind?:string;payloa
 
 // ---- Button replies: pick a candidate, drop a line -----------------------------------------------
 
-/** The message a candidate button sends. */
-export const pickMessage=(candidate:ItemCandidate)=>`${candidate.sku} (${candidate.description})`;
-/** The message a Drop button sends. */
-export const dropMessage=(line:{requested_text:string})=>`Drop ${quoted(line.requested_text)}`;
+export {dropMessage,pickMessage} from '@/lib/clarify-messages';
 
 const DROP=/^\s*(?:please\s+)?(?:drop|remove|skip|forget(?:\s+about)?|cancel|delete)\b\s*(.*)$/i;
 const THIS_LINE=/^(?:it|that|this|them|line|item|one)?$/;

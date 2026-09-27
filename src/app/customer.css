@@ -246,6 +246,124 @@
   font-size: 13px;
 }
 
+/* Clarifying reply (task 2.2): from round 2, under Querent's question, each open line's top
+   candidates as one picking list, Drop this line, then the rep to call instead. No prices. */
+.clarify-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.clarify-line {
+  display: grid;
+  gap: 8px;
+}
+.clarify-said {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.clarify-choices {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #cfe0db;
+  border-radius: 12px;
+  background: white;
+}
+.clarify-choice {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 0;
+  background: white;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+}
+.clarify-choice + .clarify-choice {
+  border-top: 1px solid var(--line);
+}
+.clarify-choice:hover:not(:disabled) {
+  background: #f3faf8;
+  box-shadow: inset 3px 0 0 var(--teal);
+}
+.clarify-choice:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+.clarify-sku {
+  color: var(--teal-dark);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.clarify-pack {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.clarify-drop {
+  justify-self: start;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.clarify-drop:hover:not(:disabled) {
+  color: #a34231;
+}
+.clarify-rep {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #cfe5df;
+  border-radius: 12px;
+  background: var(--pale);
+}
+.clarify-rep-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.clarify-rep small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.clarify-rep-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+}
+.clarify-rep-none {
+  color: var(--muted);
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .clarify-choice {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .clarify-choice .clarify-desc {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clarify-choice {
+    transition: none;
+  }
+}
+
 /* Header: the company name gives way (and wraps) before it can run into the status badge. */
 .customer-shell .header-brand {
   flex: 1 1 auto;
