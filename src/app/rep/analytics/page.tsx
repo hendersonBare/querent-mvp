@@ -1,9 +1,9 @@
 import type {Metadata} from 'next';
-import {AnalyticsSection} from '@/components/rep/AnalyticsSection';
+import {AnalyticsPage} from '@/components/rep/analytics/AnalyticsPage';
 
 export const metadata:Metadata={title:'Analytics'};
 
-/** Analytics (spec §4). Task 6.2 adds the stat cards and trends above the query analytics. */
-export default function AnalyticsPage(){
-  return <AnalyticsSection/>;
+/** Analytics (spec §4, task 6.2): the stat cards and trends for the rep's customers, then the query analytics. */
+export default function Analytics(){
+  return <AnalyticsPage/>;
 }
