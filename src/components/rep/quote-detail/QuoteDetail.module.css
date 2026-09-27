@@ -989,13 +989,6 @@
 .barNote {
   margin-top: 5px;
 }
-.found {
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid var(--rep-line-2);
-  font-weight: 600;
-  color: var(--rep-accent);
-}
 
 /* ---- Approve & send (stub until task 3.7) ---- */
 .modal {
