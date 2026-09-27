@@ -341,6 +341,12 @@ describe('read-only quotes',()=>{
     expect(screen.queryByRole('button',{name:/^Use /})).toBeNull();
   });
 
+  it('an accepted quote names what the customer sent with Accept: the PO and the pickup time (task 5.2)',()=>{
+    renderPage(sampleDetail({editable:false,quote:{status:'accepted',revision:2,sent_at:'2026-09-24T17:00:00.000Z',responded_at:'2026-09-25T15:00:00.000Z',valid_until:'2026-10-08',
+      customer_po:'7781',fulfillment_time:'2026-09-29T16:00:00.000Z'},valid_until:'2026-10-08'}));
+    expect(screen.getByText('Dana accepted rev 2 on Sep 25 with PO 7781, pickup Tue Sep 29, 10:00 AM at SLC.')).toBeInTheDocument();
+  });
+
   it('a changes_requested quote is editable and shows the customer’s note',()=>{
     renderPage(sampleDetail({quote:{status:'changes_requested',revision:1,responded_at:'2026-09-24T15:00:00.000Z',change_request_note:'Make the gloves 6 cases.'}}));
     expect(screen.getByText('Make the gloves 6 cases.')).toBeInTheDocument();

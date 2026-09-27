@@ -5,7 +5,8 @@ import {emitOpenQuote} from '../open-quote';
 import {QuotePreview} from './QuotePreview';
 import {NOW,previews} from './test-fixtures';
 
-// The PDF preview modal (spec §3, task 5.1). The PDF's pages are drawn by pdf.js in the browser
+// The PDF preview modal (spec §3, task 5.1). Accept / Request changes (task 5.2) are covered in
+// QuotePreview.respond.test.tsx. The PDF's pages are drawn by pdf.js in the browser
 // (./PdfPages, covered by its own test and the Playwright spec); here it is a stand-in that shows
 // which PDF it was given.
 vi.mock('./PdfPages',()=>({PdfPages:({url,label}:{url:string;label:string})=><div role="document" aria-label={label} data-url={url}/>}));
@@ -24,7 +25,7 @@ describe('QuotePreview',()=>{
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('shows the sent revision’s customer PDF inline, Download at the top right, and the action bar for 5.2, disabled',async()=>{
+  it('shows the sent revision’s customer PDF inline, Download at the top right, and the Accept / Request changes bar (task 5.2)',async()=>{
     const api=open({'customer/quotes/q-24817':previews.sent});
     const modal=await dialog();
     expect(api.get).toHaveBeenCalledWith('customer/quotes/q-24817');
@@ -39,9 +40,9 @@ describe('QuotePreview',()=>{
     expect(tools).toContainElement(download);
     expect(within(tools as HTMLElement).getByRole('button',{name:'Close'})).toBeInTheDocument();
     const bar=within(modal).getByRole('group',{name:'Respond to this quote'});
-    expect(within(bar).getByRole('button',{name:'Accept'})).toBeDisabled();
-    expect(within(bar).getByRole('button',{name:'Request changes'})).toBeDisabled();
-    expect(within(bar).getByRole('button',{name:'Accept'})).toHaveAccessibleDescription('To accept it or ask for changes, reply to Brandi in chat.');
+    expect(within(bar).getByRole('button',{name:'Accept'})).toBeEnabled();
+    expect(within(bar).getByRole('button',{name:'Request changes'})).toBeEnabled();
+    expect(within(bar).getByRole('button',{name:'Accept'})).toHaveAccessibleDescription('Accept it with a pickup time and your PO, or ask Brandi for changes.');
   });
 
   it('offers no Download when the rep turned Attach PDF off, but still shows the PDF',async()=>{
@@ -122,10 +123,11 @@ describe('QuotePreview',()=>{
     const modal=await dialog();
     await within(modal).findByRole('document');
     const download=within(modal).getByRole('link',{name:'Download'});
-    const close=within(modal).getByRole('button',{name:'Close'});
+    // The last stop is the action bar's Accept (task 5.2).
+    const accept=within(modal).getByRole('button',{name:'Accept'});
     download.focus();
     fireEvent.keyDown(document,{key:'Tab',shiftKey:true});
-    expect(close).toHaveFocus();
+    expect(accept).toHaveFocus();
     fireEvent.keyDown(document,{key:'Tab'});
     expect(download).toHaveFocus();
   });

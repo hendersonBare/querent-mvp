@@ -7,15 +7,16 @@ import type {API} from '@/lib/contracts';
 import {useModal} from '@/components/rep/quote-detail/send/use-modal';
 import {onOpenQuote,type OpenQuoteDetail} from '../open-quote';
 import {STATUS_CHIPS} from '../quote-label';
-import {actionNote,awaitingCopy,isOlderRevision,previewFacts} from './copy';
+import {awaitingCopy,isOlderRevision,previewFacts} from './copy';
 import {PdfPages} from './PdfPages';
+import {ResponseBar,type ResponseStep} from './ResponseBar';
 
 // The PDF preview modal (spec §3, task 5.1). The right sidebar's quote buttons and the chat's View
 // quote open it (the open-quote event). It shows the customer PDF of the revision the rep sent,
 // inline; Download sits at the top right when the rep left Attach PDF on; the action bar at the
-// bottom holds Accept and Request changes, which task 5.2 wires up (disabled until then). Before
-// the first send there is no PDF: the modal says the rep is pricing it. Below 600px it fills the
-// screen.
+// bottom holds Accept and Request changes (task 5.2, ./ResponseBar), each with its form and its
+// centered Confirm dialog. Before the first send there is no PDF: the modal says the rep is pricing
+// it. Below 600px it fills the screen.
 
 const tel=(phone:string)=>`tel:${phone.replace(/\D/g,'')}`;
 const previewPath=({id,revision}:OpenQuoteDetail)=>`customer/quotes/${encodeURIComponent(id)}${revision?`?rev=${revision}`:''}`;
@@ -25,10 +26,14 @@ interface DialogProps {api:API;request:OpenQuoteDetail;now?:string;onClose:()=>v
 function QuotePreviewDialog({api,request,now,onClose,onOpen}:DialogProps){
   const [preview,setPreview]=useState<CustomerQuotePreview|null>(null);
   const [error,setError]=useState('');
+  const [step,setStep]=useState<ResponseStep>('idle');
+  /** Bumped to read the quote again (an answer the server refused because the quote moved on). */
+  const [reads,setReads]=useState(0);
   const dialog=useRef<HTMLDivElement>(null);
   const close=useRef<HTMLButtonElement>(null);
-  const title=useId(),note=useId();
-  useModal(dialog,{onEscape:onClose,initialFocus:close});
+  const title=useId();
+  // Escape backs out of an open Accept or Request changes form first, then closes the modal.
+  useModal(dialog,{onEscape:()=>{if(step==='idle')onClose();else setStep('idle');},initialFocus:close});
 
   useEffect(()=>{
     let cancelled=false;
@@ -36,7 +41,7 @@ function QuotePreviewDialog({api,request,now,onClose,onOpen}:DialogProps){
       .then(result=>{if(!cancelled)setPreview(result);})
       .catch(e=>{if(!cancelled)setError(e instanceof Error?e.message:'This quote couldn’t be loaded.');});
     return ()=>{cancelled=true;};
-  },[api,request]);
+  },[api,request,reads]);
 
   const at=now??new Date().toISOString();
   const chip=preview&&STATUS_CHIPS[preview.status];
@@ -78,13 +83,7 @@ function QuotePreviewDialog({api,request,now,onClose,onOpen}:DialogProps){
           </>}
       </div>
 
-      <footer className="qp-actions" aria-label="Respond to this quote" role="group">
-        {preview&&<p className="qp-note" id={note}>{actionNote(preview,at)}</p>}
-        <div className="qp-buttons">
-          <button type="button" className="ip-secondary" disabled aria-describedby={preview?note:undefined}>Request changes</button>
-          <button type="button" className="ip-primary" disabled aria-describedby={preview?note:undefined}>Accept</button>
-        </div>
-      </footer>
+      <ResponseBar preview={error?null:preview} now={at} step={step} onStep={setStep} onAnswered={setPreview} onStale={()=>setReads(n=>n+1)}/>
     </div>
   </div>;
 }
