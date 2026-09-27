@@ -18,8 +18,8 @@ const ROOT=resolve(__dirname,'../../..');
 const SCANNED=['src','scripts','e2e'];
 const SQL_HOME=['src/server/repository/','src/server/db/'];
 const DB_IMPORTERS=[...SQL_HOME,'scripts/'];
-/** LLM code: the chat pipeline, anything under these folders, and any file that imports the Anthropic SDK. */
-const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent)\/)/;
+/** LLM code: the chat pipeline, anything under these folders (upsells-writer: Claude's chip wording, task 3.6), and any file that imports the Anthropic SDK. */
+const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent|upsells-writer)\/)/;
 const CUSTOMER_MODULE='src/server/repository/customer';
 /** Server modules that read cost, margin or floors. LLM code may not import them, and customer routes only CUSTOMER_INTAKE. */
 const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake'];
@@ -95,6 +95,7 @@ describe('repository boundary',()=>{
     expect(files).toContain('src/app/api/query/[...path]/customer.ts');
     expect(files).toContain('src/server/pipeline.ts');
     expect(files).toContain('src/server/chat/live.ts');
+    expect(files).toContain('src/server/upsells-writer/claude.ts');
     expect(files).toContain('src/app/api/query/customer/quote-requests/route.ts');
     expect(files.length).toBeGreaterThan(40);
   });
@@ -147,7 +148,13 @@ describe('boundary detectors',()=>{
     expect(violations('src/server/answer.ts',"import Anthropic from '@anthropic-ai/sdk';\nimport {explain} from '@/server/pricing/explain';")).toHaveLength(1);
     // The pure quote lifecycle and matching barrels read no cost.
     expect(violations('src/server/chat/tools.ts',"import {matchLine} from '@/server/matching';\nimport {canSend} from '@/server/quotes';")).toEqual([]);
+    // Claude's upsell wording (task 3.6) is LLM code, the whole folder: it gets cost-free chip facts, never the chips.
+    expect(violations('src/server/upsells-writer/claude.ts',"import Anthropic from '@anthropic-ai/sdk';\nimport {quoteUpsells} from '@/server/upsells/service';")).toHaveLength(1);
+    expect(violations('src/server/upsells-writer/facts.ts',"import type {Upsell} from '@/server/upsells';")).toHaveLength(1);
+    expect(violations('src/server/upsells-writer/facts.ts',"import {priceLines} from '../pricing/service';")).toHaveLength(1);
+    expect(violations('src/server/upsells-writer/claude.ts',"import {chatModel} from '@/server/chat/mode';\nimport {costKeys} from './facts';")).toEqual([]);
     // Rep-side code may use them.
+    expect(violations('src/server/rep/quote-upsells.ts',"import {quoteUpsells} from '@/server/upsells/service';\nimport {upsellWriter} from '@/server/upsells-writer/claude';")).toEqual([]);
     expect(violations('src/app/api/rep/route.ts',"import {suggestPrice} from '@/server/pricing';")).toEqual([]);
     expect(violations('src/server/pricing/service.test.ts',"import {suggestPrice} from '@/server/pricing';")).toEqual([]);
   });

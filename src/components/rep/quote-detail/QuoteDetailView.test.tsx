@@ -209,7 +209,8 @@ describe('totals and summary card',()=>{
     expect(summary).toHaveTextContent('$1,122.40Quote total, before tax$361.40Gross profit32.2%Margin');
     expect(summary).toHaveTextContent('Same as what they paid last time');
     expect(summary).toHaveTextContent('Bar shows quote margin. Marker is the 23.8% blended floor.');
-    expect(summary).toHaveTextContent('Querent found +$11.50 GP');
+    // "Querent found" sits next to "Suggested by Querent" (spec §5.1 rule 4, task 3.6).
+    expect(screen.getByRole('group',{name:'Suggested by Querent'})).toHaveTextContent('Querent found +$11.50 GP');
     expect(within(summary).getByRole('img')).toHaveAccessibleName('Quote margin 32.2% against the 23.8% blended floor');
   });
 
