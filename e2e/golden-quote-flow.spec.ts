@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 // Golden quote flow: workflow steps 1–8 of docs/design/querent-quote-flow.html, end to end
@@ -38,7 +39,7 @@ let reset: { ok: boolean; seed_date: string; chat_mode: string };
  * The quote steps 5–8 work on: the one Dana requests in step 4. Until step 4 runs, later steps
  * use the seeded sample quote, which is in the same state (ready_for_review, unread for Brandi).
  */
-const flow = { quoteNumber: SAMPLE_QUOTE };
+const flow = { quoteNumber: SAMPLE_QUOTE, /** The total Brandi sent in step 6 ("$1,122.40"). */ total: "" };
 
 async function signIn(browser: Browser, baseURL: string, workspace: string) {
   const context = await browser.newContext({ baseURL });
@@ -281,6 +282,7 @@ test(
     await expect(brandi.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
     await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${flow.quoteNumber}$`));
     const total = (await brandi.getByLabel("Quote totals").getByRole("definition").last().textContent())!.trim();
+    flow.total = total;
     const sendQuote = brandi.getByRole("button", { name: "Send quote" });
     let sendQuoteBox: { x: number; y: number; width: number; height: number };
 
@@ -333,12 +335,71 @@ test(
   },
 );
 
-test.fixme(
+test(
   "6. Dana receives it and opens the PDF preview (customer half)",
   { tag: "@step6", annotation: { type: "task", description: "5.1 Quote delivery + PDF preview" } },
   async () => {
-    // TODO(5.1): Dana's chat shows "Quote <flow.quoteNumber> is ready: $X, valid until … — View quote";
-    // View quote opens the PDF preview modal with the Customer PDF inline and Download top right.
+    const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Spec §3: "Quote Q-24817 is ready: $X, valid until Oct 7 — View quote". The send used today's
+    // clock, so the day is whatever 14 days from now is.
+    const headline = new RegExp(`^Quote ${flow.quoteNumber} is ready: ${escaped(flow.total)}, valid until [A-Z][a-z]{2} \\d{1,2}(, \\d{4})?$`);
+    const notice = dana.getByRole("article", { name: headline });
+    const preview = dana.getByRole("dialog", { name: `Quote ${flow.quoteNumber}` });
+    const quotes = dana.getByRole("complementary", { name: "Quotes" });
+    const button = quotes.getByRole("button").filter({ hasText: flow.quoteNumber });
+
+    await test.step("the message arrives in Dana's chat without a reload: headline, Brandi's text, View quote", async () => {
+      expect(flow.total, "step 6 (rep half) recorded the total it sent").toMatch(/^\$[\d,]+\.\d\d$/);
+      await expect(notice).toBeVisible();
+      await expect(notice.locator(".qn-text")).toHaveText(`Hi Dana, here is ${flow.quoteNumber}. Thanks, Brandi`);
+      await expect(notice.getByRole("button", { name: "View quote" })).toBeVisible();
+      // In the conversation Dana asked for it in, after the Request quote confirmation (step 4).
+      const articles = dana.locator(".turns > article");
+      await expect(articles.last()).toContainText(`Quote ${flow.quoteNumber} is ready`);
+      await expect(articles.nth((await articles.count()) - 2)).toContainText("Sent to Brandi for review.");
+      // The sidebar's button now reads Sent, with the total.
+      await expect(button).toContainText(flow.total);
+      await expect(button.locator(".cx-chip")).toHaveText("Sent");
+    });
+
+    await test.step("View quote opens the PDF preview: the customer PDF inline, Download at the top right", async () => {
+      await notice.getByRole("button", { name: "View quote" }).click();
+      await expect(preview).toBeVisible();
+      const pdf = preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 1` });
+      await expect(pdf).toHaveAttribute("data-state", "ready");
+      await expect(pdf.locator("canvas.qp-sheet")).not.toHaveCount(0);
+      // The pages' text (read to screen readers) is the customer PDF's: the quote, its total, no cost.
+      await expect(pdf).toContainText("QUOTATION");
+      await expect(pdf).toContainText(`${flow.quoteNumber} rev 1`);
+      await expect(pdf).toContainText(flow.total);
+      await expect(pdf).not.toContainText(/cost|margin|floor/i);
+      const download = preview.getByRole("link", { name: "Download" });
+      await expect(download).toBeVisible();
+      const d = (await download.boundingBox())!;
+      const p = (await preview.boundingBox())!;
+      expect(p.x + p.width - (d.x + d.width), "Download sits at the right edge").toBeLessThan(80);
+      expect(d.y - p.y, "Download sits at the top").toBeLessThan(60);
+      // The action bar waits for 5.2: Accept and Request changes are there, not yet usable.
+      await expect(preview.getByRole("button", { name: "Accept" })).toBeDisabled();
+      await expect(preview.getByRole("button", { name: "Request changes" })).toBeDisabled();
+    });
+
+    await test.step("Download saves the customer PDF", async () => {
+      const [file] = await Promise.all([dana.waitForEvent("download"), preview.getByRole("link", { name: "Download" }).click()]);
+      expect(file.suggestedFilename()).toBe(`Herrick Industrial Supply quote ${flow.quoteNumber} rev 1.pdf`);
+      expect((await readFile((await file.path())!)).subarray(0, 5).toString()).toBe("%PDF-");
+      const type = await dana.evaluate((url) => fetch(url).then((r) => r.headers.get("content-type")), file.url());
+      expect(type).toBe("application/pdf");
+    });
+
+    await test.step("the sidebar's button opens the same preview", async () => {
+      await preview.getByRole("button", { name: "Close" }).click();
+      await expect(preview).toBeHidden();
+      await button.click();
+      await expect(preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 1` })).toHaveAttribute("data-state", "ready");
+      await preview.getByRole("button", { name: "Close" }).click();
+      await expect(preview).toBeHidden();
+    });
   },
 );
 

@@ -25,7 +25,7 @@ async function signInAsDana(page: Page) {
   await expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
 }
 
-/** Records every "open quote" event (the PDF preview modal subscribes to it in task 5.1). */
+/** Records every "open quote" event (the PDF preview modal, task 5.1, subscribes to it). */
 async function recordOpenQuote(page: Page) {
   await page.evaluate(() => {
     const w = window as unknown as { opened: unknown[] };
@@ -94,13 +94,17 @@ test("desktop: rep and departments on the left, quotes newest first on the right
     await expect(buttons.last()).toContainText(/Quote · \w{3} \d+, 2025 · \$/);
   });
 
-  await test.step('clicking a quote emits "open quote"', async () => {
+  await page.screenshot({ path: testInfo.outputPath("customer-desktop.png") });
+
+  await test.step('clicking a quote emits "open quote", which opens the PDF preview (task 5.1)', async () => {
     const opened = await recordOpenQuote(page);
     await quotes.getByRole("button", { name: /Q-24816/ }).click();
     expect(await opened()).toEqual([{ id: "q-24816", quote_number: "Q-24816" }]);
+    const preview = page.getByRole("dialog", { name: "Quote Q-24816" });
+    await expect(preview).toBeVisible();
+    await preview.getByRole("button", { name: "Close" }).click();
+    await expect(preview).toBeHidden();
   });
-
-  await page.screenshot({ path: testInfo.outputPath("customer-desktop.png") });
 });
 
 test("390px: the header fits and the sidebars collapse into tabs", async ({ page }, testInfo) => {
@@ -155,6 +159,11 @@ test("390px: the header fits and the sidebars collapse into tabs", async ({ page
     const opened = await recordOpenQuote(page);
     await first.click();
     expect(await opened()).toEqual([{ id: "q-24817", quote_number: "Q-24817" }]);
+    // The PDF preview (task 5.1) fills the screen; close it to get back to the tabs.
+    const preview = page.getByRole("dialog", { name: "Quote Q-24817" });
+    await expect(preview).toBeVisible();
+    await preview.getByRole("button", { name: "Close" }).click();
+    await expect(preview).toBeHidden();
   });
 
   await test.step("back to Chat", async () => {
