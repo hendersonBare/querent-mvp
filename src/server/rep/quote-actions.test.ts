@@ -107,7 +107,9 @@ describe('resetRepSampleQuote',()=>{
     expect(repo.quote('q-24817')!.lines.map(l=>l.item_id)).toEqual(['HCS-12-13-2G8','CW-45-045-T1','RS-2-27-JH','DT-2-60']);
 
     const reset=await actions.resetRepSampleQuote('brandi','Q-24817',{now:NOW});
-    expect(reset).toEqual(seeded);
+    // The reseed writes the seeded Activity rows again, so only their ids differ (side panels, task 3.4).
+    const withoutActivityIds=(d:typeof seeded)=>({...d,panels:{...d.panels,activity:d.panels.activity.map(({id:_id,...entry})=>entry)}});
+    expect(withoutActivityIds(reset)).toEqual(withoutActivityIds(seeded));
     expect(reset.lines.map(l=>[l.sku,l.qty,l.unit_price,l.price_basis])).toEqual([
       ['HCS-12-13-2G8',10,31.5,'last_paid'],['CW-45-045-T1',6,36,'contract'],['GLV-N8-L-1000',4,79,'last_paid'],['RS-2-27-JH',12,22.95,'customer'],
     ]);

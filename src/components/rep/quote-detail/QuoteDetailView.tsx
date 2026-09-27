@@ -10,6 +10,7 @@ import {ActionMenu} from './ActionMenu';
 import {AddItem} from './AddItem';
 import {LineGrid,lineRowId} from './LineGrid';
 import {MoreMenu} from './more-menu/MoreMenu';
+import {QuotePanels} from './panels/QuotePanels';
 import {SendDialogStub} from './SendDialogStub';
 import {UpsellsSection} from './upsells/UpsellsSection';
 import {day,itemCount,money,requestedAt,signedMoney,timeOfDay} from './format';
@@ -69,6 +70,7 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
       </div>
       <aside className={s.rail} aria-label="Quote summary">
         <SummaryCard figures={figures} repName={quote.rep_name}/>
+        <QuotePanels editor={editor} figures={figures}/>
       </aside>
     </div>
     {sending&&<SendDialogStub quoteNumber={quote.quote_number} recipient={customer} lineCount={lines.length} figures={figures} fulfillment={fulfillment}
