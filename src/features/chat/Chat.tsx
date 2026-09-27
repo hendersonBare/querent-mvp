@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ClarifyPayload, ItemPopupPayload, QuoteRequestedPayload } from "@/domain";
+import type { ClarifyPayload, ItemPopupPayload, QuoteNotice, QuoteRequestedPayload } from "@/domain";
 import type { API, ChatAnswer, ChatTurn, Principal, QuoteRequestResult } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
 import { ClarifyPanel } from "@/components/customer/ClarifyPanel";
 import { CustomerLayout } from "@/components/customer/CustomerLayout";
 import { ItemPopup } from "@/components/customer/ItemPopup";
+import { QuoteNoticeCard } from "@/components/customer/QuoteNoticeCard";
 import { emitQuotesChanged } from "@/components/customer/quotes-changed";
+import { addArrived, NOTICE_POLL_MS, placeWithHistory, timeline, type PlacedNotice } from "./notices";
 
 /**
  * The quote an item pop-up turn became: the first Request quote confirmation after it, before any
@@ -27,10 +29,13 @@ export function CustomerChat({
   api,
   user,
   signOut,
+  noticePollMs = NOTICE_POLL_MS,
 }: {
   api: API;
   user: Principal;
   signOut: () => void;
+  /** How often to look for a newly sent quote (tests shorten it). */
+  noticePollMs?: number;
 }) {
   const [question, setQuestion] = useState(""),
     [turns, setTurns] = useState<ChatTurn[]>([]),
@@ -38,8 +43,18 @@ export function CustomerChat({
     [error, setError] = useState(""),
     [conversation, setConversation] = useState(""),
     // The item pop-up that just arrived opens by itself; one reloaded from history waits (task 2.3).
-    [popupToOpen, setPopupToOpen] = useState("");
+    [popupToOpen, setPopupToOpen] = useState(""),
+    // "Quote … is ready" messages (task 5.1), and the conversation they were first loaded for:
+    // polling for new ones starts once the history and the notices already sent are on screen.
+    [notices, setNotices] = useState<PlacedNotice[]>([]),
+    [noticesFor, setNoticesFor] = useState("");
   const end = useRef<HTMLDivElement>(null);
+  const turnCount = useRef(0);
+  turnCount.current = turns.length;
+  const shownNotices = useRef(new Set<string>());
+  useEffect(() => {
+    shownNotices.current = new Set(notices.map((p) => p.notice.id));
+  }, [notices]);
   useEffect(() => {
     const key = `querent-conversation-${user.user_id}`;
     const id = localStorage.getItem(key) || crypto.randomUUID();
@@ -49,22 +64,48 @@ export function CustomerChat({
   useEffect(() => {
     if (!conversation) return;
     let cancelled = false;
-    api
-      .get<ChatTurn[]>(`customer/history/${conversation}`)
-      .then((result) => {
-        // A message sent before the history arrived stays, after the history.
-        if (!cancelled) setTurns((current) => [...result, ...current]);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(String(e));
-      });
+    // Notices are extra: if they can't load, the history still shows and the poll tries again.
+    Promise.all([
+      api.get<ChatTurn[]>(`customer/history/${conversation}`).then(
+        (result) => ({ ok: true as const, result }),
+        (reason: unknown) => ({ ok: false as const, reason }),
+      ),
+      api.get<QuoteNotice[]>(`customer/notices/${conversation}`).catch(() => [] as QuoteNotice[]),
+    ]).then(([history, sent]) => {
+      if (cancelled) return;
+      // A message sent before the history arrived stays, after the history.
+      if (history.ok) setTurns((current) => [...history.result, ...current]);
+      else setError(String(history.reason));
+      setNotices(placeWithHistory(history.ok ? history.result : [], sent));
+      setNoticesFor(conversation);
+    });
     return () => {
       cancelled = true;
     };
   }, [api, conversation]);
+  // A quote the rep sends while the chat is open shows up without a reload (task 5.1). The chat
+  // polls like the quotes sidebar does, and asks the sidebar to refresh when one arrives.
+  useEffect(() => {
+    if (!noticesFor || noticesFor !== conversation) return;
+    let cancelled = false;
+    const id = setInterval(() => {
+      api
+        .get<QuoteNotice[]>(`customer/notices/${conversation}`)
+        .then((sent) => {
+          if (cancelled || sent.every((n) => shownNotices.current.has(n.id))) return;
+          setNotices((placed) => addArrived(placed, sent, turnCount.current));
+          emitQuotesChanged();
+        })
+        .catch(() => {});
+    }, noticePollMs);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [api, conversation, noticesFor, noticePollMs]);
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth" });
-  }, [turns, busy]);
+  }, [turns, busy, notices]);
   async function ask(text: string) {
     if (!text.trim() || busy || !conversation) return;
     setBusy(true);
@@ -118,6 +159,8 @@ export function CustomerChat({
     const id = crypto.randomUUID();
     localStorage.setItem(`querent-conversation-${user.user_id}`, id);
     setTurns([]);
+    setNotices([]);
+    setNoticesFor("");
     setPopupToOpen("");
     setConversation(id);
     setError("");
@@ -135,7 +178,7 @@ export function CustomerChat({
         </div>
         <main className="chat-main">
           <div className="chat-scroll">
-            {turns.length === 0 ? (
+            {turns.length === 0 && (
               <div className="chat-welcome">
                 <img src="/querent-logo.png" alt="" width="55" height="55" />
                 <p className="eyebrow">HERRICK INDUSTRIAL SUPPLY</p>
@@ -163,9 +206,15 @@ export function CustomerChat({
                   ))}
                 </div>
               </div>
-            ) : (
+            )}
+            {/* The turns, with the "quote is ready" messages among them (task 5.1). */}
+            {(turns.length > 0 || notices.length > 0) && (
               <div className="turns">
-                {turns.map((turn, index) => (
+                {timeline(turns, notices).map((entry) => {
+                  if (entry.kind === "notice")
+                    return <QuoteNoticeCard key={`notice-${entry.notice.id}`} notice={entry.notice} />;
+                  const { turn, index } = entry;
+                  return (
                   <article className="chat-turn" key={turn.id}>
                     <div className="question-row">
                       <div className="question-bubble">{turn.question}</div>
@@ -212,7 +261,8 @@ export function CustomerChat({
                       </div>
                     </div>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
             <div ref={end} />
