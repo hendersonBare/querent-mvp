@@ -1,10 +1,16 @@
 import type {Metadata} from 'next';
-import {SectionPlaceholder} from '@/components/rep/RepPage';
+import {OrdersList} from '@/components/rep/orders/OrdersList';
+import {allOrders} from '@/server/repository';
+import {pickedCustomer} from '@/server/rep/reference';
+import {signedInRepId} from '@/server/rep/session';
 
 export const metadata:Metadata={title:'Orders'};
 
-/** Orders (spec §4): read-only list and detail views, task 3.8. */
-export default function OrdersPage(){
-  return <SectionPlaceholder title="Orders" heading="Orders will be listed here"
-    body="Each order with its PO, date, status and lines, read-only from your ERP data."/>;
+type SearchParams=Promise<Record<string,string|string[]|undefined>>;
+
+/** Orders (spec §4, task 3.8): every order newest first, read-only, for the "Viewing" picker's customer. */
+export default async function OrdersPage({searchParams}:{searchParams:SearchParams}){
+  await signedInRepId();
+  const viewing=pickedCustomer(await searchParams);
+  return <OrdersList rows={allOrders({customerId:viewing.customerId})} viewing={viewing}/>;
 }

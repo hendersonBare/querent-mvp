@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {accountSummary,assignedRep,contact,contacts,customerAccount,customerIds,customers,customerStats,deliveryAddress,departments,rep,reps,setAssignedRep,supplier} from './accounts';
+import {accountSummary,assignedRep,contact,contacts,customerAccount,customerDirectory,customerIds,customers,customerStats,deliveryAddress,departments,rep,reps,setAssignedRep,supplier} from './accounts';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -85,5 +85,22 @@ describe('reps and assignments',()=>{
     expect(setAssignedRep('great-basin','nobody')).toBe(false);
     expect(setAssignedRep('nobody','eli')).toBe(false);
     expect(setAssignedRep('great-basin','brandi')).toBe(true);
+  });
+});
+
+describe('customer directory (rep Customers list, task 3.8)',()=>{
+  it('lists every customer by name with its rep, terms, balance and activity counts',()=>{
+    expect(customerDirectory()).toEqual([
+      {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
+      {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
+      {id:'uinta-facility',name:'Uinta Facility Services',account_number:'UFS-4051',rep_id:'nora',rep_name:'Nora Chen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
+      // 24 quotes of history plus the sample Q-24817; 23 orders (17 won quotes and 6 direct orders).
+      {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:'Net 30',credit_limit:50000,open_balance:18420,order_count:23,last_order_date:'2026-09-09',quote_count:25},
+    ]);
+    expect(customerDirectory().map(({id,name,account_number,rep_id,rep_name})=>({id,name,account_number,rep_id,rep_name}))).toEqual(customers());
+  });
+
+  it('carries no cost, margin or price-level fields',()=>{
+    for(const row of customerDirectory())expect(Object.keys(row).filter(k=>/cost|margin|price/.test(k))).toEqual([]);
   });
 });

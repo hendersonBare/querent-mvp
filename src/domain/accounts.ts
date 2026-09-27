@@ -7,6 +7,15 @@ export interface Rep {id:string;name:string;initials:string;title:string;phone:s
 /** One row of the customer picker, the Customers list and Rep assignments (one rep per customer). */
 export interface CustomerListItem {id:string;name:string;account_number:string;rep_id:string|null;rep_name:string|null}
 
+/**
+ * One row of the rep's Customers list (task 3.8): the picker's facts plus terms, balance and how
+ * much history the account has. Placeholder customers have null terms and zero counts (spec §2).
+ */
+export interface CustomerDirectoryRow extends CustomerListItem {
+  terms:string|null;credit_limit:number|null;open_balance:number|null;
+  order_count:number;last_order_date:string|null;quote_count:number;
+}
+
 export interface ShipTo {name:string|null;address:string;city:string|null;state:string|null;zip:string|null;lat:number|null;lng:number|null}
 
 /** Internal account record. Placeholder customers have only id, name, account number and rep (spec §2). */

@@ -1,23 +1,50 @@
 import 'server-only';
-import type {CoPurchase,Order,OrderLine,OrderSummary,PurchasedItem,PurchaseLine} from '@/domain';
+import type {CoPurchase,CustomerOrder,ItemSale,Order,OrderLine,OrderListRow,OrderSummary,PurchasedItem,PurchaseLine} from '@/domain';
 import {all,one} from './sql';
 
-// Orders and order history. Every function is scoped to one customer, and none returns
-// unit_cost: these back the get_order_history / get_order_status tools and the Orders views.
+// Orders and order history. None of these functions returns unit_cost. Most are scoped to one
+// customer: they back the get_order_history / get_order_status tools. The rep portal's Orders and
+// Items views (task 3.8) cover every customer: allOrders, findOrder and itemSales.
 
-const ORDER=`SELECT o.id,o.order_number,o.po_number,o.order_date,o.status,o.fulfillment,o.branch_id,b.code branch_code,o.shipped_on,o.tracking_number,
-  o.subtotal,o.freight,o.tax,o.total,q.quote_number FROM orders o JOIN branches b ON b.id=o.branch_id LEFT JOIN quotes q ON q.id=o.quote_id`;
+const ORDER_COLUMNS=`o.id,o.order_number,o.po_number,o.order_date,o.status,o.fulfillment,o.branch_id,b.code branch_code,o.shipped_on,o.tracking_number,
+  o.subtotal,o.freight,o.tax,o.total,q.quote_number`;
+const ORDER_FROM=' FROM orders o JOIN branches b ON b.id=o.branch_id LEFT JOIN quotes q ON q.id=o.quote_id';
+const ORDER=`SELECT ${ORDER_COLUMNS}${ORDER_FROM}`;
+/** ORDER plus whose order it is (the rep portal's views cover every customer). */
+const CUSTOMER_COLUMNS=`${ORDER_COLUMNS},o.customer_id,cu.name customer_name,cu.account_number`;
+const CUSTOMER_FROM=`${ORDER_FROM} JOIN customers cu ON cu.id=o.customer_id`;
 const NEWEST=' ORDER BY o.order_date DESC,o.order_number DESC';
 
 /** The customer's orders, newest first. */
 export function orders(customerId:string,{limit=100}:{limit?:number}={}){return all<OrderSummary>(`${ORDER} WHERE o.customer_id=?${NEWEST} LIMIT ?`,customerId,limit);}
 
+const orderLines=(orderId:string)=>all<OrderLine>('SELECT l.line_no,l.item_id,i.sku,i.description,i.pack,l.qty,l.unit_price FROM order_lines l JOIN items i ON i.id=l.item_id WHERE l.order_id=? ORDER BY l.line_no',orderId);
+
 /** One of the customer's orders, by id or order number, with its lines. */
 export function order(customerId:string,orderIdOrNumber:string):Order|undefined{
   const header=one<OrderSummary>(`${ORDER} WHERE o.customer_id=? AND (o.id=? OR upper(o.order_number)=upper(?))`,customerId,orderIdOrNumber,orderIdOrNumber);
-  if(!header)return undefined;
-  const lines=all<OrderLine>('SELECT l.line_no,l.item_id,i.sku,i.description,i.pack,l.qty,l.unit_price FROM order_lines l JOIN items i ON i.id=l.item_id WHERE l.order_id=? ORDER BY l.line_no',header.id);
-  return {...header,lines};
+  return header&&{...header,lines:orderLines(header.id)};
+}
+
+// ---- Rep portal: every customer (task 3.8) ----
+
+/** Internal: every customer's orders (or one customer's), newest first, with the customer and line count: the rep's Orders list. */
+export function allOrders({customerId=null,limit=500}:{customerId?:string|null;limit?:number}={}){
+  return all<OrderListRow>(`SELECT ${CUSTOMER_COLUMNS},(SELECT count(*) FROM order_lines l WHERE l.order_id=o.id) line_count${CUSTOMER_FROM}
+    WHERE (@customerId IS NULL OR o.customer_id=@customerId)${NEWEST} LIMIT @limit`,{customerId,limit});
+}
+
+/** Internal: one order by id or order number, whoever the customer, with its lines: the rep's order detail. */
+export function findOrder(orderIdOrNumber:string):CustomerOrder|undefined{
+  const header=one<Omit<CustomerOrder,'lines'>>(`SELECT ${CUSTOMER_COLUMNS}${CUSTOMER_FROM} WHERE o.id=? OR upper(o.order_number)=upper(?)`,orderIdOrNumber,orderIdOrNumber);
+  return header&&{...header,lines:orderLines(header.id)};
+}
+
+/** Internal: the order lines for one item, newest first, optionally one customer's: an item's recent sales. */
+export function itemSales(itemId:string,{customerId=null,limit=20}:{customerId?:string|null;limit?:number}={}){
+  return all<ItemSale>(`SELECT o.id order_id,o.order_number,o.order_date,o.customer_id,cu.name customer_name,l.qty,l.unit_price
+    FROM order_lines l JOIN orders o ON o.id=l.order_id JOIN customers cu ON cu.id=o.customer_id
+    WHERE l.item_id=@itemId AND (@customerId IS NULL OR o.customer_id=@customerId)${NEWEST},l.line_no LIMIT @limit`,{itemId,customerId,limit});
 }
 
 /** Order status by order number or PO number (ignoring case), or the latest order when no reference is given. */
