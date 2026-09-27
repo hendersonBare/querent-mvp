@@ -1,10 +1,15 @@
 import type {Metadata} from 'next';
-import {SectionPlaceholder} from '@/components/rep/RepPage';
+import {CustomersList} from '@/components/rep/customers/CustomersList';
+import {customerList,pickedCustomer} from '@/server/rep/reference';
+import {signedInRepId} from '@/server/rep/session';
 
 export const metadata:Metadata={title:'Customers'};
 
-/** Customers (spec §4): read-only list and detail views, task 3.8. */
-export default function CustomersPage(){
-  return <SectionPlaceholder title="Customers" heading="Customer accounts will be listed here"
-    body="Each customer's account number, assigned rep, terms, credit and recent activity, read-only from your ERP data."/>;
+type SearchParams=Promise<Record<string,string|string[]|undefined>>;
+
+/** Customers (spec §4, task 3.8): every account and its assigned rep, read-only; the "Viewing" picker narrows it to one. */
+export default async function CustomersPage({searchParams}:{searchParams:SearchParams}){
+  const repId=await signedInRepId();
+  const viewing=pickedCustomer(await searchParams);
+  return <CustomersList rows={customerList(viewing.customerId)} viewing={viewing} repId={repId}/>;
 }
