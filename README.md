@@ -36,7 +36,7 @@ With `ANTHROPIC_API_KEY` set (and `QUERENT_SCRIPTED` unset), chat runs in **live
 
 ## End-to-end tests
 
-`e2e/golden-quote-flow.spec.ts` walks workflow steps 1–8. Each step is `test.fixme` until the task that builds it turns it on. With `QUERENT_WEBSERVER=1` (or in CI), Playwright resets the database and starts the production server itself, so run `npm run build` first. The server runs in scripted mode on the mockup's seed date (2026-09-23) and enables the test-only `POST /api/test/reset` (`QUERENT_E2E_RESET=1`). The golden spec calls that endpoint before it runs.
+`e2e/golden-quote-flow.spec.ts` walks workflow steps 1–8, and `e2e/mobile-flow.spec.ts` walks them again with both personas on 390×844 phones. Every step runs: `npm test` fails if an E2E test is switched off (`test.fixme`, `test.skip`) or focused (`test.only`). With `QUERENT_WEBSERVER=1` (or in CI), Playwright resets the database and starts the production server itself, so run `npm run build` first. The server runs in scripted mode on the mockup's seed date (2026-09-23) and enables the test-only `POST /api/test/reset` (`QUERENT_E2E_RESET=1`). The golden spec calls that endpoint before it runs.
 
 ```sh
 npm run build
@@ -62,6 +62,7 @@ npm start
 4. Set `DATABASE_PATH=/data/querent.sqlite`.
 5. Optionally set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL`.
 6. Generate a public HTTPS domain and open it from your phone.
+7. After a deploy that changes `SCHEMA_VERSION` (task 7.1 moved it to 3), the app refuses the old database on the volume: run `npm run db:reset` once in the service's shell (with `DATABASE_PATH` set), which reseeds the demo.
 
 Railway's free credit is suitable for experimentation, but continuous free operation depends on usage. Free and trial volume limits can also change. Vercel cannot durably persist this local SQLite file; a future Vercel deployment should replace it with remote libSQL/Turso.
 
