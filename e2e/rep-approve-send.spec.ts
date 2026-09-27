@@ -139,7 +139,7 @@ test.describe("desktop (1440px)", () => {
     expect((await api(page, `/api/rep/quotes/${SAMPLE}`)).body.quote).toMatchObject({ status: "ready_for_review", revision: 0 });
   });
 
-  test("blockers: the reasons show and Send quote is disabled", async ({ page }) => {
+  test("blockers: the reasons show and Send quote is disabled", async ({ page }, testInfo) => {
     await openQuote(page);
     const cleared = await api(page, `/api/rep/quotes/${SAMPLE}/lines/q-24817-4`, { method: "PATCH", body: { unitPrice: null } });
     expect(cleared.status).toBe(200);
@@ -149,6 +149,7 @@ test.describe("desktop (1440px)", () => {
     await expect(dialog.getByRole("alert")).toHaveText("Can’t send yet:Line 4 (RS-2-27-JH) has no price.");
     await expect(dialog.getByRole("button", { name: "Send quote" })).toBeDisabled();
     await expect(confirmDialog(page)).toHaveCount(0);
+    await shoot(page, testInfo, "send-blocked-1440");
     // The server re-checks: a direct send is refused too.
     const direct = await api(page, `/api/rep/quotes/${SAMPLE}/send`, { method: "POST", body: { revision: 1, total: 847 } });
     expect(direct).toMatchObject({ status: 422, body: { code: "send_blocked", blockers: [{ code: "no_price", line_id: "q-24817-4" }] } });
