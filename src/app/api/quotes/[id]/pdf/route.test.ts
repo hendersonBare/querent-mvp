@@ -119,9 +119,11 @@ describe('a sent revision is frozen (spec §5.4): the PDF the customer saw can a
     await sendQuote('q-24817',{repId:'brandi',now:'2026-09-23T17:00:00.000Z'});
     const sentAsIs=await textOf(await call('Q-24817','','customer'));
     const seededAsIs=await textOf(await call('Q-24816','','customer'));
-    for(const text of [sentAsIs,seededAsIs])for(const field of ['Terms Net 30','Payment terms: Net 30.','(801) 111-2222','Inside Sales, Herrick Industrial Supply','1480 W 2100 S','Phone (801) 555-0120'])expect(text).toContain(field);
+    for(const text of [sentAsIs,seededAsIs])for(const field of ['Terms Net 30','Payment terms: Net 30.','Sales rep Brandi Gallegos','(801) 111-2222','Inside Sales, Herrick Industrial Supply','1480 W 2100 S','Phone (801) 555-0120'])expect(text).toContain(field);
 
     await updateLiveRecord('customers','wasatch','terms','Net 45');
+    // The "Sales rep" row reads the name frozen in the revision, not the rep record (4.1 follow-up).
+    await updateLiveRecord('reps','brandi','name','Brandi Gallegos-Ruiz');
     await updateLiveRecord('reps','brandi','phone','(801) 555-0199');
     await updateLiveRecord('reps','brandi','title','Branch Sales');
     await updateLiveRecord('branches','slc','address','200 N Main St');
@@ -135,10 +137,11 @@ describe('a sent revision is frozen (spec §5.4): the PDF the customer saw can a
       // Nothing is frozen until the next send: the rev 2 draft preview prints the live records.
       requestChanges('wasatch','q-24817',{revision:1,note:'Can you do 20 boxes?',now:'2026-09-24T15:00:00.000Z'});
       const draft=await textOf(await call('Q-24817','?rev=draft','supplier'));
-      for(const field of ['Terms Net 45','Payment terms: Net 45.','(801) 555-0199','Branch Sales, Herrick Industrial Supply','200 N Main St','Phone (801) 555-0177'])expect(draft).toContain(field);
+      for(const field of ['Terms Net 45','Payment terms: Net 45.','Sales rep Brandi Gallegos-Ruiz','(801) 555-0199','Branch Sales, Herrick Industrial Supply','200 N Main St','Phone (801) 555-0177'])expect(draft).toContain(field);
       expect(draft).not.toMatch(/Net 30|111-2222|1480 W 2100 S/);
     }finally{
       await updateLiveRecord('customers','wasatch','terms','Net 30');
+      await updateLiveRecord('reps','brandi','name','Brandi Gallegos');
       await updateLiveRecord('reps','brandi','phone','(801) 111-2222');
       await updateLiveRecord('reps','brandi','title','Inside Sales');
       await updateLiveRecord('branches','slc','address','1480 W 2100 S');
