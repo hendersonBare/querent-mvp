@@ -75,7 +75,11 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
 
   const shown=preview?.shown??null;
   const open=!!preview&&canRespond(preview,now);
-  const rep=preview?capitalized(repFirstName(preview)):'Your rep';
+  /** The rep's first name, or "your rep", as it reads mid-sentence. */
+  const rep=preview?repFirstName(preview):'your rep';
+
+  // A form whose quote can no longer be answered (it expired while open, or a reload moved it on) closes.
+  useEffect(()=>{if(!open&&step!=='idle')onStep('idle');},[open,step,onStep]);
 
   function start(next:'accept'|'changes'){
     setFormProblem(null);setBarProblem(null);
@@ -244,7 +248,7 @@ function ChangesForm({preview,rep,note,problem,onNote,onBack,onReview}:ChangesFo
       <textarea ref={field} value={note} rows={4} maxLength={NOTE_MAX} required aria-describedby={`${id}-hint`}
         placeholder="For example: make the bolts 12 boxes, or deliver to the job site instead." onChange={event=>onNote(event.target.value)}/>
     </label>
-    <p className="qp-hint" id={`${id}-hint`}>{rep} revises the quote and sends it back here in chat. <span className="qp-count">{note.length.toLocaleString('en-US')}/{NOTE_MAX.toLocaleString('en-US')}</span></p>
+    <p className="qp-hint" id={`${id}-hint`}>{capitalized(rep)} revises the quote and sends it back here in chat. <span className="qp-count">{note.length.toLocaleString('en-US')}/{NOTE_MAX.toLocaleString('en-US')}</span></p>
     {problem&&<p className="qp-problem" role="alert">{problem}</p>}
     <div className="qp-form-buttons">
       <button type="button" className="ip-secondary" onClick={onBack}>Back</button>

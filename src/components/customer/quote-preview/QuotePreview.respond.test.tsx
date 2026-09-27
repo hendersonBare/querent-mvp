@@ -223,6 +223,22 @@ describe('Accept',()=>{
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('a click outside backs out of the form and keeps what was typed; a click outside the Confirm does nothing',async()=>{
+    open();
+    const dialog=await modal();
+    const form=await fillAccept(dialog);
+    fireEvent.click(within(form).getByRole('button',{name:'Review and accept'}));
+    fireEvent.mouseDown(confirm('Confirm acceptance').parentElement!);
+    expect(confirm('Confirm acceptance')).toBeInTheDocument();
+    fireEvent.click(within(confirm('Confirm acceptance')).getByRole('button',{name:'Cancel'}));
+    fireEvent.mouseDown(dialog.parentElement!);
+    expect(screen.getByRole('dialog',{name:'Quote Q-24817'})).toBeInTheDocument();
+    expect(within(dialog).queryByRole('form')).toBeNull();
+    fireEvent.click(bar(dialog).getByRole('button',{name:'Accept'}));
+    expect(within(dialog).getByLabelText('PO number')).toHaveValue('7781');
+    expect(within(dialog).getByLabelText('Pickup day')).toHaveValue('2026-09-29');
+  });
+
   it('keeps Tab inside the Confirm while it is open',async()=>{
     open();
     const dialog=await modal();
@@ -261,6 +277,28 @@ describe('Request changes',()=>{
     expect(within(dialog).getByText('Changes requested',{selector:'.cx-chip'})).toBeInTheDocument();
     expect(bar(dialog).getByText('You asked for changes to rev 1. Brandi is revising the quote.')).toHaveFocus();
     expect(bar(dialog).getByRole('button',{name:'Request changes'})).toBeDisabled();
+  });
+
+  it('says “your rep” when the quote has none on file',async()=>{
+    open({...previews.sent,rep:null});
+    const dialog=await modal();
+    fireEvent.click(bar(dialog).getByRole('button',{name:'Request changes'}));
+    const form=within(dialog).getByRole('form',{name:'Request changes to Q-24817 rev 1'});
+    expect(within(form).getByLabelText('What should your rep change?')).toBeInTheDocument();
+    expect(form).toHaveTextContent('Your rep revises the quote and sends it back here in chat.');
+  });
+
+  it('a form left open past valid-until closes, and the bar says the quote expired',async()=>{
+    const api=fakeApi({'customer/quotes/q-24817':previews.sent});
+    const {rerender}=render(<QuotePreview api={api} now={NOW}/>);
+    act(()=>emitOpenQuote({id:'q-24817',quote_number:'Q-24817'}));
+    const dialog=await modal();
+    fireEvent.click(bar(dialog).getByRole('button',{name:'Request changes'}));
+    expect(within(dialog).getByRole('form')).toBeInTheDocument();
+    rerender(<QuotePreview api={api} now="2026-10-08T00:00:00.000Z"/>);
+    await waitFor(()=>expect(within(dialog).queryByRole('form')).toBeNull());
+    expect(bar(dialog).getByRole('button',{name:'Request changes'})).toBeDisabled();
+    expect(bar(dialog).getByText('This quote expired: it was valid until Oct 7. Ask Brandi for a new one.')).toBeInTheDocument();
   });
 
   it('Back returns to the bar and focuses Request changes',async()=>{

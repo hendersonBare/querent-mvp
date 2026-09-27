@@ -32,8 +32,10 @@ function QuotePreviewDialog({api,request,now,onClose,onOpen}:DialogProps){
   const dialog=useRef<HTMLDivElement>(null);
   const close=useRef<HTMLButtonElement>(null);
   const title=useId();
-  // Escape backs out of an open Accept or Request changes form first, then closes the modal.
-  useModal(dialog,{onEscape:()=>{if(step==='idle')onClose();else setStep('idle');},initialFocus:close});
+  // Escape and a click outside back out of an open Accept or Request changes form first (what was
+  // typed stays for next time), then close the modal.
+  const dismiss=()=>{if(step==='idle')onClose();else setStep('idle');};
+  useModal(dialog,{onEscape:dismiss,initialFocus:close});
 
   useEffect(()=>{
     let cancelled=false;
@@ -48,7 +50,7 @@ function QuotePreviewDialog({api,request,now,onClose,onOpen}:DialogProps){
   const shown=preview?.shown??null;
   const older=preview?isOlderRevision(preview):false;
 
-  return <div className="qp-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
+  return <div className="qp-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)dismiss();}}>
     <div className="qp-dialog" role="dialog" aria-modal="true" aria-labelledby={title} tabIndex={-1} ref={dialog}>
       <header className="qp-head">
         <div className="qp-title">
