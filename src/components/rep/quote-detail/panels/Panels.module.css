@@ -334,8 +334,7 @@
   margin-right: 6px;
 }
 .formula {
-  font-family: var(--rep-mono);
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .actions {
   display: flex;

@@ -20,10 +20,10 @@ import p from './Panels.module.css';
 const MODES:{value:Fulfillment;label:string}[]=[{value:'will_call',label:'Will call'},{value:'delivery',label:'Delivery'}];
 const REASON_REQUIRED='Say why freight is set by hand.';
 
-function FreightDetails({freight}:{freight:FreightDisplay}){
+function FreightDetails({freight,origin}:{freight:FreightDisplay;origin:string}){
   const {computed}=freight;
   const rows:[string,string][]=[];
-  if(computed.miles!==null)rows.push(['Distance',`${computed.miles.toFixed(1)} road mi`]);
+  if(computed.miles!==null)rows.push(['Distance',`${computed.miles.toFixed(1)} road mi from ${origin}`]);
   if(computed.formula)rows.push(['Formula',computed.formula]);
   // The distance rule's sentence is the two rows above; every other rule says something they don't.
   const sentence=computed.rule==='distance'?null:computed.explanation;
@@ -116,7 +116,7 @@ export function FulfillmentPanel({detail,items,save}:{detail:QuoteDetail;items:n
       </p>
       {freight.override&&<p className={p.fnote}><span className={p.tag}>Override</span>{freight.override.reason}</p>}
       {freight.override&&<p className={p.fnote}><span className={p.muted}>Distance-based freight would be </span>{freight.computedAmount===null?'call for freight':money(freight.computedAmount)}.</p>}
-      <FreightDetails freight={freight}/>
+      <FreightDetails freight={freight} origin={quote.branch_code}/>
       {editable&&(overriding
         ?<OverrideForm freight={freight} busy={busy} onSave={saveOverride} onCancel={()=>setOverriding(false)}/>
         :<div className={p.actions}>

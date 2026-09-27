@@ -180,7 +180,7 @@ describe('Pickup or delivery panel',()=>{
     await settle();
     const freight=within(panel('Pickup or delivery')).getByRole('region',{name:'Freight'});
     expect(freight).toHaveTextContent('Freight$62.50');
-    expect(freight).toHaveTextContent('Distance15.0 road miFormula$25.00 + $2.50/mi × 15.0 mi = $62.50');
+    expect(freight).toHaveTextContent('Distance15.0 road mi from SLCFormula$25.00 + $2.50/mi × 15.0 mi = $62.50');
     expect(panel('Pickup or delivery')).toHaveTextContent(`Ship to ${SHIP_TO}`);
     expect(summaryValue('Pickup or delivery')).toBe('Delivery · SLC · Thu Sep 24');
     expect(totalsText()).toContain('Freight (15.0 mi)$62.50');
