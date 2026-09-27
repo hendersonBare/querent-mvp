@@ -21,7 +21,7 @@ beforeAll(async()=>{
   const {repCustomerPdf}=await import('./rep');
   const {renderCustomerQuotePdf}=await import('./CustomerQuotePdf');
   render=async(idOrNumber,rev)=>{
-    const pdf=await repCustomerPdf(idOrNumber,rev,NOW);
+    const pdf=await repCustomerPdf('brandi',idOrNumber,rev,NOW);
     if(!pdf.ok)throw new Error(pdf.detail);
     const bytes=await renderCustomerQuotePdf(pdf.model);
     expect(new TextDecoder().decode(bytes.slice(0,5))).toBe('%PDF-');

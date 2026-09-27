@@ -10,15 +10,18 @@ export const SEED_DATE='2026-09-23';
  * Tests only. Points the repository at a fresh, seeded SQLite file for this test file and
  * removes it afterwards. Import repository modules after this runs (dynamic import in tests).
  */
-/** The live fields a sent revision's PDF must not follow (task 4.1). */
-const LIVE_FIELDS={customers:['terms'],reps:['title','phone','email'],branches:['name','address','will_call_phone']} as const;
+/**
+ * The live fields a sent revision's PDF must not follow (task 4.1), and the item cost the internal
+ * worksheet must not follow for a line still on the quote (task 4.2).
+ */
+const LIVE_FIELDS={customers:['terms'],reps:['title','phone','email'],branches:['name','address','will_call_phone'],items:['cost']} as const;
 type LiveTable=keyof typeof LIVE_FIELDS;
 
 /**
- * Tests only: changes one live account, rep or branch field, as a future ERP sync would (spec
+ * Tests only: changes one live account, rep, branch or item field, as a future ERP sync would (spec
  * §6.2), to prove a frozen revision doesn't follow it. Table and column come from a fixed list.
  */
-export async function updateLiveRecord<T extends LiveTable>(table:T,id:string,column:(typeof LIVE_FIELDS)[T][number],value:string){
+export async function updateLiveRecord<T extends LiveTable>(table:T,id:string,column:(typeof LIVE_FIELDS)[T][number],value:string|number){
   if(!(LIVE_FIELDS[table] as readonly string[]).includes(column))throw new Error(`Not a live field: ${table}.${column}`);
   const {db}=await import('../db');
   if(db().prepare(`UPDATE ${table} SET ${column}=? WHERE id=?`).run(value,id).changes!==1)throw new Error(`No ${table} row ${id}`);

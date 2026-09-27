@@ -144,7 +144,8 @@ describe('worksheetModel',()=>{
     expect(m.lines[0].cost).toBe('$21.40*');
     expect(m.asOf).toBe('Q-24817 rev 1 as sent on Sep 23, 2026: quantities, prices and totals are the frozen revision the customer received. '
       +'Cost is the unit cost recorded on the quote\'s lines (* the item\'s current cost, for a line no longer on the quote). '
-      +'Why this price? and last paid are as of the send date. Floors, credit and internal notes are as of Sep 27, 2026, 2:40 AM UTC.');
+      +'Why this price? is recomputed with last paid and contracts as of the send date, but today\'s list and customer prices. '
+      +'Floors, credit and internal notes are as of Sep 27, 2026, 2:40 AM UTC.');
     expect(worksheetModel(sent,CONTEXT,{...FACTS,blockers:null}).asOf).not.toContain('*');
   });
 

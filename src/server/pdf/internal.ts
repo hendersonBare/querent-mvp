@@ -21,7 +21,9 @@ import {worksheetModel,type WorksheetLineFacts,type WorksheetModel} from './work
 //   no cost (by design), so cost is the unit cost stored on the quote's line with the same SKU,
 //   which was copied from the item when the line was written. A line removed from the quote since
 //   falls back to the item's current cost, marked in the PDF. Why this price? and last paid are
-//   recomputed for the send date. (Default for task 4.2, flagged for review.)
+//   recomputed with the pricing day set to the send date: last paid and the contracts active then
+//   follow it, but list and customer prices are today's (the database keeps no history of them).
+//   (Default for task 4.2, flagged for review.)
 // In both, the price basis options, Querent's pick and "Why this price?" come from the pricing
 // engine (priceLines) and margin and floors from lineFloorStatus, as on the quote screen (3.3).
 // Floors, credit and internal notes are live; the PDF says as of when.
@@ -47,9 +49,12 @@ export function basisFor(price:number|null,stored:Pick<QuoteLine,'unit_price'|'p
   return priced?.options.find(o=>o.basis!=='custom'&&o.price!==null&&cents(o.price)===cents(price))?.basis??'custom';
 }
 
-/** The internal worksheet the rep asked for: rev n, the latest sent (rev null), or the draft. */
-export async function internalWorksheet(quoteIdOrNumber:string,rev:PdfRevision,{now=new Date().toISOString()}:{now?:string}={}):Promise<InternalPdf>{
-  const loaded=await repPdfSource(quoteIdOrNumber,rev,now);
+/**
+ * The internal worksheet of one of `repId`'s quotes: rev n, the latest sent (rev null), or the
+ * draft. Another rep's quote is not found (repPdfSource), so no rep sees a colleague's cost.
+ */
+export async function internalWorksheet(repId:string,quoteIdOrNumber:string,rev:PdfRevision,{now=new Date().toISOString()}:{now?:string}={}):Promise<InternalPdf>{
+  const loaded=await repPdfSource(repId,quoteIdOrNumber,rev,now);
   if(!loaded.ok)return loaded;
   const {quote:q,source,freight}=loaded;
 

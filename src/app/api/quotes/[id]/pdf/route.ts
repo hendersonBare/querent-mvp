@@ -15,9 +15,10 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 // - the customer: the customer quote of their own quotes, and only revisions the rep sent. A draft
 //   (e.g. Q-24817 in ready_for_review) has unreviewed prices, so it is 404 like any quote they
 //   can't see. variant=internal is 403 before anything is looked up: the worksheet is rep-only.
-// - the rep: any sent revision, or rev=draft to preview the unsent draft (the 3.7 send dialog), as
-//   the customer quote or as the internal worksheet (cost, margin, floors, Querent's reasoning,
-//   credit and internal notes). Like the customer quote, Brandi (supplier_admin) can open any quote.
+// - the rep: their own quotes only, as the Quotes list and the quote page show them (repQuote, task
+//   3.2): any sent revision, or rev=draft to preview the unsent draft (the 3.7 send dialog), as the
+//   customer quote or as the internal worksheet (cost, margin, floors, Querent's reasoning, credit
+//   and internal notes). Another rep's quote is 404 in both variants, like an unknown one.
 // - no session: 401. Unknown ids, other customers' quotes and unsent revisions: 404.
 
 export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){
@@ -34,9 +35,9 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
   // The rep check of /api/rep/badges (task 3.1).
   if(user.role!=='supplier_admin'||!user.rep_id)return pdfError('Supplier access required.',403);
   if(query.variant==='internal'){
-    const worksheet=await internalWorksheet(id,query.rev);
+    const worksheet=await internalWorksheet(user.rep_id,id,query.rev);
     return worksheet.ok?pdfFileResponse(await renderInternalWorksheetPdf(worksheet.model),worksheet.model.filename):pdfError(worksheet.detail,worksheet.status);
   }
-  const pdf=await repCustomerPdf(id,query.rev);
+  const pdf=await repCustomerPdf(user.rep_id,id,query.rev);
   return pdf.ok?pdfResponse(pdf.model):pdfError(pdf.detail,pdf.status);
 }

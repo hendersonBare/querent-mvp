@@ -164,8 +164,8 @@ export function worksheetModel(q:PdfQuote,ctx:PdfContext,facts:WorksheetFacts):W
   const asOf=q.draft
     ?`Live draft as of ${formatMoment(facts.asOf)}, not sent yet. Cost is the unit cost on the quote's lines; floors, credit and internal notes are current.`
     :`${ref} as sent on ${formatDay(q.date)}: quantities, prices and totals are the frozen revision the customer received. Cost is the unit cost recorded on the quote's lines`
-      +`${currentCost?' (* the item\'s current cost, for a line no longer on the quote)':''}. Why this price? and last paid are as of the send date. `
-      +`Floors, credit and internal notes are as of ${formatMoment(facts.asOf)}.`;
+      +`${currentCost?' (* the item\'s current cost, for a line no longer on the quote)':''}. Why this price? is recomputed with last paid and contracts as of the send date, `
+      +`but today's list and customer prices. Floors, credit and internal notes are as of ${formatMoment(facts.asOf)}.`;
 
   return {
     frame,

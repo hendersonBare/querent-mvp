@@ -2,7 +2,7 @@
 // react-pdf's browser build (picked under jsdom) writes streams pdf.js can't read.
 import {beforeAll,describe,expect,it} from 'vitest';
 import type {Quote,QuoteLine} from '@/domain';
-import {useSeededDatabase} from '@/server/repository/test-db';
+import {updateLiveRecord,useSeededDatabase} from '@/server/repository/test-db';
 import {internalLeaks,pdfText} from './test-pdf';
 
 useSeededDatabase();
@@ -30,7 +30,7 @@ beforeAll(async()=>{
   ({formatMargin}=await import('@/server/floors'));
   floorsOf=q=>quoteFloors(q)!;
   render=async(idOrNumber,rev,now=NOW)=>{
-    const pdf=await internal.internalWorksheet(idOrNumber,rev,{now});
+    const pdf=await internal.internalWorksheet('brandi',idOrNumber,rev,{now});
     if(!pdf.ok)throw new Error(pdf.detail);
     const bytes=await renderInternalWorksheetPdf(pdf.model);
     expect(new TextDecoder().decode(bytes.slice(0,5))).toBe('%PDF-');
@@ -170,6 +170,7 @@ describe('a sent revision: the frozen snapshot for what the customer saw, the qu
   it('says what is frozen, where cost comes from, and as of when the live figures are',()=>{
     expect(text).toContain('Q-24817 rev 1 as sent on Sep 23, 2026: quantities, prices and totals are the frozen revision the customer received.');
     expect(text).toContain('(* the item\'s current cost, for a line no longer on the quote)');
+    expect(text).toContain('Why this price? is recomputed with last paid and contracts as of the send date, but today\'s list and customer prices.');
     expect(text).toContain('Floors, credit and internal notes are as of Sep 27, 2026, 2:40 AM UTC.');
     expect(text).toContain(NOTE);
     // ($18,420.00 open + $1,184.90 as sent) / $50,000.00
@@ -182,6 +183,37 @@ describe('a sent revision: the frozen snapshot for what the customer saw, the qu
     expect(draft).toContain('20 $29.99 $599.80 Custom $21.40 28.6% 20%');
     expect(draft).toContain('Querent suggested Last paid $31.50.');
     expect(draft).not.toContain('RS-2-27-JH');
+  });
+});
+
+describe('cost is the unit cost stored on the quote\'s line, not the item\'s cost today',()=>{
+  it('keeps the line\'s cost on the sent revision and the draft after the item\'s cost changes; only a removed line uses the item\'s cost',async()=>{
+    const {sendQuote,requestChanges}=await import('@/server/quotes/service');
+    repo.resetSampleQuote();
+    await sendQuote('q-24817',{repId:'brandi',now:NOW});
+    requestChanges('wasatch','q-24817',{revision:1,note:'Drop the straps, please.',now:'2026-09-24T15:00:00.000Z'});
+    expect(repo.removeQuoteLine('q-24817','q-24817-4')).toBe(true);
+    // After the send, an ERP sync raises the bolts' cost ($21.40 on the quote line) and the straps' ($14.20).
+    await updateLiveRecord('items','HCS-12-13-2G8','cost',25);
+    await updateLiveRecord('items','RS-2-27-JH','cost',16);
+    try{
+      const sent=(await render('Q-24817',1,LATER)).text;
+      expect(sent).toContain('10 $31.50 $315.00 Last paid $21.40 32.1% 20%');
+      expect(sent).not.toContain('$25.00');
+      // The straps line is no longer on the quote: the item's cost today, marked.
+      expect(sent).toContain('12 $22.95 $275.40 Customer $16.00* 30.3% 20%');
+      expect(sent).toContain('Cost of goods $782.60 Gross profit $339.80 Margin 30.3%');
+
+      const draft=(await render('Q-24817','draft','2026-09-24T18:00:00.000Z')).text;
+      expect(draft).toContain('10 $31.50 $315.00 Last paid $21.40 32.1% 20%');
+      expect(draft).not.toContain('$25.00');
+      expect(draft).not.toContain('*');
+      expect(draft).toContain('Cost of goods $590.60');
+    }finally{
+      await updateLiveRecord('items','HCS-12-13-2G8','cost',21.4);
+      await updateLiveRecord('items','RS-2-27-JH','cost',14.2);
+      repo.resetSampleQuote();
+    }
   });
 });
 
@@ -208,11 +240,31 @@ describe('seeded Q-24816 rev 1 (accepted, delivery)',()=>{
 
 describe('what the rep can\'t get',()=>{
   it('answers like the customer PDF: unknown quote, never sent, no such revision, no draft once accepted',async()=>{
-    expect(await internal.internalWorksheet('q-nope',null,{now:NOW})).toEqual({ok:false,status:404,detail:'Quote not found.'});
+    expect(await internal.internalWorksheet('brandi','q-nope',null,{now:NOW})).toEqual({ok:false,status:404,detail:'Quote not found.'});
     repo.resetSampleQuote();
-    expect(await internal.internalWorksheet('Q-24817',null,{now:NOW})).toEqual({ok:false,status:404,detail:'Q-24817 hasn\'t been sent yet. Preview the draft with rev=draft.'});
-    expect(await internal.internalWorksheet('Q-24816',3,{now:NOW})).toEqual({ok:false,status:404,detail:'Q-24816 has no rev 3.'});
-    expect(await internal.internalWorksheet('Q-24816','draft',{now:NOW})).toEqual({ok:false,status:409,detail:'Q-24816 has no draft to preview: it is accepted. Open rev 1 instead.'});
+    expect(await internal.internalWorksheet('brandi','Q-24817',null,{now:NOW})).toEqual({ok:false,status:404,detail:'Q-24817 hasn\'t been sent yet. Preview the draft with rev=draft.'});
+    expect(await internal.internalWorksheet('brandi','Q-24816',3,{now:NOW})).toEqual({ok:false,status:404,detail:'Q-24816 has no rev 3.'});
+    expect(await internal.internalWorksheet('brandi','Q-24816','draft',{now:NOW})).toEqual({ok:false,status:409,detail:'Q-24816 has no draft to preview: it is accepted. Open rev 1 instead.'});
+  });
+
+  it('is not found for another rep\'s quote, sent or draft, as in the Quotes list (repQuote); its own rep gets it',async()=>{
+    const {sendQuote}=await import('@/server/quotes/service');
+    // Canyon Ridge is Mara's customer, so its quotes are Mara's.
+    const lines=[{itemId:'GLV-N8-L-1000',qty:2,unitPrice:82,priceBasis:'custom' as const}];
+    const sent=repo.createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',lines});
+    await sendQuote(sent.id,{repId:'mara',now:NOW});
+    const draft=repo.createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',lines});
+    expect([sent.rep_id,draft.rep_id]).toEqual(['mara','mara']);
+    const NOT_FOUND={ok:false,status:404,detail:'Quote not found.'};
+    for(const [id,rev] of [[sent.quote_number,null],[sent.id,1],[sent.quote_number,'draft'],[draft.quote_number,'draft'],[draft.id,null]] as const){
+      expect(await internal.internalWorksheet('brandi',id,rev,{now:NOW}),`${id} ${rev}`).toEqual(NOT_FOUND);
+    }
+    const {repCustomerPdf}=await import('./rep');
+    expect(await repCustomerPdf('brandi',sent.quote_number,1,NOW)).toEqual(NOT_FOUND);
+    expect(await repCustomerPdf('brandi',draft.quote_number,'draft',NOW)).toEqual(NOT_FOUND);
+    // Mara herself gets both.
+    expect((await internal.internalWorksheet('mara',sent.quote_number,1,{now:NOW})).ok).toBe(true);
+    expect((await internal.internalWorksheet('mara',draft.quote_number,'draft',{now:NOW})).ok).toBe(true);
   });
 });
 

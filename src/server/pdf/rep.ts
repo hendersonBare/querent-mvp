@@ -1,9 +1,10 @@
 import 'server-only';
 import type {Quote,QuoteRevision} from '@/domain';
-import {accountSummary,branches,quote,quoteByNumber,quoteRevision,rep,supplier} from '@/server/repository';
+import {accountSummary,branches,quoteRevision,rep,supplier} from '@/server/repository';
 import type {QuoteFreight} from '@/server/freight/engine';
 import {freightForQuote} from '@/server/freight/quote';
 import {STATUS_LABELS,canEditDraft} from '@/server/quotes/lifecycle';
+import {repQuote} from '@/server/rep/quotes';
 import {fromDraft} from './draft';
 import {customerPdfModel,fromSnapshot,pdfContext,type CustomerPdfModel,type PdfContext,type PdfQuote} from './model';
 import {QUOTE_NOT_FOUND} from './http';
@@ -14,6 +15,9 @@ import type {PdfRevision} from './request';
 // the internal quote, but the PDF only ever gets fromSnapshot / fromDraft copies, which hold
 // customer fields only. Customers are served by src/app/api/quotes/[id]/pdf/customer.ts instead.
 // The internal worksheet (./internal, task 4.2) starts from the same revision or draft.
+//
+// Whose quotes: the signed-in rep's own (repQuote, the rule of the Quotes list and the quote
+// page, task 3.2). Another rep's quote is the same 404 as an unknown one, in both variants.
 
 export type RepPdfSource=
   |{ok:true;quote:Quote;source:PdfQuote;
@@ -23,9 +27,12 @@ export type RepPdfSource=
     revision:QuoteRevision|null}
   |{ok:false;status:404|409;detail:string};
 
-/** The quote and what its PDF prints: rev n, the latest sent (rev null), or the draft. */
-export async function repPdfSource(quoteIdOrNumber:string,rev:PdfRevision,now:string):Promise<RepPdfSource>{
-  const q=quote(quoteIdOrNumber)??quoteByNumber(quoteIdOrNumber);
+/**
+ * One of `repId`'s quotes and what its PDF prints: rev n, the latest sent (rev null), or the
+ * draft. Another rep's quote reads as not found, like an unknown one.
+ */
+export async function repPdfSource(repId:string,quoteIdOrNumber:string,rev:PdfRevision,now:string):Promise<RepPdfSource>{
+  const q=repQuote(repId,quoteIdOrNumber);
   if(!q)return {ok:false,status:404,detail:QUOTE_NOT_FOUND};
   if(rev==='draft'){
     if(!canEditDraft(q.status))return {ok:false,status:409,detail:`${q.quote_number} has no draft to preview: it is ${STATUS_LABELS[q.status].toLowerCase()}. Open rev ${q.revision} instead.`};
@@ -44,9 +51,9 @@ export function repPdfContext(q:Quote,source:PdfQuote):PdfContext{
 
 export type RepPdf={ok:true;model:CustomerPdfModel}|{ok:false;status:404|409;detail:string};
 
-/** The customer PDF the rep asked for: rev n, the latest sent (rev null), or the draft. */
-export async function repCustomerPdf(quoteIdOrNumber:string,rev:PdfRevision,now=new Date().toISOString()):Promise<RepPdf>{
-  const loaded=await repPdfSource(quoteIdOrNumber,rev,now);
+/** The customer PDF of one of `repId`'s quotes: rev n, the latest sent (rev null), or the draft. */
+export async function repCustomerPdf(repId:string,quoteIdOrNumber:string,rev:PdfRevision,now=new Date().toISOString()):Promise<RepPdf>{
+  const loaded=await repPdfSource(repId,quoteIdOrNumber,rev,now);
   if(!loaded.ok)return loaded;
   return {ok:true,model:customerPdfModel(loaded.source,repPdfContext(loaded.quote,loaded.source))};
 }

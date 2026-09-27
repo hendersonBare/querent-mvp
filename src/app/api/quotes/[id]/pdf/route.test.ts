@@ -15,6 +15,8 @@ useSeededDatabase();
 type Persona='customer'|'supplier';
 let GET:typeof import('./route').GET;
 let otherCustomersQuote='';
+/** Quotes of Canyon Ridge, Mara's customer: one she sent, one still a draft. */
+let marasSentQuote='',marasDraft='';
 
 const call=(id:string,query='',persona?:Persona)=>GET(
   new NextRequest(`http://127.0.0.1/api/quotes/${encodeURIComponent(id)}/pdf${query}`,{headers:persona?{cookie:`querent-persona=${persona}`}:{}}),
@@ -30,6 +32,12 @@ beforeAll(async()=>{
   const q=createQuote({customerId:'great-basin',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G5',qty:10,unitPrice:21.95,priceBasis:'customer'}]});
   await sendQuote(q.id,{repId:'brandi'});
   otherCustomersQuote=q.quote_number;
+  // Another rep's quotes: Canyon Ridge is Mara's customer.
+  const lines=[{itemId:'GLV-N8-L-1000',qty:2,unitPrice:82,priceBasis:'custom' as const}];
+  const sent=createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',lines});
+  await sendQuote(sent.id,{repId:'mara'});
+  marasSentQuote=sent.quote_number;
+  marasDraft=createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',lines}).quote_number;
 });
 
 describe('without a session',()=>{
@@ -213,7 +221,7 @@ describe('the rep (Brandi)',()=>{
     expect(await detail(response)).toBe('Q-24817 hasn\'t been sent yet. Preview the draft with rev=draft.');
   });
 
-  it('gets any customer\'s sent revisions, but no draft of a quote that can\'t be edited',async()=>{
+  it('gets the sent revisions of any of her quotes, whichever customer, but no draft of a quote that can\'t be edited',async()=>{
     expect((await call('Q-24816','?rev=1','supplier')).status).toBe(200);
     expect((await call(otherCustomersQuote,'','supplier')).status).toBe(200);
     const accepted=await call('Q-24816','?rev=draft','supplier');
@@ -223,5 +231,21 @@ describe('the rep (Brandi)',()=>{
     expect(missing.status).toBe(404);
     expect(await detail(missing)).toBe('Q-24816 has no rev 3.');
     expect((await call('q-nope','','supplier')).status).toBe(404);
+  });
+});
+
+describe('another rep\'s quote (Mara\'s): not found for Brandi in either variant, as in her Quotes list (task 3.2)',()=>{
+  it('is the same 404 as an unknown quote for the customer quote and the internal worksheet, sent or draft, by number or id',async()=>{
+    const {repQuote}=await import('@/server/rep/quotes');
+    expect(repQuote('brandi',marasSentQuote)).toBeUndefined();
+    const sentId=`q-${marasSentQuote.slice(2)}`;
+    for(const [id,query] of [
+      [marasSentQuote,''],[marasSentQuote,'?variant=customer&rev=1'],[sentId,'?rev=1'],[marasDraft,'?rev=draft'],[marasDraft,'?variant=customer&rev=draft'],
+      [marasSentQuote,'?variant=internal'],[marasSentQuote,'?variant=internal&rev=1'],[sentId,'?variant=internal&rev=1'],[marasDraft,'?variant=internal&rev=draft'],[marasDraft,'?variant=internal'],
+    ]){
+      const response=await call(id,query,'supplier');
+      expect(response.status,`${id}${query}`).toBe(404);
+      expect(await detail(response)).toBe('Quote not found.');
+    }
   });
 });
