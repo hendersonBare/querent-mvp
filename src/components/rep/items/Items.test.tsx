@@ -86,6 +86,13 @@ describe('ItemDetail',()=>{
     expect(screen.getByRole('link',{name:'Items'})).toHaveAttribute('href','/rep/items?customer=great-basin');
   });
 
+  it('keeps the picked customer on its order, category and breadcrumb links',()=>{
+    render(<ItemDetail view={BOLTS_VIEW} viewing={WASATCH}/>);
+    expect(screen.getByRole('link',{name:'SO-51221'})).toHaveAttribute('href','/rep/orders/SO-51221?customer=wasatch');
+    expect(within(screen.getByRole('region',{name:'Item'})).getByRole('link',{name:'Fasteners'})).toHaveAttribute('href','/rep/items?category=fasteners&customer=wasatch');
+    expect(screen.getByRole('link',{name:'Items'})).toHaveAttribute('href','/rep/items?customer=wasatch');
+  });
+
   it('carries no cost or margin',()=>{
     render(<ItemDetail view={BOLTS_VIEW} viewing={ALL}/>);
     expect(document.body.textContent).not.toMatch(/cost|margin/i);

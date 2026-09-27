@@ -71,6 +71,10 @@ describe('OrderDetail',()=>{
     expect(facts.getByRole('link',{name:'Wasatch Mechanical Contractors'})).toHaveAttribute('href','/rep/customers/wasatch?customer=wasatch');
     expect(facts.getByRole('link',{name:'Q-24816'})).toHaveAttribute('href','/rep/quotes/Q-24816?customer=wasatch');
     expect(screen.getByRole('link',{name:'Orders'})).toHaveAttribute('href','/rep/orders?customer=wasatch');
+    // Each line opens its item, keeping the picked customer.
+    expect(within(screen.getByRole('region',{name:'Items'})).getAllByRole('link').map(l=>l.getAttribute('href'))).toEqual([
+      '/rep/items/CW-45-045-T1?customer=wasatch','/rep/items/GLV-N8-L-1000?customer=wasatch','/rep/items/FD-45-60Z?customer=wasatch',
+    ]);
   });
 
   it('says a will-call order was picked up and has no quote, and carries no cost or margin',()=>{

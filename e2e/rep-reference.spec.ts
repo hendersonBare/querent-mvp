@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Browser, type Page, type TestInfo } from "@playwright/test";
 
 // The rep portal's read-only reference pages (task 3.8, spec §4): Customers, Orders and Items,
 // each a list and a detail page, at desktop width and at 390px, following the "Viewing" picker
@@ -252,18 +252,111 @@ test("phone (390px): each list and detail fits, with the picker, and nothing scr
   await noSidewaysScroll(page);
 });
 
-test("access: the reference pages are for reps only", async ({ page, browser }, testInfo) => {
-  // Dana (customer persona) is sent back to the workspace chooser, with no account data on the way.
+/**
+ * Every reference route, and one string only its page renders: record data, never in the URL or
+ * in the portal frame (whose picker lists every customer's name), and one text node in both the
+ * HTML and the RSC payload. A rep's raw response must carry it; a customer's or an anonymous one must not.
+ */
+const ROUTES: [path: string, pageText: string][] = [
+  ["/rep/customers", "Not on file"],
+  ["/rep/customers?customer=wasatch", "Viewing Wasatch Mechanical Contractors · 1 customer"],
+  ["/rep/customers/wasatch", "$18,420.00"],
+  ["/rep/customers/great-basin", "No contacts on file."],
+  ["/rep/orders", "Viewing All customers · 23 orders"],
+  ["/rep/orders?customer=wasatch", "Viewing Wasatch Mechanical Contractors · 23 orders"],
+  ["/rep/orders/SO-51223", "Price paid"],
+  ["/rep/items", "Wedge anchor 1/2 x 4-1/4 in, zinc plated"],
+  ["/rep/items?category=fasteners", "Hex nut 1/2-13, Grade 8, yellow zinc"],
+  ["/rep/items/HCS-12-13-2G8", "Stock by branch"],
+  ["/rep/items/HCS-12-13-2G8?customer=wasatch", "SO-51221"],
+];
+/** Record data from any of those pages: names, account numbers, balances, order numbers, item names and panel headings. */
+const RECORD_DATA =
+  /Canyon Ridge|Wasatch Mechanical|Great Basin Fabrication|Uinta Facility|WAS-1142|GBF-2207|18,420|SO-5122[0-2]|Price paid|Stock by branch|Recent orders|Hex cap screw|Hex nut|Wedge anchor|\$38\.95|\$698\.22|Brandi Gallegos|Net 30/;
+
+/** The persona cookie ("querent-persona=<id>") a workspace sign-in sets, read from a throwaway browser context. */
+async function personaCookie(browser: Browser, baseURL: string, workspace: RegExp, signedIn: (page: Page) => Promise<void>) {
+  const context = await browser.newContext({ baseURL });
+  try {
+    const page = await context.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: workspace }).click();
+    await signedIn(page);
+    const cookie = (await context.cookies()).find((c) => c.name === "querent-persona");
+    expect(cookie, "signing in sets the persona cookie").toBeDefined();
+    return `${cookie!.name}=${cookie!.value}`;
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The raw response to GET `path`, redirects not followed: the HTML a full load gets, or with
+ * `rsc` the RSC payload a client-side navigation fetches. The cookie goes in by hand because the
+ * production session cookie is Secure, which Playwright's request client won't send over http.
+ */
+async function raw(api: APIRequestContext, path: string, { cookie, rsc = false }: { cookie?: string; rsc?: boolean }) {
+  const headers: Record<string, string> = {};
+  if (cookie) headers.cookie = cookie;
+  if (rsc) headers.RSC = "1";
+  let response = await api.get(path, { headers, maxRedirects: 0 });
+  // Next first redirects an RSC request to the same URL with its _rsc cache-busting param; take that one hop only.
+  const location = response.headers().location ?? "";
+  if (rsc && response.status() === 307 && /[?&]_rsc\b/.test(location)) response = await api.get(location, { headers, maxRedirects: 0 });
+  return { status: response.status(), location: response.headers().location ?? null, body: await response.text() };
+}
+/** How an RSC payload redirects: the client router follows a NEXT_REDIRECT digest (the HTTP status stays 200). */
+const RSC_REDIRECT_HOME = /NEXT_REDIRECT;(?:replace|push);\/;30[78];/;
+
+test("access: every reference route answers a customer or no session with a redirect that carries no record data", async ({ browser, playwright }, testInfo) => {
+  // A redirect in the rep layout alone doesn't stop a page segment from rendering and streaming its
+  // records in the redirect's body (node_modules/next/dist/docs/01-app/02-guides/authentication.md),
+  // so each page must check the rep session itself. This reads the raw responses to prove it.
+  const baseURL = testInfo.project.use.baseURL!;
+  const dana = await personaCookie(browser, baseURL, /Wasatch Mechanical Contractors/, (page) =>
+    expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors"));
+  const brandi = await personaCookie(browser, baseURL, /Herrick Industrial Supply/, (page) => expect(page).toHaveURL(/\/rep\/quotes$/));
+  const api = await playwright.request.newContext({ baseURL });
+  try {
+    for (const [path, pageText] of ROUTES) {
+      for (const rsc of [false, true]) {
+        const as = `${path}${rsc ? " (RSC payload)" : ""}`;
+        // The rep gets the page, so its text is a fair probe.
+        const rep = await raw(api, path, { cookie: brandi, rsc });
+        expect(rep.status, `${as} as Brandi`).toBe(200);
+        expect(rep.body, `${as} as Brandi`).not.toMatch(RSC_REDIRECT_HOME);
+        expect(rep.body, `${as} as Brandi`).toContain(pageText);
+        expect(rep.body, `${as} as Brandi`).toMatch(RECORD_DATA);
+        // Dana and no session: a redirect to the workspace chooser, and nothing from the page.
+        for (const [who, cookie] of [["Dana", dana], ["no session", undefined]] as const) {
+          const denied = await raw(api, path, { cookie, rsc });
+          if (rsc) {
+            expect(denied.body, `${as} as ${who}`).toMatch(RSC_REDIRECT_HOME);
+          } else {
+            expect(denied.status, `${as} as ${who}`).toBe(307);
+            expect(denied.location, `${as} as ${who}`).toMatch(/^(https?:\/\/[^/]+)?\/$/);
+          }
+          expect(denied.body, `${as} as ${who}`).not.toContain(pageText);
+          expect(denied.body, `${as} as ${who}`).not.toMatch(RECORD_DATA);
+        }
+      }
+    }
+  } finally {
+    await api.dispose();
+  }
+});
+
+test("access: in the browser, Dana and a visitor with no session are sent back to / from every route", async ({ page, browser }, testInfo) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
-  for (const path of ["/rep/customers/wasatch", "/rep/orders/SO-51223", "/rep/items/HCS-12-13-2G8", "/rep/orders"]) {
+  for (const [path] of ROUTES) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator("body")).not.toContainText(/18,420|SO-51223|Customer PO/);
+    await expect(page.locator(".customer-header")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(/18,420|SO-51223|Stock by branch|Price paid/);
   }
 
-  // No session at all: the same.
   const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
   try {
     const anonymous = await context.newPage();
