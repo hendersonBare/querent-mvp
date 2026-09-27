@@ -1,25 +1,11 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ArrowUp,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-  LogOut,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type {
-  API,
-  AccessRule,
-  ChatAnswer,
-  ChatTurn,
-  Principal,
-} from "@/lib/contracts";
+import type { API, ChatAnswer, ChatTurn, Principal } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
-import { usePoll } from "@/lib/use-poll";
-import { ERPIndicator } from "@/features/erp-status/Status";
-import { RepPanel } from "./RepPanel";
+import { CustomerLayout } from "@/components/customer/CustomerLayout";
 export function CustomerChat({
   api,
   user,
@@ -29,21 +15,12 @@ export function CustomerChat({
   user: Principal;
   signOut: () => void;
 }) {
-  const [open, setOpen] = useState(true),
-    [question, setQuestion] = useState(""),
+  const [question, setQuestion] = useState(""),
     [turns, setTurns] = useState<ChatTurn[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [conversation, setConversation] = useState("");
   const end = useRef<HTMLDivElement>(null);
-  const loadPanel = useCallback(
-    () => api.get<AccessRule[]>("customer/panel"),
-    [api],
-  );
-  const { data: rules, error: panelError } = usePoll(loadPanel);
-  useEffect(() => {
-    if (window.matchMedia("(max-width: 800px)").matches) setOpen(false);
-  }, []);
   useEffect(() => {
     const key = `querent-conversation-${user.user_id}`;
     const id = localStorage.getItem(key) || crypto.randomUUID();
@@ -109,44 +86,17 @@ export function CustomerChat({
     setConversation(id);
     setError("");
   }
+  // The rep's section sits at the very top of the left sidebar (spec §3), so New conversation
+  // lives above the chat.
   return (
-    <div className="customer-shell">
-      <header className="customer-header">
-        <div className="header-brand">
-          <button
-            className="icon-button"
-            aria-label={open ? "Collapse contacts" : "Expand contacts"}
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-          </button>
-          <img src="/querent-logo.png" alt="Querent" width="34" height="34" />
-          <strong>{user.name}</strong>
-          <span className="via">via Querent</span>
-        </div>
-        <div className="header-actions">
-          <ERPIndicator api={api} />
-          <button className="workspace-switch" aria-label="Switch workspace" onClick={signOut}>
-            <LogOut size={16} /> Switch workspace
+    <CustomerLayout api={api} user={user} signOut={signOut}>
+      <div className="chat-column">
+        <div className="chat-toolbar">
+          <button className="new-chat" onClick={newChat} disabled={busy}>
+            <Plus size={16} />
+            New conversation
           </button>
         </div>
-      </header>
-      <div className="customer-body">
-        {open && (
-          <aside className="customer-sidebar">
-            <button className="new-chat" onClick={newChat} disabled={busy}>
-              <Plus size={17} />
-              New conversation
-            </button>
-            {panelError ? (
-              <p className="error" role="alert">
-                {panelError}
-              </p>
-            ) : (
-              <RepPanel rules={rules} />
-            )}
-          </aside>
-        )}
         <main className="chat-main">
           <div className="chat-scroll">
             {turns.length === 0 ? (
@@ -252,6 +202,6 @@ export function CustomerChat({
           </div>
         </main>
       </div>
-    </div>
+    </CustomerLayout>
   );
 }

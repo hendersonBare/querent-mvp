@@ -1,33 +1,36 @@
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import {it,expect,vi,beforeEach} from 'vitest';
 import {CustomerChat} from './Chat';
-import type {API,AccessRule,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
+import type {API,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
+import {sidebarRoutes} from '@/components/customer/test-fixtures';
 const user:Principal={user_id:'u1',role:'customer_user',customer_id:'c1',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
 function makeApi(get:API['get'],send:API['send']):API{return {get,send};}
 function emptyGet():API['get']{return vi.fn(async(path:string):Promise<any>=>{
- if(path==='customer/panel') return [] as AccessRule[];
+ if(path in sidebarRoutes) return sidebarRoutes[path as keyof typeof sidebarRoutes];
  if(path.startsWith('customer/history/')) return [] as ChatTurn[];
  throw new Error(`unexpected get ${path}`);
 }) as unknown as API['get'];}
 beforeEach(()=>{localStorage.clear();});
-it('collapses the contact panel by default on narrow viewports',async()=>{
- const original=window.matchMedia;
- window.matchMedia=((query:string)=>({matches:query.includes('800px'),media:query,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent:()=>false})) as unknown as typeof window.matchMedia;
- try{
-  render(<CustomerChat api={makeApi(emptyGet(),vi.fn())} user={user} signOut={()=>{}}/>);
-  expect(await screen.findByLabelText('Expand contacts')).toBeInTheDocument();
-  expect(screen.queryByText('Here to help.')).not.toBeInTheDocument();
- }finally{window.matchMedia=original;}
+it('sits between the contacts and quotes sidebars, with New conversation above the chat',async()=>{
+ render(<CustomerChat api={makeApi(emptyGet(),vi.fn())} user={user} signOut={()=>{}}/>);
+ const box=await screen.findByLabelText('Ask a question');
+ expect(within(screen.getByRole('complementary',{name:'Contacts'})).getByText('Your rep')).toBeInTheDocument();
+ expect(await within(screen.getByRole('complementary',{name:'Quotes'})).findAllByRole('button',{name:/^Quote · /})).not.toHaveLength(0);
+ const newChat=screen.getByRole('button',{name:'New conversation'});
+ expect(newChat.compareDocumentPosition(box)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(screen.getByRole('main')).toContainElement(box);
 });
-it('does not show a permanent loading placeholder once the contact panel fails to load',async()=>{
- const get=vi.fn(async(path:string):Promise<any>=>{
-  if(path==='customer/panel') throw new Error('Unable to load your contacts. Please try again.');
-  if(path.startsWith('customer/history/')) return [] as ChatTurn[];
-  throw new Error(`unexpected get ${path}`);
- }) as unknown as API['get'];
- render(<CustomerChat api={makeApi(get,vi.fn())} user={user} signOut={()=>{}}/>);
- expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load your contacts. Please try again.');
- expect(screen.queryByText('Loading contacts…')).not.toBeInTheDocument();
+it('starts a new conversation from the chat toolbar',async()=>{
+ const send=vi.fn().mockResolvedValue({answer:'Answered.',sql:null,categories:['account'],outcome:'answered',row_count:0} satisfies ChatAnswer);
+ render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
+ const box=await screen.findByLabelText('Ask a question');
+ fireEvent.change(box,{target:{value:'What is our open balance?'}});
+ fireEvent.click(screen.getByLabelText('Send question'));
+ expect(await screen.findByText('Answered.')).toBeInTheDocument();
+ const first=localStorage.getItem('querent-conversation-u1');
+ fireEvent.click(screen.getByRole('button',{name:'New conversation'}));
+ expect(screen.queryByText('Answered.')).not.toBeInTheDocument();
+ expect(localStorage.getItem('querent-conversation-u1')).not.toBe(first);
 });
 it('submits a question on send and renders the answer',async()=>{
  const answer:ChatAnswer={answer:'PO-48213 shipped Sep 12.',sql:null,categories:['orders_quotes'],outcome:'answered',row_count:1};

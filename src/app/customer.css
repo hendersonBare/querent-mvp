@@ -1,0 +1,350 @@
+/* Customer workspace (spec §3, task 2.4): contacts on the left, the chat in the center, quote
+   buttons on the right. Below 960px the columns become Chat / Contacts / Quotes tabs. */
+
+.cx-tabs {
+  display: none;
+}
+.cx-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.cx-center {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.cx-left,
+.cx-right {
+  flex-shrink: 0;
+  background: white;
+  overflow-y: auto;
+}
+.cx-left {
+  width: 275px;
+  border-right: 1px solid var(--line);
+  padding: 24px 22px;
+}
+.cx-right {
+  width: 300px;
+  border-left: 1px solid var(--line);
+  padding: 24px 18px;
+}
+.cx-eyebrow {
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+.cx-note {
+  font-size: 14px;
+}
+.cx-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 6px;
+  min-width: 0;
+}
+.cx-link span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cx-link svg {
+  flex-shrink: 0;
+}
+.cx-hours {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Left: the rep first, then the departments */
+.cx-section + .cx-section {
+  margin-top: 28px;
+}
+.cx-rep {
+  background: var(--pale);
+  border: 1px solid #cfe5df;
+  border-radius: 14px;
+  padding: 16px;
+}
+.cx-rep-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.cx-rep-initials {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+.cx-rep-who strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.3;
+}
+.cx-rep-who small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.cx-contact {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.cx-contact h3 {
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.cx-branches {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.cx-branches li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.cx-branches .cx-link {
+  margin-top: 0;
+}
+.cx-branch-code {
+  flex-shrink: 0;
+  min-width: 60px;
+  margin-top: 1px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #f1f5f3;
+  color: #465451;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Right: quote buttons, "Quote · date · $total" with a status chip */
+.cx-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.cx-panel-head .cx-eyebrow {
+  margin: 0;
+}
+.cx-quotes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.cx-quote {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  color: var(--ink);
+  text-align: left;
+}
+.cx-quote:hover {
+  border-color: #9fc7bd;
+  background: #fafffd;
+}
+.cx-quote:focus-visible {
+  outline: 2px solid var(--teal);
+}
+.cx-quote-label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+.cx-quote-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+}
+.cx-quote-number {
+  white-space: nowrap;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.cx-chip {
+  margin-left: auto;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cx-chip-waiting {
+  background: #fbf0d8;
+  color: #82590e;
+}
+.cx-chip-action {
+  background: var(--teal);
+  color: white;
+}
+.cx-chip-done {
+  background: var(--pale);
+  color: var(--teal-dark);
+}
+.cx-chip-changes {
+  background: #e9edf9;
+  color: #3b4b8c;
+}
+.cx-chip-closed {
+  border-color: var(--line);
+  background: white;
+  color: var(--muted);
+}
+
+/* Center: the chat, with New conversation above it */
+.chat-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.chat-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 0;
+}
+.chat-toolbar .new-chat {
+  width: auto;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+/* Header: the company name gives way (and wraps) before it can run into the status badge. */
+.customer-shell .header-brand {
+  flex: 1 1 auto;
+}
+.customer-shell .header-brand strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.customer-shell .header-actions {
+  flex-shrink: 0;
+}
+
+@media (min-width: 1600px) {
+  .cx-left,
+  .cx-right {
+    width: 320px;
+  }
+}
+@media (max-width: 1150px) {
+  .cx-left {
+    width: 240px;
+    padding: 20px 18px;
+  }
+  .cx-right {
+    width: 260px;
+    padding: 20px 14px;
+  }
+}
+@media (max-width: 960px) {
+  .cx-tabs {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid var(--line);
+    padding: 0 8px;
+  }
+  .cx-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px 6px 9px;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .cx-tab[aria-selected="true"] {
+    border-bottom-color: var(--teal);
+    color: var(--teal);
+    font-weight: 600;
+  }
+  .cx-tab:focus-visible {
+    outline-offset: -2px;
+  }
+  .cx-left,
+  .cx-right {
+    flex: 1;
+    width: auto;
+    border: 0;
+    padding: 20px 16px;
+  }
+  .cx-body[data-pane="chat"] > .cx-left,
+  .cx-body[data-pane="chat"] > .cx-right,
+  .cx-body[data-pane="contacts"] > .cx-center,
+  .cx-body[data-pane="contacts"] > .cx-right,
+  .cx-body[data-pane="quotes"] > .cx-center,
+  .cx-body[data-pane="quotes"] > .cx-left {
+    display: none;
+  }
+  .chat-toolbar {
+    padding: 10px 14px 0;
+  }
+  .customer-shell .header-brand strong {
+    max-width: none;
+  }
+}
+@media (max-width: 600px) {
+  .customer-shell .customer-header {
+    min-height: 64px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .customer-shell .header-brand {
+    gap: 8px;
+  }
+  .customer-shell .header-brand strong {
+    font-size: 13px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+  .customer-shell .header-actions {
+    gap: 4px;
+  }
+  .customer-shell .workspace-switch {
+    padding: 8px;
+  }
+  .customer-shell .workspace-switch span {
+    display: none;
+  }
+}
