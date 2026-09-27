@@ -44,7 +44,7 @@ export function QuotePlaceholder({quote,asOf}:{quote:QuoteHeading;asOf:string}){
     <div className={page.top}>
       <div>
         <div className={s.titleRow}><h1 className={page.title}>{quote.customer_name}</h1><StatusChip status={quote.status}/></div>
-        <p className={page.meta}>{quote.quote_number} {revisionLabel(quote.revision)}{quote.contact_name&&<> · {quote.contact_name}</>} · Requested {listDate(quote.requested_at,asOf)}</p>
+        <p className={page.meta}>{quote.quote_number}{quote.revision>0?` ${revisionLabel(quote.revision)}`:` · ${revisionLabel(0)}`}{quote.contact_name&&<> · {quote.contact_name}</>} · Requested {listDate(quote.requested_at,asOf)}</p>
       </div>
     </div>
     <section className={page.card} aria-labelledby="quote-coming-next">

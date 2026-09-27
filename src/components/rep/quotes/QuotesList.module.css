@@ -81,8 +81,16 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--rep-muted);
+  background: transparent;
   border-bottom: 1px solid var(--rep-line);
   white-space: nowrap;
+}
+/* globals.css styles every th and td (grey header cells, caps, a rule under each cell): undo it
+   in the body, where each quote's tbody draws the rule between quotes. */
+.table tbody th,
+.table tbody td {
+  border-bottom: 0;
+  background: transparent;
 }
 .table th:first-child,
 .table td:first-child {
@@ -116,7 +124,10 @@
 
 .number {
   white-space: nowrap;
-  font-weight: 600;
+  font: 600 13.5px/1.45 var(--rep-body);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--rep-ink);
 }
 .open {
   color: var(--rep-ink);
@@ -181,6 +192,7 @@
 }
 .customer {
   min-width: 180px;
+  white-space: normal;
 }
 .date {
   white-space: nowrap;
@@ -199,8 +211,8 @@
 .margin[data-low] {
   color: var(--rep-bad);
 }
-/* "margin" after the number, on phones only: the column header says it on wider screens. */
-.marginWord {
+/* "Requested" and "margin" beside the value, on phones only: the column headers say it on wider screens. */
+.cellWord {
   display: none;
 }
 .floor {
@@ -243,14 +255,17 @@
 /* ---- changes_requested: an amber rule down the left and the customer's note under the row ---- */
 .quote[data-status="changes_requested"] {
   background: color-mix(in srgb, var(--rep-warn-soft) 55%, var(--rep-surface));
+}
+.quote[data-status="changes_requested"] > tr > :first-child {
   box-shadow: inset 3px 0 0 var(--rep-warn);
 }
 .quote[data-status="changes_requested"]:hover {
   background: var(--rep-warn-soft);
 }
-.noteRow td {
+.table .noteRow td {
   padding-top: 0;
   padding-bottom: 14px;
+  white-space: normal;
 }
 .note {
   max-width: 78ch;
@@ -318,7 +333,7 @@
       "number status"
       "customer customer"
       "date total"
-      "date margin";
+      "margin margin";
     column-gap: 12px;
     padding: 12px 14px 12px 22px;
   }
@@ -326,7 +341,7 @@
   .table .quote td {
     padding: 0;
   }
-  .number {
+  .table .number {
     grid-area: number;
     display: flex;
     flex-wrap: wrap;
@@ -339,6 +354,7 @@
   }
   .status {
     grid-area: status;
+    justify-self: end;
   }
   .customer {
     grid-area: customer;
@@ -369,7 +385,7 @@
     font-size: 12.5px;
     text-align: right;
   }
-  .marginWord {
+  .cellWord {
     display: inline;
     color: var(--rep-muted);
   }
@@ -382,6 +398,12 @@
   }
   .table .noteRow td {
     padding: 0 14px 12px 22px;
+  }
+  .quote[data-status="changes_requested"] > tr {
+    box-shadow: inset 3px 0 0 var(--rep-warn);
+  }
+  .quote[data-status="changes_requested"] > tr > :first-child {
+    box-shadow: none;
   }
   .dot {
     margin-left: -14px;

@@ -47,7 +47,7 @@ describe('the table',()=>{
     const accepted=within(quoteBlock('Q-24816')).getAllByRole('row')[0];
     expect(within(accepted).getByRole('rowheader')).toHaveTextContent('Q-24816rev 1');
     expect(within(accepted).getAllByRole('cell').map(c=>c.textContent)).toEqual([
-      'Wasatch Mechanical ContractorsWAS-1142','Sep 7','Accepted','$782.75','28.1% margin',
+      'Wasatch Mechanical ContractorsWAS-1142','Requested Sep 7','Accepted','$782.75','28.1% margin',
     ]);
     // Newest request first, as the server sends them; a date outside this year shows its year.
     expect(within(table()).getAllByRole('rowheader').map(h=>within(h).getByRole('link').textContent)).toEqual(['Q-24818','Q-24817','Q-24816','Q-24793']);

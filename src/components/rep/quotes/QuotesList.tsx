@@ -100,11 +100,11 @@ function QuoteRow({row,asOf,href}:{row:RepQuoteRow;asOf:string;href:string}){
         <span className={s.sub}>{revisionLabel(row.revision)}{row.is_sample&&<span className={s.tag}>Sample data</span>}</span>
       </th>
       <td role="cell" className={s.customer}>{row.customer_name}{row.account_number&&<span className={`${s.sub} ${s.mono}`}>{row.account_number}</span>}</td>
-      <td role="cell" className={s.date}><time dateTime={row.requested_at}>{listDate(row.requested_at,asOf)}</time></td>
+      <td role="cell" className={s.date}><span className={s.cellWord}>Requested </span><time dateTime={row.requested_at}>{listDate(row.requested_at,asOf)}</time></td>
       <td role="cell" className={s.status}><StatusChip status={row.status}/></td>
       <td role="cell" className={`${s.num} ${s.total}`}>{money(row.total)}{total&&<span className={s.sub}>{total}</span>}</td>
       <td role="cell" className={`${s.num} ${s.margin}`} data-low={floor?true:undefined}>
-        {row.margin_label}<span className={s.marginWord}> margin</span>{floor&&<span className={`${s.sub} ${s.floor}`}>{floor}</span>}
+        {row.margin_label}<span className={s.cellWord}> margin</span>{floor&&<span className={`${s.sub} ${s.floor}`}>{floor}</span>}
       </td>
       <td role="cell" className={s.go} aria-hidden="true"><ChevronRight size={16} strokeWidth={1.8}/></td>
     </tr>

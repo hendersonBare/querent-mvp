@@ -44,7 +44,7 @@ it('shows the breadcrumb and the header: customer, Draft ready, number, contact 
   expect(crumbs.querySelector('a')).toHaveAttribute('href','/rep/quotes?customer=wasatch');
   expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Wasatch Mechanical Contractors');
   expect(screen.getByText('Draft ready')).toBeInTheDocument();
-  expect(screen.getByText('Q-24817 Not sent · Dana Ortiz · Requested Sep 23')).toBeInTheDocument();
+  expect(screen.getByText('Q-24817 · Not sent · Dana Ortiz · Requested Sep 23')).toBeInTheDocument();
   expect(screen.getByRole('link',{name:'Back to quotes'})).toHaveAttribute('href','/rep/quotes?customer=wasatch');
 });
 
