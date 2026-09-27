@@ -72,6 +72,8 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await expect(page.getByRole("cell", { name: "SO-51223" })).toBeVisible();
   // Placeholder customers have no orders (the browser resets its category on scope change).
   await viewing.selectOption("great-basin");
+  // Wait for the new scope to land before picking again, or the scope change resets the pick.
+  await expect(page).toHaveURL(/customer=great-basin/);
   await page.getByLabel("Data category").selectOption("orders_quotes");
   await expect(page.getByText("No records in this category.")).toBeVisible();
 });
