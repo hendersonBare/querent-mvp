@@ -144,3 +144,27 @@ test("Brandi previews the unsent Q-24817 draft with rev=draft; without rev there
   expect(text).not.toMatch(/\bcosts?\b|margin|\bGP\b|%|last paid/i);
   expect((await get(brandi, "/api/quotes/Q-24817/pdf")).status).toBe(404);
 });
+
+// Runs last: the test-only hook (task 3.2) adds quotes, among them a draft for Mara's customer.
+test("Brandi can't open another rep's quote in either variant: Mara's quote is 404, as in her Quotes list", async ({ playwright }, testInfo) => {
+  const api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL! });
+  let otherRep = "";
+  try {
+    const response = await api.post("/api/test/rep-quotes");
+    expect(response.status(), "POST /api/test/rep-quotes failed: start the server with QUERENT_E2E_RESET=1").toBe(200);
+    otherRep = (await response.json()).other_rep;
+  } finally {
+    await api.dispose();
+  }
+  expect(otherRep).toMatch(/^Q-\d+$/);
+  for (const url of [
+    `/api/quotes/${otherRep}/pdf?rev=draft`,
+    `/api/quotes/${otherRep}/pdf?variant=customer&rev=draft`,
+    `/api/quotes/${otherRep}/pdf?variant=internal&rev=draft`,
+    `/api/quotes/${otherRep}/pdf?variant=internal`,
+  ]) {
+    const response = await get(brandi, url);
+    expect(response.status, url).toBe(404);
+    expect(response.json()).toEqual({ detail: "Quote not found." });
+  }
+});
