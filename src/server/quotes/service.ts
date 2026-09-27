@@ -1,12 +1,14 @@
 import 'server-only';
-import type {Quote,QuoteRevision,QuoteTransition} from '@/domain';
+import {QUOTE_READY_KIND,type ChatMessage,type Quote,type QuoteRevision,type QuoteTransition} from '@/domain';
 import {quoteFloors} from '@/server/floors/service';
 import type {DistanceProvider} from '@/server/freight/distance';
 import {formatUsd,type QuoteFreight} from '@/server/freight/engine';
 import {freightForQuote,freightOverrideOf,overrideFreight} from '@/server/freight/quote';
 import {
-  accountSummary,addQuoteActivity,addQuoteRevision,branch,createQuote,inTransaction,markQuoteRead,quote,quoteByNumber,quoteRevision,quotes,rep,resetSampleQuote,saveQuoteTransition,supplier,
+  accountSummary,addMessage,addQuoteActivity,addQuoteRevision,branch,conversation,createConversation,createQuote,inTransaction,latestConversation,markQuoteRead,quote,quoteByNumber,
+  quoteRevision,quotes,rep,resetSampleQuote,saveQuoteTransition,supplier,
 } from '@/server/repository';
+import {QUOTE_MESSAGE_MAX,quoteReadyPayload,sanitizeChatText} from './announce';
 import {QuoteActionError} from './errors';
 import {assertEvent,effectiveStatus,expiresAt,isExpired,validUntilFor} from './lifecycle';
 import {sendBlockers,type SendBlocker} from './send-check';
@@ -90,23 +92,47 @@ export async function sendCheck(quoteIdOrNumber:string,{provider}:{provider?:Dis
 export interface SendOptions {
   /** The rep sending: stored as sent_by and named in Activity. */
   repId:string;
-  /** The editable chat message from the send dialog. */
+  /**
+   * The editable chat message from the send dialog. Stored as plain text (sanitizeChatText), in
+   * the chat and on the revision; at most QUOTE_MESSAGE_MAX characters once sanitized. Empty: none.
+   */
   message?:string|null;
-  /** Attach PDF, on by default (spec §4). */
+  /** Attach PDF, on by default (spec §4): the customer's preview modal offers Download. */
   attachPdf?:boolean;
+  /**
+   * What the rep confirmed in Confirm send: the revision it named and the total it showed. A send
+   * that would store anything else is refused (conflict): the quote changed after they looked.
+   */
+  expected?:{revision?:number;total?:number};
   now?:string;
   /** Freight's distance provider (task 1.3); haversine by default. */
   provider?:DistanceProvider;
 }
 
 /**
+ * Where the "quote is ready" message goes (task 3.7): the chat the customer asked for the quote
+ * in ("Quote Q-24817 will arrive here in chat"); for a quote with no chat of its own (a duplicate,
+ * one from before chat), the customer's most recently active conversation; failing both, a new
+ * conversation for the quote's contact.
+ */
+function quoteChat(q:Quote,at:string):string{
+  if(q.conversation_id&&conversation(q.customer_id,q.conversation_id))return q.conversation_id;
+  return latestConversation(q.customer_id)?.id??createConversation({customerId:q.customer_id,contactId:q.contact_id,at}).id;
+}
+
+/**
  * Approve & send (spec §5.4): ready_for_review or changes_requested --> sent. Stores rev n+1 with
  * a frozen snapshot, sets valid_until (the send's day + valid_days), flags the quote unread for
- * the customer, and logs it. Refuses an illegal status (a double send), an unfinished quote
- * (send_blocked, with the blockers), and a draft edited while freight was being priced
- * (conflict: the rep confirmed the version before the edit).
+ * the customer, posts it in the customer's Querent chat (spec §3: a `quote_ready` message with
+ * the rep's message, "Quote Q-… is ready: $X, valid until …" and the revision's PDF link), and
+ * logs it, all in one transaction. Refuses an illegal status (a double send), an unfinished quote
+ * (send_blocked, with the blockers), a message over the limit (invalid_input), and a quote that
+ * isn't what the rep confirmed (conflict): a draft edited while freight was being priced, or a
+ * revision or total other than `expected`.
  */
-export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attachPdf=true,now=clock(),provider}:SendOptions):Promise<{quote:Quote;revision:QuoteRevision}>{
+export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attachPdf=true,expected={},now=clock(),provider}:SendOptions):Promise<{quote:Quote;revision:QuoteRevision;message:ChatMessage}>{
+  const text=sanitizeChatText(message);
+  if(text.length>QUOTE_MESSAGE_MAX)throw new QuoteActionError('invalid_input',`Keep the message to ${QUOTE_MESSAGE_MAX.toLocaleString('en-US')} characters (it has ${text.length.toLocaleString('en-US')}).`);
   const draft=load(quoteIdOrNumber);
   assertEvent(draft,'send');
   const sender=repName(repId);
@@ -119,10 +145,17 @@ export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attac
     if(blockers.length)throw new QuoteActionError('send_blocked',`Can't send ${q.quote_number} yet. ${blockers.map(b=>b.message).join(' ')}`,{blockers});
     const revision=q.revision+1,validUntil=validUntilFor(now,q.valid_days);
     const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,freight:typeof freight.amount==='number'?freight.amount:Number.NaN,freightMiles:freight.computed.miles,...printedFacts(q)});
+    if(expected.revision!==undefined&&expected.revision!==revision)
+      throw new QuoteActionError('conflict',`${q.quote_number} would go out as rev ${revision}, not the rev ${expected.revision} you confirmed. Review it and send again.`);
+    if(expected.total!==undefined&&cents(expected.total)!==snapshot.total)
+      throw new QuoteActionError('conflict',`${q.quote_number} now totals ${formatUsd(snapshot.total)}, not the ${formatUsd(cents(expected.total))} you confirmed. Review it and send again.`);
     persist(q,{to:'sent',at:now,revision,sentAt:now,validUntil,unreadForRep:false,unreadForCustomer:true});
-    const stored=addQuoteRevision(q.id,{revision,sentBy:repId,message,attachPdf,total:snapshot.total,snapshot,sentAt:now});
+    const stored=addQuoteRevision(q.id,{revision,sentBy:repId,message:text||null,attachPdf,total:snapshot.total,snapshot,sentAt:now});
+    const payload=quoteReadyPayload({quoteId:q.id,quoteNumber:q.quote_number,revision,total:snapshot.total,validUntil,sentAt:now,attachPdf});
+    const posted=addMessage(q.customer_id,quoteChat(q,now),{role:'system',kind:QUOTE_READY_KIND,content:text,payload,at:now});
+    if(!posted)throw new Error(`${q.quote_number}: the quote's chat couldn't be written.`);
     addQuoteActivity(q.id,{actor:'rep',actorId:repId,kind:'sent',at:now,message:`${sender} sent ${q.quote_number} rev ${revision} to ${customerWho(q)} (${formatUsd(snapshot.total)})`});
-    return {quote:load(q.id),revision:stored};
+    return {quote:load(q.id),revision:stored,message:posted};
   });
 }
 

@@ -82,7 +82,7 @@ describe('header and panels',()=>{
     for(const name of ['Save draft','Export','More actions','Approve & send'])expect(screen.getByRole('button',{name})).toBeEnabled();
   });
 
-  it('opens the Export and ⋯ menus, and Approve & send opens the send summary',()=>{
+  it('opens the Export and ⋯ menus, and Approve & send opens the send dialog (task 3.7; more in send/ApproveAndSend.test.tsx)',()=>{
     renderPage();
     fireEvent.click(screen.getByRole('button',{name:'More actions'}));
     expect(within(screen.getByRole('menu',{name:'More actions'})).getAllByRole('menuitem').map(i=>i.textContent))
@@ -91,9 +91,9 @@ describe('header and panels',()=>{
     expect(within(screen.getByRole('menu',{name:'Export'})).getAllByRole('menuitem').map(i=>i.firstChild?.textContent))
       .toEqual(['Customer quote (PDF)','Internal worksheet (PDF)','Line items (CSV)','Copy quote summary']);
     fireEvent.click(screen.getByRole('button',{name:'Approve & send'}));
-    const dialog=screen.getByRole('dialog',{name:'Approve & send Q-24817'});
-    expect(dialog).toHaveTextContent('To Dana Ortiz in Querent chat · 4 items · $1,122.40 before tax · Will call at SLC');
-    expect(dialog).toHaveTextContent('1 line is below your margin floor. That only warns: you can still send.');
+    const dialog=screen.getByRole('dialog',{name:'Send quote to Dana Ortiz'});
+    expect(dialog).toHaveTextContent('4 items · $1,122.40 before tax · Will call at SLC, Thu Sep 24 · valid until Oct 9');
+    expect(dialog).toHaveTextContent('Still open: Nitrile disposable gloves: 26.6% margin, below Brandi\'s 30% Safety & PPE floor;');
     fireEvent.keyDown(document,{key:'Escape'});
     expect(screen.queryByRole('dialog')).toBeNull();
   });

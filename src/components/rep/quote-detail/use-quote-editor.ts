@@ -230,11 +230,14 @@ export function useQuoteEditor(initial:QuoteDetail){
     return result;
   },[quoteId]);
 
+  /** Reads the quote again (after a refused send, task 3.7), so the checks and totals show it as the server has it. */
+  const refresh=useCallback(async()=>{const fresh=await reload(quoteId);if(fresh)setServer(fresh);},[quoteId]);
+
   /** Suggestions being taken, until their save comes back. */
   const takingUpsells=useMemo(()=>new Set(pending.flatMap(p=>p.op.kind==='upsell'?[p.op.upsellId]:[])),[pending]);
 
   return {detail:server,lines,pending:pending.length,adding:pending.some(p=>p.op.kind==='add'&&!p.op.restore),error,savedAt,undoStack,
-    draft,edit,remove,add,undo,flush,saveQuote,focusLineId,clearFocus:()=>setFocusLineId(null),dismissError:()=>setError(null),
+    draft,edit,remove,add,undo,flush,saveQuote,refresh,focusLineId,clearFocus:()=>setFocusLineId(null),dismissError:()=>setError(null),
     takeUpsell,takingUpsells,upsellError,dismissUpsellError:()=>setUpsellError(null)};
 }
 

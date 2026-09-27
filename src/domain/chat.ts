@@ -48,7 +48,34 @@ export interface ClarifyPayload {open:ClarifyLine[];cart:ItemPopupPayload;droppe
  */
 export interface QuoteRequestedPayload {quote_id:string;quote_number:string;status:QuoteStatus;popup_message_id:string}
 
-/** What a chat reply's `kind` can be. The quote flow adds more (quote_ready, ...). */
+/** The kind of the message Approve & send posts in the customer's chat (spec §3, task 3.7). */
+export const QUOTE_READY_KIND='quote_ready';
+
+/**
+ * Payload of a `quote_ready` message: the rep sent a revision of a quote (spec §3, task 3.7). The
+ * message is a notice (role `system`), not a chat reply: its `content` is the rep's own message
+ * from the send dialog, plain text (render it as text, never as Markdown or HTML), and may be
+ * empty. The chat shows `headline` with a "View quote" link that opens the PDF preview modal (the
+ * open-quote event, task 2.4) on `revision`. Customer-safe: what the customer was sent, never
+ * cost, margin or internal notes.
+ */
+export interface QuoteReadyPayload {
+  quote_id:string;quote_number:string;
+  /** The revision sent (1, 2, …). */
+  revision:number;
+  /** The revision's total before tax, in dollars, as frozen in its snapshot. */
+  total:number;
+  /** The last day the quote can be accepted (YYYY-MM-DD). */
+  valid_until:string;
+  /** "Quote Q-24817 is ready: $1,122.40, valid until Oct 7" (spec §3); the chat adds " — View quote". */
+  headline:string;
+  /** The rep left Attach PDF on: the preview modal offers Download (spec §3). */
+  attach_pdf:boolean;
+  /** The sent revision's customer PDF (GET /api/quotes/<id>/pdf?variant=customer&rev=<n>), which the modal shows inline. */
+  pdf_url:string;
+}
+
+/** What a chat reply's `kind` can be. The quote flow adds more (quote_ready is a notice, not a reply). */
 export type ChatReplyKind='text'|'clarify'|'item_popup'|'quote_requested';
 
 export interface Conversation {id:string;customer_id:string;contact_id:string|null;started_at:string}

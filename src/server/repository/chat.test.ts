@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {addMessage,appendLog,conversation,conversationMessages,createConversation,history} from './chat';
+import {addMessage,appendLog,conversation,conversationMessages,createConversation,history,latestConversation} from './chat';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -28,6 +28,19 @@ describe('conversations and messages',()=>{
     expect(first).toMatchObject({conversation_id:created.id,role:'customer',kind:'text',content:'Need straps',payload:null});
     addMessage('wasatch',created.id,{id:'m-2',role:'assistant',kind:'item_popup',content:'Here is your list.',payload:{lines:[{sku:'RS-2-27-JH',qty:12}]},at:'2026-09-24T09:00:02.000Z'});
     expect(conversationMessages('wasatch',created.id).map(m=>[m.id,m.payload])).toEqual([[first.id,null],['m-2',{lines:[{sku:'RS-2-27-JH',qty:12}]}]]);
+  });
+
+  it('finds the customer\'s most recently active conversation (task 3.7: where a sent quote goes when its own chat is gone)',()=>{
+    expect(latestConversation('uinta-facility')).toBeUndefined();
+    createConversation({id:'conv-latest-a',customerId:'uinta-facility',at:'2026-09-20T09:00:00.000Z'});
+    createConversation({id:'conv-latest-b',customerId:'uinta-facility',at:'2026-09-21T09:00:00.000Z'});
+    // No messages yet: the newest start wins.
+    expect(latestConversation('uinta-facility')?.id).toBe('conv-latest-b');
+    // A newer message in the older conversation makes it the latest.
+    addMessage('uinta-facility','conv-latest-a',{role:'customer',content:'Still there?',at:'2026-09-22T09:00:00.000Z'});
+    expect(latestConversation('uinta-facility')).toEqual({id:'conv-latest-a',customer_id:'uinta-facility',contact_id:null,started_at:'2026-09-20T09:00:00.000Z'});
+    // Only the customer's own.
+    expect(latestConversation('wasatch')?.customer_id).toBe('wasatch');
   });
 
   it('writes nothing to a conversation that isn\'t the customer\'s',()=>{

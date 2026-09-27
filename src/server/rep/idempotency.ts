@@ -61,6 +61,33 @@ export class IdempotencyStore{
     return {value,replayed:false};
   }
 
+  /**
+   * once() for work that awaits (task 3.7: Send prices freight before it writes). The work starts
+   * synchronously and its promise is remembered at once, so a repeat that arrives while it is
+   * still running (the second click of a double click) waits for the same result instead of
+   * running it again. A run that fails is forgotten, so the same key can try again; a repeat that
+   * was waiting on it gets the same failure.
+   */
+  async onceAsync<T>(scope:string,key:string|null,work:()=>Promise<T>):Promise<{value:T;replayed:boolean}>{
+    if(key===null)return {value:await work(),replayed:false};
+    const now=this.clock();
+    this.prune(now);
+    const id=`${scope}\u0000${key}`;
+    const hit=this.entries.get(id);
+    if(hit)return {value:await (hit.value as Promise<T>),replayed:true};
+    let running:Promise<T>;
+    try{running=work();}catch(error){running=Promise.reject(error);}
+    const entry={at:now,value:running};
+    this.entries.set(id,entry);
+    while(this.entries.size>this.maxEntries)this.entries.delete(this.entries.keys().next().value!);
+    try{
+      return {value:await running,replayed:false};
+    }catch(error){
+      if(this.entries.get(id)===entry)this.entries.delete(id);
+      throw error;
+    }
+  }
+
   /** Drops expired results (the map is in insertion order, so the oldest come first). */
   private prune(now:number){
     for(const [id,entry] of this.entries){

@@ -19,10 +19,11 @@ export async function jsonBody(request:Request):Promise<unknown>{
 
 /**
  * The response for a refused quote action (QuoteActionError): its HTTP status, with the message
- * as `detail` and its `code`. Anything else is rethrown (a 500).
+ * as `detail` and its `code`, plus the `blockers` of a refused send (send_blocked, task 3.7).
+ * Anything else is rethrown (a 500).
  */
 export function repError(error:unknown){
-  if(error instanceof QuoteActionError)return repJson({detail:error.message,code:error.code},error.httpStatus);
+  if(error instanceof QuoteActionError)return repJson({detail:error.message,code:error.code,...(error.blockers.length?{blockers:error.blockers}:{})},error.httpStatus);
   throw error;
 }
 
