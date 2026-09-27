@@ -42,6 +42,5 @@ export interface QuoteRequestInput {conversation_id:string;fulfillment:Fulfillme
  * ("Sent to Brandi for review."). `replayed` is true when this pop-up had already made the quote.
  */
 export interface QuoteRequestResult {quote:{id:string;quote_number:string;status:QuoteStatus};turn:ChatTurn;replayed:boolean}
-export interface DataPage {rows:Record<string,unknown>[];total:number;page:number;size:number}
 export interface API {get<T>(path:string):Promise<T>;send<T>(path:string,method:'POST'|'PUT',body:unknown):Promise<T>}
 export interface Persona {id:'supplier'|'customer';label:string;description:string}

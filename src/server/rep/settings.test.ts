@@ -1,4 +1,6 @@
 import {afterEach,beforeEach,describe,expect,it} from 'vitest';
+import type {ClarifyPayload} from '@/domain';
+import {CANDIDATE_ROUND,present} from '@/server/chat/clarify';
 import {customerContacts} from '@/server/customer/sidebar';
 import {quoteFloors} from '@/server/floors/service';
 import {ask} from '@/server/pipeline';
@@ -96,6 +98,9 @@ describe('assignRep: one rep per customer',()=>{
     // The 2.4 sidebar and the access rules (the chat's rep panel) read the assignment live.
     expect(customerContacts('wasatch').rep).toMatchObject({name:'Mara Jensen',phone:'(801) 555-0102'});
     expect(access('wasatch')[0]).toMatchObject({rep_id:'mara',rep_name:'Mara Jensen'});
+    // The 2.2 rep card, shown with the candidate buttons from the second round.
+    const secondRound={open:[{round:CANDIDATE_ROUND,candidates:[]}],cart:{lines:[]}} as unknown as ClarifyPayload;
+    expect(present({customerId:'wasatch'},secondRound).rep).toMatchObject({name:'Mara Jensen',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com'});
     // A quote requested now is the new rep's (spec §5.2: the quote's rep is the customer's assigned rep).
     const fresh=createQuote({customerId:'wasatch',contactId:'dana',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5,priceBasis:'last_paid'}]});
     expect(fresh.rep_id).toBe('mara');
