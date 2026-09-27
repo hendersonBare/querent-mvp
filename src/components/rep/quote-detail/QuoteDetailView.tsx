@@ -12,6 +12,7 @@ import {LineGrid,lineRowId} from './LineGrid';
 import {MoreMenu} from './more-menu/MoreMenu';
 import {QuotePanels} from './panels/QuotePanels';
 import {SendDialogStub} from './SendDialogStub';
+import {UpsellsSection} from './upsells/UpsellsSection';
 import {day,itemCount,money,requestedAt,signedMoney,timeOfDay} from './format';
 import {useMarkQuoteRead} from './use-mark-read';
 import {useQuoteEditor,type QuoteEditor} from './use-quote-editor';
@@ -65,6 +66,7 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
             open={open} onToggle={toggle} focusLineId={editor.focusLineId} onFocused={editor.clearFocus}/>
           <Totals figures={figures}/>
         </section>
+        <UpsellsSection editor={editor} querentFound={figures.querentFoundLabel}/>
       </div>
       <aside className={s.rail} aria-label="Quote summary">
         <SummaryCard figures={figures} repName={quote.rep_name}/>
@@ -191,7 +193,6 @@ function SummaryCard({figures,repName}:{figures:QuoteFigures;repName:string}){
         </div>
         <p className={s.barNote} title={blendNote}>Bar shows quote margin. Marker is {marker}.</p>
       </>}
-      <p className={s.found}>{figures.querentFoundLabel}</p>
     </div>
   </section>;
 }
