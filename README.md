@@ -123,7 +123,7 @@ To run against a server you started yourself, start it with `QUERENT_SCRIPTED=1 
 `src/e2e-suite.test.ts` runs as part of `npm test`, so a switched-off E2E test fails CI before Playwright could quietly pass without it. It checks two things:
 
 - **Nothing in any `e2e/*.spec.ts` switches a test or step off, focuses one, or expects one to fail.** This covers `test.skip` / `fixme` / `only` / `fail`, `test.step.skip`, `test.describe.*`, `testInfo.skip` / `fixme` / `fail`, bracket and destructured forms, annotations of type skip, fixme, or fail, and the word "fixme" anywhere.
-- **The golden spec declares exactly the tests in `GOLDEN_TESTS`**, by title and tag and in order. These are steps 0–8, with step 6 split into its rep half and its customer half. If you rename, add, or remove a golden test, edit `GOLDEN_TESTS` in the same change.
+- **The golden spec declares exactly the tests in `GOLDEN_TESTS`**, by title and tag and in order. These are the spec's tests 0–8, with test 6 split into its rep half and its customer half. The test numbers are the spec's own, not the workflow step numbers in [The golden flow](#the-golden-flow-workflow-steps-18). For example, spec test 6 (Approve & send, and Dana receiving the quote) is workflow step 7, and spec tests 7 and 8 are both workflow step 8. If you rename, add, or remove a golden test, edit `GOLDEN_TESTS` in the same change.
 
 The guard has known gaps (see [Known limitations](#known-limitations)).
 
@@ -184,8 +184,8 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 | `src/server/matching/` | SKU match scoring. A line is confident only when the top score is at least 0.75 and at least 0.15 ahead of the next. "The usual" resolves from order history. |
 | `src/server/chat/clarify.ts` | The clarification loop. From round 2, it offers the top 3 candidates, Drop this line, and the rep's contact. |
 | `src/server/pricing/` | The price suggestion. An active contract price wins. Otherwise it takes the customer price, raised only by a fact: last paid higher, a broken case, or scarcity (off by default). It is capped at list. It also writes "Why this price?" and the "+$X GP vs customer price" figure. |
-| `src/server/floors/` | Margin is (price − cost) ÷ price. Each quote rep × product category has its own floor (seeded at 20%, and Brandi's Safety & PPE floor is 30%). Below the floor only warns. |
-| `src/server/freight/` | Freight by distance: a `DistanceProvider` (haversine × 1.25 road factor), the rates from `delivery_rates`, "call for freight" beyond 75 mi, free above $1,500, and a rep override with a reason. |
+| `src/server/floors/` | Margin is (price − cost) ÷ price. Each quote rep × product category has its own floor. 20% is the default, and it is also the fallback for a pair with no floor row. The seed sets three of Brandi's floors differently: Abrasives & Cutting 25%, Safety & PPE 30%, and Tools 18% (`src/server/db/seed/accounts.ts`). Below the floor only warns. |
+| `src/server/freight/` | Freight by distance: a `DistanceProvider` (haversine × 1.25 road factor), the rates from `delivery_rates` ($25 + $2.50/mi, with a $35 minimum), "call for freight" beyond 75 mi, free from $1,500 (at or above it), and a rep override with a reason. |
 | `src/server/quotes/` | The lifecycle state machine (`lifecycle.ts`: ready_for_review → sent → accepted / changes_requested → sent rev n+1; sent → expired), send blockers (`send-check.ts`), snapshots, and the "quote is ready" chat message |
 | `src/server/upsells/`, `src/server/upsells-writer/` | Deterministic upsell rules (matching nut and washer, full case, bought together), priced by the engine, and Claude's chip wording in live mode |
 | `src/server/intake/`, `src/server/customer-response/` | Request quote, and the customer's Accept or Request changes |
@@ -202,7 +202,7 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
   - Side panels: Customer (with the credit bar), Pickup or delivery (with freight), Quote terms, Internal notes, and Activity.
   - The ⋯ menu (Duplicate, Reset sample quote, and a disabled "Open customer in ERP"), the Export menu, and Approve & send → Confirm send. Sending is blocked for an unfinished quote.
 - **Settings:** Rep assignments (one rep per customer), Customer access toggles, Data sources, Delivery rates (read-only), My margin floors, and the Pricing scarcity toggle.
-- **API:** every `/api/rep/*` route goes through `repRoute` (`src/server/rep/http.ts`). It answers 401 without a session and 403 for the customer, and it takes the rep's id from the session, never from the request.
+- **API:** every `/api/rep/*` route answers 401 without a session and 403 for the customer, and takes the rep's id from the session, never from the request. All of them go through `repRoute` (`src/server/rep/http.ts`), except `GET /api/rep/badges`, which makes the same check inline.
 
 ### Customer layout
 
