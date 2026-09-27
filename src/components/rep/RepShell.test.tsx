@@ -16,7 +16,6 @@ vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<
 const {RepShell}=await import('./RepShell');
 const {SectionPlaceholder}=await import('./RepPage');
 const {SettingsSection}=await import('./SettingsSection');
-const {AnalyticsSection}=await import('./AnalyticsSection');
 
 const customers:CustomerListItem[]=[
   {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen'},
@@ -166,16 +165,8 @@ describe('account menu',()=>{
   });
 });
 
+// Analytics follows the picker too: src/components/rep/analytics/AnalyticsPage.test.tsx (task 6.2).
 describe('sections follow the picker',()=>{
-  it('Analytics loads the picked customer\'s query analytics',async()=>{
-    at('/rep/analytics','customer=wasatch');
-    renderShell(<AnalyticsSection/>);
-    expect(await screen.findByRole('heading',{name:'Analytics'})).toBeInTheDocument();
-    expect(await screen.findByText('7')).toBeInTheDocument();
-    expect(requested()).toContain('/api/query/supplier/dashboard/wasatch');
-    expect(screen.getByRole('link',{name:/Manage customer access/})).toHaveAttribute('href','/rep/settings?tab=access&customer=wasatch');
-  });
-
   it('Settings opens Customer access for All customers by default, with the old sections as tabs',async()=>{
     at('/rep/settings');
     renderShell(<SettingsSection/>);

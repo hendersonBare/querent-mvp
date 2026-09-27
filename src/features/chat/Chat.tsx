@@ -3,11 +3,26 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ClarifyPayload } from "@/domain";
-import type { API, ChatAnswer, ChatTurn, Principal } from "@/lib/contracts";
+import type { ClarifyPayload, ItemPopupPayload, QuoteRequestedPayload } from "@/domain";
+import type { API, ChatAnswer, ChatTurn, Principal, QuoteRequestResult } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
 import { ClarifyPanel } from "@/components/customer/ClarifyPanel";
 import { CustomerLayout } from "@/components/customer/CustomerLayout";
+import { ItemPopup } from "@/components/customer/ItemPopup";
+import { emitQuotesChanged } from "@/components/customer/quotes-changed";
+
+/**
+ * The quote an item pop-up turn became: the first Request quote confirmation after it, before any
+ * newer pop-up (task 2.3). Null while it hasn't been requested.
+ */
+export function quoteRequestedAfter(turns: readonly ChatTurn[], index: number): string | null {
+  for (const turn of turns.slice(index + 1)) {
+    if (turn.kind === "item_popup") return null;
+    if (turn.kind === "quote_requested" && turn.payload)
+      return (turn.payload as QuoteRequestedPayload).quote_number;
+  }
+  return null;
+}
 export function CustomerChat({
   api,
   user,
@@ -21,7 +36,9 @@ export function CustomerChat({
     [turns, setTurns] = useState<ChatTurn[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [conversation, setConversation] = useState("");
+    [conversation, setConversation] = useState(""),
+    // The item pop-up that just arrived opens by itself; one reloaded from history waits (task 2.3).
+    [popupToOpen, setPopupToOpen] = useState("");
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const key = `querent-conversation-${user.user_id}`;
@@ -74,6 +91,7 @@ export function CustomerChat({
       setTurns((t) =>
         t.map((turn) => (turn.id === id ? { ...turn, ...result } : turn)),
       );
+      if (result.kind === "item_popup") setPopupToOpen(id);
     } catch (e) {
       setTurns((t) => t.filter((turn) => turn.id !== id));
       setQuestion(text);
@@ -82,10 +100,25 @@ export function CustomerChat({
       setBusy(false);
     }
   }
+  /** Request quote succeeded: the confirmation joins the chat, and the quotes sidebar reloads. */
+  function quoteRequested(result: QuoteRequestResult) {
+    setTurns((t) =>
+      t.some(
+        (turn) =>
+          turn.kind === "quote_requested" &&
+          (turn.payload as QuoteRequestedPayload | null)?.quote_id === result.quote.id,
+      )
+        ? t
+        : [...t, result.turn],
+    );
+    emitQuotesChanged();
+  }
+  const lastPopup = turns.findLastIndex((turn) => turn.kind === "item_popup");
   function newChat() {
     const id = crypto.randomUUID();
     localStorage.setItem(`querent-conversation-${user.user_id}`, id);
     setTurns([]);
+    setPopupToOpen("");
     setConversation(id);
     setError("");
   }
@@ -160,6 +193,18 @@ export function CustomerChat({
                                 payload={turn.payload as ClarifyPayload}
                                 active={!busy && !!conversation}
                                 onSend={(message) => void ask(message)}
+                              />
+                            )}
+                            {/* Only the latest pop-up can still be quoted, once (task 2.3). */}
+                            {turn.kind === "item_popup" && turn.payload && (
+                              <ItemPopup
+                                api={api}
+                                conversationId={conversation}
+                                payload={turn.payload as ItemPopupPayload}
+                                active={index === lastPopup && !!conversation}
+                                requested={quoteRequestedAfter(turns, index)}
+                                autoOpen={turn.id === popupToOpen}
+                                onRequested={quoteRequested}
                               />
                             )}
                           </div>

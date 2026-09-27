@@ -1,6 +1,7 @@
 // Customer chat: conversations and their messages.
 import type {Rep} from './accounts';
 import type {Fulfillment} from './orders';
+import type {QuoteStatus} from './quotes';
 
 export type MessageRole='customer'|'assistant'|'system';
 
@@ -40,8 +41,15 @@ export type ClarifyRep=Pick<Rep,'name'|'initials'|'title'|'phone'|'email'>;
  */
 export interface ClarifyPayload {open:ClarifyLine[];cart:ItemPopupPayload;dropped:{requested_text:string;qty:number}[];rep:ClarifyRep|null}
 
-/** What a chat reply's `kind` can be. The quote flow adds more (quote_requested, quote_ready, ...). */
-export type ChatReplyKind='text'|'clarify'|'item_popup';
+/**
+ * Payload of a `quote_requested` message: the quote the item pop-up's Request quote created (spec §3,
+ * task 2.3). Customer-safe: no prices. `popup_message_id` is the item_popup message it came from;
+ * one pop-up makes at most one quote.
+ */
+export interface QuoteRequestedPayload {quote_id:string;quote_number:string;status:QuoteStatus;popup_message_id:string}
+
+/** What a chat reply's `kind` can be. The quote flow adds more (quote_ready, ...). */
+export type ChatReplyKind='text'|'clarify'|'item_popup'|'quote_requested';
 
 export interface Conversation {id:string;customer_id:string;contact_id:string|null;started_at:string}
 
