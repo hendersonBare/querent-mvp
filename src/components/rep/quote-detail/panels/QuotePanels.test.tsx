@@ -89,10 +89,14 @@ function renderPage(detail:QuoteDetail=detailOf(server)){
     initialBadges={{quotes:1}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const settle=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
-/** The panel labelled `label`, opened. */
+/** The panel labelled `label`, opened (a closed panel renders only its summary). */
 function panel(label:string){
-  const details=screen.getByRole('group',{name:label});
-  if(!(details as HTMLDetailsElement).open)fireEvent.click(details.querySelector('summary')!);
+  const details=screen.getByRole('group',{name:label}) as HTMLDetailsElement;
+  if(!details.open){
+    details.open=true;
+    // jsdom doesn't fire the toggle event that the browser does when a summary is clicked.
+    fireEvent(details,new Event('toggle'));
+  }
   return details;
 }
 const summaryValue=(label:string)=>screen.getByRole('group',{name:label}).querySelector('summary')!.lastElementChild!.textContent;
@@ -114,6 +118,11 @@ describe('the rail',()=>{
       'CustomerNet 30 · 39% of credit','Pickup or deliveryWill call · SLC · Thu Sep 24','Quote termsValid until Oct 9','Internal notesNone','Activity3 events',
     ]);
     for(const g of groups)expect(g).not.toHaveAttribute('open');
+    // A closed panel renders only its summary, so its words never double the rest of the page's.
+    for(const g of groups)expect([...g.children].map(c=>c.tagName)).toEqual(['SUMMARY']);
+    expect(screen.queryByText(/Draft quote built/)).toBeNull();
+    panel('Activity');
+    expect(screen.getByText('Draft quote built and sent to Brandi for review')).toBeInTheDocument();
   });
 });
 
@@ -230,6 +239,16 @@ describe('Pickup or delivery panel',()=>{
     await settle();
     expect(within(panel('Pickup or delivery')).getByRole('region',{name:'Freight'})).toHaveTextContent('Freight$62.50');
     expect(totalsText()).toContain('Quote total$1,184.90');
+  });
+
+  it('counts freight in the credit bar, as the summary card\'s total does',async()=>{
+    server.fulfillment='delivery';
+    server.override={amount:2000,reason:'Flatbed from Provo'};
+    renderPage();
+    // (18,420.00 + 1,122.40 items + 2,000.00 freight) / 50,000.00 = 43.1%; the items alone would be 39%.
+    expect(screen.getByRole('region',{name:'Quote summary'})).toHaveTextContent('$3,122.40');
+    expect(creditLine()).toBe('Credit used, with this quote: 43%');
+    expect(within(panel('Customer')).getByTestId('credit-bar')).toHaveTextContent('This quote $3,122.40');
   });
 
   it('keeps "things to check" in sync: delivery with no ship-to blocks, and a freight override doesn\'t clear that',async()=>{
