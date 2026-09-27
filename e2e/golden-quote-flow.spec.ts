@@ -134,7 +134,7 @@ test(
   },
 );
 
-test.fixme(
+test(
   "3. Querent asks a clarifying question → Dana answers → item pop-up opens",
   { tag: "@step3", annotation: { type: "task", description: "2.3 Item pop-up → Request quote" } },
   async () => {
@@ -142,22 +142,60 @@ test.fixme(
     const answer = await ask(dana, CLARIFICATION);
     await expect(answer).toContainText("Here is your list");
     await test.step("the item pop-up opens with every line matched", async () => {
-      // TODO(2.3): the pop-up shows HCS-12-13-2G8 x 10 and CW-45-045-T1 x 6 with stock at SLC,
-      // pickup at SLC preselected, qty editable, lines removable, and no prices anywhere.
+      const popup = dana.getByRole("dialog", { name: "Review your list" });
+      await expect(popup).toBeVisible();
+      const line = (sku: string) => popup.getByRole("listitem").filter({ hasText: sku });
+      await expect(popup.getByRole("listitem")).toHaveCount(2);
+      // Qty as Dana asked, editable; stock read now at the chosen branch (SLC).
+      await expect(popup.getByLabel("Qty for HCS-12-13-2G8")).toHaveValue("10");
+      await expect(popup.getByLabel("Qty for HCS-12-13-2G8")).toBeEditable();
+      await expect(popup.getByLabel("Qty for CW-45-045-T1")).toHaveValue("6");
+      await expect(line("HCS-12-13-2G8")).toContainText("Hex cap screw 1/2-13 x 2 in, Grade 8");
+      await expect(line("HCS-12-13-2G8")).toContainText("64 at SLC");
+      await expect(line("CW-45-045-T1")).toContainText("140 at SLC");
+      // Pickup at SLC preselected, from "We'll pick up at SLC".
+      await expect(popup.getByRole("radio", { name: "Pickup" })).toBeChecked();
+      await expect(popup.getByRole("combobox", { name: "Branch" })).toHaveValue("slc");
+      await expect(popup.getByRole("button", { name: "Remove HCS-12-13-2G8" })).toBeEnabled();
+      await expect(popup.getByRole("button", { name: "Remove CW-45-045-T1" })).toBeEnabled();
+      // No prices anywhere: Brandi prices the quote.
+      await expect(popup).not.toContainText("$");
+      await expect(dana.locator(".answer-bubble").last()).not.toContainText("$");
     });
   },
 );
 
-test.fixme(
+test(
   "4. Dana presses Request quote → quote is ready_for_review",
   { tag: "@step4", annotation: { type: "task", description: "2.3 Item pop-up → Request quote" } },
   async () => {
+    // Read in Brandi's page: the session cookie is Secure in production, which the request API won't send over http.
+    const badge = () => brandi.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.quotes as number));
+    const unread = await badge();
     await test.step("Request quote creates the quote", async () => {
-      // TODO(2.3): press Request quote; chat confirms "Sent to Brandi for review." with the new
-      // quote number. Capture it: flow.quoteNumber = <Q-number from the confirmation>.
+      const popup = dana.getByRole("dialog", { name: "Review your list" });
+      const answers = dana.locator(".answer-bubble");
+      const before = await answers.count();
+      await popup.getByRole("button", { name: "Request quote" }).click();
+      await expect(popup).toBeHidden();
+      await expect(answers).toHaveCount(before + 1);
+      const confirmation = answers.last();
+      await expect(confirmation).toContainText("Sent to Brandi for review.");
+      const quoteNumber = (await confirmation.textContent())?.match(/Q-\d+/)?.[0];
+      expect(quoteNumber, "the confirmation names the new quote").toBeTruthy();
+      // A new quote: the seeded sample Q-24817 stays as it is (spec §2).
+      expect(quoteNumber).not.toBe(SAMPLE_QUOTE);
+      flow.quoteNumber = quoteNumber!;
+      await expect(answers.nth(before - 1)).toContainText(`Quote ${flow.quoteNumber} requested`);
     });
     await test.step("the quote waits for Brandi in ready_for_review", async () => {
-      // TODO(2.3): Dana's right sidebar lists it as "Awaiting rep" (2.4 builds the sidebar).
+      const quotes = dana.getByRole("complementary", { name: "Quotes" });
+      const button = quotes.getByRole("button").filter({ hasText: flow.quoteNumber });
+      await expect(button).toContainText("Awaiting rep");
+      // Newest first.
+      await expect(quotes.getByRole("button").first()).toContainText(flow.quoteNumber);
+      // Brandi's Quotes badge counts it (unread_for_rep).
+      await expect.poll(badge).toBe(unread + 1);
     });
   },
 );
