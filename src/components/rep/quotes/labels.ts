@@ -1,0 +1,59 @@
+import type {QuoteStatus} from '@/domain';
+import type {RepQuoteRow} from '@/server/rep/quotes';
+
+// Words and formats for the rep's Quotes list (task 3.2). Pure, so the list, the quote page and
+// the server (the page, the API route) share them.
+
+/** The Quotes list's status filter lives in ?status= (the picker's customer in ?customer=). */
+export const STATUS_PARAM='status';
+
+/**
+ * The rep's status chips. ready_for_review reads "Draft ready" as in the mockup's quote header
+ * (docs/design/screens/03); the other four use the spec §3 words. `tone` picks the chip colour.
+ */
+export const REP_STATUS:Readonly<Record<QuoteStatus,{label:string;tone:'draft'|'changes'|'sent'|'accepted'|'expired'}>>={
+  ready_for_review:{label:'Draft ready',tone:'draft'},
+  changes_requested:{label:'Changes requested',tone:'changes'},
+  sent:{label:'Sent',tone:'sent'},
+  accepted:{label:'Accepted',tone:'accepted'},
+  expired:{label:'Expired',tone:'expired'},
+};
+
+/** The status filter, in the order the rep works: what needs them first. */
+export const STATUS_FILTERS:readonly QuoteStatus[]=['ready_for_review','changes_requested','sent','accepted','expired'];
+
+/** What an empty status filter says: what's missing, and what would put a quote there. */
+export const EMPTY_STATUS:Readonly<Record<QuoteStatus,{heading:string;body:string}>>={
+  ready_for_review:{heading:'No drafts waiting for review',body:'When a customer presses Request quote in Querent chat, the draft lands here for you to price and send.'},
+  changes_requested:{heading:'No change requests',body:'When a customer asks for changes to a quote you sent, it shows here with their note.'},
+  sent:{heading:'No quotes waiting on the customer',body:'Quotes you send stay here until the customer accepts, asks for changes, or the quote expires.'},
+  accepted:{heading:'No accepted quotes',body:'Quotes your customers accept show here.'},
+  expired:{heading:'No expired quotes',body:'Sent quotes that pass their valid-until date without an answer show here.'},
+};
+
+const usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
+/** "$1,122.40", or "—" with no total. */
+export const money=(n:number|null)=>n===null?'—':usd.format(n);
+
+const dayMonth=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+const dayMonthYear=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+/** "Sep 23", or "Sep 30, 2025" outside `now`'s year. Days are UTC, like every date in the app. */
+export function listDate(iso:string,now:string){
+  const date=new Date(iso);
+  return (date.getUTCFullYear()===new Date(now).getUTCFullYear()?dayMonth:dayMonthYear).format(date);
+}
+
+/** "rev 2", or "Not sent" before the first send. */
+export const revisionLabel=(revision:number)=>revision>0?`rev ${revision}`:'Not sent';
+
+/** The note under a total: a draft's prices aren't sent yet (and its freight may not be priced). */
+export function totalNote(row:Pick<RepQuoteRow,'total_basis'|'freight_pending'>){
+  if(row.total_basis==='sent')return null;
+  return row.freight_pending?'Draft, before freight':'Draft';
+}
+
+/** "1 line below floor", "3 lines below floor", or null. */
+export const belowFloorNote=(count:number)=>count>0?`${count} ${count===1?'line':'lines'} below floor`:null;
+
+/** "1 unread quote", "2 unread quotes". */
+export const unreadLabel=(count:number)=>`${count} unread ${count===1?'quote':'quotes'}`;

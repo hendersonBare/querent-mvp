@@ -1,0 +1,416 @@
+/* The rep's Quotes list (task 3.2). The mockup has no list screen, so this reuses its quote-detail
+   vocabulary (docs/design/querent-quote-flow.html): table.lines headers and rows, .pill status
+   chips (.st-new, .st-sent, .st-wait), .tag, .sub and the tabular numbers. Tokens come from RepShell. */
+
+/* ---- Status filter: the mockup's segmented .tabs, with a count per status ---- */
+.filters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 3px;
+  background: var(--rep-surface);
+  border: 1px solid var(--rep-line);
+  border-radius: 8px;
+}
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--rep-ink-2);
+  white-space: nowrap;
+}
+.filter:hover {
+  background: var(--rep-surface-2);
+  text-decoration: none;
+}
+.filterCount {
+  min-width: 18px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--rep-surface-2);
+  color: var(--rep-muted);
+  font: 600 11px/1.2 var(--rep-body);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.filter[data-empty] {
+  color: var(--rep-muted);
+}
+.filter[aria-current="page"] {
+  background: var(--rep-ink);
+  color: var(--rep-bg);
+}
+.filter[aria-current="page"] .filterCount {
+  background: rgb(255 255 255 / 0.16);
+  color: var(--rep-bg);
+}
+
+.problem {
+  margin-bottom: 10px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: var(--rep-warn-soft);
+  color: var(--rep-warn);
+  font-size: 13px;
+}
+
+.card {
+  overflow: hidden;
+}
+
+/* ---- The table: mockup table.lines ---- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.table th,
+.table td {
+  padding: 12px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.table thead th {
+  padding-block: 10px;
+  font: 600 10.5px/1.2 var(--rep-body);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rep-muted);
+  border-bottom: 1px solid var(--rep-line);
+  white-space: nowrap;
+}
+.table th:first-child,
+.table td:first-child {
+  padding-left: 18px;
+}
+.table .num {
+  text-align: right;
+}
+.table .go {
+  width: 34px;
+  padding-right: 12px;
+  color: var(--rep-muted);
+  vertical-align: middle;
+}
+
+/* One quote per tbody: its row, plus the customer's note when they asked for changes.
+   The quote number's link stretches over the whole block, so any click on it opens the quote. */
+.quote {
+  position: relative;
+  border-bottom: 1px solid var(--rep-line-2);
+}
+.quote:last-child {
+  border-bottom: 0;
+}
+.quote:hover {
+  background: var(--rep-surface-2);
+}
+.quote:hover .go {
+  color: var(--rep-ink);
+}
+
+.number {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.open {
+  color: var(--rep-ink);
+}
+.open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.open:hover {
+  text-decoration: none;
+}
+.quote:hover .open {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.open:focus-visible {
+  outline: none;
+}
+.open:focus-visible::after {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: -2px;
+}
+
+/* Unread: a Querent-green dot before the number, and the customer in bold. */
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0 7px 1px -15px;
+  border-radius: 50%;
+  background: var(--rep-accent);
+  vertical-align: middle;
+}
+.quote[data-unread] .customer {
+  font-weight: 600;
+}
+
+.sub {
+  display: block;
+  margin-top: 3px;
+  font: 400 11.5px/1.3 var(--rep-body);
+  color: var(--rep-muted);
+  white-space: nowrap;
+}
+.mono {
+  font-family: var(--rep-mono);
+  font-size: 11px;
+}
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font: 600 10px/1 var(--rep-body);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--rep-surface-2);
+  color: var(--rep-muted);
+  box-shadow: inset 0 0 0 1px var(--rep-line);
+  vertical-align: 1px;
+}
+.customer {
+  min-width: 180px;
+}
+.date {
+  white-space: nowrap;
+  color: var(--rep-ink-2);
+}
+.total {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.total .sub {
+  font-weight: 400;
+}
+.margin {
+  white-space: nowrap;
+}
+.margin[data-low] {
+  color: var(--rep-bad);
+}
+/* "margin" after the number, on phones only: the column header says it on wider screens. */
+.marginWord {
+  display: none;
+}
+.floor {
+  color: var(--rep-bad);
+}
+
+/* ---- Status chips: mockup .pill with .st-new (draft), .st-wait (changes), .st-sent ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font: 600 10.5px/1 var(--rep-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.chip[data-tone="draft"] {
+  background: var(--rep-ink);
+  color: var(--rep-bg);
+}
+.chip[data-tone="changes"] {
+  background: var(--rep-warn-soft);
+  color: var(--rep-warn);
+}
+.chip[data-tone="sent"] {
+  background: var(--rep-ok-soft);
+  color: var(--rep-ok);
+}
+.chip[data-tone="accepted"] {
+  background: var(--rep-ok);
+  color: #fff;
+}
+.chip[data-tone="expired"] {
+  background: var(--rep-surface-2);
+  color: var(--rep-muted);
+  box-shadow: inset 0 0 0 1px var(--rep-line);
+}
+
+/* ---- changes_requested: an amber rule down the left and the customer's note under the row ---- */
+.quote[data-status="changes_requested"] {
+  background: color-mix(in srgb, var(--rep-warn-soft) 55%, var(--rep-surface));
+  box-shadow: inset 3px 0 0 var(--rep-warn);
+}
+.quote[data-status="changes_requested"]:hover {
+  background: var(--rep-warn-soft);
+}
+.noteRow td {
+  padding-top: 0;
+  padding-bottom: 14px;
+}
+.note {
+  max-width: 78ch;
+  font-size: 13.5px;
+  color: var(--rep-ink);
+}
+.noteWho {
+  display: block;
+  margin-bottom: 2px;
+  font: 600 11.5px/1.3 var(--rep-body);
+  color: var(--rep-warn);
+}
+.noteText {
+  quotes: "“" "”";
+}
+
+.emptyAction {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--rep-accent);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Phones: each quote becomes a two-line card; the filter scrolls sideways ---- */
+@media (max-width: 640px) {
+  .filters {
+    display: flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar {
+    display: none;
+  }
+  .table,
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .quote > tr:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "number status"
+      "customer customer"
+      "date total"
+      "date margin";
+    column-gap: 12px;
+    padding: 12px 14px 12px 22px;
+  }
+  .table .quote th,
+  .table .quote td {
+    padding: 0;
+  }
+  .number {
+    grid-area: number;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+  }
+  .number .sub {
+    display: inline;
+    margin: 0;
+  }
+  .status {
+    grid-area: status;
+  }
+  .customer {
+    grid-area: customer;
+    min-width: 0;
+    margin-top: 6px;
+  }
+  .customer .sub {
+    display: inline;
+    margin-left: 8px;
+  }
+  .date {
+    grid-area: date;
+    align-self: end;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .total {
+    grid-area: total;
+    margin-top: 8px;
+  }
+  .total .sub {
+    display: inline;
+    margin-left: 6px;
+  }
+  .margin {
+    grid-area: margin;
+    margin-top: 2px;
+    font-size: 12.5px;
+    text-align: right;
+  }
+  .marginWord {
+    display: inline;
+    color: var(--rep-muted);
+  }
+  .margin .sub {
+    display: inline;
+    margin-left: 6px;
+  }
+  .table .go {
+    display: none;
+  }
+  .table .noteRow td {
+    padding: 0 14px 12px 22px;
+  }
+  .dot {
+    margin-left: -14px;
+  }
+}
+
+/* ---- The quote page until task 3.3: breadcrumb (mockup "Quotes / Q-24817 SAMPLE DATA") and title row ---- */
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--rep-muted);
+}
+.crumbs a {
+  color: var(--rep-muted);
+}
+.crumbHere {
+  font-weight: 600;
+  color: var(--rep-ink);
+}
+.crumbs .tag {
+  margin-left: 2px;
+}
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
