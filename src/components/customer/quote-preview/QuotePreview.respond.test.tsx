@@ -265,6 +265,8 @@ describe('Request changes',()=>{
     fireEvent.click(within(form).getByRole('button',{name:'Review request'}));
     expect(within(form).getByRole('alert')).toHaveTextContent('Say what should change: a note is required.');
     fireEvent.change(field,{target:{value:'  Make the bolts 12 boxes.\n\nThanks '}});
+    // Typing answers the problem, so it goes at once (5.2 follow-up).
+    expect(within(form).queryByRole('alert')).toBeNull();
     expect(form).toHaveTextContent('35/1,000');
     fireEvent.click(within(form).getByRole('button',{name:'Review request'}));
     const c=confirm('Confirm change request');

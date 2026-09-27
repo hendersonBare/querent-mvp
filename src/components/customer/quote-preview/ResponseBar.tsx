@@ -144,7 +144,7 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
         ?<AcceptForm preview={preview} shown={shown} now={now} rep={rep} day={day} time={time} po={po??shown.customer_po??''} problem={formProblem}
           onDay={value=>{setDay(value);if(!slotsOn(value,now).includes(time))setTime('');}} onTime={setTime} onPo={setPo} onBack={back} onReview={reviewAccept}/>
         :step==='changes'&&open&&shown&&preview
-        ?<ChangesForm preview={preview} rep={rep} note={note} problem={formProblem} onNote={setNote} onBack={back} onReview={reviewChanges}/>
+        ?<ChangesForm preview={preview} rep={rep} note={note} problem={formProblem} onNote={value=>{setNote(value);setFormProblem(null);}} onBack={back} onReview={reviewChanges}/>
         :<>
           <div className="qp-status">
             {preview&&<p className="qp-note" id={noteId} ref={noteRef} tabIndex={-1} aria-live="polite">{actionNote(preview,now)}</p>}
