@@ -3,20 +3,20 @@ import type {CustomerListItem,DeliveryRates,PricingSettings,Rep,RepFloor} from '
 import type {AccessRule,ERPStatus} from '@/lib/contracts';
 import {formatMargin} from '@/server/floors';
 import {FloorPermissionError,setMyFloor} from '@/server/floors/service';
-import {ROAD_FACTOR} from '@/server/freight/distance';
+import {checkDeliveryRates} from '@/server/freight/rates';
 import {
   aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,isCategory,pricingSettings,quotes,repFloors,reps,setAccess,
-  setAssignedRep,setScarcityUplift,type DemoDatabase,
+  setAssignedRep,setDeliveryRates,setScarcityUplift,type DemoDatabase,
 } from '@/server/repository';
 
 // Settings (spec §4, task 6.1) for the signed-in rep: Rep assignments, Customer access, My margin
-// floors, Pricing (scarcity uplift), Delivery rates (read-only) and Data sources. This module
+// floors, Pricing (scarcity uplift), Delivery rates and Data sources. This module
 // builds the page's data and checks every write before it reaches the repository. The routes
 // under /api/rep/settings serve it to the supplier persona only (./http, repRoute).
 //
 // Who may change what (the demo has one supplier login, Brandi):
-// - Rep assignments and Customer access: any rep session. The spec doesn't say who may; this is
-//   the smallest reversible default, flagged for review.
+// - Rep assignments, Customer access, the scarcity uplift and the delivery rates: any rep session.
+//   The spec doesn't say who may; this is the smallest reversible default, flagged for review.
 // - Margin floors: each rep edits only their own (spec §5.2), through setMyFloor, which refuses
 //   anyone else's before writing. Other reps' floors are read-only here.
 // Reassigning a customer never moves its quotes: a quote keeps the rep it was requested for
@@ -56,8 +56,8 @@ export interface RepSettings {
   access:AccessSettings;
   floors:{mine:RepFloorSet;others:RepFloorSet[]};
   pricing:PricingSettings;
-  /** Freight rates (spec §5.3), read-only, with the road factor applied to straight-line miles. */
-  delivery:DeliveryRates&{road_factor:number};
+  /** Freight rates (spec §5.3), with the road factor applied to straight-line miles. Any rep can change them. */
+  delivery:DeliveryRates;
   sources:DataSources;
 }
 
@@ -112,7 +112,7 @@ export function repSettings(repId:string,{customerId=null}:{customerId?:string|n
       others:everyone.filter(r=>r.id!==repId).map(floorSet),
     },
     pricing:pricingSettings(),
-    delivery:{...deliveryRates(),road_factor:ROAD_FACTOR},
+    delivery:deliveryRates(),
     sources:dataSources(),
   };
 }
@@ -176,6 +176,18 @@ export function updateMyFloor(actingRepId:string,input:unknown):RepFloorSet{
   if(!saved)throw new SettingsError('Product category not found.',404);
   const rep=reps().find(r=>r.id===repId)!;
   return floorSet(rep);
+}
+
+/**
+ * Delivery rates: PUT {base_fee, per_mile, min_charge, free_threshold, max_radius_miles,
+ * road_factor}, all six. Draft quotes price freight with them from the next change on; a sent
+ * quote keeps the freight it went out with (its snapshot). Any rep may change them, like the
+ * scarcity uplift.
+ */
+export function updateDelivery(input:unknown):DeliveryRates{
+  const {rates,problem}=checkDeliveryRates(input);
+  if(!rates)throw new SettingsError(problem);
+  return setDeliveryRates(rates);
 }
 
 /** Pricing: PUT {scarcity_uplift_enabled}. The pricing engine reads it each time it prices (priceLines, task 1.1). */

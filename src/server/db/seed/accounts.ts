@@ -32,7 +32,7 @@ export const DEPARTMENTS=[
   ...BRANCHES.map(b=>({id:`will-call-${b.id}`,name:`Warehouse / Will-call · ${b.code}`,branch_id:b.id as string|null,phone:b.phone,email:null as string|null,hours:b.hours})),
 ];
 
-export const DELIVERY_RATES={id:'default',base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75};
+export const DELIVERY_RATES={id:'default',base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25};
 
 export const PRICE_LEVEL={id:'contractor-2',code:'CT2',name:'Contractor tier 2'};
 

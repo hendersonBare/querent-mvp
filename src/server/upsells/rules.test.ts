@@ -130,10 +130,10 @@ describe('full case (bump qty to the next full case)',()=>{
   });
 
   it('bumps a broken case up to one full case, with GP from Querent\'s price at each qty',()=>{
-    // Broken case is priced at list ($19.95), a full case at customer ($16.50): 10 x 6.70 - 5 x 10.15 = +$16.25.
-    const brokenCase:PriceFn=(id,qty)=>({price:qty<catalogItem(id).caseQty?catalogItem(id).list:customerPrice(id),basis:qty<catalogItem(id).caseQty?'list':'customer'});
-    const [bump]=run([line('HN-12-13-G8',5,19.95)],{price:pricer(brokenCase)});
-    expect(bump).toMatchObject({id:'full_case:HN-12-13-G8',qty:10,unit_price:16.5,price_basis:'customer',gp_gain:16.25,evidence:{from_qty:5,to_qty:10,cases:1}});
+    // As the engine prices it: a broken case at customer + 10% ($18.15), a full case at customer ($16.50): 10 x 6.70 - 5 x 8.35 = +$25.25.
+    const brokenCase:PriceFn=(id,qty)=>qty<catalogItem(id).caseQty?{price:Math.round(customerPrice(id)*110)/100,basis:'custom'}:{price:customerPrice(id),basis:'customer'};
+    const [bump]=run([line('HN-12-13-G8',5,18.15)],{price:pricer(brokenCase)});
+    expect(bump).toMatchObject({id:'full_case:HN-12-13-G8',qty:10,unit_price:16.5,price_basis:'customer',gp_gain:25.25,evidence:{from_qty:5,to_qty:10,cases:1}});
   });
 
   it('drops a bump that would lose GP (the full-case price is lower)',()=>{

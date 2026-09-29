@@ -5,7 +5,7 @@ import {categories} from '../../lib/contracts';
 
 // Bump on any schema change. There are no migrations: an older database refuses to
 // open and `npm run db:reset` rebuilds and reseeds it (spec §6.6).
-export const SCHEMA_VERSION=3;
+export const SCHEMA_VERSION=4;
 
 // Tables a future ERP sync (Prophet 21 etc.) upserts into, keyed on (source, external_id).
 // Everything else is owned by Querent. Spec §6.2.
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS customer_rep(customer_id TEXT PRIMARY KEY REFERENCES 
 CREATE TABLE IF NOT EXISTS rep_category_floors(rep_id TEXT NOT NULL REFERENCES reps(id),category_id TEXT NOT NULL REFERENCES product_categories(id),margin_floor REAL NOT NULL CHECK(margin_floor>=0 AND margin_floor<1),updated_at TEXT NOT NULL,PRIMARY KEY(rep_id,category_id));
 -- Static contacts for the customer sidebar; will-call rows point at their branch.
 CREATE TABLE IF NOT EXISTS departments(id TEXT PRIMARY KEY,name TEXT NOT NULL,branch_id TEXT REFERENCES branches(id),phone TEXT NOT NULL,email TEXT,hours TEXT NOT NULL,sort_order INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS delivery_rates(id TEXT PRIMARY KEY,base_fee REAL NOT NULL,per_mile REAL NOT NULL,min_charge REAL NOT NULL,free_threshold REAL NOT NULL,max_radius_miles REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS delivery_rates(id TEXT PRIMARY KEY,base_fee REAL NOT NULL CHECK(base_fee>=0),per_mile REAL NOT NULL CHECK(per_mile>=0),min_charge REAL NOT NULL CHECK(min_charge>=0),free_threshold REAL NOT NULL CHECK(free_threshold>=0),max_radius_miles REAL NOT NULL CHECK(max_radius_miles>0),road_factor REAL NOT NULL DEFAULT 1.25 CHECK(road_factor>=1));
 
 -- Orders are the source of "last paid" and of won-quote history (quote_id).
 CREATE TABLE IF NOT EXISTS orders(id TEXT PRIMARY KEY,order_number TEXT NOT NULL UNIQUE,customer_id TEXT NOT NULL REFERENCES customers(id),quote_id TEXT REFERENCES quotes(id),po_number TEXT,order_date TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('open','shipped','closed')),fulfillment TEXT NOT NULL ${FULFILLMENT},branch_id TEXT NOT NULL REFERENCES branches(id),shipped_on TEXT,tracking_number TEXT,subtotal REAL NOT NULL,freight REAL NOT NULL,tax REAL NOT NULL,total REAL NOT NULL,${SYNC});
@@ -63,10 +63,10 @@ CREATE INDEX IF NOT EXISTS orders_customer_date ON orders(customer_id,order_date
 CREATE TABLE IF NOT EXISTS order_lines(id TEXT PRIMARY KEY,order_id TEXT NOT NULL REFERENCES orders(id),line_no INTEGER NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),qty INTEGER NOT NULL CHECK(qty>0),unit_price REAL NOT NULL,unit_cost REAL NOT NULL,${SYNC},UNIQUE(order_id,line_no));
 CREATE INDEX IF NOT EXISTS order_lines_item ON order_lines(item_id);
 
--- Quotes (spec §5.4). revision = the last sent revision (0 = never sent). valid_until is set on send
--- from valid_days. requested_date is the pickup/delivery day asked for in chat; fulfillment_time is
+-- Quotes (spec §5.4). revision = the last sent revision (0 = never sent). valid_until is set on send:
+-- expires_on when the rep picked an expiration date, otherwise the send day + valid_days. requested_date is the pickup/delivery day asked for in chat; fulfillment_time is
 -- what the customer confirms on Accept. freight is computed; only a rep override is stored.
-CREATE TABLE IF NOT EXISTS quotes(id TEXT PRIMARY KEY,quote_number TEXT NOT NULL UNIQUE,customer_id TEXT NOT NULL REFERENCES customers(id),contact_id TEXT REFERENCES contacts(id),rep_id TEXT NOT NULL REFERENCES reps(id),status TEXT NOT NULL CHECK(status IN (${list(QUOTE_STATUSES)})),revision INTEGER NOT NULL DEFAULT 0,conversation_id TEXT REFERENCES conversations(id),request_text TEXT,requested_at TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,sent_at TEXT,responded_at TEXT,fulfillment TEXT NOT NULL ${FULFILLMENT},branch_id TEXT NOT NULL REFERENCES branches(id),requested_date TEXT,fulfillment_time TEXT,ship_to_address TEXT,ship_to_lat REAL,ship_to_lng REAL,freight_override REAL,freight_override_reason TEXT,valid_days INTEGER NOT NULL DEFAULT 14 CHECK(valid_days IN (7,14,30)),valid_until TEXT,customer_po TEXT,customer_note TEXT,change_request_note TEXT,unread_for_rep INTEGER NOT NULL DEFAULT 0,unread_for_customer INTEGER NOT NULL DEFAULT 0,is_sample INTEGER NOT NULL DEFAULT 0,duplicated_from TEXT REFERENCES quotes(id));
+CREATE TABLE IF NOT EXISTS quotes(id TEXT PRIMARY KEY,quote_number TEXT NOT NULL UNIQUE,customer_id TEXT NOT NULL REFERENCES customers(id),contact_id TEXT REFERENCES contacts(id),rep_id TEXT NOT NULL REFERENCES reps(id),status TEXT NOT NULL CHECK(status IN (${list(QUOTE_STATUSES)})),revision INTEGER NOT NULL DEFAULT 0,conversation_id TEXT REFERENCES conversations(id),request_text TEXT,requested_at TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,sent_at TEXT,responded_at TEXT,fulfillment TEXT NOT NULL ${FULFILLMENT},branch_id TEXT NOT NULL REFERENCES branches(id),requested_date TEXT,fulfillment_time TEXT,ship_to_address TEXT,ship_to_lat REAL,ship_to_lng REAL,freight_override REAL,freight_override_reason TEXT,valid_days INTEGER NOT NULL DEFAULT 14 CHECK(valid_days IN (7,14,30)),valid_until TEXT,expires_on TEXT CHECK(expires_on IS NULL OR expires_on GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),customer_po TEXT,customer_note TEXT,change_request_note TEXT,unread_for_rep INTEGER NOT NULL DEFAULT 0,unread_for_customer INTEGER NOT NULL DEFAULT 0,is_sample INTEGER NOT NULL DEFAULT 0,duplicated_from TEXT REFERENCES quotes(id));
 CREATE INDEX IF NOT EXISTS quotes_customer ON quotes(customer_id,requested_at);
 -- unit_price NULL = not priced yet. suggested_* is Querent's pick; customer_price is kept for "+$X GP vs customer price".
 CREATE TABLE IF NOT EXISTS quote_lines(id TEXT PRIMARY KEY,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,line_no INTEGER NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),qty INTEGER NOT NULL CHECK(qty>=0),unit_price REAL,price_basis TEXT CHECK(price_basis IN (${PRICE_BASES})),suggested_price REAL,suggested_basis TEXT CHECK(suggested_basis IN (${PRICE_BASES})),customer_price REAL,unit_cost REAL NOT NULL,explanation TEXT,requested_text TEXT,match_score REAL,added_by TEXT NOT NULL DEFAULT 'querent' CHECK(added_by IN ('querent','rep','upsell')),UNIQUE(quote_id,line_no));

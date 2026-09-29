@@ -39,7 +39,7 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
   const floor=useMemo(()=>({repId:quote.rep_id,repName:quote.rep_name,floors:detail.floors}),[quote.rep_id,quote.rep_name,detail.floors]);
   const figures=useMemo(()=>quoteFigures(lines,{freight:detail.freight,rates:detail.delivery_rates,branchCode:quote.branch_code,floor}),
     [lines,detail.freight,detail.delivery_rates,quote.branch_code,floor]);
-  const checks=useMemo(()=>quoteChecks(lines,quote,detail.freight.unresolved,floor),[lines,quote,detail.freight.unresolved,floor]);
+  const checks=useMemo(()=>quoteChecks(lines,quote,detail.freight.unresolved,floor,detail.as_of.slice(0,10)),[lines,quote,detail.freight.unresolved,floor,detail.as_of]);
   const toggle=useCallback((lineId:string)=>setOpen(current=>{const next=new Set(current);if(!next.delete(lineId))next.add(lineId);return next;}),[]);
   const review=useCallback((lineId:string)=>{
     setOpen(current=>new Set(current).add(lineId));

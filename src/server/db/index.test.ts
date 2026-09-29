@@ -11,8 +11,8 @@ afterEach(()=>{closeDatabase();rmSync(root,{recursive:true,force:true});delete p
 const status=()=>db().prepare("SELECT status FROM quotes WHERE id='q-24817'").pluck().get();
 
 it('creates, versions and seeds a new database',()=>{
-  expect(SCHEMA_VERSION).toBe(3);
-  expect(db().prepare("SELECT value FROM meta WHERE key='schema_version'").pluck().get()).toBe('3');
+  expect(SCHEMA_VERSION).toBe(4);
+  expect(db().prepare("SELECT value FROM meta WHERE key='schema_version'").pluck().get()).toBe('4');
   expect(seedAnchor()).toBe('2026-09-23');
   expect(status()).toBe('ready_for_review');
   expect(db().pragma('foreign_keys',{simple:true})).toBe(1);
@@ -30,7 +30,7 @@ it('refuses a database from an older schema and says to run db:reset',()=>{
   const old=new Database(process.env.DATABASE_PATH!);
   old.exec("CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);INSERT INTO meta VALUES('schema_version','2');CREATE TABLE customers(id TEXT PRIMARY KEY,name TEXT NOT NULL);");
   old.close();
-  expect(()=>db()).toThrow(/schema 2 .*incompatible with schema 3\. Run npm run db:reset/);
+  expect(()=>db()).toThrow(/schema 2 .*incompatible with schema 4\. Run npm run db:reset/);
   // A failed open must not leave a half-initialised connection behind.
   expect(()=>db()).toThrow(/npm run db:reset/);
 });

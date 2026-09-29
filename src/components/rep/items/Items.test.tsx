@@ -1,10 +1,12 @@
 import type {AnchorHTMLAttributes,ReactNode} from 'react';
-import {render,screen,within} from '@testing-library/react';
+import {fireEvent,render,screen,within} from '@testing-library/react';
 import {describe,expect,it,vi} from 'vitest';
 import {BOLTS_VIEW,ITEM_LIST,STRAPS} from '../reference/test-fixtures';
 
 // The rep's Items list and item page (task 3.8).
 
+const push=vi.fn();
+vi.mock('next/navigation',()=>({useRouter:()=>({push})}));
 vi.mock('next/link',()=>({default:({href,children,prefetch:_p,...rest}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;prefetch?:boolean;children?:ReactNode})=><a href={href} {...rest}>{children}</a>}));
 
 const {ItemsList}=await import('./ItemsList');
@@ -28,18 +30,26 @@ describe('ItemsList',()=>{
     expect(screen.getByRole('link',{name:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc'})).toHaveAttribute('href','/rep/items/HCS-12-13-2G8');
   });
 
-  it('filters by category, with counts, keeping the picked customer on every link',()=>{
+  it('filters by category with one dropdown, All by default, keeping the picked customer',()=>{
+    const {unmount}=render(<ItemsList list={ITEM_LIST} viewing={WASATCH}/>);
+    const select=screen.getByRole('combobox',{name:'Category'});
+    expect(select).toHaveValue('');
+    expect(within(select).getAllByRole('option').map(o=>o.textContent)).toEqual(['All categories (2)','Fasteners (1)','Material Handling & Tie-downs (1)']);
+    // The dropdown is the only category filter: no category links or tabs.
+    expect(screen.queryByRole('navigation',{name:'Filter by category'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:/^Fasteners/})).not.toBeInTheDocument();
+    fireEvent.change(select,{target:{value:'material-handling'}});
+    expect(push).toHaveBeenLastCalledWith('/rep/items?category=material-handling&customer=wasatch');
+    unmount();
+
     render(<ItemsList list={{...ITEM_LIST,category:{id:'material-handling',name:'Material Handling & Tie-downs',sort_order:4},items:[STRAPS]}} viewing={WASATCH}/>);
-    const filter=within(screen.getByRole('navigation',{name:'Filter by category'}));
-    expect(filter.getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
-      ['All2','/rep/items?customer=wasatch'],
-      ['Fasteners1','/rep/items?category=fasteners&customer=wasatch'],
-      ['Material Handling & Tie-downs1','/rep/items?category=material-handling&customer=wasatch'],
-    ]);
-    expect(filter.getByRole('link',{current:'page'})).toHaveTextContent('Material Handling & Tie-downs');
+    const filtered=screen.getByRole('combobox',{name:'Category'});
+    expect(filtered).toHaveValue('material-handling');
     expect(screen.getAllByRole('row')).toHaveLength(2);
     expect(screen.getByRole('link',{name:/Ratchet strap/})).toHaveAttribute('href','/rep/items/RS-2-27-JH?customer=wasatch');
     expect(screen.getByText(/the same for every customer/)).toBeInTheDocument();
+    fireEvent.change(filtered,{target:{value:''}});
+    expect(push).toHaveBeenLastCalledWith('/rep/items?customer=wasatch');
   });
 
   it('carries no cost or margin',()=>{
@@ -60,7 +70,8 @@ describe('ItemDetail',()=>{
     expect(Object.fromEntries(facts.getAllByRole('term').map(dt=>[dt.textContent,dt.nextElementSibling?.textContent]))).toEqual({
       'SKU':'HCS-12-13-2G8','Category':'Fasteners','Sold as':'Box of 50','Full case':'10 packs','List price':'$38.95',
     });
-    expect(facts.getByRole('link',{name:'Fasteners'})).toHaveAttribute('href','/rep/items?category=fasteners');
+    // The category is plain text: the Items dropdown is the only way to filter by it.
+    expect(facts.queryByRole('link',{name:'Fasteners'})).not.toBeInTheDocument();
   });
 
   it('shows what is on order and when it arrives',()=>{
@@ -86,10 +97,9 @@ describe('ItemDetail',()=>{
     expect(screen.getByRole('link',{name:'Items'})).toHaveAttribute('href','/rep/items?customer=great-basin');
   });
 
-  it('keeps the picked customer on its order, category and breadcrumb links',()=>{
+  it('keeps the picked customer on its order and breadcrumb links',()=>{
     render(<ItemDetail view={BOLTS_VIEW} viewing={WASATCH}/>);
     expect(screen.getByRole('link',{name:'SO-51221'})).toHaveAttribute('href','/rep/orders/SO-51221?customer=wasatch');
-    expect(within(screen.getByRole('region',{name:'Item'})).getByRole('link',{name:'Fasteners'})).toHaveAttribute('href','/rep/items?category=fasteners&customer=wasatch');
     expect(screen.getByRole('link',{name:'Items'})).toHaveAttribute('href','/rep/items?customer=wasatch');
   });
 

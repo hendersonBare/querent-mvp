@@ -50,7 +50,7 @@ export function SettingsSection({initial}:{initial:RepSettings}){
     {tab==='assignments'&&<RepAssignments rows={settings.assignments} reps={settings.reps} repId={settings.rep_id} onChange={update('assignments')}/>}
     {tab==='access'&&<CustomerAccess access={settings.access} scopeLabel={scope.label} onChange={update('access')}/>}
     {tab==='floors'&&<MarginFloors mine={settings.floors.mine} others={settings.floors.others} onSaved={mine=>setSettings(current=>({...current,floors:{...current.floors,mine}}))}/>}
-    {tab==='pricing'&&<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={update('pricing')}/>}
+    {tab==='pricing'&&<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={update('pricing')} onDelivery={update('delivery')}/>}
     {tab==='sources'&&<DataSources initial={settings.sources}/>}
   </>;
 }

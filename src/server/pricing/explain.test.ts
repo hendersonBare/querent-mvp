@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {ItemStock,PriceSources} from '@/domain';
 import type {PricingInput} from './engine';
-import {explainPrice,explainQuoteGp,formatGp,formatMoney,lastPaidDate} from './explain';
+import {explainPrice,explainQuoteGp,formatGp,formatMoney,lastPaidDate,priceReasons} from './explain';
 import {priceLine} from './index';
 
 // "Why this price?" (spec §4, §5.1): one sentence naming the fact behind Querent's price, then
@@ -46,7 +46,8 @@ describe('explainPrice: every other reason',()=>{
   });
 
   it('broken case',()=>{
-    expect(why(BOLTS,4)).toBe('Broken-case quantity: 4 is less than a full case of 10, so list price $38.95 instead of customer price $30.95. +$32.00 GP vs customer price.');
+    expect(why(BOLTS,4)).toBe('Broken-case quantity: 4 is less than a full case of 10, so customer price $30.95 + 10%. +$12.40 GP vs customer price.');
+    expect(why({...BOLTS,customer_price:36},4)).toBe('Broken-case quantity: 4 is less than a full case of 10, so customer price $36.00 + 10%, capped at list $38.95. +$11.80 GP vs customer price.');
   });
 
   it('scarcity, for low stock and for the only branch that can fill the qty',()=>{
@@ -114,3 +115,56 @@ describe('priceLine',()=>{
     expect(line.explanation).toBe(why(BOLTS,10));
   });
 });
+
+describe('priceReasons: the "?" tip next to Querent\u2019s price',()=>{
+  const reasons=(sources:PriceSources,qty:number,rest:Partial<PricingInput>={})=>priceReasons(input(sources,qty,rest));
+
+  it('puts the deciding fact first, then every other fact checked, then the GP',()=>{
+    expect(reasons(BOLTS,8)).toEqual([
+      'Broken-case quantity: 8 is less than a full case of 10, so customer price $30.95 + 10%.',
+      'No active contract for this item.',
+      "Last paid $31.50 on Aug 12, below Querent's pick.",
+      'Scarcity uplift is off in Settings.',
+      'List price $38.95 is the ceiling.',
+      '+$24.80 GP vs customer price at a qty of 8.',
+    ]);
+    expect(reasons(BOLTS,10)).toEqual([
+      'Last paid $31.50 on Aug 12, above customer price $30.95.',
+      'No active contract for this item.',
+      'Not a broken case: 10 covers a full case of 10.',
+      'Scarcity uplift is off in Settings.',
+      'List price $38.95 is the ceiling.',
+      '+$5.50 GP vs customer price at a qty of 10.',
+    ]);
+  });
+
+  it('says what scarcity came to, and that a one-pack case is never broken',()=>{
+    expect(reasons(STRAPS,12,{stock:STRAP_STOCK})).toContain("Scarcity uplift is off in Settings, so low stock at SLC doesn't raise the price.");
+    expect(reasons(STRAPS,12,{stock:STRAP_STOCK,scarcityEnabled:true})[0]).toMatch(/^Scarce at SLC/);
+    expect(reasons(STRAPS,1,{stock:STRAP_STOCK,scarcityEnabled:true})).toContain('Enough stock to fill 1: no scarcity uplift.');
+    expect(reasons(GLOVES,4)).toContain('Sold by the pack, so no broken-case uplift.');
+  });
+
+  it('keeps a contract short: nothing else can change it',()=>{
+    expect(reasons(WHEELS,6)).toEqual([
+      'Contract price under WAS-C-2026-01, good through Dec 31, 2026. Contract prices are binding, so Querent doesn\'t raise them.',
+      "Last paid, a broken case and scarcity don't change a contract price.",
+      '-$17.70 GP vs customer price at a qty of 6.',
+    ]);
+  });
+
+  it('explains list with no customer price, and a line with no price at all',()=>{
+    expect(reasons({...BOLTS,customer_price:null},10)).toEqual([
+      'No customer price on file, so Querent starts from list price $38.95.',
+      'No active contract for this item.',
+      "Last paid $31.50 on Aug 12 isn't used without a customer price.",
+    ]);
+    expect(reasons({...STRAPS,customer_price:null,list_price:0},1)).toEqual(['No contract, customer or list price on file. Price this line by hand.']);
+  });
+
+  it('rides on priceLine with the explanation',()=>{
+    const priced=priceLine(input(BOLTS,8));
+    expect(priced.reasons[0]).toBe(explainPrice(input(BOLTS,8)).replace(/ \+\$24\.80 GP vs customer price\.$/,''));
+  });
+});
+

@@ -49,7 +49,8 @@ export interface WillCallContact {id:string;branch_id:string;code:string;name:st
 export interface CustomerContacts {supplier:string;rep:Rep|null;departments:Department[];willCall:WillCallContact[]}
 
 /** Freight rates (spec §5.3), shown read-only in Settings. */
-export interface DeliveryRates {base_fee:number;per_mile:number;min_charge:number;free_threshold:number;max_radius_miles:number}
+/** Settings > Pricing & delivery. road_factor turns straight-line miles into road miles (spec §5.3). */
+export interface DeliveryRates {base_fee:number;per_mile:number;min_charge:number;free_threshold:number;max_radius_miles:number;road_factor:number}
 
 export interface PricingSettings {scarcity_uplift_enabled:boolean}
 

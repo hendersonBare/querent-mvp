@@ -2,7 +2,7 @@
 import {useId,useState,type KeyboardEvent} from 'react';
 import type {WeekPoint} from '@/server/analytics';
 import {formatWeek,niceTicks,plural} from './format';
-import {InfoTip} from './InfoTip';
+import {InfoTip} from '../InfoTip';
 import s from './Analytics.module.css';
 
 // Weekly quotes and wins (spec §4): one stacked column per week, the quotes requested that week

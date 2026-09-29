@@ -5,7 +5,7 @@ import type {RequestedItem} from '@/domain';
 import type {MarginVsFloor as MarginData,QuestionsAnswered} from '@/server/analytics';
 import {formatFloor,formatMargin,isBelowFloor} from '@/server/floors';
 import {formatCount,formatMoney,formatPercent,plural} from './format';
-import {InfoTip} from './InfoTip';
+import {InfoTip} from '../InfoTip';
 import s from './Analytics.module.css';
 
 // The breakdowns below the trend (spec §4): average margin vs floor, top requested items, and

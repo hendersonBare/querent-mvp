@@ -60,12 +60,12 @@ const api = (page: Page, path: string, method = "GET", body?: unknown) =>
   );
 
 /** Taking the nut as GET shows it on the sample: its id and the fingerprint it was shown with. */
-const NUT = { upsellId: "matching_fastener:HN-12-13-G8", fingerprint: "matching_fastener:HN-12-13-G8|add 5|19.95" };
+const NUT = { upsellId: "matching_fastener:HN-12-13-G8", fingerprint: "matching_fastener:HN-12-13-G8|add 5|18.15" };
 
 const FIVE = [
   "Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)",
-  "Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)",
   "Flap disc 4.5 in, 60 grit zirconia (box of 10)",
+  "Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)",
   "Bump cut-off wheels to 8 boxes (2 full cases)",
   "Safety glasses, clear anti-fog (box of 12)",
 ];
@@ -76,7 +76,7 @@ test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bu
 
   // Collapsed, as in screen 03: "Querent found" and the ideas.
   await expect(header(page)).toContainText("Querent found +$11.50 GP");
-  await expect(header(page)).toContainText("5 ideas · up to +$179.45 gross profit");
+  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
   await expect(chips(page).first()).toBeHidden();
   await noSidewaysScroll(page);
   await screenshot(page, testInfo, "upsells-1440-collapsed");
@@ -85,7 +85,7 @@ test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bu
   await expect(chips(page)).toHaveCount(5);
   for (const [i, title] of FIVE.entries()) await expect(chips(page).nth(i)).toContainText(title);
   await expect(chips(page).nth(0)).toContainText("Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500.");
-  await expect(chips(page).nth(0)).toContainText("HN-12-13-G8 · 5 at $19.95 · 50.9% margin · +$50.75 GP");
+  await expect(chips(page).nth(0)).toContainText("HN-12-13-G8 · 5 at $18.15 · 46.0% margin · +$41.75 GP");
   await expect(chips(page).nth(3)).toContainText("CW-45-045-T1 · 6 → 8 at $36.00 · 33.1% margin · +$23.80 GP");
   await suggested(page).scrollIntoViewIfNeeded();
   await screenshot(page, testInfo, "upsells-1440-open");
@@ -95,21 +95,21 @@ test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bu
   const nut = page.getByRole("rowheader", { name: /HN-12-13-G8/ });
   await expect(nut).toContainText("Suggested");
   await expect(qty(page, "HN-12-13-G8")).toHaveValue("5");
-  await expect(items(page)).toContainText("Items$1,222.15");
-  await expect(header(page)).toContainText("Querent found +$28.75 GP");
+  await expect(items(page)).toContainText("Items$1,213.15");
+  await expect(header(page)).toContainText("Querent found +$19.75 GP");
   await expect(suggested(page).getByRole("button", { name: /^Add: Hex nut/ })).toHaveCount(0);
   await saved(page);
-  // 5 boxes of nuts is a broken case (10 to a case): the full-case rule now offers the rest.
-  await expect(header(page)).toContainText("5 ideas · up to +$144.95 gross profit");
-  await expect(chips(page).last()).toContainText("Bump hex nuts to 10 boxes (1 full case)");
+  // 5 boxes of nuts is a broken case (10 to a case), priced at customer + 10%: the full-case rule now offers the rest.
+  await expect(header(page)).toContainText("5 ideas · up to +$146.45 gross profit");
+  await expect(chips(page).nth(2)).toContainText("Bump hex nuts to 10 boxes (1 full case)");
 
   // Apply the wheels bump: the qty moves at once, on its contract price.
   await suggested(page).getByRole("button", { name: /^Apply: Bump cut-off wheels/ }).click();
   await expect(qty(page, "CW-45-045-T1")).toHaveValue("8");
-  await expect(items(page)).toContainText("Items$1,294.15");
+  await expect(items(page)).toContainText("Items$1,285.15");
   await saved(page);
-  await expect(header(page)).toContainText("4 ideas · up to +$121.15 gross profit");
-  await expect(header(page)).toContainText("Querent found +$28.75 GP");
+  await expect(header(page)).toContainText("4 ideas · up to +$122.65 gross profit");
+  await expect(header(page)).toContainText("Querent found +$19.75 GP");
   await screenshot(page, testInfo, "upsells-1440-taken");
 
   // Both are saved.
@@ -126,17 +126,17 @@ test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bu
   await expect(nut).toHaveCount(0);
   await expect(items(page)).toContainText("Items$1,122.40");
   await expect(header(page)).toContainText("Querent found +$11.50 GP");
-  await expect(header(page)).toContainText("5 ideas · up to +$179.45 gross profit");
+  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
   await expect(chips(page)).toHaveCount(5);
   await page.reload();
   await expect(items(page)).toContainText("Items$1,122.40");
-  await expect(header(page)).toContainText("5 ideas · up to +$179.45 gross profit");
+  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
 });
 
 test("phone (390px, screen 08): the section stacks under the items, chips stay usable, nothing scrolls sideways", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openQuote(page);
-  await expect(header(page)).toContainText("5 ideas · up to +$179.45 gross profit");
+  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
   await header(page).scrollIntoViewIfNeeded();
   await noSidewaysScroll(page);
   await screenshot(page, testInfo, "upsells-390-collapsed");
@@ -154,14 +154,14 @@ test("phone (390px, screen 08): the section stacks under the items, chips stay u
   await saved(page);
   // 3 boxes of flap discs is a broken case (4 to a case): once saved, the full-case rule offers the fourth.
   await expect(chips(page).last()).toContainText("Bump flap discs to 4 boxes (1 full case)");
-  await expect(header(page)).toContainText("5 ideas · up to +$152.95 gross profit");
+  await expect(header(page)).toContainText("5 ideas · up to +$136.45 gross profit");
   await noSidewaysScroll(page);
 });
 
 test("a chip that changed in another tab is refused with a note, and the chips and lines refresh (no stale apply)", async ({ page }) => {
   await openQuote(page);
   await header(page).click();
-  await expect(chips(page).first()).toContainText("HN-12-13-G8 · 5 at $19.95");
+  await expect(chips(page).first()).toContainText("HN-12-13-G8 · 5 at $18.15");
   // Another tab takes the bolts to 20 boxes: the nut chip now means 10 boxes at $16.50 (a full case at customer price).
   expect((await api(page, "/api/rep/quotes/Q-24817/lines/q-24817-1", "PATCH", { qty: 20 })).status).toBe(200);
   await suggested(page).getByRole("button", { name: /^Add: Hex nut 1\/2-13/ }).click();

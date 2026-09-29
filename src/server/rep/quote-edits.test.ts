@@ -80,9 +80,9 @@ describe('editing a line',()=>{
   it('re-prices on a qty change: a line on Querent’s pick follows it, and the suggestion is stored',async()=>{
     const {edits,repo}=await load();
     const d=await edits.editRepQuoteLine('brandi','Q-24817','q-24817-1',{qty:5},{now:NOW});
-    expect(line(d,'q-24817-1')).toMatchObject({qty:5,unit_price:38.95,price_basis:'list',suggested_price:38.95,suggested_basis:'list'});
+    expect(line(d,'q-24817-1')).toMatchObject({qty:5,unit_price:34.05,price_basis:'custom',suggested_price:34.05,suggested_basis:'custom'});
     expect(repo.quote('q-24817')!.lines[0].explanation).toMatch(/^Broken-case quantity: 5 is less than a full case of 10/);
-    expect(repo.quoteActivity('q-24817').at(-1)!.message).toBe('Brandi changed Hex cap screw 1/2-13 x 2 in (HCS-12-13-2G8): qty 10 to 5, price List $38.95');
+    expect(repo.quoteActivity('q-24817').at(-1)!.message).toBe('Brandi changed Hex cap screw 1/2-13 x 2 in (HCS-12-13-2G8): qty 10 to 5, price Custom $34.05');
   });
 
   it('refuses bad input with 400 and changes nothing',async()=>{

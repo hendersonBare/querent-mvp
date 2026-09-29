@@ -14,7 +14,7 @@ describe('pricing settings and delivery rates',()=>{
   });
 
   it('returns the seed delivery rates (spec §5.3)',()=>{
-    expect(deliveryRates()).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75});
+    expect(deliveryRates()).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25});
   });
 });
 

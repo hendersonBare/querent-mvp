@@ -20,24 +20,25 @@ function danasQuote(branchId='slc'){
 describe('quoteUpsells on the seeded sample quote Q-24817',()=>{
   it('suggests the nut and washer for the bolts, flap discs, a full case of wheels and safety glasses',()=>{
     const upsells=quoteUpsells('q-24817',{on:ON})!;
-    // Priced by the engine: nuts and washers at 5 boxes are a broken case (list), flap discs are on
-    // contract, wheels stay at the $36.00 contract price. Straps would need 20 at SLC, which has 7.
+    // Priced by the engine: nuts and washers at 5 boxes are a broken case (customer price + 10%),
+    // flap discs are on contract, wheels stay at the $36.00 contract price. Straps would need 20 at
+    // SLC, which has 7.
     expect(chips(upsells)).toEqual([
-      ['matching_fastener:HN-12-13-G8',5,19.95,'list',50.75],
-      ['matching_fastener:FW-12-G8',5,15.75,'list',41.75],
+      ['matching_fastener:HN-12-13-G8',5,18.15,'custom',41.75],
       ['bought_together:FD-45-60Z',3,44.25,'contract',39.75],
+      ['matching_fastener:FW-12-G8',5,14.25,'custom',34.25],
       ['full_case:CW-45-045-T1',8,36,'contract',23.8],
       ['bought_together:SG-CLR-AF',2,29.9,'customer',23.4],
     ]);
-    expect(formatUpsellSummary(upsells)).toBe('5 ideas · up to +$179.45 gross profit');
-    expect(upsellGpTotal(upsells)).toBe(179.45);
+    expect(formatUpsellSummary(upsells)).toBe('5 ideas · up to +$162.95 gross profit');
+    expect(upsellGpTotal(upsells)).toBe(162.95);
   });
 
   it('reads naturally next to the mockup\'s "Suggested by Querent"',()=>{
     expect(quoteUpsells('q-24817',{on:ON})!.map(u=>u.wording)).toEqual([
       {title:'Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)',reason:'Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500. Bought with these bolts on all 5 orders that had them in the last 12 months.'},
-      {title:'Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)',reason:'Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500. Bought with these bolts on 4 of the 5 orders that had them in the last 12 months.'},
       {title:'Flap disc 4.5 in, 60 grit zirconia (box of 10)',reason:'Bought with cut-off wheels on 4 of the 5 orders that had them in the last 12 months.'},
+      {title:'Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)',reason:'Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500. Bought with these bolts on 4 of the 5 orders that had them in the last 12 months.'},
       {title:'Bump cut-off wheels to 8 boxes (2 full cases)',reason:'A case holds 4 boxes, so 6 leaves a broken case.'},
       {title:'Safety glasses, clear anti-fog (box of 12)',reason:'Bought with nitrile disposable gloves on 2 of the 4 orders that had them in the last 12 months.'},
     ]);
@@ -46,10 +47,10 @@ describe('quoteUpsells on the seeded sample quote Q-24817',()=>{
   it('carries one-click actions against the quote\'s own lines',()=>{
     const upsells=quoteUpsells('q-24817',{on:ON})!;
     expect(upsells.map(u=>u.action)).toEqual([
-      {type:'add_line',item_id:'HN-12-13-G8',qty:5},{type:'add_line',item_id:'FW-12-G8',qty:5},{type:'add_line',item_id:'FD-45-60Z',qty:3},
+      {type:'add_line',item_id:'HN-12-13-G8',qty:5},{type:'add_line',item_id:'FD-45-60Z',qty:3},{type:'add_line',item_id:'FW-12-G8',qty:5},
       {type:'set_qty',line_id:'q-24817-2',item_id:'CW-45-045-T1',from_qty:6,to_qty:8},{type:'add_line',item_id:'SG-CLR-AF',qty:2},
     ]);
-    expect(upsells.map(u=>u.anchor.line_id)).toEqual(['q-24817-1','q-24817-1','q-24817-2','q-24817-2','q-24817-3']);
+    expect(upsells.map(u=>u.anchor.line_id)).toEqual(['q-24817-1','q-24817-2','q-24817-1','q-24817-2','q-24817-3']);
   });
 
   it('accepts a quote already loaded, and returns undefined for an unknown quote',()=>{
@@ -84,7 +85,7 @@ describe('quoteUpsells on the seeded sample quote Q-24817',()=>{
   });
 
   it('passes options through to the rules',()=>{
-    expect(quoteUpsells('q-24817',{on:ON,options:{maxSuggestions:2}})!.map(u=>u.id)).toEqual(['matching_fastener:HN-12-13-G8','matching_fastener:FW-12-G8']);
+    expect(quoteUpsells('q-24817',{on:ON,options:{maxSuggestions:2}})!.map(u=>u.id)).toEqual(['matching_fastener:HN-12-13-G8','bought_together:FD-45-60Z']);
     expect(quoteUpsells('q-24817',{on:ON,options:{minShare:0.6}})!.map(u=>u.id)).not.toContain('bought_together:SG-CLR-AF');
   });
 });
@@ -102,12 +103,12 @@ describe('applying a chip',()=>{
     expect(after.map(u=>u.id)).not.toContain('matching_fastener:HN-12-13-G8');
     expect(after.map(u=>u.id)).not.toContain('full_case:CW-45-045-T1');
     // The 5 boxes of nuts are now a broken case on the quote: a full case is 10 at customer price.
-    // 10 x (16.50 - 9.80) - 5 x (19.95 - 9.80) = +$16.25.
+    // 10 x (16.50 - 9.80) - 5 x (18.15 - 9.80) = +$25.25.
     expect(chips(after)).toEqual([
-      ['matching_fastener:FW-12-G8',5,15.75,'list',41.75],
       ['bought_together:FD-45-60Z',3,44.25,'contract',39.75],
+      ['matching_fastener:FW-12-G8',5,14.25,'custom',34.25],
+      ['full_case:HN-12-13-G8',10,16.5,'customer',25.25],
       ['bought_together:SG-CLR-AF',2,29.9,'customer',23.4],
-      ['full_case:HN-12-13-G8',10,16.5,'customer',16.25],
     ]);
   });
 });
@@ -149,7 +150,7 @@ describe('pricerFor (task 1.1\'s priceLines)',()=>{
   it('returns Querent\'s price and basis per request, in order, and null for an item it can\'t price',()=>{
     const price=pricerFor({customerId:'wasatch',repId:'brandi',branchId:'slc',on:ON});
     expect(price([{itemId:'HN-12-13-G8',qty:5},{itemId:'NOT-A-SKU',qty:1},{itemId:'HN-12-13-G8',qty:10},{itemId:'CW-45-045-T1',qty:8}])).toEqual([
-      {price:19.95,basis:'list'},null,{price:16.5,basis:'customer'},{price:36,basis:'contract'},
+      {price:18.15,basis:'custom'},null,{price:16.5,basis:'customer'},{price:36,basis:'contract'},
     ]);
     expect(price([])).toEqual([]);
   });

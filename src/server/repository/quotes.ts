@@ -13,7 +13,7 @@ import {all,bool,flag,inTransaction,nowIso,one,round2,run,scalar} from './sql';
 
 const HEADER=`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,cu.account_number,q.contact_id,ct.name contact_name,q.rep_id,r.name rep_name,
   q.status,q.revision,q.conversation_id,q.request_text,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.fulfillment,q.branch_id,b.code branch_code,
-  q.requested_date,q.fulfillment_time,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override,q.freight_override_reason,q.valid_days,q.valid_until,
+  q.requested_date,q.fulfillment_time,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override,q.freight_override_reason,q.valid_days,q.valid_until,q.expires_on,
   q.customer_po,q.customer_note,q.change_request_note,q.unread_for_rep,q.unread_for_customer,q.is_sample,q.duplicated_from
   FROM quotes q JOIN customers cu ON cu.id=q.customer_id JOIN reps r ON r.id=q.rep_id JOIN branches b ON b.id=q.branch_id LEFT JOIN contacts ct ON ct.id=q.contact_id`;
 type Flags='unread_for_rep'|'unread_for_customer'|'is_sample';
@@ -171,8 +171,8 @@ export function removeQuoteLine(quoteId:string,lineId:string,at=nowIso()){
   });
 }
 
-const TERMS_COLUMNS={validDays:'valid_days',customerPo:'customer_po',customerNote:'customer_note'} as const;
-/** Quote terms: valid for 7/14/30 days, customer PO, note printed on the quote. Returns false if the quote doesn't exist. */
+const TERMS_COLUMNS={validDays:'valid_days',expiresOn:'expires_on',customerPo:'customer_po',customerNote:'customer_note'} as const;
+/** Quote terms: the expiration date (null: valid_days after sending), customer PO, note printed on the quote. Returns false if the quote doesn't exist. */
 export function updateQuoteTerms(quoteId:string,patch:QuoteTermsPatch,at=nowIso()){
   const columns=(Object.keys(TERMS_COLUMNS) as (keyof QuoteTermsPatch)[]).filter(key=>patch[key]!==undefined).map(key=>[TERMS_COLUMNS[key],patch[key]] as [string,unknown]);
   return updateQuote(quoteId,columns,at);

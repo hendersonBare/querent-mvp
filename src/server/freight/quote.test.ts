@@ -1,6 +1,6 @@
 import {describe,expect,it,vi} from 'vitest';
 import type {NewQuote} from '@/domain';
-import {createQuote,deliveryRates,quote,quoteActivity,updateQuoteFulfillment,updateQuoteLine} from '@/server/repository';
+import {createQuote,deliveryRates,quote,quoteActivity,setDeliveryRates,updateQuoteFulfillment,updateQuoteLine} from '@/server/repository';
 import {useSeededDatabase} from '@/server/repository/test-db';
 import {CALL_FOR_FREIGHT} from './engine';
 import {freightForQuote,freightOverrideOf,overrideFreight,pricedSubtotal} from './quote';
@@ -15,7 +15,7 @@ const deliveryQuote=(input:Partial<NewQuote>={})=>createQuote({customerId:'wasat
 
 describe('seeded rates',()=>{
   it('are the spec §5.3 seed rates',()=>{
-    expect(deliveryRates()).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75});
+    expect(deliveryRates()).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25});
   });
 });
 
@@ -29,6 +29,16 @@ describe('freightForQuote',()=>{
     const freight=await freightForQuote(deliveryQuote());
     expect(freight).toEqual({amount:62.5,source:'computed',unresolved:false,override:null,computed:{
       rule:'distance',amount:62.5,miles:15,formula:'$25.00 + $2.50/mi × 15.0 mi = $62.50',explanation:'15.0 mi from SLC: $25.00 + $2.50/mi × 15.0 mi = $62.50.'}});
+  });
+
+  it('uses the rates saved on Settings, road factor included, from the next price on',async()=>{
+    const seeded=deliveryRates();
+    try{
+      setDeliveryRates({base_fee:30,per_mile:3,min_charge:40,free_threshold:1500,max_radius_miles:75,road_factor:1.5});
+      // 12.0 straight-line miles x 1.5 = 18.0 road miles: $30 + $3/mi x 18.0 = $84.
+      expect((await freightForQuote(deliveryQuote())).computed).toMatchObject({rule:'distance',miles:18,amount:84,formula:'$30.00 + $3.00/mi × 18.0 mi = $84.00'});
+    }finally{setDeliveryRates(seeded);}
+    expect((await freightForQuote(deliveryQuote())).amount).toBe(62.5);
   });
 
   it('measures from the branch on the quote',async()=>{

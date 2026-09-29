@@ -12,7 +12,7 @@ async function read<T>(response:Response,fallback:string):Promise<T>{
   return body as T;
 }
 
-export type SettingsWrite='assignments'|'access'|'floors'|'pricing';
+export type SettingsWrite='assignments'|'access'|'floors'|'pricing'|'delivery';
 
 /** PUT /api/rep/settings/<what>: saves one change and returns what the server stored. Throws with the server's reason. */
 export async function saveSetting<T>(what:SettingsWrite,body:unknown):Promise<T>{

@@ -166,28 +166,70 @@ describe('Pricing & delivery',()=>{
   it('turns the scarcity uplift on (it is off by default)',async()=>{
     replies=[{body:{scarcity_uplift_enabled:true}}];
     const onPricing=vi.fn();
-    const {rerender}=render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={onPricing}/>);
+    const {rerender}=render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={onPricing} onDelivery={vi.fn()}/>);
     const scarcity=screen.getByRole('switch',{name:'Scarcity uplift'});
     expect(scarcity).not.toBeChecked();
     expect(scarcity).toHaveAccessibleDescription('Off (default)');
     fireEvent.click(scarcity);
     await waitFor(()=>expect(onPricing).toHaveBeenCalledWith({scarcity_uplift_enabled:true}));
     expect(sent()).toEqual([{url:'/api/rep/settings/pricing',body:{scarcity_uplift_enabled:true}}]);
-    rerender(<PricingDelivery pricing={{scarcity_uplift_enabled:true}} delivery={settings.delivery} onPricing={onPricing}/>);
+    rerender(<PricingDelivery pricing={{scarcity_uplift_enabled:true}} delivery={settings.delivery} onPricing={onPricing} onDelivery={vi.fn()}/>);
     expect(screen.getByRole('switch',{name:'Scarcity uplift'})).toBeChecked();
   });
 
-  it('shows the delivery rates read-only, with a worked example',()=>{
-    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()}/>);
+  it('says how a broken case is priced (fixed at customer price + 10%)',()=>{
+    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={vi.fn()}/>);
+    const pricing=screen.getByRole('region',{name:'Pricing'});
+    expect(pricing).toHaveTextContent('Broken caseWhen a line’s quantity is less than a full case, suggest the customer price + 10%, never above list. A higher last-paid price still wins.Always on');
+    expect(within(pricing).getAllByRole('switch')).toHaveLength(1);
+  });
+
+  it('edits every delivery rate: a worked example follows the typing, and Save sends all six',async()=>{
+    replies=[{body:{base_fee:30,per_mile:3.25,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}}];
+    const onDelivery=vi.fn();
+    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={onDelivery}/>);
     const rates=screen.getByRole('region',{name:'Delivery rates'});
-    const facts=[...rates.querySelectorAll('dl > div')].map(d=>[d.querySelector('dt')!.textContent,d.querySelector('dd')!.textContent]);
-    expect(facts).toEqual([
-      ['Base fee','$25.00'],['Per road mile','$2.50'],['Minimum charge','$35.00'],['Free delivery','Items total $1,500.00 or more'],
-      ['Delivery radius','75 road miles; farther is call for freight'],['Road miles','Straight-line miles × 1.25'],
-    ]);
+    const field=(name:string)=>within(rates).getByRole('spinbutton',{name});
+    expect(['Base fee','Per road mile','Minimum charge','Free delivery at items total of','Delivery radius','Road miles per straight-line mile'].map(n=>(field(n) as HTMLInputElement).value))
+      .toEqual(['25','2.5','35','1500','75','1.25']);
     expect(rates).toHaveTextContent('Example, 15.0 road miles from SLC: $25.00 + $2.50/mi × 15.0 mi = $62.50');
-    expect(within(rates).queryByRole('textbox')).not.toBeInTheDocument();
-    expect(within(rates).queryByRole('switch')).not.toBeInTheDocument();
+    const save=within(rates).getByRole('button',{name:'Save rates'});
+    expect(save).toBeDisabled();
+    fireEvent.change(field('Base fee'),{target:{value:'30'}});
+    fireEvent.change(field('Per road mile'),{target:{value:'3.25'}});
+    expect(rates).toHaveTextContent('Example, 15.0 road miles from SLC: $30.00 + $3.25/mi × 15.0 mi = $78.75');
+    fireEvent.change(field('Minimum charge'),{target:{value:'40'}});
+    fireEvent.change(field('Free delivery at items total of'),{target:{value:'2000'}});
+    fireEvent.change(field('Delivery radius'),{target:{value:'90'}});
+    fireEvent.change(field('Road miles per straight-line mile'),{target:{value:'1.3'}});
+    fireEvent.click(save);
+    await waitFor(()=>expect(onDelivery).toHaveBeenCalledWith({base_fee:30,per_mile:3.25,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}));
+    expect(sent()).toEqual([{url:'/api/rep/settings/delivery',body:{base_fee:30,per_mile:3.25,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}}]);
+  });
+
+  it('says what is wrong before saving, and Cancel puts the saved rates back',()=>{
+    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={vi.fn()}/>);
+    const rates=screen.getByRole('region',{name:'Delivery rates'});
+    const radius=within(rates).getByRole('spinbutton',{name:'Delivery radius'});
+    fireEvent.change(radius,{target:{value:'0'}});
+    expect(within(rates).getByRole('alert')).toHaveTextContent('Delivery radius must be from 1 to 1,000.');
+    expect(within(rates).getByRole('button',{name:'Save rates'})).toBeDisabled();
+    fireEvent.change(within(rates).getByRole('spinbutton',{name:'Road miles per straight-line mile'}),{target:{value:''}});
+    fireEvent.click(within(rates).getByRole('button',{name:'Cancel'}));
+    expect(radius).toHaveValue(75);
+    expect(within(rates).queryByRole('alert')).not.toBeInTheDocument();
+    expect(sent()).toEqual([]);
+  });
+
+  it("shows the server's reason when the rates aren't saved",async()=>{
+    replies=[{status:400,body:{detail:'Base fee must be from 0 to 10,000.'}}];
+    const onDelivery=vi.fn();
+    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={onDelivery}/>);
+    const rates=screen.getByRole('region',{name:'Delivery rates'});
+    fireEvent.change(within(rates).getByRole('spinbutton',{name:'Base fee'}),{target:{value:'26'}});
+    fireEvent.click(within(rates).getByRole('button',{name:'Save rates'}));
+    await waitFor(()=>expect(within(rates).getByRole('alert')).toHaveTextContent('Base fee must be from 0 to 10,000.'));
+    expect(onDelivery).not.toHaveBeenCalled();
   });
 });
 

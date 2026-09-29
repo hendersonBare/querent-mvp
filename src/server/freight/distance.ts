@@ -12,7 +12,7 @@ export interface GeoPoint {lat:number;lng:number}
 export interface DistanceProvider {roadMiles(from:Place,to:Place):Promise<number|null>}
 
 export const EARTH_RADIUS_MILES=3958.8;
-/** Straight-line miles x ROAD_FACTOR approximates driving miles (spec §5.3). */
+/** Straight-line miles x ROAD_FACTOR approximates driving miles (spec §5.3). The seeded default; Settings can change it. */
 export const ROAD_FACTOR=1.25;
 
 /**

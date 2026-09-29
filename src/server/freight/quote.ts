@@ -1,7 +1,7 @@
 import 'server-only';
 import type {Quote,QuoteHeader,QuoteLine} from '@/domain';
 import {addQuoteActivity,branch,deliveryRates,inTransaction,setFreightOverride} from '@/server/repository';
-import {haversineRoadFactor,type DistanceProvider} from './distance';
+import {HaversineRoadFactorProvider,type DistanceProvider} from './distance';
 import {computeFreight,formatUsd,resolveFreight,type FreightOverride,type QuoteFreight} from './engine';
 
 // Freight on a quote (spec §4 side panel, §5.3): the seam the rep portal, the send checks and the
@@ -19,15 +19,17 @@ export function pricedSubtotal(lines:readonly Pick<QuoteLine,'qty'|'unit_price'>
 
 /**
  * The quote's freight: computed from its branch (the origin), ship-to and subtotal with the
- * seeded delivery rates, then the rep's override, which always wins. Pass `subtotal` to price
- * freight for edits that aren't saved yet.
+ * delivery rates from Settings (road miles by their road factor unless a provider is given), then
+ * the rep's override, which always wins. Pass `subtotal` to price freight for edits that aren't
+ * saved yet.
  */
-export async function freightForQuote(q:Quote,{provider=haversineRoadFactor,subtotal=pricedSubtotal(q.lines)}:{provider?:DistanceProvider;subtotal?:number}={}):Promise<QuoteFreight>{
+export async function freightForQuote(q:Quote,{provider,subtotal=pricedSubtotal(q.lines)}:{provider?:DistanceProvider;subtotal?:number}={}):Promise<QuoteFreight>{
+  const rates=deliveryRates();
   const origin=branch(q.branch_id);
   if(!origin)throw new Error(`Quote ${q.quote_number} has unknown branch ${q.branch_id}.`);
   const noShipTo=q.ship_to_address===null&&q.ship_to_lat===null&&q.ship_to_lng===null;
   const shipTo=noShipTo?null:{address:q.ship_to_address,lat:q.ship_to_lat,lng:q.ship_to_lng};
-  const computed=await computeFreight({willCall:q.fulfillment==='will_call',branch:origin,shipTo,subtotal,rates:deliveryRates()},provider);
+  const computed=await computeFreight({willCall:q.fulfillment==='will_call',branch:origin,shipTo,subtotal,rates},provider??new HaversineRoadFactorProvider(rates.road_factor));
   return resolveFreight(computed,freightOverrideOf(q));
 }
 

@@ -59,6 +59,23 @@ async function attachScreenshot(page: Page, testInfo: TestInfo, name: string, ta
   await testInfo.attach(name, { body: await (target ?? page).screenshot(target ? {} : { fullPage: true }), contentType: "image/png" });
 }
 /** Calls the API from the page, so the (Secure) session cookie goes with it. */
+const DAY_MS = 86_400_000;
+/** YYYY-MM-DD `days` after `day`. */
+const addDays = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00.000Z`) + days * DAY_MS).toISOString().slice(0, 10);
+/** "Oct 29" (the header and panel summary), with the year when it isn't `today`'s. */
+const shortDay = (day: string, today: string) =>
+  new Date(`${day}T00:00:00.000Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", ...(day.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" }), timeZone: "UTC" });
+/** "Oct 29, 2026" (Activity). */
+const longDay = (day: string) => new Date(`${day}T00:00:00.000Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+/** Picks the expiration date `days` from the server's today (the picker's min is tomorrow). Returns it and today. */
+async function pickExpiration(terms: Locator, days: number) {
+  const picker = terms.getByLabel("Valid until");
+  const today = addDays((await picker.getAttribute("min"))!, -1);
+  const day = addDays(today, days);
+  await picker.fill(day);
+  return { day, today };
+}
+
 const api = (page: Page, path: string, method = "GET", body?: unknown) =>
   page.evaluate(
     async ([p, m, b]) => {
@@ -92,8 +109,13 @@ test("1440px (screen 03): five closed panels under the summary card, then each o
   await expect(customer).toContainText("Purchasing · (801) 555-0142");
   await expect(customer.getByRole("button", { name: "Copy Dana Ortiz’s phone number" })).toBeVisible();
   await expect(customer.locator("dt")).toHaveText(["Account", "Terms", "Open balance", "Credit limit", "Last order", "Wins on quotes", "Tax status"]);
-  await expect(customer.locator("dd")).toHaveText(["WAS-1142", "Net 30 · nothing past due", "$18,420.00", "$50,000.00", "Sep 9 · SO-51223", "68% over 12 months", "Taxable, UT"]);
-  // 17 of the seeded 24 were won (all requested in the last 12 months); the fixture's overdue quote (sent 20 days ago, valid 14) counts as lost: 17 of 25.
+  // Wins on quotes counts the quotes requested in the 12 months before today. The seed is pinned to
+  // Sep 23, 2026 but the server runs on today's clock, so the oldest seeded quotes leave that window
+  // as days pass (17 of 25 on the seed day, with the fixture's overdue quote as lost; 16 of 24 once
+  // Q-24793 of Sep 28, 2025 drops out). Read the counts the server used, and check the panel shows them.
+  const { won, lost } = (await api(page, `/api/rep/quotes/${SAMPLE}`)).body.panels.customer.win_rate;
+  expect(won + lost).toBeGreaterThan(0);
+  await expect(customer.locator("dd")).toHaveText(["WAS-1142", "Net 30 · nothing past due", "$18,420.00", "$50,000.00", "Sep 9 · SO-51223", `${Math.round((won / (won + lost)) * 100)}% over 12 months`, "Taxable, UT"]);
   await expect(creditLine(customer)).toHaveText("Credit used, with this quote: 39%");
   const bar = customer.getByTestId("credit-bar");
   await expect(bar.locator('[data-segment="open"]')).toHaveAttribute("style", /width:\s*36\.84%/);
@@ -106,8 +128,13 @@ test("1440px (screen 03): five closed panels under the summary card, then each o
   await expect(fulfillment.getByRole("region", { name: "Freight" })).toContainText("Will call at SLC: no freight.");
 
   const terms = await open(page, "Quote terms");
-  await expect(terms.getByRole("combobox", { name: "Valid for" })).toHaveValue("14");
-  await expect(terms.getByRole("combobox", { name: "Valid for" }).locator("option")).toHaveText([/^7 days \(/, /^14 days \(/, /^30 days \(/]);
+  const picker = terms.getByLabel("Valid until");
+  await expect(picker).toHaveAttribute("type", "date");
+  const tomorrow = (await picker.getAttribute("min"))!;
+  // By default a draft runs 14 days from the day it's sent; any day from tomorrow to a year out.
+  await expect(picker).toHaveValue(addDays(tomorrow, 13));
+  await expect(picker).toHaveAttribute("max", addDays(tomorrow, 364));
+  await expect(terms).toContainText("Default: 14 days after it’s sent.");
   await expect(terms.getByRole("textbox", { name: "Customer PO number" })).toHaveValue("");
 
   const notes = await open(page, "Internal notes");
@@ -213,15 +240,17 @@ test("the credit bar follows the total live, and over the limit it warns without
 test("quote terms, internal notes and Activity: saved, logged newest first, and kept after a reload", async ({ page }) => {
   await openQuote(page);
   const terms = await open(page, "Quote terms");
-  await terms.getByRole("combobox", { name: "Valid for" }).selectOption("30");
+  // Any expiration date, not just 7, 14 or 30 days: 45 days out.
+  const picked = await pickExpiration(terms, 45);
   await saved(page);
-  const until30 = (await terms.getByRole("combobox", { name: "Valid for" }).locator("option:checked").textContent())!.match(/\((.+)\)/)![1];
+  const untilPicked = shortDay(picked.day, picked.today);
+  await expect(terms).toContainText("45 days from today.");
   // The header's valid-until moves with it.
-  await expect(page.getByText(new RegExp(`^Q-24817 · .* · Valid until ${until30}$`))).toBeVisible();
-  await expect(summaryOf(page, "Quote terms")).toContainText(`Valid until ${until30}`);
+  await expect(page.getByText(new RegExp(`^Q-24817 · .* · Valid until ${untilPicked}$`))).toBeVisible();
+  await expect(summaryOf(page, "Quote terms")).toContainText(`Valid until ${untilPicked}`);
   await terms.getByRole("textbox", { name: "Customer PO number" }).fill("7781");
   await terms.getByRole("textbox", { name: "Customer PO number" }).press("Enter");
-  await expect(summaryOf(page, "Quote terms")).toContainText(`Valid until ${until30} · PO 7781`);
+  await expect(summaryOf(page, "Quote terms")).toContainText(`Valid until ${untilPicked} · PO 7781`);
   await terms.getByRole("textbox", { name: "Note printed on the quote" }).fill("Straps not in stock at SLC will ship from Ogden.");
   await terms.getByRole("textbox", { name: "Note printed on the quote" }).blur();
   await saved(page);
@@ -239,7 +268,7 @@ test("quote terms, internal notes and Activity: saved, logged newest first, and 
     /Brandi added an internal note$/,
     /Brandi updated the note printed on the quote$/,
     /Brandi added customer PO 7781$/,
-    /Brandi made the quote valid for 30 days$/,
+    new RegExp(`Brandi set the quote to expire ${longDay(picked.day)}$`),
     /Draft quote built and sent to Brandi for review$/,
     /Querent matched 4 items after 1 clarifying question$/,
     /Dana asked for bolts, cut-off wheels, gloves and straps in Querent chat$/,
@@ -247,7 +276,7 @@ test("quote terms, internal notes and Activity: saved, logged newest first, and 
 
   await page.reload();
   const reloaded = await open(page, "Quote terms");
-  await expect(reloaded.getByRole("combobox", { name: "Valid for" })).toHaveValue("30");
+  await expect(reloaded.getByLabel("Valid until")).toHaveValue(picked.day);
   await expect(reloaded.getByRole("textbox", { name: "Customer PO number" })).toHaveValue("7781");
   await expect(reloaded.getByRole("textbox", { name: "Note printed on the quote" })).toHaveValue("Straps not in stock at SLC will ship from Ogden.");
   await expect((await open(page, "Internal notes")).getByRole("list", { name: "Internal notes" })).toContainText("Dana will push back on the glove price.");
@@ -268,7 +297,7 @@ test("Reset sample quote (⋯ menu, task 3.5) puts every panel back to the seed 
   await box.getByRole("button", { name: "Save freight" }).click();
   await expect(box.getByRole("region", { name: "Freight" })).toContainText("Freight (set by rep)$80.00");
   const terms = await open(page, "Quote terms");
-  await terms.getByRole("combobox", { name: "Valid for" }).selectOption("30");
+  const picked = await pickExpiration(terms, 30);
   await saved(page);
   await terms.getByRole("textbox", { name: "Customer PO number" }).fill("7781");
   await terms.getByRole("textbox", { name: "Customer PO number" }).press("Enter");
@@ -301,7 +330,7 @@ test("Reset sample quote (⋯ menu, task 3.5) puts every panel back to the seed 
   await expect(fulfillment.getByRole("region", { name: "Freight" })).toContainText("Freight$0.00");
   await expect(fulfillment.getByRole("region", { name: "Freight" })).not.toContainText("set by rep");
   const reset = await open(page, "Quote terms");
-  await expect(reset.getByRole("combobox", { name: "Valid for" })).toHaveValue("14");
+  await expect(reset.getByLabel("Valid until")).toHaveValue(addDays(picked.today, 14));
   await expect(reset.getByRole("textbox", { name: "Customer PO number" })).toHaveValue("");
   await expect(reset.getByRole("textbox", { name: "Note printed on the quote" })).toHaveValue("");
   await expect((await open(page, "Internal notes")).getByRole("list", { name: "Internal notes" })).toHaveCount(0);
@@ -311,7 +340,7 @@ test("Reset sample quote (⋯ menu, task 3.5) puts every panel back to the seed 
   await attachScreenshot(page, testInfo, "panels-after-reset", rail(page));
   // The server has the seed too.
   const detail = (await api(page, `/api/rep/quotes/${SAMPLE}`)).body;
-  expect(detail.quote).toMatchObject({ fulfillment: "will_call", branch_id: "slc", freight_override: null, freight_override_reason: null, valid_days: 14, customer_po: null, customer_note: null });
+  expect(detail.quote).toMatchObject({ fulfillment: "will_call", branch_id: "slc", freight_override: null, freight_override_reason: null, valid_days: 14, expires_on: null, customer_po: null, customer_note: null });
   expect(detail.panels.notes).toEqual([]);
   expect(detail.panels.activity).toHaveLength(3);
 });
@@ -323,7 +352,7 @@ test("sent, accepted and expired quotes: panels read-only and every panel edit r
   await expect(box.getByRole("combobox", { name: "Branch" })).toBeDisabled();
   await expect(box.getByRole("region", { name: "Freight" }).getByRole("button")).toHaveCount(0);
   const terms = await open(page, "Quote terms");
-  await expect(terms.getByRole("combobox", { name: "Valid for" })).toBeDisabled();
+  await expect(terms.getByLabel("Valid until")).toBeDisabled();
   await expect(terms.getByRole("textbox", { name: "Customer PO number" })).toBeDisabled();
   await expect((await open(page, "Internal notes")).getByRole("textbox")).toHaveCount(0);
 
@@ -364,6 +393,8 @@ test("rep-only: customers get 403, another rep's quote is 404, and bodies are va
     ["freight", "PUT", { amount: -5, reason: "x" }],
     ["fulfillment", "PATCH", { branchId: "moab" }],
     ["terms", "PATCH", { validDays: 21 }],
+    ["terms", "PATCH", { expiresOn: "2020-01-01" }],
+    ["terms", "PATCH", { expiresOn: "2026-02-30" }],
     ["notes", "POST", { body: "" }],
   ] as const) {
     expect((await api(page, `/api/rep/quotes/${SAMPLE}/${path}`, method, body)).status, `${method} ${path} ${JSON.stringify(body)}`).toBe(400);

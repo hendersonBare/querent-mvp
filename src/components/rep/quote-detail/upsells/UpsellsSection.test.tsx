@@ -78,7 +78,7 @@ const totalsText=()=>screen.getByLabelText('Quote totals').textContent;
 const loaded=(ideas:string)=>waitFor(()=>expect(section().querySelector('summary')).toHaveTextContent(ideas));
 async function openSection(){
   renderPage();
-  await loaded('5 ideas · up to +$179.45 gross profit');
+  await loaded('5 ideas · up to +$162.95 gross profit');
   fireEvent.click(section().querySelector('summary')!);
   expect(section().open).toBe(true);
 }
@@ -90,7 +90,7 @@ describe('the section',()=>{
     const summary=section().querySelector('summary')!;
     expect(summary).toHaveTextContent('Suggested by QuerentQuerent found +$11.50 GP');
     expect(summary).toHaveTextContent('Looking for ideas…');
-    await loaded('5 ideas · up to +$179.45 gross profit');
+    await loaded('5 ideas · up to +$162.95 gross profit');
     expect(calls('GET',/\/upsells$/)).toHaveLength(1);
   });
 
@@ -99,10 +99,10 @@ describe('the section',()=>{
     expect(chipTitles()).toEqual(SAMPLE_UPSELLS.map(u=>u.wording.title));
     const [nut]=within(section()).getAllByRole('listitem');
     expect(nut).toHaveTextContent('Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500.');
-    expect(nut).toHaveTextContent('HN-12-13-G8 · 5 at $19.95 · 50.9% margin · +$50.75 GP');
+    expect(nut).toHaveTextContent('HN-12-13-G8 · 5 at $18.15 · 46.0% margin · +$41.75 GP');
     expect(within(section()).getAllByRole('button').map(b=>b.getAttribute('aria-label'))).toEqual([
-      'Add: Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)','Add: Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)',
-      'Add: Flap disc 4.5 in, 60 grit zirconia (box of 10)','Apply: Bump cut-off wheels to 8 boxes (2 full cases)','Add: Safety glasses, clear anti-fog (box of 12)',
+      'Add: Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)','Add: Flap disc 4.5 in, 60 grit zirconia (box of 10)',
+      'Add: Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)','Apply: Bump cut-off wheels to 8 boxes (2 full cases)','Add: Safety glasses, clear anti-fog (box of 12)',
     ]);
     expect(within(section()).getByRole('button',{name:/^Apply: Bump cut-off wheels/})).toHaveTextContent('Apply');
     expect(section()).toHaveTextContent('CW-45-045-T1 · 6 → 8 at $36.00 · 33.1% margin · +$23.80 GP');
@@ -132,13 +132,13 @@ describe('taking a chip',()=>{
     fireEvent.click(within(section()).getByRole('button',{name:/^Add: Hex nut/}));
     expect(within(section()).getByRole('button',{name:/^Add: Hex nut/})).toHaveTextContent('Adding…');
     await waitFor(()=>expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toBeInTheDocument());
-    expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'matching_fastener:HN-12-13-G8',fingerprint:'matching_fastener:HN-12-13-G8|add 5|19.95'});
+    expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'matching_fastener:HN-12-13-G8',fingerprint:'matching_fastener:HN-12-13-G8|add 5|18.15'});
     expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toHaveTextContent('Suggested');
-    // 5 x $19.95 = $99.75 more. Querent found: the nut's broken-case list price over its customer price, (19.95 - 16.50) x 5 = $17.25 more.
-    expect(totalsText()).toContain('Items$1,222.15');
-    expect(section().querySelector('summary')).toHaveTextContent('Querent found +$28.75 GP');
+    // 5 x $18.15 = $90.75 more. Querent found: the nut's broken-case price (customer + 10%) over its customer price, (18.15 - 16.50) x 5 = $8.25 more.
+    expect(totalsText()).toContain('Items$1,213.15');
+    expect(section().querySelector('summary')).toHaveTextContent('Querent found +$19.75 GP');
     expect(chipTitles()).not.toContain(SAMPLE_UPSELLS[0].wording.title);
-    await loaded('4 ideas · up to +$128.70 gross profit');
+    await loaded('4 ideas · up to +$121.20 gross profit');
     expect(screen.getByText('Added Hex nut 1/2-13 from Suggested by Querent')).toBeInTheDocument();
   });
 
@@ -151,7 +151,7 @@ describe('taking a chip',()=>{
     await waitFor(()=>expect(calls('DELETE',/lines\/q-24817-5$/)).toHaveLength(1));
     await waitFor(()=>expect(screen.queryByRole('rowheader',{name:/HN-12-13-G8/})).toBeNull());
     expect(totalsText()).toContain('Items$1,122.40');
-    await loaded('5 ideas · up to +$179.45 gross profit');
+    await loaded('5 ideas · up to +$162.95 gross profit');
     expect(section().querySelector('summary')).toHaveTextContent('Querent found +$11.50 GP');
     expect(chipTitles()[0]).toBe(SAMPLE_UPSELLS[0].wording.title);
   });
@@ -164,7 +164,7 @@ describe('taking a chip',()=>{
     expect(chipTitles()).not.toContain('Bump cut-off wheels to 8 boxes (2 full cases)');
     await waitFor(()=>expect(calls('POST',/\/upsells$/)).toHaveLength(1));
     expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'full_case:CW-45-045-T1',fingerprint:'full_case:CW-45-045-T1|q-24817-2 6->8|36.00'});
-    await loaded('4 ideas · up to +$155.65 gross profit');
+    await loaded('4 ideas · up to +$139.15 gross profit');
     // Contract lines add nothing to "Querent found" (spec §5.1).
     expect(section().querySelector('summary')).toHaveTextContent('Querent found +$11.50 GP');
     expect(screen.getByText('Changed qty on Cut-off wheel 4.5 x .045 x 7/8 in to 8 (Suggested by Querent)')).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe('taking a chip',()=>{
     expect(screen.getByRole('textbox',{name:'Quantity for CW-45-045-T1'})).toHaveValue('6');
     await waitFor(()=>expect(calls('PATCH',/lines\/q-24817-2$/)).toHaveLength(1));
     expect(JSON.parse(String(calls('PATCH',/lines/)[0][1]!.body))).toEqual({qty:6,basis:'contract'});
-    await loaded('5 ideas · up to +$179.45 gross profit');
+    await loaded('5 ideas · up to +$162.95 gross profit');
     expect(totalsText()).toContain('Items$1,122.40');
   });
 
@@ -218,10 +218,10 @@ describe('what the section shows (pure)',()=>{
   });
 
   it('prints the figures and the header meta',()=>{
-    expect(SAMPLE_UPSELLS.map(chipFigures)).toEqual(['5 at $19.95 · 50.9% margin','5 at $15.75 · 53.0% margin','3 at $44.25 · 29.9% margin','6 → 8 at $36.00 · 33.1% margin','2 at $29.90 · 39.1% margin']);
+    expect(SAMPLE_UPSELLS.map(chipFigures)).toEqual(['5 at $18.15 · 46.0% margin','3 at $44.25 · 29.9% margin','5 at $14.25 · 48.1% margin','6 → 8 at $36.00 · 33.1% margin','2 at $29.90 · 39.1% margin']);
     const chips:RepUpsell[]=SAMPLE_UPSELLS;
-    expect(upsellsMeta('ready',chips,true)).toBe('5 ideas · up to +$179.45 gross profit');
-    expect(upsellsMeta('ready',chips.slice(0,1),true)).toBe('1 idea · up to +$50.75 gross profit');
+    expect(upsellsMeta('ready',chips,true)).toBe('5 ideas · up to +$162.95 gross profit');
+    expect(upsellsMeta('ready',chips.slice(0,1),true)).toBe('1 idea · up to +$41.75 gross profit');
     expect(upsellsMeta('ready',[],true)).toBe('No ideas for this quote');
     expect(upsellsMeta('loading',[],true)).toBe('Looking for ideas…');
     expect(upsellsMeta('error',[],true)).toBe('Suggestions aren’t available right now');

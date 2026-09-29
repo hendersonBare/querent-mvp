@@ -10,8 +10,15 @@ export function setScarcityUplift(enabled:boolean){
   run("INSERT INTO settings(key,value) VALUES('scarcity_uplift_enabled',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",String(enabled));
 }
 
-/** Freight rates (spec §5.3); seed data, shown read-only. */
-export function deliveryRates(){return one<DeliveryRates>('SELECT base_fee,per_mile,min_charge,free_threshold,max_radius_miles FROM delivery_rates ORDER BY rowid LIMIT 1')!;}
+/** Freight rates (spec §5.3): seeded, edited on Settings > Pricing & delivery. */
+export function deliveryRates(){return one<DeliveryRates>('SELECT base_fee,per_mile,min_charge,free_threshold,max_radius_miles,road_factor FROM delivery_rates ORDER BY rowid LIMIT 1')!;}
+
+/** Settings > Pricing & delivery: replaces the delivery rates (one row). */
+export function setDeliveryRates(rates:DeliveryRates){
+  run('UPDATE delivery_rates SET base_fee=?,per_mile=?,min_charge=?,free_threshold=?,max_radius_miles=?,road_factor=? WHERE rowid=(SELECT rowid FROM delivery_rates ORDER BY rowid LIMIT 1)',
+    rates.base_fee,rates.per_mile,rates.min_charge,rates.free_threshold,rates.max_radius_miles,rates.road_factor);
+  return deliveryRates();
+}
 
 const FLOOR='SELECT f.rep_id,f.category_id,c.name category_name,f.margin_floor,f.updated_at FROM rep_category_floors f JOIN product_categories c ON c.id=f.category_id';
 

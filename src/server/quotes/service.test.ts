@@ -132,6 +132,29 @@ describe('send: ready_for_review --> sent (rev 1)',()=>{
     expect(customerQuote('wasatch',q.id)?.sent?.snapshot).toMatchObject({ship_to:'1800 W 10950 S, South Jordan, UT 84095',customer_po:'JOB-12',customer_note:'Call before delivery.',sent_at:SEND,valid_days:7});
   });
 
+  it('sends with the expiration date the rep picked: valid_until is that day, and the snapshot counts its days',async()=>{
+    const q=newQuote();
+    updateQuoteTerms(q.id,{expiresOn:'2026-11-17'},'2026-09-23T16:10:00.000Z');
+    const {quote:sent,revision}=await sendQuote(q.id,{repId:'brandi',now:SEND});
+    expect(sent.valid_until).toBe('2026-11-17');
+    expect(revision.snapshot).toMatchObject({valid_until:'2026-11-17',valid_days:55});
+    // Valid through Nov 17, expired from Nov 18.
+    expect(customerCanRespond(sent,'2026-11-17T23:59:59.000Z')).toBe(true);
+    expect(expireOverdueQuotes({now:'2026-11-18T00:00:00.000Z'})).toContain(q.quote_number);
+  });
+
+  it('won\'t send once the picked expiration date has passed (send_blocked), and sendCheck says why',async()=>{
+    const q=newQuote();
+    updateQuoteTerms(q.id,{expiresOn:'2026-09-23'},'2026-09-22T16:10:00.000Z');
+    const message='The expiration date (Sep 23, 2026) has passed: pick a later one before sending.';
+    expect(await sendCheck(q.id,{now:SEND})).toMatchObject({can_send:false,blockers:[{code:'expiration_passed',line_id:null,message}]});
+    const before=counts(q.id);
+    expect(await sendQuote(q.id,{repId:'brandi',now:SEND}).catch(e=>e)).toMatchObject({code:'send_blocked',httpStatus:422});
+    expect(counts(q.id)).toEqual(before);
+    // The day before, it could go.
+    expect((await sendCheck(q.id,{now:'2026-09-22T17:00:00.000Z'})).can_send).toBe(true);
+  });
+
   it('rejects a double send and writes nothing the second time',async()=>{
     await sendQuote(SAMPLE,{repId:'brandi',now:SEND});
     const before=counts(SAMPLE);
@@ -329,19 +352,19 @@ describe('expiry: sent --(now > valid_until)--> expired',()=>{
 });
 
 describe('duplicate',()=>{
-  it('copies the draft into a new ready_for_review quote, without the send, response or PO',async()=>{
+  it('copies the draft into a new ready_for_review quote, without the send, response, PO or picked expiration date',async()=>{
     const source=newQuote({fulfillment:'delivery',requestedDate:'2026-09-25',validDays:30,customerNote:'Gate code 4411.',requestText:'bolts and nuts',
       lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5,priceBasis:'last_paid',suggestedPrice:31.5,suggestedBasis:'last_paid',customerPrice:30.95,explanation:'Last paid $31.50.',requestedText:'bolts',matchScore:0.92},
         {itemId:'HN-12-13-G8',qty:0,unitPrice:null,addedBy:'upsell'}]});
     updateQuoteFulfillment(source.id,{shipTo:{address:'1 Job Site Rd, Ogden, UT 84401',lat:41.2,lng:-111.97}},'2026-09-23T16:01:00.000Z');
     overrideFreight(source.id,'brandi',{amount:75,reason:'Crane truck'},'2026-09-23T16:02:00.000Z');
-    updateQuoteTerms(source.id,{customerPo:'OLD-PO'},'2026-09-23T16:03:00.000Z');
+    updateQuoteTerms(source.id,{customerPo:'OLD-PO',expiresOn:'2026-10-01'},'2026-09-23T16:03:00.000Z');
     const src=quote(source.id)!;
     const DUP='2026-09-26T10:00:00.000Z';
     const copy=duplicateQuote(src.quote_number,{repId:'brandi',now:DUP});
     expect(copy.id).not.toBe(src.id);
     expect(copy).toMatchObject({status:'ready_for_review',revision:0,duplicated_from:src.id,customer_id:'wasatch',contact_id:'dana',rep_id:'brandi',conversation_id:src.conversation_id,
-      request_text:'bolts and nuts',requested_at:DUP,created_at:DUP,sent_at:null,responded_at:null,valid_until:null,fulfillment_time:null,customer_po:null,change_request_note:null,
+      request_text:'bolts and nuts',requested_at:DUP,created_at:DUP,sent_at:null,responded_at:null,valid_until:null,expires_on:null,fulfillment_time:null,customer_po:null,change_request_note:null,
       fulfillment:'delivery',branch_id:'slc',requested_date:'2026-09-25',ship_to_address:'1 Job Site Rd, Ogden, UT 84401',ship_to_lat:41.2,ship_to_lng:-111.97,
       freight_override:75,freight_override_reason:'Crane truck',valid_days:30,customer_note:'Gate code 4411.',is_sample:false,unread_for_rep:false,unread_for_customer:false});
     const keep=({item_id,qty,unit_price,price_basis,suggested_price,suggested_basis,customer_price,explanation,requested_text,match_score,added_by,line_no}:typeof src.lines[number])=>

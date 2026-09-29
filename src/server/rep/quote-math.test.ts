@@ -54,15 +54,15 @@ describe('edits',()=>{
   });
 
   it('a qty change re-picks Querent’s price, and the line follows it only while it sat on the pick',()=>{
-    // 5 boxes is a broken case (10 to a case): Querent's pick moves to list, and the line follows.
+    // 5 boxes is a broken case (10 to a case): Querent's pick moves to customer price + 10%, and the line follows.
     const broken=withQty(bolts,5);
-    expect(broken).toMatchObject({qty:5,unit_price:38.95,price_basis:'list',suggested_price:38.95,suggested_basis:'list'});
+    expect(broken).toMatchObject({qty:5,unit_price:34.05,price_basis:'custom',suggested_price:34.05,suggested_basis:'custom'});
     expect(broken.explanation).toMatch(/^Broken-case quantity: 5 is less than a full case of 10/);
     // Back to a full case: back to last paid.
     expect(withQty(broken,10)).toMatchObject({unit_price:31.5,price_basis:'last_paid'});
     // A price the rep chose stays; only the bold pick moves.
     const custom=withPrice(bolts,33);
-    expect(withQty(custom,5)).toMatchObject({qty:5,unit_price:33,price_basis:'custom',suggested_basis:'list'});
+    expect(withQty(custom,5)).toMatchObject({qty:5,unit_price:33,price_basis:'custom',suggested_price:34.05,suggested_basis:'custom'});
     // A contract is binding at any qty.
     expect(withQty(wheels,1)).toMatchObject({unit_price:36,price_basis:'contract'});
   });

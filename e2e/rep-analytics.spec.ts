@@ -142,7 +142,10 @@ test("desktop: all of Brandi's customers, then a placeholder customer", async ({
   const chart = card(page, "Quotes and wins by week");
   await expect(chart).toContainText(/\d+ quotes requested in the last 26 weeks, \d+ won so far\./);
   await chart.getByRole("group").focus();
-  await expect(chart.getByRole("status")).toContainText("Week of Sep 21");
+  // The chart ends at this week (Monday, UTC) on the server's clock, which is today's, not the seed day's.
+  const today = new Date();
+  const monday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - ((today.getUTCDay() + 6) % 7)));
+  await expect(chart.getByRole("status")).toContainText(`Week of ${monday.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`);
   await chart.getByRole("button", { name: "Show table" }).click();
   await expect(chart.getByRole("table").getByRole("row")).toHaveCount(27);
   await chart.getByRole("button", { name: "Show chart" }).click();

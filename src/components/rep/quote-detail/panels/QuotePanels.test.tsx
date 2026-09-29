@@ -1,7 +1,7 @@
 import type {AnchorHTMLAttributes,ReactNode} from 'react';
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import type {Fulfillment,QuoteActivity,QuoteNote,ValidDays} from '@/domain';
+import type {Fulfillment,QuoteActivity,QuoteNote} from '@/domain';
 import {CALL_FOR_FREIGHT,priceDelivery,resolveFreight,type FreightOverride,type FreightQuote} from '@/server/freight/engine';
 import {cents,validUntilFor} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
@@ -27,11 +27,11 @@ const {RepShell}=await import('../../RepShell');
 const {QuoteDetailView}=await import('../QuoteDetailView');
 
 // ---- A fake rep API over one quote ----
-const RATES={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75};
+const RATES={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25};
 const SHIP_TO='1800 W 10950 S, South Jordan, UT 84095';
 const SAVED_AT='2026-09-25T19:30:00.000Z';
 interface Fake {
-  lines:DetailLine[];fulfillment:Fulfillment;shipTo:string|null;override:FreightOverride|null;validDays:ValidDays;po:string|null;note:string|null;
+  lines:DetailLine[];fulfillment:Fulfillment;shipTo:string|null;override:FreightOverride|null;expiresOn:string|null;po:string|null;note:string|null;
   notes:QuoteNote[];activity:QuoteActivity[];refuse:number|null;
 }
 let server:Fake;
@@ -44,9 +44,9 @@ function freightOf(f:Fake){
   return resolveFreight(computed,f.override);
 }
 function detailOf(f:Fake,overrides:Partial<QuoteDetail>={}):QuoteDetail{
-  return sampleDetail({lines:f.lines,freight:freightOf(f),valid_until:validUntilFor(AS_OF,f.validDays),
+  return sampleDetail({lines:f.lines,freight:freightOf(f),valid_until:f.expiresOn??validUntilFor(AS_OF,14),
     quote:{fulfillment:f.fulfillment,ship_to_address:f.shipTo,freight_override:f.override?.amount??null,freight_override_reason:f.override?.reason??null,
-      valid_days:f.validDays,customer_po:f.po,customer_note:f.note},
+      valid_days:14,expires_on:f.expiresOn,customer_po:f.po,customer_note:f.note},
     panels:{...SAMPLE_PANELS,notes:f.notes,activity:f.activity},...overrides});
 }
 const log=(message:string)=>{server.activity=[...server.activity,{id:server.activity.length+1,quote_id:'q-24817',at:SAVED_AT,actor:'rep',actor_id:'brandi',kind:'x',message}];};
@@ -64,7 +64,7 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   else if(url.endsWith('/freight')&&method==='PUT'){server.override={amount:body.amount,reason:body.reason};log(`Freight set to $${body.amount}: ${body.reason}`);}
   else if(url.endsWith('/freight')&&method==='DELETE'){server.override=null;log('Freight override removed: back to distance-based freight.');}
   else if(url.endsWith('/terms')&&method==='PATCH'){
-    if(body.validDays)server.validDays=body.validDays;
+    if('expiresOn' in body)server.expiresOn=body.expiresOn;
     if('customerPo' in body)server.po=body.customerPo.trim()||null;
     if('customerNote' in body)server.note=body.customerNote.trim()||null;
     log('Brandi changed the terms');
@@ -79,7 +79,7 @@ const calls=(method:string,match:RegExp)=>fetchMock.mock.calls.filter(([url,init
 const sent=(method:string,match:RegExp)=>calls(method,match).map(([,init])=>init?.body===undefined?undefined:JSON.parse(String(init.body)));
 
 beforeEach(()=>{
-  server={lines:[...SAMPLE_LINES],fulfillment:'will_call',shipTo:SHIP_TO,override:null,validDays:14,po:null,note:null,notes:[],activity:[...SAMPLE_PANELS.activity],refuse:null};
+  server={lines:[...SAMPLE_LINES],fulfillment:'will_call',shipTo:SHIP_TO,override:null,expiresOn:null,po:null,note:null,notes:[],activity:[...SAMPLE_PANELS.activity],refuse:null};
   fetchMock.mockClear();vi.stubGlobal('fetch',fetchMock);
 });
 afterEach(()=>{vi.unstubAllGlobals();});
@@ -324,23 +324,41 @@ describe('Pickup or delivery panel',()=>{
 });
 
 describe('Quote terms panel',()=>{
-  it('sets valid for 7/14/30 days, the PO and the printed note, each saved once when it changes',async()=>{
+  it('sets any expiration date with a date picker (default 14 days after sending), the PO and the printed note, each saved once when it changes',async()=>{
     renderPage();
     const terms=panel('Quote terms');
-    const valid=within(terms).getByRole('combobox',{name:'Valid for'});
-    expect([...(valid as HTMLSelectElement).options].map(o=>o.textContent)).toEqual(['7 days (Oct 2)','14 days (Oct 9)','30 days (Oct 25)']);
-    fireEvent.change(valid,{target:{value:'30'}});
-    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toEqual([{validDays:30}]));
+    const valid=within(terms).getByLabelText('Valid until') as HTMLInputElement;
+    expect(valid).toHaveAttribute('type','date');
+    // Today is Sep 25: the default is 14 days after sending (Oct 9 if sent today); any day from tomorrow to a year out.
+    expect([valid.value,valid.min,valid.max]).toEqual(['2026-10-09','2026-09-26','2027-09-25']);
+    expect(within(terms).getByText('Default: 14 days after it’s sent. Pick any date to change it.')).toBeInTheDocument();
+    fireEvent.change(valid,{target:{value:'2026-11-17'}});
+    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toEqual([{expiresOn:'2026-11-17'}]));
     await settle();
-    expect(summaryValue('Quote terms')).toBe('Valid until Oct 25');
+    expect(summaryValue('Quote terms')).toBe('Valid until Nov 17');
+    expect(within(panel('Quote terms')).getByText(/^53 days from today\./)).toBeInTheDocument();
+    // A past day doesn't save; leaving the field says why.
+    const picker=within(panel('Quote terms')).getByLabelText('Valid until');
+    fireEvent.change(picker,{target:{value:'2026-09-20'}});
+    fireEvent.blur(picker);
+    expect(within(panel('Quote terms')).getByRole('alert')).toHaveTextContent('Pick an expiration date after today.');
+    expect(sent('PATCH',/\/terms$/)).toHaveLength(1);
+    // Back to the default.
+    fireEvent.click(within(panel('Quote terms')).getByRole('button',{name:'Use the default (14 days after sending)'}));
+    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toEqual([{expiresOn:'2026-11-17'},{expiresOn:null}]));
+    await settle();
+    expect(summaryValue('Quote terms')).toBe('Valid until Oct 9');
+    fireEvent.change(within(panel('Quote terms')).getByLabelText('Valid until'),{target:{value:'2026-10-25'}});
+    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toHaveLength(3));
+    await settle();
     expect(screen.getByText(/Valid until Oct 25$/,{selector:'p'})).toBeInTheDocument();
 
     const po=within(terms).getByRole('textbox',{name:'Customer PO number'});
     fireEvent.change(po,{target:{value:'7781'}});
     fireEvent.keyDown(po,{key:'Enter'});
     fireEvent.blur(po);
-    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toHaveLength(2));
-    expect(sent('PATCH',/\/terms$/)[1]).toEqual({customerPo:'7781'});
+    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toHaveLength(4));
+    expect(sent('PATCH',/\/terms$/)[3]).toEqual({customerPo:'7781'});
     await settle();
     expect(summaryValue('Quote terms')).toBe('Valid until Oct 25 · PO 7781');
 
@@ -348,8 +366,8 @@ describe('Quote terms panel',()=>{
     fireEvent.blur(note);
     fireEvent.change(note,{target:{value:'Straps ship from Ogden.'}});
     fireEvent.blur(note);
-    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toHaveLength(3));
-    expect(sent('PATCH',/\/terms$/)[2]).toEqual({customerNote:'Straps ship from Ogden.'});
+    await waitFor(()=>expect(sent('PATCH',/\/terms$/)).toHaveLength(5));
+    expect(sent('PATCH',/\/terms$/)[4]).toEqual({customerNote:'Straps ship from Ogden.'});
   });
 });
 
@@ -385,8 +403,9 @@ describe('a sent quote',()=>{
     expect(within(box).queryByRole('button')).toBeNull();
     expect(within(box).getByRole('region',{name:'Freight'})).toHaveTextContent('Freight (set by rep)$40.00');
     const terms=panel('Quote terms');
-    expect(within(terms).getByRole('combobox',{name:'Valid for'})).toBeDisabled();
-    expect(within(terms).getByRole('combobox',{name:'Valid for'})).toHaveDisplayValue('14 days (Oct 8)');
+    expect(within(terms).getByLabelText('Valid until')).toBeDisabled();
+    expect(within(terms).getByLabelText('Valid until')).toHaveValue('2026-10-08');
+    expect(within(terms).queryByRole('button',{name:/Use the default/})).toBeNull();
     expect(within(terms).getByRole('textbox',{name:'Customer PO number'})).toBeDisabled();
     expect(within(terms).getByRole('textbox',{name:'Note printed on the quote'})).toBeDisabled();
     const notes=panel('Internal notes');

@@ -3,14 +3,14 @@ import {z} from 'zod';
 import {FULFILLMENTS,type QuoteFulfillmentPatch,type QuoteTermsPatch} from '@/domain';
 import {formatUsd} from '@/server/freight/engine';
 import {overrideFreight} from '@/server/freight/quote';
-import {QuoteActionError} from '@/server/quotes';
+import {QuoteActionError,expirationProblem} from '@/server/quotes';
 import {addQuoteActivity,addQuoteNote,branch,inTransaction,quote,updateQuoteFulfillment,updateQuoteTerms} from '@/server/repository';
 import {quoteDetailOf,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
 import {editableQuote} from './quote-edits';
 
 // The rep's edits from the quote detail's side panels (spec §4, §5.3, §5.4; task 3.4): pickup or
 // delivery and the branch, the freight override (with its required reason), the quote terms
-// (valid for 7/14/30 days, customer PO, the note printed on the quote) and internal notes. Like
+// (the expiration date, customer PO, the note printed on the quote) and internal notes. Like
 // the line edits (./quote-edits), each one:
 //   - acts only on the signed-in rep's own quote (another rep's reads as not found);
 //   - refuses a quote whose effective status doesn't allow edits (canEditDraft: sent, accepted
@@ -110,27 +110,35 @@ export async function clearRepQuoteFreight(repId:string,quoteIdOrNumber:string,{
 
 // ---- Quote terms ----
 
-/** PATCH body: valid for 7, 14 or 30 days, the customer's PO and the note printed on the quote ('' or null clears either). */
+/**
+ * PATCH body: the expiration date (YYYY-MM-DD, after today and within a year; null goes back to
+ * valid_days after sending), the customer's PO and the note printed on the quote ('' or null clears either).
+ */
 export const TermsBody=z.strictObject({
-  validDays:z.union([z.literal(7),z.literal(14),z.literal(30)],{error:'Choose 7, 14 or 30 days.'}).optional(),
+  expiresOn:z.string({error:'Pick an expiration date.'}).trim().regex(/^\d{4}-\d{2}-\d{2}$/,{error:'Pick a real date, like 2026-10-30.'}).nullable().optional(),
   customerPo:OptionalText('The customer PO',MAX_LENGTH.po).optional(),
   customerNote:OptionalText('The note printed on the quote',MAX_LENGTH.customerNote).optional(),
-}).refine(b=>b.validDays!==undefined||b.customerPo!==undefined||b.customerNote!==undefined,{error:'Nothing to change: send validDays, customerPo or customerNote.'});
+}).refine(b=>b.expiresOn!==undefined||b.customerPo!==undefined||b.customerNote!==undefined,{error:'Nothing to change: send expiresOn, customerPo or customerNote.'});
+
+const longDay=(day:string)=>new Date(`${day}T00:00:00.000Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
 
 /** PATCH /api/rep/quotes/<id>/terms: the quote terms, each change logged. Returns the fresh detail. */
 export async function editRepQuoteTerms(repId:string,quoteIdOrNumber:string,body:unknown,{now=clock(),provider}:QuoteDetailOptions={}):Promise<QuoteDetail>{
   const input=parse(TermsBody,body);
+  const problem=input.expiresOn?expirationProblem(input.expiresOn,now):null;
+  if(problem)throw new QuoteActionError('invalid_input',problem);
   const quoteId=inTransaction(()=>{
     const q=editableQuote(repId,quoteIdOrNumber,now);
     const patch:QuoteTermsPatch={};
-    if(input.validDays!==undefined&&input.validDays!==q.valid_days)patch.validDays=input.validDays;
+    if(input.expiresOn!==undefined&&input.expiresOn!==q.expires_on)patch.expiresOn=input.expiresOn;
     if(input.customerPo!==undefined&&input.customerPo!==q.customer_po)patch.customerPo=input.customerPo;
     if(input.customerNote!==undefined&&input.customerNote!==q.customer_note)patch.customerNote=input.customerNote;
     if(!Object.keys(patch).length)return q.id;
     updateQuoteTerms(q.id,patch,now);
     const who=firstName(q.rep_name);
     const log=(kind:string,message:string)=>addQuoteActivity(q.id,{actor:'rep',actorId:repId,kind,at:now,message});
-    if(patch.validDays)log('terms_changed',`${who} made the quote valid for ${patch.validDays} days`);
+    if(patch.expiresOn!==undefined)log('terms_changed',patch.expiresOn===null?`${who} set the quote to expire ${q.valid_days} days after it is sent`
+      :`${who} set the quote to expire ${longDay(patch.expiresOn)}`);
     if(patch.customerPo!==undefined)log('terms_changed',patch.customerPo===null?`${who} removed the customer PO`
       :q.customer_po===null?`${who} added customer PO ${patch.customerPo}`:`${who} changed the customer PO to ${patch.customerPo}`);
     if(patch.customerNote!==undefined)log('terms_changed',patch.customerNote===null?`${who} removed the note printed on the quote`:`${who} updated the note printed on the quote`);

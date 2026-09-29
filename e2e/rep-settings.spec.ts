@@ -274,21 +274,45 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
   await dana.context().close();
 });
 
-test("pricing & delivery: the scarcity uplift is off by default and toggles; delivery rates are read-only", async ({ page }, testInfo) => {
+test("pricing & delivery: the scarcity uplift is off by default and toggles; broken case is +10%; every delivery rate is editable", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
   await openSettings(page, "Pricing & delivery");
   const scarcity = page.getByRole("switch", { name: "Scarcity uplift" });
   await expect(scarcity).toHaveAttribute("aria-checked", "false");
   await expect(page.getByText("Off (default)")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Pricing" })).toContainText("suggest the customer price + 10%, never above list");
 
   const rates = page.getByRole("region", { name: "Delivery rates" });
-  for (const text of ["$25.00", "$2.50", "$35.00", "Items total $1,500.00 or more", "75 road miles; farther is call for freight", "Straight-line miles × 1.25"])
-    await expect(rates).toContainText(text);
+  const field = (name: string) => rates.getByRole("spinbutton", { name });
+  const SEEDED: [string, string][] = [
+    ["Base fee", "25"], ["Per road mile", "2.5"], ["Minimum charge", "35"], ["Free delivery at items total of", "1500"],
+    ["Delivery radius", "75"], ["Road miles per straight-line mile", "1.25"],
+  ];
+  for (const [name, value] of SEEDED) await expect(field(name)).toHaveValue(value);
   await expect(rates).toContainText("$25.00 + $2.50/mi × 15.0 mi = $62.50");
-  await expect(rates.getByRole("textbox")).toHaveCount(0);
-  await expect(rates.getByRole("switch")).toHaveCount(0);
+  await expect(rates.getByRole("button", { name: "Save rates" })).toBeDisabled();
   await screenshot(page, testInfo, "settings-pricing-1440");
+
+  // Change the per-mile rate: the example follows, Save stores it, and draft quotes price freight with it.
+  await field("Per road mile").fill("3");
+  await expect(rates).toContainText("$25.00 + $3.00/mi × 15.0 mi = $70.00");
+  await rates.getByRole("button", { name: "Save rates" }).click();
+  await expect(rates.getByRole("status")).toHaveText("Saved");
+  await screenshot(page, testInfo, "settings-delivery-edited");
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Delivery rates" }).getByRole("spinbutton", { name: "Per road mile" })).toHaveValue("3");
+  const detail = await page.evaluate(async (path) => (await fetch(path)).json(), `/api/rep/quotes/${SAMPLE}`);
+  expect(detail.delivery_rates).toMatchObject({ per_mile: 3, road_factor: 1.25 });
+  // An impossible rate says why and doesn't save; then put the seed rate back.
+  await field("Delivery radius").fill("0");
+  await expect(rates.getByRole("alert")).toHaveText("Delivery radius must be from 1 to 1,000.");
+  await expect(rates.getByRole("button", { name: "Save rates" })).toBeDisabled();
+  await rates.getByRole("button", { name: "Cancel" }).click();
+  await field("Per road mile").fill("2.5");
+  await rates.getByRole("button", { name: "Save rates" }).click();
+  await expect(rates.getByRole("status")).toHaveText("Saved");
+  await expect(rates).toContainText("$25.00 + $2.50/mi × 15.0 mi = $62.50");
 
   await scarcity.click();
   await expect(scarcity).toHaveAttribute("aria-checked", "true");

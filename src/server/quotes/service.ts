@@ -10,7 +10,7 @@ import {
 } from '@/server/repository';
 import {QUOTE_MESSAGE_MAX,quoteReadyPayload,sanitizeChatText} from './announce';
 import {QuoteActionError} from './errors';
-import {assertEvent,effectiveStatus,expiresAt,isExpired,validUntilFor} from './lifecycle';
+import {assertEvent,daysUntil,effectiveStatus,expiresAt,isExpired,utcDay,validUntilOnSend} from './lifecycle';
 import {sendBlockers,type SendBlocker} from './send-check';
 import {buildSnapshot,cents,letterheadOf,repContactOf,type SnapshotInput} from './snapshot';
 
@@ -78,12 +78,12 @@ export interface SendCheck {
 const pricedSubtotal=(q:Quote)=>cents(q.lines.reduce((sum,l)=>sum+(l.unit_price!==null&&Number.isFinite(l.unit_price)?cents(l.qty*l.unit_price):0),0));
 
 /** What the Approve & send dialog needs: can it go, and if not, why; plus the floor warnings and the total. */
-export async function sendCheck(quoteIdOrNumber:string,{provider}:{provider?:DistanceProvider}={}):Promise<SendCheck>{
+export async function sendCheck(quoteIdOrNumber:string,{provider,now=clock()}:{provider?:DistanceProvider;now?:string}={}):Promise<SendCheck>{
   const q=load(quoteIdOrNumber);
   const freight=await freightForQuote(q,{provider});
   let status_problem:string|null=null;
   try{assertEvent(q,'send');}catch(error){if(!(error instanceof QuoteActionError))throw error;status_problem=error.message;}
-  const blockers=sendBlockers(q,freight);
+  const blockers=sendBlockers(q,freight,{today:utcDay(now)});
   const subtotal=pricedSubtotal(q);
   return {quote_id:q.id,quote_number:q.quote_number,status:q.status,revision:q.revision+1,can_send:!status_problem&&!blockers.length,status_problem,blockers,
     below_floor_count:quoteFloors(q)?.belowFloorCount??0,freight,subtotal,total:typeof freight.amount==='number'?cents(subtotal+freight.amount):null};
@@ -122,7 +122,7 @@ function quoteChat(q:Quote,at:string):string{
 
 /**
  * Approve & send (spec §5.4): ready_for_review or changes_requested --> sent. Stores rev n+1 with
- * a frozen snapshot, sets valid_until (the send's day + valid_days), flags the quote unread for
+ * a frozen snapshot, sets valid_until (the rep's expiration date, else the send's day + valid_days), flags the quote unread for
  * the customer, posts it in the customer's Querent chat (spec §3: a `quote_ready` message with
  * the rep's message, "Quote Q-… is ready: $X, valid until …" and the revision's PDF link), and
  * logs it, all in one transaction. Refuses an illegal status (a double send), an unfinished quote
@@ -141,10 +141,10 @@ export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attac
     const q=load(draft.id);
     assertEvent(q,'send');
     if(q.updated_at!==draft.updated_at)throw new QuoteActionError('conflict',`${q.quote_number} was edited while it was being sent. Review it and send again.`);
-    const blockers=sendBlockers(q,freight);
+    const blockers=sendBlockers(q,freight,{today:utcDay(now)});
     if(blockers.length)throw new QuoteActionError('send_blocked',`Can't send ${q.quote_number} yet. ${blockers.map(b=>b.message).join(' ')}`,{blockers});
-    const revision=q.revision+1,validUntil=validUntilFor(now,q.valid_days);
-    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,freight:typeof freight.amount==='number'?freight.amount:Number.NaN,freightMiles:freight.computed.miles,...printedFacts(q)});
+    const revision=q.revision+1,validUntil=validUntilOnSend(q,now);
+    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,validDays:daysUntil(now,validUntil),freight:typeof freight.amount==='number'?freight.amount:Number.NaN,freightMiles:freight.computed.miles,...printedFacts(q)});
     if(expected.revision!==undefined&&expected.revision!==revision)
       throw new QuoteActionError('conflict',`${q.quote_number} would go out as rev ${revision}, not the rev ${expected.revision} you confirmed. Review it and send again.`);
     if(expected.total!==undefined&&cents(expected.total)!==snapshot.total)

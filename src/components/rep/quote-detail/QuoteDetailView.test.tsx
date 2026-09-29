@@ -69,6 +69,8 @@ function renderPage(detail:QuoteDetail=sampleDetail()){
 }
 const row=(sku:string)=>screen.getByRole('rowheader',{name:new RegExp(sku)}).closest('tbody')!;
 const cells=(sku:string)=>within(row(sku)).getAllByRole('cell');
+/** A cell's visible text: without the hidden "?" tip, which stays in the DOM as the button's description. */
+const cellText=(cell:HTMLElement)=>{const copy=cell.cloneNode(true) as HTMLElement;copy.querySelectorAll('[role="tooltip"]').forEach(tip=>tip.remove());return copy.textContent;};
 const priceField=(sku:string)=>screen.getByRole('textbox',{name:`Unit price for ${sku}`});
 const totalsText=()=>screen.getByLabelText('Quote totals').textContent;
 const settle=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
@@ -132,7 +134,7 @@ describe('line grid',()=>{
     expect(screen.getByRole('button',{name:'Price basis for HCS-12-13-2G8: Last paid'})).toBeInTheDocument();
     expect(screen.getByRole('textbox',{name:'Margin for HCS-12-13-2G8'})).toHaveValue('32.1');
     // Cells: the Why this price? toggle, qty (an input), available, price and basis, margin (an input), total, remove.
-    expect(cells('HCS-12-13-2G8').map(c=>c.textContent)).toEqual(['','','64 at SLC','$Last paid','%','$315.00','']);
+    expect(cells('HCS-12-13-2G8').map(cellText)).toEqual(['','','64 at SLC','$Last paid','%','$315.00','']);
     expect(cells('RS-2-27-JH')[2]).toHaveTextContent('7 at SLCShort 5');
   });
 
@@ -202,6 +204,43 @@ describe('line grid',()=>{
     expect(priceField('HCS-12-13-2G8')).toHaveValue('30.95');
     expect(why).toHaveTextContent('You priced it at Customer, $30.95.');
     await waitFor(()=>expect(calls('PATCH',/lines/)).toHaveLength(1));
+  });
+});
+
+describe('the "?" next to the price basis',()=>{
+  it('tells why Querent suggests its price, and follows the pick when the qty makes a broken case',()=>{
+    renderPage();
+    const tipButton=screen.getByRole('button',{name:'Why Querent suggests $31.50 for HCS-12-13-2G8'});
+    expect(tipButton).toHaveAccessibleDescription(/^Querent’s pick: \$31\.50 \(Last paid\)/);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    fireEvent.mouseEnter(tipButton.parentElement!);
+    const tip=screen.getByRole('tooltip');
+    expect(tip).toHaveTextContent('• Last paid $31.50 on Aug 12, above customer price $30.95.');
+    expect(tip).toHaveTextContent('• No active contract for this item.');
+    expect(tip).toHaveTextContent('• List price $38.95 is the ceiling.');
+    expect(tip).toHaveTextContent('• +$5.50 GP vs customer price at a qty of 10.');
+    expect(tip).toHaveTextContent('32.1% margin at this price, at or above Brandi’s 20% Fasteners floor.');
+    fireEvent.mouseLeave(tipButton.parentElement!);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    // 8 boxes is a broken case (10 to a case): the pick moves to customer price + 10%, and the "?" follows it.
+    const qty=screen.getByRole('textbox',{name:'Quantity for HCS-12-13-2G8'});
+    fireEvent.change(qty,{target:{value:'8'}});
+    fireEvent.blur(qty);
+    expect(priceField('HCS-12-13-2G8')).toHaveValue('34.05');
+    const broken=screen.getByRole('button',{name:'Why Querent suggests $34.05 for HCS-12-13-2G8'});
+    fireEvent.focus(broken);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Querent’s pick: $34.05 (Custom)• Broken-case quantity: 8 is less than a full case of 10, so customer price $30.95 + 10%.');
+    expect(screen.getByRole('tooltip')).toHaveTextContent("• Last paid $31.50 on Aug 12, below Querent's pick.");
+  });
+
+  it('says so when the rep priced the line away from Querent’s pick, and shows on a contract line',()=>{
+    renderPage();
+    fireEvent.change(priceField('HCS-12-13-2G8'),{target:{value:'33'}});
+    fireEvent.blur(priceField('HCS-12-13-2G8'));
+    const tipButton=screen.getByRole('button',{name:'Why Querent suggests $31.50 for HCS-12-13-2G8'});
+    expect(tipButton).toHaveAccessibleDescription(/You priced it at Custom, \$33\.00\.$/);
+    expect(screen.getByRole('button',{name:'Why Querent suggests $36.00 for CW-45-045-T1'})).toHaveAccessibleDescription(/Contract prices are binding/);
   });
 });
 

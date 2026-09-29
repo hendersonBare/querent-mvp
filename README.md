@@ -54,7 +54,7 @@ Open <http://localhost:3000> and choose a persona. The dev server listens on all
 - The database lives at `./data/querent.sqlite`, or wherever `DATABASE_PATH` points. It is created and seeded on first open, and its state survives restarts.
 - `npm run db:reset` (`scripts/reset-db.ts`) deletes the file and reseeds it. Run it before a demo, and after any schema change.
 - **Seed date:** every seeded date is an offset from a seed date. It defaults to yesterday (UTC), so the demo stays current. To reproduce the mockup's dates exactly (last paid Aug 12, last order Sep 9), reset with `QUERENT_SEED_DATE=2026-09-23 npm run db:reset`. `db:reset` reads the variable from your shell, not from `.env.local`.
-- **Schema:** `SCHEMA_VERSION` is in `src/server/db/schema.ts` (currently 3). There are no migrations. The app refuses to open a database from another version ("… is incompatible with schema 3. Run npm run db:reset.").
+- **Schema:** `SCHEMA_VERSION` is in `src/server/db/schema.ts` (currently 4: a quote's `expires_on` and the delivery `road_factor`). There are no migrations. The app refuses to open a database from another version ("… is incompatible with schema 4. Run npm run db:reset.").
 
 ### Chat: scripted mode and live mode
 
@@ -183,9 +183,9 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 |---|---|
 | `src/server/matching/` | SKU match scoring. A line is confident only when the top score is at least 0.75 and at least 0.15 ahead of the next. "The usual" resolves from order history. |
 | `src/server/chat/clarify.ts` | The clarification loop. From round 2, it offers the top 3 candidates, Drop this line, and the rep's contact. |
-| `src/server/pricing/` | The price suggestion. An active contract price wins. Otherwise it takes the customer price, raised only by a fact: last paid higher, a broken case, or scarcity (off by default). It is capped at list. It also writes "Why this price?" and the "+$X GP vs customer price" figure. |
+| `src/server/pricing/` | The price suggestion. An active contract price wins. Otherwise it takes the customer price, raised only by a fact: last paid higher, a broken case (a qty under a full case: customer price + 10%), or scarcity (customer price + 5%, off by default). The highest wins, capped at list. It also writes "Why this price?", the reasons behind the "?" next to the price, and the "+$X GP vs customer price" figure. |
 | `src/server/floors/` | Margin is (price − cost) ÷ price. Each quote rep × product category has its own floor. 20% is the default, and it is also the fallback for a pair with no floor row. The seed sets three of Brandi's floors differently: Abrasives & Cutting 25%, Safety & PPE 30%, and Tools 18% (`src/server/db/seed/accounts.ts`). Below the floor only warns. |
-| `src/server/freight/` | Freight by distance: a `DistanceProvider` (haversine × 1.25 road factor), the rates from `delivery_rates` ($25 + $2.50/mi, with a $35 minimum), "call for freight" beyond 75 mi, free from $1,500 (at or above it), and a rep override with a reason. |
+| `src/server/freight/` | Freight by distance: a `DistanceProvider` (haversine × the road factor), the rates from `delivery_rates`, and a rep override with a reason. The seeded rates are $25 + $2.50/mi with a $35 minimum, "call for freight" beyond 75 mi, free from $1,500 (at or above it), and a 1.25 road factor; any rep can change all six on Settings > Pricing & delivery (`rates.ts` holds the limits). |
 | `src/server/quotes/` | The lifecycle state machine (`lifecycle.ts`: ready_for_review → sent → accepted / changes_requested → sent rev n+1; sent → expired), send blockers (`send-check.ts`), snapshots, and the "quote is ready" chat message |
 | `src/server/upsells/`, `src/server/upsells-writer/` | Deterministic upsell rules (matching nut and washer, full case, bought together), priced by the engine, and Claude's chip wording in live mode |
 | `src/server/intake/`, `src/server/customer-response/` | Request quote, and the customer's Accept or Request changes |
@@ -195,13 +195,13 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 ### Rep portal
 
 - **Access:** `src/app/rep/layout.tsx` admits only the supplier persona and sends anyone else back to `/`. Each page also checks with `signedInRepId()`.
-- **Navigation:** Quotes / Customers / Orders / Items / Analytics / Settings. The header keeps the **Viewing** customer picker (`?customer=`), and Quotes has an unread badge (`GET /api/rep/badges`).
+- **Navigation:** Quotes / Customers / Orders / Items (filtered by one category dropdown, All by default) / Analytics / Settings. The header keeps the **Viewing** customer picker (`?customer=`), and Quotes has an unread badge (`GET /api/rep/badges`).
 - **Quote detail:**
-  - A line grid with a price-basis dropdown (Contract / Customer / List / Last paid / Custom), with Querent's pick in bold. A red floor warning appears above the price field when a line is below its floor, and each line has a "Why this price?" row.
+  - A line grid with a price-basis dropdown (Contract / Customer / List / Last paid / Custom), with Querent's pick in bold, and a "?" beside it whose tip lists why Querent suggests that price. A red floor warning appears above the price field when a line is below its floor, and each line has a "Why this price?" row.
   - Show cost, Undo, add item, "Suggested by Querent", and the margin bar with its blended-floor marker.
-  - Side panels: Customer (with the credit bar), Pickup or delivery (with freight), Quote terms, Internal notes, and Activity.
+  - Side panels: Customer (with the credit bar), Pickup or delivery (with freight), Quote terms (any expiration date from tomorrow to a year out; 14 days after sending by default), Internal notes, and Activity.
   - The ⋯ menu (Duplicate, Reset sample quote, and a disabled "Open customer in ERP"), the Export menu, and Approve & send → Confirm send. Sending is blocked for an unfinished quote.
-- **Settings:** Rep assignments (one rep per customer), Customer access toggles, Data sources, Delivery rates (read-only), My margin floors, and the Pricing scarcity toggle.
+- **Settings:** Rep assignments (one rep per customer), Customer access toggles, Data sources, Delivery rates (editable), My margin floors, and Pricing (the scarcity toggle, and the fixed broken-case rule).
 - **API:** every `/api/rep/*` route answers 401 without a session and 403 for the customer, and takes the rep's id from the session, never from the request. All of them go through `repRoute` (`src/server/rep/http.ts`), except `GET /api/rep/badges`, which makes the same check inline.
 
 ### Customer layout
@@ -228,7 +228,7 @@ The MVP keeps all data in SQLite. [`docs/erp-integration-readiness.md`](docs/erp
 4. Set `DATABASE_PATH=/data/querent.sqlite`.
 5. Optionally set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL`. Never set `QUERENT_E2E_RESET`.
 6. Generate a public HTTPS domain.
-7. **After a deploy that changes `SCHEMA_VERSION`** (task 7.1 moved it to 3), the app refuses the old database on the volume. Run `npm run db:reset` once in the service's shell, with `DATABASE_PATH` set, to reseed the demo.
+7. **After a deploy that changes `SCHEMA_VERSION`** (now 4), the app refuses the old database on the volume. Run `npm run db:reset` once in the service's shell, with `DATABASE_PATH` set, to reseed the demo.
 
 Railway's free credit is enough to experiment with, but whether it runs continuously for free depends on usage, and free and trial volume limits can change. Vercel cannot keep a local SQLite file, so a Vercel deployment would need a hosted database such as libSQL / Turso.
 

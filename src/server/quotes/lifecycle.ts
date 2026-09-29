@@ -86,6 +86,40 @@ export function validUntilFor(sentAt:string,validDays:number){
   return new Date(parseDay(day)+validDays*DAY_MS).toISOString().slice(0,10);
 }
 
+/**
+ * valid_until for a quote sent at `sentAt`: the expiration date the rep picked, or the send's UTC
+ * day plus valid_days when they didn't.
+ */
+export function validUntilOnSend(q:{expires_on:string|null;valid_days:number},sentAt:string){
+  return q.expires_on??validUntilFor(sentAt,q.valid_days);
+}
+
+/** The latest expiration date a rep can pick: this many days after today. */
+export const MAX_EXPIRATION_DAYS=365;
+
+/** `days` after the UTC day of `from`, as YYYY-MM-DD. */
+export const dayAfter=(from:string,days:number)=>validUntilFor(from,days);
+
+/**
+ * Why `day` can't be the expiration date the rep picks on `now` (it must be a real date, after
+ * today and within MAX_EXPIRATION_DAYS), or null when it can.
+ */
+export function expirationProblem(day:string,now:string):string|null{
+  try{parseDay(day);}catch{return 'Pick a real date, like 2026-10-30.';}
+  const days=daysUntil(now,day);
+  if(days<1)return 'Pick an expiration date after today.';
+  if(days>MAX_EXPIRATION_DAYS)return `Pick an expiration date within ${MAX_EXPIRATION_DAYS} days.`;
+  return null;
+}
+
+/** The UTC day (YYYY-MM-DD) of an ISO timestamp. */
+export const utcDay=(at:string)=>new Date(parseInstant(at)).toISOString().slice(0,10);
+
+/** Whole days from the UTC day of `from` to the day `until` (YYYY-MM-DD). */
+export function daysUntil(from:string,until:string){
+  return Math.round((parseDay(until)-parseDay(utcDay(from)))/DAY_MS);
+}
+
 /** The instant a quote valid until `validUntil` expires: 00:00Z on the day after. */
 export const expiresAt=(validUntil:string)=>new Date(parseDay(validUntil)+DAY_MS).toISOString();
 
