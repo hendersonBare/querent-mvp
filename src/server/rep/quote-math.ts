@@ -67,7 +67,7 @@ function withSuggestion(line:DetailLine,priced:PricedLine|null):DetailLine{
 }
 
 /**
- * The line at a new qty. Querent re-picks for it (a broken case moves the pick to list, spec
+ * The line at a new qty. Querent re-picks for it (a broken case moves the pick to customer + 10%, spec
  * §5.1). A line priced at Querent's pick follows the new pick; a price the rep chose stays, and
  * only the bold option in the dropdown moves.
  */
@@ -319,9 +319,9 @@ function stockText(stock:LineStock){
  * applies, task 1.5), then per line, in order, what only warns: a margin below the floor, stock
  * short at the quote branch, and a SKU match below the confident score (task 1.4).
  */
-export function quoteChecks(lines:readonly DetailLine[],quote:Pick<QuoteHeader,'fulfillment'|'ship_to_address'>,freightUnresolved:boolean,floor:FloorContext):QuoteCheck[]{
-  const sendQuote:SendCheckQuote={fulfillment:quote.fulfillment,ship_to_address:quote.ship_to_address,lines};
-  const checks:QuoteCheck[]=sendBlockers(sendQuote,{unresolved:freightUnresolved}).map(b=>({kind:'blocker',lineId:b.line_id,subject:null,text:b.message}));
+export function quoteChecks(lines:readonly DetailLine[],quote:Pick<QuoteHeader,'fulfillment'|'ship_to_address'>&Partial<Pick<QuoteHeader,'expires_on'>>,freightUnresolved:boolean,floor:FloorContext,today?:string):QuoteCheck[]{
+  const sendQuote:SendCheckQuote={fulfillment:quote.fulfillment,ship_to_address:quote.ship_to_address,expires_on:quote.expires_on,lines};
+  const checks:QuoteCheck[]=sendBlockers(sendQuote,{unresolved:freightUnresolved},{today}).map(b=>({kind:'blocker',lineId:b.line_id,subject:null,text:b.message}));
   for(const line of lines){
     const figures=lineFigures(line,floor),subject=shortName(line.description);
     if(figures.floor.label)checks.push({kind:'margin',lineId:line.id,subject,text:`${figures.marginLabel} margin, ${figures.floor.label.replace(/^Below/,'below')}`});

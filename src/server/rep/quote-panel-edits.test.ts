@@ -151,13 +151,31 @@ describe('freight override',()=>{
 });
 
 describe('quote terms',()=>{
-  it('sets valid for 7, 14 or 30 days: the draft\'s valid-until moves with it',async()=>{
-    const {edits}=await load();
-    const d=await edits.editRepQuoteTerms('brandi','Q-24817',{validDays:30},{now:NOW});
-    expect(d.quote.valid_days).toBe(30);
-    expect(d.valid_until).toBe('2026-10-25');
-    expect(d.panels.activity.at(-1)).toMatchObject({kind:'terms_changed',message:'Brandi made the quote valid for 30 days'});
-    expect((await edits.editRepQuoteTerms('brandi','Q-24817',{validDays:7},{now:NOW})).valid_until).toBe('2026-10-02');
+  it('sets any expiration date after today: the draft\'s valid-until is that day, and null goes back to the default',async()=>{
+    const {edits,repo}=await load();
+    // Today is Sep 25: by default a draft runs 14 days from the day it is sent.
+    expect((await edits.editRepQuoteTerms('brandi','Q-24817',{customerNote:'x'},{now:NOW})).valid_until).toBe('2026-10-09');
+    const d=await edits.editRepQuoteTerms('brandi','Q-24817',{expiresOn:'2026-11-17'},{now:NOW});
+    expect(d.quote).toMatchObject({expires_on:'2026-11-17',valid_days:14});
+    expect(d.valid_until).toBe('2026-11-17');
+    expect(d.panels.activity.at(-1)).toMatchObject({kind:'terms_changed',message:'Brandi set the quote to expire Nov 17, 2026'});
+    // Tomorrow and a year out are the limits.
+    expect((await edits.editRepQuoteTerms('brandi','Q-24817',{expiresOn:'2026-09-26'},{now:NOW})).valid_until).toBe('2026-09-26');
+    expect((await edits.editRepQuoteTerms('brandi','Q-24817',{expiresOn:'2027-09-25'},{now:NOW})).valid_until).toBe('2027-09-25');
+    const reset=await edits.editRepQuoteTerms('brandi','Q-24817',{expiresOn:null},{now:NOW});
+    expect(reset.quote.expires_on).toBeNull();
+    expect(reset.valid_until).toBe('2026-10-09');
+    expect(reset.panels.activity.at(-1)!.message).toBe('Brandi set the quote to expire 14 days after it is sent');
+    expect(repo.quote('q-24817')!.expires_on).toBeNull();
+  });
+
+  it('refuses an expiration date that is today, past, over a year out or not a date (400), writing nothing',async()=>{
+    const {edits,repo}=await load();
+    for(const [expiresOn,message] of [['2026-09-25','Pick an expiration date after today.'],['2026-09-01','Pick an expiration date after today.'],
+      ['2027-09-26','Pick an expiration date within 365 days.'],['2026-02-30','Pick a real date, like 2026-10-30.'],['next week','Pick a real date, like 2026-10-30.']] as const){
+      expect(await refusal(edits.editRepQuoteTerms('brandi','Q-24817',{expiresOn},{now:NOW}))).toMatchObject({code:'invalid_input',message});
+    }
+    expect(repo.quote('q-24817')!.expires_on).toBeNull();
   });
 
   it('adds, changes and removes the customer PO and the printed note, each logged',async()=>{
@@ -171,15 +189,15 @@ describe('quote terms',()=>{
     expect(d.quote).toMatchObject({customer_po:null,customer_note:null});
     expect(d.panels.activity.slice(-2).map(a=>a.message)).toEqual(['Brandi removed the customer PO','Brandi removed the note printed on the quote']);
     const count=d.panels.activity.length;
-    expect((await edits.editRepQuoteTerms('brandi','Q-24817',{customerPo:'  ',validDays:14},{now:NOW})).panels.activity).toHaveLength(count);
+    expect((await edits.editRepQuoteTerms('brandi','Q-24817',{customerPo:'  ',expiresOn:null},{now:NOW})).panels.activity).toHaveLength(count);
   });
 
-  it('refuses other valid-for days, overlong text and unknown fields (400)',async()=>{
+  it('refuses the old valid-for days, overlong text and unknown fields (400)',async()=>{
     const {edits,repo}=await load();
-    for(const body of [{validDays:10},{validDays:'14'},{customerPo:'x'.repeat(41)},{customerNote:'x'.repeat(1001)},{customerPo:7781},{validUntil:'2026-12-01'},{},undefined]){
+    for(const body of [{validDays:30},{expiresOn:20261117},{customerPo:'x'.repeat(41)},{customerNote:'x'.repeat(1001)},{customerPo:7781},{validUntil:'2026-12-01'},{},undefined]){
       expect(await refusal(edits.editRepQuoteTerms('brandi','Q-24817',body,{now:NOW}))).toMatchObject({code:'invalid_input'});
     }
-    expect(repo.quote('q-24817')).toMatchObject({valid_days:14,customer_po:null,customer_note:null});
+    expect(repo.quote('q-24817')).toMatchObject({valid_days:14,expires_on:null,customer_po:null,customer_note:null});
   });
 });
 
@@ -208,7 +226,7 @@ describe('editable states (spec §5.4) and ownership',()=>{
       refusal(edits.editRepQuoteFulfillment('brandi',quoteNumber,{branchId:'provo'},{now})),
       refusal(edits.overrideRepQuoteFreight('brandi',quoteNumber,{amount:5,reason:'x'},{now})),
       refusal(edits.clearRepQuoteFreight('brandi',quoteNumber,{now})),
-      refusal(edits.editRepQuoteTerms('brandi',quoteNumber,{validDays:30,customerPo:'1'},{now})),
+      refusal(edits.editRepQuoteTerms('brandi',quoteNumber,{expiresOn:'2026-11-17',customerPo:'1'},{now})),
       refusal(edits.addRepQuoteNote('brandi',quoteNumber,{body:'x'},{now})),
     ]);
   };

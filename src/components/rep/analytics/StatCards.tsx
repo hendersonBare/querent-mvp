@@ -2,7 +2,7 @@
 import {useId,type ReactNode} from 'react';
 import type {RepAnalytics} from '@/server/analytics';
 import {formatCount,formatDuration,formatGpAmount,formatHours,formatMoney,formatMoneyFigure,formatPercent,plural} from './format';
-import {InfoTip} from './InfoTip';
+import {InfoTip} from '../InfoTip';
 import s from './Analytics.module.css';
 
 // The five large stat cards (spec §4), in the spec's order. Each number has an "i" that says how

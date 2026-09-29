@@ -43,9 +43,9 @@ describe('the chips on Q-24817',()=>{
     const result=await templates();
     expect(result.editable).toBe(true);
     expect(result.upsells.map(u=>[u.id,u.qty,u.unit_price,u.gp_gain,u.wording_source])).toEqual([
-      ['matching_fastener:HN-12-13-G8',5,19.95,50.75,'template'],
-      ['matching_fastener:FW-12-G8',5,15.75,41.75,'template'],
+      ['matching_fastener:HN-12-13-G8',5,18.15,41.75,'template'],
       ['bought_together:FD-45-60Z',3,44.25,39.75,'template'],
+      ['matching_fastener:FW-12-G8',5,14.25,34.25,'template'],
       ['full_case:CW-45-045-T1',8,36,23.8,'template'],
       ['bought_together:SG-CLR-AF',2,29.9,23.4,'template'],
     ]);
@@ -100,8 +100,8 @@ describe('what the writer is given: cost-free facts only',()=>{
       expect.objectContaining({id:'matching_fastener:HN-12-13-G8',kind:'matching_fastener',qty:5,part:'nut',bolt:{diameter:'1/2',thread:'13',grade:'8'},bolt_pieces:500,pack_pieces:100,
         history:{orders_together:5,anchor_orders:5},item:{sku:'HN-12-13-G8',description:'Hex nut 1/2-13, Grade 8, yellow zinc',pack:'Box of 100'},
         anchor:{sku:'HCS-12-13-2G8',description:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc'},history_months:12,template:chips[0].wording}),
-      expect.objectContaining({id:'matching_fastener:FW-12-G8',part:'washer'}),
       expect.objectContaining({id:'bought_together:FD-45-60Z',kind:'bought_together',qty:3,orders_together:4,anchor_orders:5}),
+      expect.objectContaining({id:'matching_fastener:FW-12-G8',part:'washer'}),
       expect.objectContaining({id:'full_case:CW-45-045-T1',kind:'full_case',qty:8,case_qty:4,from_qty:6,to_qty:8,cases:2}),
       expect.objectContaining({id:'bought_together:SG-CLR-AF',kind:'bought_together',qty:2,orders_together:2,anchor_orders:4}),
     ]);
@@ -123,7 +123,7 @@ describe('what the writer is given: cost-free facts only',()=>{
     for(const chip of result.upsells)for(const value of moneyOf(chip))expect(text).not.toContain(value.toFixed(2));
     expect(result.upsells.map(u=>[u.wording.title,u.wording_source])).toEqual(result.upsells.map(u=>[`Add ${u.item.sku}`,'claude']));
     // Cost and GP stay on the chips the rep gets.
-    expect(result.upsells[0]).toMatchObject({unit_cost:9.8,unit_price:19.95,gp_gain:50.75});
+    expect(result.upsells[0]).toMatchObject({unit_cost:9.8,unit_price:18.15,gp_gain:41.75});
   });
 });
 
@@ -132,7 +132,7 @@ describe('the writer\'s wording',()=>{
     const {upsells}=await load();
     const result=(await upsells.repQuoteUpsells('brandi','Q-24817',{now:NOW,writer:async chips=>chips.map((c,i)=>i===1?null:{title:`Title ${c.item.sku}`,reason:'Reason.'})}))!;
     expect(result.upsells.map(u=>u.wording_source)).toEqual(['claude','template','claude','claude','claude']);
-    expect(result.upsells[1].wording.title).toBe('Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)');
+    expect(result.upsells[1].wording.title).toBe('Flap disc 4.5 in, 60 grit zirconia (box of 10)');
   });
 
   it('falls back to every template when the writer fails',async()=>{
@@ -158,17 +158,17 @@ describe('taking a chip',()=>{
     const {upsells,repo}=await load();
     const taken=await take('matching_fastener:HN-12-13-G8');
     const added=taken.detail.lines.find(l=>l.id===taken.line_id)!;
-    expect(added).toMatchObject({sku:'HN-12-13-G8',qty:5,unit_price:19.95,price_basis:'list',suggested_basis:'list',customer_price:16.5,added_by:'upsell',line_no:5});
-    expect(taken.detail.send_check.subtotal).toBe(1122.4+99.75);
+    expect(added).toMatchObject({sku:'HN-12-13-G8',qty:5,unit_price:18.15,price_basis:'custom',suggested_basis:'custom',customer_price:16.5,added_by:'upsell',line_no:5});
+    expect(taken.detail.send_check.subtotal).toBe(1122.4+90.75);
     expect(repo.quoteActivity('q-24817').at(-1)).toMatchObject({actor:'rep',actor_id:'brandi',kind:'line_added',
       message:'Brandi added Hex nut 1/2-13 (HN-12-13-G8), qty 5, suggested by Querent'});
     // The nut chip is gone. 5 boxes of nuts is a broken case (10 to a case), so 1.6's full_case rule now offers the rest of the case.
     const after=(await upsells.repQuoteUpsells('brandi','Q-24817',{now:NOW,writer:undefined}))!;
-    expect(after.upsells.map(u=>[u.id,u.gp_gain])).toEqual([['matching_fastener:FW-12-G8',41.75],['bought_together:FD-45-60Z',39.75],['full_case:CW-45-045-T1',23.8],
-      ['bought_together:SG-CLR-AF',23.4],['full_case:HN-12-13-G8',16.25]]);
-    expect(after.upsells[4].wording.title).toBe('Bump hex nuts to 10 boxes (1 full case)');
-    // "Querent found" is §5.1's price uplift: the nut's broken-case list price over its customer price, (19.95 - 16.50) x 5.
-    expect(await querentFound(taken.detail)).toBe('Querent found +$28.75 GP');
+    expect(after.upsells.map(u=>[u.id,u.gp_gain])).toEqual([['bought_together:FD-45-60Z',39.75],['matching_fastener:FW-12-G8',34.25],['full_case:HN-12-13-G8',25.25],
+      ['full_case:CW-45-045-T1',23.8],['bought_together:SG-CLR-AF',23.4]]);
+    expect(after.upsells[2].wording.title).toBe('Bump hex nuts to 10 boxes (1 full case)');
+    // "Querent found" is §5.1's price uplift: the nut's broken-case price (customer + 10%) over its customer price, (18.15 - 16.50) x 5.
+    expect(await querentFound(taken.detail)).toBe('Querent found +$19.75 GP');
   });
 
   it('bumps the wheels to the full case; the contract price stays, and "Querent found" doesn\'t move (contract lines add none)',async()=>{
@@ -188,7 +188,7 @@ describe('taking a chip',()=>{
     const all=await ids();
     const nut=await take('matching_fastener:HN-12-13-G8');
     await take('full_case:CW-45-045-T1');
-    expect(await ids()).toEqual(['matching_fastener:FW-12-G8','bought_together:FD-45-60Z','bought_together:SG-CLR-AF','full_case:HN-12-13-G8']);
+    expect(await ids()).toEqual(['bought_together:FD-45-60Z','matching_fastener:FW-12-G8','full_case:HN-12-13-G8','bought_together:SG-CLR-AF']);
     await edits.editRepQuoteLine('brandi','Q-24817','q-24817-2',{qty:6},{now:NOW});
     await edits.removeRepQuoteLine('brandi','Q-24817',nut.line_id,{now:NOW});
     expect(await ids()).toEqual(all);
@@ -197,9 +197,9 @@ describe('taking a chip',()=>{
   it('fingerprints what the chip shows: its id, what it changes, the qty and Querent\'s price',async()=>{
     const {upsells}=await load();
     expect((await upsells.repQuoteUpsells('brandi','Q-24817',{now:NOW,writer:undefined}))!.upsells.map(u=>u.fingerprint)).toEqual([
-      'matching_fastener:HN-12-13-G8|add 5|19.95',
-      'matching_fastener:FW-12-G8|add 5|15.75',
+      'matching_fastener:HN-12-13-G8|add 5|18.15',
       'bought_together:FD-45-60Z|add 3|44.25',
+      'matching_fastener:FW-12-G8|add 5|14.25',
       'full_case:CW-45-045-T1|q-24817-2 6->8|36.00',
       'bought_together:SG-CLR-AF|add 2|29.90',
     ]);
@@ -209,7 +209,7 @@ describe('taking a chip',()=>{
     const {upsells,edits,repo}=await load();
     const wheels=await shown('full_case:CW-45-045-T1');
     const nut=await shown('matching_fastener:HN-12-13-G8');
-    expect([wheels.action,nut.qty,nut.unit_price]).toEqual([{type:'set_qty',line_id:'q-24817-2',item_id:'CW-45-045-T1',from_qty:6,to_qty:8},5,19.95]);
+    expect([wheels.action,nut.qty,nut.unit_price]).toEqual([{type:'set_qty',line_id:'q-24817-2',item_id:'CW-45-045-T1',from_qty:6,to_qty:8},5,18.15]);
     // Elsewhere (another tab), the wheels go to 9 and the bolts to 20: the same ids now mean 9 -> 12, and 10 nuts at $16.50.
     await edits.editRepQuoteLine('brandi','Q-24817','q-24817-2',{qty:9},{now:NOW});
     await edits.editRepQuoteLine('brandi','Q-24817','q-24817-1',{qty:20},{now:NOW});
@@ -234,7 +234,7 @@ describe('taking a chip',()=>{
       .rejects.toMatchObject({code:'conflict',httpStatus:409,message:'That suggestion no longer applies to Q-24817.'});
     await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{upsellId:'bought_together:DT-2-60',fingerprint:'bought_together:DT-2-60|add 1|9.99'},{now:NOW})).rejects.toMatchObject({code:'conflict'});
     const washer=await shown('matching_fastener:FW-12-G8');
-    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{...bodyOf(washer),fingerprint:'matching_fastener:FW-12-G8|add 50|15.75'},{now:NOW})).rejects.toMatchObject({code:'conflict'});
+    await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',{...bodyOf(washer),fingerprint:'matching_fastener:FW-12-G8|add 50|14.25'},{now:NOW})).rejects.toMatchObject({code:'conflict'});
     for(const body of [undefined,{},{upsellId:''},{upsellId:7},{upsellId:washer.id},{fingerprint:washer.fingerprint},{upsellId:washer.id,fingerprint:''},
       {upsellId:'x'.repeat(121),fingerprint:washer.fingerprint},{upsellId:washer.id,fingerprint:'y'.repeat(201)},{...bodyOf(washer),qty:99}])
       await expect(upsells.takeRepQuoteUpsell('brandi','Q-24817',body,{now:NOW})).rejects.toMatchObject({code:'invalid_input',httpStatus:400});

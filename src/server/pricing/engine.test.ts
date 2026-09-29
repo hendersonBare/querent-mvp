@@ -59,10 +59,10 @@ describe('rule 2: start at customer price, raise only on a fact, cap at list',()
     });
   });
 
-  describe('broken case',()=>{
-    it('suggests list when qty is below the case qty',()=>{
-      expect(suggestPrice(input({qty:4}))).toMatchObject({basis:'list',price:38.95,reason:'broken_case',brokenCase:true,gpVsCustomer:32});
-      expect(pick(input({qty:9}))).toEqual(['list',38.95,'broken_case']);
+  describe('broken case (customer price + 10%)',()=>{
+    it('adds 10% to customer price when qty is below the case qty',()=>{
+      expect(suggestPrice(input({qty:4}))).toMatchObject({basis:'custom',price:34.05,reason:'broken_case',brokenCase:true,capped:false,gpVsCustomer:12.4});
+      expect(pick(input({qty:9}))).toEqual(['custom',34.05,'broken_case']);
     });
     it('is not a broken case at or above a full case, with a one-pack case, or with no qty',()=>{
       expect(pick(input({qty:10}))).toEqual(['customer',30.95,'customer']);
@@ -71,8 +71,18 @@ describe('rule 2: start at customer price, raise only on a fact, cap at list',()
       expect(suggestPrice(input({qty:0})).brokenCase).toBe(false);
     });
     it('beats a lower last paid, and loses to a higher one (which is then capped at list)',()=>{
-      expect(pick(input({qty:4,sources:{last_paid:paid(31.5)}}))).toEqual(['list',38.95,'broken_case']);
+      expect(pick(input({qty:4,sources:{last_paid:paid(31.5)}}))).toEqual(['custom',34.05,'broken_case']);
+      expect(pick(input({qty:4,sources:{last_paid:paid(35)}}))).toEqual(['last_paid',35,'last_paid']);
       expect(suggestPrice(input({qty:4,sources:{last_paid:paid(40)}}))).toMatchObject({basis:'list',price:38.95,reason:'last_paid',capped:true,uncapped:40});
+    });
+    it('is capped at list when customer price + 10% is above it',()=>{
+      expect(suggestPrice(input({qty:4,sources:{customer_price:36}}))).toMatchObject({basis:'list',price:38.95,reason:'broken_case',capped:true,uncapped:39.6});
+    });
+    it('beats scarcity (+5%) when both apply',()=>{
+      expect(pick(input({qty:8,stock:stock(10,4,0),scarcityEnabled:true}))).toEqual(['custom',34.05,'broken_case']);
+    });
+    it('uses list, as before, when there is no customer price',()=>{
+      expect(pick(input({qty:4,sources:{customer_price:null}}))).toEqual(['list',38.95,'no_customer_price']);
     });
   });
 
@@ -131,7 +141,7 @@ describe('missing bases',()=>{
 
   it('does not cap when there is no list price',()=>{
     expect(pick(input({sources:{list_price:0,last_paid:paid(45)}}))).toEqual(['last_paid',45,'last_paid']);
-    expect(pick(input({sources:{list_price:0},qty:4}))).toEqual(['customer',30.95,'customer']);
+    expect(pick(input({sources:{list_price:0},qty:4}))).toEqual(['custom',34.05,'broken_case']);
   });
 });
 

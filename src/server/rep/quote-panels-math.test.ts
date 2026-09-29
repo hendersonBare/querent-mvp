@@ -7,7 +7,7 @@ import {liveFreight} from './quote-math';
 // The side panels' math (task 3.4; spec §4, §5.3): the credit bar and the freight the Pickup or
 // delivery panel shows. Wasatch (seed): limit $50,000.00, open balance $18,420.00.
 
-const RATES:DeliveryRates={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75};
+const RATES:DeliveryRates={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25};
 
 describe('creditUse (the worksheet formula, task 4.2)',()=>{
   it('is open / limit without the quote and (open + total) / limit with it: the sample is 37% and 39%',()=>{

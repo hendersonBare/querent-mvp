@@ -3,12 +3,14 @@ import type {ItemList} from '@/server/rep/reference';
 import {RepPageHeader} from '../RepPage';
 import {count,money} from '../reference/format';
 import {Empty,hrefFor,pageStyles as page,referenceStyles as s,Stock,type Viewing} from '../reference/parts';
+import {CategorySelect} from './CategorySelect';
 
 // Items (spec §4, task 3.8): Herrick's catalog with the list price, category and stock at each
-// branch, read-only, filtered by category (?category=). The catalog is the same for every
-// customer, so the "Viewing" picker doesn't narrow it; links keep it.
+// branch, read-only. The category dropdown (All by default) is the only category filter; it
+// loads ?category=. The catalog is the same for every customer, so the "Viewing" picker doesn't
+// narrow it; links keep it.
 
-export const CATEGORY_PARAM='category';
+export {CATEGORY_PARAM} from './CategorySelect';
 
 export function ItemsList({list,viewing}:{list:ItemList;viewing:Viewing}){
   const total=list.categories.reduce((sum,c)=>sum+c.count,0);
@@ -17,12 +19,7 @@ export function ItemsList({list,viewing}:{list:ItemList;viewing:Viewing}){
   return <>
     <RepPageHeader title="Items" description={<>Herrick’s catalog · {count(total,'item')} · stock at {branchNames.slice(0,-1).join(', ')} and {branchNames.at(-1)}
       {viewing.customerId&&<> · the same for every customer</>}</>}/>
-    <nav className={s.filters} aria-label="Filter by category">
-      <Link href={hrefFor(viewing,'/rep/items')} aria-current={list.category?undefined:'page'}>All<span className={s.filterCount}>{total}</span></Link>
-      {list.categories.map(c=><Link key={c.id} href={hrefFor(viewing,`/rep/items?${CATEGORY_PARAM}=${encodeURIComponent(c.id)}`)} aria-current={list.category?.id===c.id?'page':undefined}>
-        {c.name}<span className={s.filterCount}>{c.count}</span>
-      </Link>)}
-    </nav>
+    <CategorySelect categories={list.categories} value={list.category?.id??null} total={total} viewing={viewing}/>
     <section className={page.card} aria-label={`Items: ${shown}`}>
       {list.items.length?<div className={s.tableWrap}>
         <table className={s.table}>

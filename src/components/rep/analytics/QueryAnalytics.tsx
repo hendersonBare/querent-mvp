@@ -3,7 +3,7 @@ import Link from 'next/link';
 import {ArrowUpRight,Clock3,MessageSquare} from 'lucide-react';
 import {labels,type AccessRule,type Analytics} from '@/lib/contracts';
 import {repPageStyles as rs} from '../RepPage';
-import {InfoTip} from './InfoTip';
+import {InfoTip} from '../InfoTip';
 import s from './Analytics.module.css';
 
 // The original query analytics (the old supplier Overview, kept under the new cards by spec §4):

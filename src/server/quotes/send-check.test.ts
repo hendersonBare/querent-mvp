@@ -76,4 +76,14 @@ describe('sendBlockers',()=>{
     expect(sendBlockers({fulfillment:'delivery',ship_to_address:null,lines:[]},noShipToFreight).map(b=>b.code))
       .toEqual(['no_lines','no_ship_to','call_for_freight']);
   });
+
+  it('blocks a picked expiration date that is today or past, once it knows today; the default never blocks',()=>{
+    const free=resolveFreight(computed('will_call',0),null);
+    const picked={...willCall,expires_on:'2026-09-25'};
+    expect(sendBlockers(picked,free,{today:'2026-09-24'})).toEqual([]);
+    expect(sendBlockers(picked,free,{today:'2026-09-25'})).toEqual([{code:'expiration_passed',line_id:null,message:'The expiration date (Sep 25, 2026) has passed: pick a later one before sending.'}]);
+    expect(sendBlockers(picked,free,{today:'2026-10-01'}).map(b=>b.code)).toEqual(['expiration_passed']);
+    expect(sendBlockers(picked,free)).toEqual([]);
+    expect(sendBlockers({...willCall,expires_on:null},free,{today:'2026-10-01'})).toEqual([]);
+  });
 });

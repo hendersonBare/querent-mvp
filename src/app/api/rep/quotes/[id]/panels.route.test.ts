@@ -26,12 +26,14 @@ async function call(path:Path,method:Method,id:string,body?:unknown,persona:stri
   return route[method](request,{params:Promise.resolve({id})});
 }
 
+/** An expiration date a month from the real today (the route runs on the clock). */
+const IN_30_DAYS=new Date(Date.now()+30*86_400_000).toISOString().slice(0,10);
 /** One good request per route and method. */
 const EDITS:[Path,Method,unknown][]=[
   ['fulfillment','PATCH',{fulfillment:'delivery'}],
   ['freight','PUT',{amount:80,reason:'Liftgate'}],
   ['freight','DELETE',undefined],
-  ['terms','PATCH',{validDays:30}],
+  ['terms','PATCH',{expiresOn:IN_30_DAYS}],
   ['notes','POST',{body:'Call Dana before loading.'}],
 ];
 
@@ -75,7 +77,7 @@ it('validates every body server-side (400), whatever the client sent',async()=>{
   const bad:[Path,Method,unknown][]=[
     ['fulfillment','PATCH',{fulfillment:'ship'}],['fulfillment','PATCH',{branchId:'moab'}],['fulfillment','PATCH','not json'],['fulfillment','PATCH',{}],
     ['freight','PUT',{amount:80}],['freight','PUT',{amount:80,reason:'  '}],['freight','PUT',{amount:-1,reason:'x'}],['freight','PUT',{amount:1.005,reason:'x'}],['freight','PUT','not json'],
-    ['terms','PATCH',{validDays:21}],['terms','PATCH',{customerPo:'x'.repeat(41)}],['terms','PATCH',{}],
+    ['terms','PATCH',{validDays:21}],['terms','PATCH',{expiresOn:'2020-01-01'}],['terms','PATCH',{customerPo:'x'.repeat(41)}],['terms','PATCH',{}],
     ['notes','POST',{body:''}],['notes','POST','not json'],
   ];
   for(const [path,method,body] of bad){

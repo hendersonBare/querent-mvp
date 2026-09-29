@@ -492,6 +492,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- Delivery rates: a number field per rate, saved together ---- */
+.rate {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--rep-muted);
+  font-size: 13px;
+}
+.rate input {
+  width: 110px;
+  padding: 6px 8px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background: var(--rep-surface);
+  color: var(--rep-ink);
+  font: 500 13.5px/1.3 var(--rep-body);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.rate input:focus {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 1px;
+}
+.rateActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 18px 14px;
+}
+
 /* ---- Data sources ---- */
 .source + .source {
   border-top: 1px solid var(--rep-line);

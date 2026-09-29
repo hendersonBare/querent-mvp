@@ -18,7 +18,7 @@ const call=async(method:'GET'|'POST',id:string,body?:unknown,persona:string|null
   return route[method](request,{params:Promise.resolve({id})});
 };
 /** Taking the nut as GET shows it on the sample (its id and fingerprint). */
-const NUT={upsellId:'matching_fastener:HN-12-13-G8',fingerprint:'matching_fastener:HN-12-13-G8|add 5|19.95'};
+const NUT={upsellId:'matching_fastener:HN-12-13-G8',fingerprint:'matching_fastener:HN-12-13-G8|add 5|18.15'};
 const WHEELS={upsellId:'full_case:CW-45-045-T1',fingerprint:'full_case:CW-45-045-T1|q-24817-2 6->8|36.00'};
 
 it('refuses visitors (401) and customers (403), and takes nothing',async()=>{
@@ -39,7 +39,7 @@ it('lists the five chips on the sample, never cached, with the template wording 
   const body=await response.json();
   expect(body).toMatchObject({quote_id:'q-24817',editable:true});
   expect(body.upsells.map((u:{id:string;wording_source:string})=>[u.id,u.wording_source])).toEqual([
-    ['matching_fastener:HN-12-13-G8','template'],['matching_fastener:FW-12-G8','template'],['bought_together:FD-45-60Z','template'],
+    ['matching_fastener:HN-12-13-G8','template'],['bought_together:FD-45-60Z','template'],['matching_fastener:FW-12-G8','template'],
     ['full_case:CW-45-045-T1','template'],['bought_together:SG-CLR-AF','template'],
   ]);
   expect(body.upsells[0].fingerprint).toBe(NUT.fingerprint);
@@ -94,7 +94,7 @@ it('refuses a chip that changed since it was shown (409) instead of applying its
   const {NextRequest:Request}=await import('next/server');
   const patch=(lineId:string,qty:number)=>lineRoute.PATCH(new Request(`http://127.0.0.1/api/rep/quotes/Q-24817/lines/${lineId}`,{method:'PATCH',
     headers:{'content-type':'application/json',cookie:'querent-persona=supplier'},body:JSON.stringify({qty})}),{params:Promise.resolve({id:'Q-24817',lineId})});
-  // The chips as shown (wheels 6 -> 8, nut 5 at $19.95); then, in another tab, the wheels go to 9 and the bolts to 20.
+  // The chips as shown (wheels 6 -> 8, nut 5 at $18.15); then, in another tab, the wheels go to 9 and the bolts to 20.
   expect((await patch('q-24817-2',9)).status).toBe(200);
   expect((await patch('q-24817-1',20)).status).toBe(200);
   const lines=quote('q-24817')!.lines;

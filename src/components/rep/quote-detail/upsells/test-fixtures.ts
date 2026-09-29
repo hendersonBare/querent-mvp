@@ -4,7 +4,8 @@ import {ITEMS,detailLine} from '../test-fixtures';
 
 // "Suggested by Querent" fixtures (task 3.6): the five chips GET /api/rep/quotes/Q-24817/upsells
 // returns on the mockup's day (seed 2026-09-23) in scripted mode, with 1.6's template wording, and
-// the items they add, shaped for ../test-fixtures' detailLine.
+// the items they add, shaped for ../test-fixtures' detailLine. 5 boxes of nuts or washers is a
+// broken case (10 to a case), so they are priced at customer price + 10%.
 
 const stock=(sku:string,slc:number):ItemStock=>({item_id:sku,sku,total_available:slc,branches:[{branch_id:'slc',branch_code:'SLC',available:slc,on_order:0,next_receipt_on:null}]});
 
@@ -35,14 +36,14 @@ function chip(key:UpsellItemKey|'wheels',kind:RepUpsell['kind'],anchor:Anchor,{q
 
 const BOLT={diameter:'1/2',thread:'13',grade:'8'};
 export const SAMPLE_UPSELLS:RepUpsell[]=[
-  chip('nut','matching_fastener','bolts',{qty:5,unit_price:19.95,price_basis:'list',gp_gain:50.75,title:'Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)',
+  chip('nut','matching_fastener','bolts',{qty:5,unit_price:18.15,price_basis:'custom',gp_gain:41.75,title:'Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)',
     reason:'Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500. Bought with these bolts on all 5 orders that had them in the last 12 months.',
     evidence:{part:'nut',bolt:BOLT,bolt_pieces:500,pack_pieces:100,history:{orders_together:5,anchor_orders:5}}}),
-  chip('washer','matching_fastener','bolts',{qty:5,unit_price:15.75,price_basis:'list',gp_gain:41.75,title:'Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)',
-    reason:'Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500. Bought with these bolts on 4 of the 5 orders that had them in the last 12 months.',
-    evidence:{part:'washer',bolt:BOLT,bolt_pieces:500,pack_pieces:100,history:{orders_together:4,anchor_orders:5}}}),
   chip('discs','bought_together','wheels',{qty:3,unit_price:44.25,price_basis:'contract',gp_gain:39.75,title:'Flap disc 4.5 in, 60 grit zirconia (box of 10)',
     reason:'Bought with cut-off wheels on 4 of the 5 orders that had them in the last 12 months.',evidence:{orders_together:4,anchor_orders:5}}),
+  chip('washer','matching_fastener','bolts',{qty:5,unit_price:14.25,price_basis:'custom',gp_gain:34.25,title:'Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)',
+    reason:'Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500. Bought with these bolts on 4 of the 5 orders that had them in the last 12 months.',
+    evidence:{part:'washer',bolt:BOLT,bolt_pieces:500,pack_pieces:100,history:{orders_together:4,anchor_orders:5}}}),
   chip('wheels','full_case','wheels',{qty:8,unit_price:36,price_basis:'contract',gp_gain:23.8,title:'Bump cut-off wheels to 8 boxes (2 full cases)',
     reason:'A case holds 4 boxes, so 6 leaves a broken case.',evidence:{case_qty:4,from_qty:6,to_qty:8,cases:2}}),
   chip('glasses','bought_together','gloves',{qty:2,unit_price:29.9,price_basis:'customer',gp_gain:23.4,title:'Safety glasses, clear anti-fog (box of 12)',

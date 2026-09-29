@@ -91,6 +91,6 @@ export async function internalWorksheet(repId:string,quoteIdOrNumber:string,rev:
     asOf:now,lines,
     account:account?{terms:account.terms,credit_limit:account.credit_limit,open_balance:account.open_balance,past_due_balance:account.past_due_balance}:null,
     notes:quoteNotes(q.id),
-    blockers:freight?sendBlockers(q,freight).map(b=>b.message):null,
+    blockers:freight?sendBlockers(q,freight,{today:now.slice(0,10)}).map(b=>b.message):null,
   })};
 }

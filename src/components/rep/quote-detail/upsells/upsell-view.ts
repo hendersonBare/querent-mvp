@@ -24,16 +24,16 @@ export function openUpsells(chips:readonly RepUpsell[],lines:readonly Pick<Detai
 /** The chip's button: Add an item, or Apply a bump. */
 export const takeVerb=(chip:Pick<RepUpsell,'action'>)=>chip.action.type==='add_line'?'Add':'Apply';
 
-/** "5 at $19.95 · 50.9% margin", or for a bump "6 → 8 at $36.00 · 33.1% margin". */
+/** "5 at $18.15 · 46.0% margin", or for a bump "6 → 8 at $36.00 · 33.1% margin". */
 export function chipFigures(chip:Pick<RepUpsell,'action'|'qty'|'unit_price'|'unit_cost'>){
   const qty=chip.action.type==='set_qty'?`${chip.action.from_qty} → ${chip.action.to_qty}`:String(chip.qty);
   return `${qty} at ${money(chip.unit_price)} · ${formatMargin(margin(chip.unit_price,chip.unit_cost))} margin`;
 }
 
-/** "+$50.75 GP" */
+/** "+$41.75 GP" */
 export const chipGain=(chip:Pick<RepUpsell,'gp_gain'>)=>`+${money(chip.gp_gain)} GP`;
 
-/** The header's right side: "5 ideas · up to +$179.45 gross profit", or why there's nothing to show. */
+/** The header's right side: "5 ideas · up to +$162.95 gross profit", or why there's nothing to show. */
 export function upsellsMeta(status:UpsellsStatus,chips:readonly RepUpsell[],editable:boolean){
   if(!editable)return 'Offered while the quote can be edited';
   if(status==='loading')return 'Looking for ideas…';

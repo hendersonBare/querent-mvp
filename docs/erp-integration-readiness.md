@@ -30,7 +30,7 @@ P21's own API reference is served by each customer's P21 middleware (for example
 - **Code changes a real integration needs:**
   - an ERP adapter module and a sync worker;
   - an async seam for live price and availability, because the repository, the chat tools and the quote intake are synchronous today (§2.11);
-  - schema v4: an ERP order reference on quotes, multiple ship-tos, geocodes for ship-tos and branches, an outbox table, and possibly a cross-reference table for CRM IDs;
+  - the next schema version (v5; v4 added quote expiration dates and the delivery road factor): an ERP order reference on quotes, multiple ship-tos, geocodes for ship-tos and branches, an outbox table, and possibly a cross-reference table for CRM IDs;
   - a real sync status to replace the simulated heartbeat.
 - **Biggest unknowns:** Herrick's P21 version and middleware URL, how Querent reaches that middleware over the network, API licensing, the exact price and availability endpoint and whether it takes several items per call, the cost basis for margin, whether quotes should also exist in P21, and whether Epicor WMS changes what "available" means. See the open questions in §4.12.
 
@@ -41,7 +41,7 @@ P21's own API reference is served by each customer's P21 middleware (for example
 ### 2.1 Data store
 
 - A local SQLite file (`./data/querent.sqlite`, or `DATABASE_PATH`) opened by `better-sqlite3` in `src/server/db/index.ts`. It is seeded on first open. (Repo)
-- `SCHEMA_VERSION=3` in `src/server/db/schema.ts`. There are no migrations. An older database refuses to open, and `npm run db:reset` rebuilds and reseeds it (spec §6.6). (Repo)
+- `SCHEMA_VERSION=4` in `src/server/db/schema.ts`. There are no migrations. An older database refuses to open, and `npm run db:reset` rebuilds and reseeds it (spec §6.6). (Repo)
 - There is one supplier per deployment (`suppliers` table) and no multi-tenancy (spec §1). (Repo)
 
 ### 2.2 ERP-sourced tables and the sync-ready columns
@@ -167,7 +167,7 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 | All ERP data is seed data (`source='seed'`) | `src/server/db/seed/*` | A sync job writes `source='p21'` (or similar) rows. A production tenant starts with no demo rows. |
 | "ERP connection refreshed" heartbeat | `src/server/heartbeat.ts`, `repository/erp.ts` | Real sync runs write real events (entity, rows upserted, errors, watermark). "Connected" should reflect the last successful ERP call. |
 | One ship-to per customer, with lat/lng | `customers.ship_to_*` | ERPs usually hold many ship-tos per customer: a `ship_tos` table plus a ship-to picker. |
-| Freight by haversine × 1.25 and seeded rates | `freight/distance.ts`, `delivery_rates` | A routing `DistanceProvider`. Confirm whether the ERP or a carrier system owns freight rules. |
+| Freight by haversine × the road factor, with rates edited on Settings | `freight/distance.ts`, `delivery_rates` | A routing `DistanceProvider`. Confirm whether the ERP or a carrier system owns freight rules. |
 | Prices from `price_levels`/`customer_prices` | `repository/pricing.ts` | ERP price engines (P21 price pages, libraries and contracts) are richer than one price per level. Prefer the ERP's computed price (§4.7). |
 | Cost from `items.cost` | `schema.ts` | Pick an ERP cost basis. |
 | Accepted quote stops at `accepted` | `quotes/service.ts` `acceptQuote` | Step 9 outbox and write-back (§4.10). |
@@ -191,7 +191,7 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 | ERP adapter (one per ERP) | auth and token cache; `pull(entity, since)`; `priceAndAvailability(customer, lines, branch)`; `createOrder(acceptedQuote)`; optional `createQuote` | `src/server/erp/<vendor>/` (new), called only by the sync worker and repository-shaped functions |
 | Sync worker | per-entity watermarks; upsert by `(source, external_id)`; resolve foreign keys; set `synced_at`; write `sync_events`; periodic full reconcile for deletes | a separate process or interval, never inside a request |
 | Live price and availability | async prefetch before the step-5 intake transaction and before send; short cache | a route or service layer, then the pure pricing engine |
-| Outbox (step 9) | durable queue of accepted quotes to write back; idempotency key; retries; last error | new `erp_outbox` table (schema v4) and a worker |
+| Outbox (step 9) | durable queue of accepted quotes to write back; idempotency key; retries; last error | new `erp_outbox` table (next schema version) and a worker |
 | Tenant config | ERP kind, base URL, credentials (env or secret store, **never** in the DB or this doc) | environment per deployment (one supplier per deployment today) |
 
 ---
@@ -342,7 +342,7 @@ Every run writes `sync_events` with the entity, rows upserted, errors and the ne
 3. **Map ids.** Convert items, customer, branch and ship-to to P21 ids through `external_id`. If any of them has no external id, fail with a clear error for the rep.
 4. **De-duplicate.** Before any retry, query `oe_hdr` for an order with the same customer and PO, or the Querent reference (§4.8, last row). Which field can hold that reference is Unverified.
 5. **Submit.** `POST /uiserver0/api/V2/Transaction` with `Name: "Order"` (Search [S6]). An unexpected P21 message counts as a failure (§4.6).
-6. **Record.** Store the returned order number in a new column, `quotes.erp_order_number` (schema v4). Add an Activity entry ("Order SO-… created in P21") and a rep badge.
+6. **Record.** Store the returned order number in a new column, `quotes.erp_order_number` (next schema version). Add an Activity entry ("Order SO-… created in P21") and a rep badge.
 7. **Link.** When the order sync picks up the `oe_hdr` row, set `orders.quote_id` by matching `erp_order_number`. `src/server/repository/orders.ts` already joins `orders.quote_id` to show the quote number on an order (`get_order_status`, the rep's Orders views). Analytics win rate reads quote statuses, not orders (`src/server/repository/analytics.ts`).
 8. **Failure.** Retry with backoff on network errors only. Validation errors go to the rep, and Settings > Data sources shows outbox failures.
 9. **Option (open question).** Create a **P21 quote** at step 7 (send) and convert it to an order on accept. P21 supports conversion in the UI (Search [S16]); API support is Unverified. Choose this only if Herrick's reps must see Querent quotes inside P21.

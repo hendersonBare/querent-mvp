@@ -3,7 +3,7 @@ import {describe,expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
 
 // The Settings API (task 6.1): GET /api/rep/settings, GET /api/rep/settings/sources and the PUT
-// routes for assignments, access, floors and pricing. Rep-only, like GET /api/rep/badges: 401
+// routes for assignments, access, floors, pricing and delivery. Rep-only, like GET /api/rep/badges: 401
 // without a session, 403 for the customer persona, never cached.
 useSeededDatabase();
 
@@ -15,6 +15,7 @@ const ROUTES={
   access:()=>import('./access/route'),
   floors:()=>import('./floors/route'),
   pricing:()=>import('./pricing/route'),
+  delivery:()=>import('./delivery/route'),
 } as const;
 type Name=keyof typeof ROUTES;
 
@@ -87,6 +88,27 @@ describe('PUT routes',()=>{
     expect(await call('pricing','PUT',{body:{scarcity_uplift_enabled:'yes'}})).toMatchObject({status:400});
     expect(await call('pricing','PUT',{body:{scarcity_uplift_enabled:false}})).toMatchObject({status:200,json:{scarcity_uplift_enabled:false}});
   });
+
+  it('delivery: all six rates, rounded and checked, then read back',async()=>{
+    const SEEDED={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25};
+    expect((await call('','GET')).json.delivery).toEqual(SEEDED);
+    const next={base_fee:30,per_mile:3.255,min_charge:40,free_threshold:2000,max_radius_miles:90.04,road_factor:1.3};
+    expect(await call('delivery','PUT',{body:next})).toMatchObject({status:200,json:{base_fee:30,per_mile:3.26,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}});
+    expect((await call('','GET')).json.delivery).toEqual({base_fee:30,per_mile:3.26,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3});
+    for(const [body,detail] of [
+      [{...SEEDED,base_fee:-1},'Base fee must be from 0 to 10,000.'],
+      [{...SEEDED,max_radius_miles:0},'Delivery radius must be from 1 to 1,000.'],
+      [{...SEEDED,road_factor:0.9},'Road miles per straight-line mile must be from 1 to 3.'],
+      [{...SEEDED,per_mile:'2.5'},'Per road mile: enter a number.'],
+      [{base_fee:25},'Per road mile: enter a number.'],
+      [{...SEEDED,surcharge:5},'Unknown delivery rate: surcharge.'],
+      [null,'Send every delivery rate.'],
+    ] as const){
+      expect(await call('delivery','PUT',{body})).toMatchObject({status:400,json:{detail}});
+    }
+    expect((await call('','GET')).json.delivery.base_fee).toBe(30);
+    expect(await call('delivery','PUT',{body:SEEDED})).toMatchObject({status:200,json:SEEDED});
+  });
 });
 
 describe('only a rep',()=>{
@@ -95,6 +117,7 @@ describe('only a rep',()=>{
     ['access',{customer_id:'wasatch',category:'items_stock',enabled:false}],
     ['floors',{category_id:'safety',floor_pct:10}],
     ['pricing',{scarcity_uplift_enabled:true}],
+    ['delivery',{base_fee:1,per_mile:1,min_charge:1,free_threshold:1,max_radius_miles:1,road_factor:1}],
   ];
 
   it('asks for a workspace without a session, on every route',async()=>{

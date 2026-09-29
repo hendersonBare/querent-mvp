@@ -186,11 +186,20 @@ test("items: the catalog with stock per branch, list price and category, and an 
   await noCostOrMargin(page);
   await attachScreenshot(page, testInfo, "items-desktop");
 
-  const categories = page.getByRole("navigation", { name: "Filter by category" });
-  await categories.getByRole("link", { name: /^Fasteners/ }).click();
+  // One dropdown, All by default, is the only category filter.
+  const category = page.getByRole("combobox", { name: "Category" });
+  await expect(category).toHaveValue("");
+  await expect(page.getByRole("navigation", { name: "Filter by category" })).toHaveCount(0);
+  await category.selectOption("fasteners");
   await expect(page).toHaveURL(/\/rep\/items\?category=fasteners$/);
   await expect(bodyRows(page)).toHaveCount(14);
-  await expect(categories.getByRole("link", { name: /^Fasteners/ })).toHaveAttribute("aria-current", "page");
+  await expect(category).toHaveValue("fasteners");
+  await attachScreenshot(page, testInfo, "items-fasteners");
+  await category.selectOption("");
+  await expect(page).toHaveURL(/\/rep\/items$/);
+  await expect(bodyRows(page)).toHaveCount(62);
+  await category.selectOption("fasteners");
+  await expect(bodyRows(page)).toHaveCount(14);
 
   await page.getByRole("link", { name: "Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc" }).click();
   await expect(page).toHaveURL(/\/rep\/items\/HCS-12-13-2G8$/);

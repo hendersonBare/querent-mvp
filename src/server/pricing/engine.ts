@@ -9,6 +9,8 @@ import {margin,priceBelowFloor} from '../floors/rules';
 
 /** Scarcity uplift on the customer price, in percent (spec §5.1). */
 export const SCARCITY_UPLIFT_PERCENT=5;
+/** Broken-case uplift on the customer price, in percent: a qty below the case qty. */
+export const BROKEN_CASE_UPLIFT_PERCENT=10;
 /** Scarcity applies when the quote branch has less than this multiple of the qty on hand. */
 export const SCARCITY_STOCK_MULTIPLE=1.5;
 
@@ -39,7 +41,7 @@ export type PriceReason='contract'|'customer'|'last_paid'|'broken_case'|'scarcit
 export interface Scarcity{kind:'low_stock'|'only_branch';branchCode:string;available:number}
 
 export interface PriceSuggestion{
-  /** Querent's pick, shown in bold in the price-basis dropdown. A scarcity price is `custom`. null when nothing is on file. */
+  /** Querent's pick, shown in bold in the price-basis dropdown. A scarcity or broken-case price is `custom`. null when nothing is on file. */
   basis:PriceBasis|null;
   price:number|null;
   reason:PriceReason;
@@ -65,7 +67,11 @@ export interface PriceOption{
   suggested:boolean;
 }
 
-export interface PricedLine{options:PriceOption[];suggestion:PriceSuggestion;explanation:string}
+export interface PricedLine{
+  options:PriceOption[];suggestion:PriceSuggestion;explanation:string;
+  /** The "?" tip next to Querent's price: the deciding fact first, then every other fact checked (priceReasons). */
+  reasons:string[];
+}
 
 /** The quote-line fields `querentFoundGp` reads (a QuoteLine has them all). */
 export interface SuggestedLine{qty:number;suggested_price:number|null;suggested_basis:PriceBasis|null;customer_price:number|null}
@@ -95,11 +101,15 @@ export function scarcityAt(stock:ItemStock|null,branchId:string,qty:number):Scar
 
 interface Candidate{basis:PriceBasis;cents:number;reason:PriceReason}
 
+/** The customer price raised by `percent`, to the cent. */
+const uplift=(customerCents:number,percent:number)=>Math.round(customerCents*(100+percent)/100);
+
 /**
  * Querent's suggested price for one line (spec §5.1):
  * 1. An active contract wins. It is binding: no uplift and no cap.
  * 2. Otherwise start at the customer price and raise it only on a fact: last paid higher (last 12
- *    months), a broken case (qty below the case qty: list), or scarcity (setting on: customer + 5%).
+ *    months), a broken case (qty below the case qty: customer + 10%), or scarcity (setting on:
+ *    customer + 5%).
  *    The highest wins (ties: last paid, broken case, scarcity, customer), capped at list.
  * 3. The floor never changes the pick: the highest fact-based price is already the one most
  *    likely to clear it. `belowFloor` (priceBelowFloor) matches the red warning.
@@ -126,8 +136,8 @@ export function suggestPrice(input:PricingInput):PriceSuggestion{
   const candidates:Candidate[]=[];
   const lastPaid=sources.last_paid&&usable(sources.last_paid.unit_price)?cents(sources.last_paid.unit_price):null;
   if(lastPaid!==null&&lastPaid>customer)candidates.push({basis:'last_paid',cents:lastPaid,reason:'last_paid'});
-  if(brokenCase&&list!==null)candidates.push({basis:'list',cents:list,reason:'broken_case'});
-  if(scarcity)candidates.push({basis:'custom',cents:Math.round(customer*(100+SCARCITY_UPLIFT_PERCENT)/100),reason:'scarcity'});
+  if(brokenCase)candidates.push({basis:'custom',cents:uplift(customer,BROKEN_CASE_UPLIFT_PERCENT),reason:'broken_case'});
+  if(scarcity)candidates.push({basis:'custom',cents:uplift(customer,SCARCITY_UPLIFT_PERCENT),reason:'scarcity'});
   candidates.push({basis:'customer',cents:customer,reason:'customer'});
   const best=candidates.reduce((a,b)=>b.cents>a.cents?b:a);
   if(list!==null&&best.cents>list)return finish({basis:'list',cents:list,reason:best.reason},best.cents);
@@ -136,7 +146,7 @@ export function suggestPrice(input:PricingInput):PriceSuggestion{
 
 /**
  * The price-basis dropdown for one line: Contract, Customer, List, Last paid and Custom, each with
- * its value and whether it is available. Custom carries Querent's price when it suggested one (scarcity).
+ * its value and whether it is available. Custom carries Querent's price when it suggested one (scarcity or a broken case).
  */
 export function priceOptions(input:PricingInput,suggestion:PriceSuggestion=suggestPrice(input)):PriceOption[]{
   const {contract,customer_price,list_price,last_paid}=input.sources;

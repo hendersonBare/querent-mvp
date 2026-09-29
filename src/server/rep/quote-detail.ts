@@ -3,7 +3,7 @@ import type {DeliveryRates,Quote} from '@/domain';
 import {resolveFloor,type FloorRow} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
 import type {QuoteFreight} from '@/server/freight/engine';
-import {canEditDraft,effectiveStatus,validUntilFor} from '@/server/quotes';
+import {canEditDraft,effectiveStatus,validUntilOnSend} from '@/server/quotes';
 import {sendCheck,type SendCheck} from '@/server/quotes/service';
 import {contact,deliveryRates,pricingSettings,priceSources,repFloors,stockForItems} from '@/server/repository';
 import type {DetailLine} from './quote-math';
@@ -25,7 +25,7 @@ export interface QuoteDetail {
   as_of:string;
   /** The quote header. `status` is effective (a sent quote past valid_until reads as expired). */
   quote:Omit<Quote,'lines'>&{contact_title:string|null};
-  /** valid_until once sent; before that, the day it would run to if sent today (send day + valid_days). */
+  /** While editable, the day it would run to if sent today (the rep's expiration date, else send day + valid_days); after that, the valid_until it went out with. */
   valid_until:string;
   /** The rep can change the draft (spec §5.4: ready_for_review or changes_requested). */
   editable:boolean;
@@ -64,10 +64,11 @@ export function detailLines(q:Quote,now:string):DetailLine[]{
 /** The detail for a quote already loaded and checked as the rep's. */
 export async function quoteDetailOf(q:Quote,{now=clock(),provider}:QuoteDetailOptions={}):Promise<QuoteDetail>{
   const status=effectiveStatus(q,now);
-  const check=await sendCheck(q.id,{provider});
+  const check=await sendCheck(q.id,{provider,now});
   const {lines:_lines,...header}=q;
   const quote:QuoteDetail['quote']={...header,status,contact_title:q.contact_id?contact(q.contact_id)?.title??null:null};
-  return {as_of:now,quote,valid_until:q.valid_until??validUntilFor(now,q.valid_days),editable:canEditDraft(status),lines:detailLines(q,now),
+  const editable=canEditDraft(status);
+  return {as_of:now,quote,valid_until:editable||!q.valid_until?validUntilOnSend(q,now):q.valid_until,editable,lines:detailLines(q,now),
     floors:repFloors(q.rep_id).map(({rep_id,category_id,margin_floor})=>({rep_id,category_id,margin_floor})),
     freight:check.freight,delivery_rates:deliveryRates(),
     send_check:{can_send:check.can_send,status_problem:check.status_problem,blockers:check.blockers,below_floor_count:check.below_floor_count,

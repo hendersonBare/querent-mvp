@@ -4,7 +4,7 @@ import type {DistanceProvider,Place} from './distance';
 import {CALL_FOR_FREIGHT,computeFreight,priceDelivery,resolveFreight,type FreightInput,type FreightQuote} from './engine';
 
 // Spec §5.3 seed rates.
-const RATES:DeliveryRates={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75};
+const RATES:DeliveryRates={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25};
 const SLC={code:'SLC',lat:40.725,lng:-111.933};
 const WASATCH:Place={address:'1800 W 10950 S, South Jordan, UT 84095',lat:40.5513,lng:-111.933};
 
@@ -158,7 +158,7 @@ describe('the DistanceProvider seam',()=>{
   });
 
   it('uses the rates it is given',async()=>{
-    const rates={base_fee:10,per_mile:1,min_charge:0,free_threshold:100,max_radius_miles:10};
+    const rates={base_fee:10,per_mile:1,min_charge:0,free_threshold:100,max_radius_miles:10,road_factor:1.25};
     expect(await at(10,{rates,subtotal:99.99})).toMatchObject({rule:'distance',amount:20});
     expect(await at(10.1,{rates,subtotal:99.99})).toMatchObject({rule:'beyond_radius'});
     expect(await at(10,{rates,subtotal:100})).toMatchObject({rule:'free_threshold',amount:0});

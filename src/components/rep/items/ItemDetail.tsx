@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type {ItemDetail as ItemView} from '@/server/rep/reference';
 import {count,day,money} from '../reference/format';
 import {Crumbs,DetailHeader,Empty,hrefFor,Panel,referenceStyles as s,Stock,type Viewing} from '../reference/parts';
-import {CATEGORY_PARAM} from './ItemsList';
 
 // One item (spec §4, task 3.8): list price, pack and category, stock at each branch with what's on
 // order, and its recent sales at the prices paid, read-only. Recent orders follow the "Viewing"
@@ -57,7 +56,7 @@ export function ItemDetail({view,viewing}:{view:ItemView;viewing:Viewing}){
         <Panel id="item-facts" title="Item">
           <dl className={s.kv}>
             <dt>SKU</dt><dd className={s.mono}>{item.sku}</dd>
-            <dt>Category</dt><dd><Link href={hrefFor(viewing,`/rep/items?${CATEGORY_PARAM}=${encodeURIComponent(item.category_id)}`)}>{item.category_name}</Link></dd>
+            <dt>Category</dt><dd>{item.category_name}</dd>
             <dt>Sold as</dt><dd>{item.pack}</dd>
             <dt>Full case</dt><dd>{count(item.case_qty,'pack')}</dd>
             <dt>List price</dt><dd className={s.strong}>{money(item.list_price)}</dd>

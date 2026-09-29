@@ -23,6 +23,8 @@ export function copyLetterhead(l:SnapshotLetterhead):SnapshotLetterhead{
 }
 
 export interface SnapshotInput {revision:number;sentAt:string;validUntil:string;
+  /** Days from the send day to validUntil (the rep may pick any expiration date); the quote's valid_days when absent. */
+  validDays?:number;
   /** Resolved freight in dollars (task 1.3). Call-for-freight never reaches a snapshot: it blocks send. */
   freight:number;
   /** Road miles from the branch (FreightQuote.miles), printed on the customer PDF (task 4.1). */
@@ -38,7 +40,7 @@ export interface SnapshotInput {revision:number;sentAt:string;validUntil:string;
  * subtotal is the sum of those line totals, so the PDF adds up. Throws RangeError on an unpriced
  * line or freight, which sendBlockers stops earlier. Optional inputs left out add no key.
  */
-export function buildSnapshot(q:Quote,{revision,sentAt,validUntil,freight,freightMiles,terms,repContact,letterhead}:SnapshotInput):QuoteSnapshot{
+export function buildSnapshot(q:Quote,{revision,sentAt,validUntil,validDays,freight,freightMiles,terms,repContact,letterhead}:SnapshotInput):QuoteSnapshot{
   if(!Number.isFinite(freight))throw new RangeError(`${q.quote_number}: freight must be priced before sending.`);
   const lines=q.lines.map(l=>{
     if(l.unit_price===null||!Number.isFinite(l.unit_price))throw new RangeError(`${q.quote_number} line ${l.line_no} has no price.`);
@@ -48,7 +50,7 @@ export function buildSnapshot(q:Quote,{revision,sentAt,validUntil,freight,freigh
   return {
     quote_number:q.quote_number,revision,sent_at:sentAt,customer:{name:q.customer_name,account_number:q.account_number},contact:q.contact_name,rep:q.rep_name,
     fulfillment:q.fulfillment,branch:q.branch_code,ship_to:q.fulfillment==='delivery'?q.ship_to_address:null,
-    valid_days:q.valid_days,valid_until:validUntil,customer_po:q.customer_po,customer_note:q.customer_note,
+    valid_days:validDays??q.valid_days,valid_until:validUntil,customer_po:q.customer_po,customer_note:q.customer_note,
     subtotal,freight:cents(freight),total:cents(subtotal+freight),lines,
     ...(freightMiles===undefined?{}:{freight_miles:freightMiles}),
     ...(terms===undefined?{}:{terms}),

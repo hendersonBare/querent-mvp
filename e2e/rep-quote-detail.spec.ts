@@ -211,14 +211,26 @@ test("add an item by SKU, change its qty, remove a line, and Undo each, all auto
   await expect(line(page, "GLV-N8-L-1000").getByRole("note")).toHaveText("Below Brandi's 30% Safety & PPE floor");
 });
 
-test("a qty below a full case re-picks list, and Undo puts the qty and price back", async ({ page }) => {
+test("a qty below a full case re-picks customer price + 10%, the ? says why, and Undo puts the qty and price back", async ({ page }, testInfo) => {
   await openQuote(page);
+  const why = page.getByRole("button", { name: "Why Querent suggests $31.50 for HCS-12-13-2G8" });
+  await why.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Last paid $31.50 on Aug 12, above customer price $30.95.");
+  await page.mouse.move(0, 0);
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   const bolts = qty(page, "HCS-12-13-2G8");
   await bolts.fill("5");
   await bolts.press("Enter");
-  // 5 boxes is a broken case (10 to a case): Querent's pick moves to list and the line follows it.
-  await expect(price(page, "HCS-12-13-2G8")).toHaveValue("38.95");
-  await expect(page.getByRole("button", { name: "Price basis for HCS-12-13-2G8: List" })).toBeVisible();
+  // 5 boxes is a broken case (10 to a case): Querent's pick moves to customer price + 10% ($30.95 -> $34.05) and the line follows it.
+  await expect(price(page, "HCS-12-13-2G8")).toHaveValue("34.05");
+  await expect(page.getByRole("button", { name: "Price basis for HCS-12-13-2G8: Custom" })).toBeVisible();
+  await page.getByRole("button", { name: "Why Querent suggests $34.05 for HCS-12-13-2G8" }).hover();
+  const tip = page.getByRole("tooltip");
+  await expect(tip).toContainText("Querent’s pick: $34.05 (Custom)");
+  await expect(tip).toContainText("Broken-case quantity: 5 is less than a full case of 10, so customer price $30.95 + 10%.");
+  await expect(tip).toContainText("List price $38.95 is the ceiling.");
+  await attachScreenshot(page, testInfo, "price-reasons-tip");
+  await page.mouse.move(0, 0);
   await saved(page);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(bolts).toHaveValue("10");

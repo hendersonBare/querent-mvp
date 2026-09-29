@@ -5,7 +5,7 @@ import type {QuoteFreight} from '@/server/freight/engine';
 // can grey out Approve & send and list the reasons as the rep edits. Lines below their margin
 // floor are not blockers; they only warn (spec §5.2, the count in Confirm send).
 
-export const SEND_BLOCKER_CODES=['no_lines','zero_qty','no_price','no_ship_to','call_for_freight'] as const;
+export const SEND_BLOCKER_CODES=['no_lines','zero_qty','no_price','no_ship_to','call_for_freight','expiration_passed'] as const;
 export type SendBlockerCode=typeof SEND_BLOCKER_CODES[number];
 
 export interface SendBlocker {
@@ -16,7 +16,9 @@ export interface SendBlocker {
 }
 
 /** What the check reads from a quote (Quote has all of it). */
-export type SendCheckQuote=Pick<QuoteHeader,'fulfillment'|'ship_to_address'>&{lines:readonly Pick<QuoteLine,'id'|'line_no'|'sku'|'qty'|'unit_price'>[]};
+export type SendCheckQuote=Pick<QuoteHeader,'fulfillment'|'ship_to_address'>&Partial<Pick<QuoteHeader,'expires_on'>>&{lines:readonly Pick<QuoteLine,'id'|'line_no'|'sku'|'qty'|'unit_price'>[]};
+
+const longDay=(day:string)=>new Date(`${day}T00:00:00.000Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
 
 /**
  * Everything that stops the quote being sent, lines first, or [] when it can go. `freight` is the
@@ -25,9 +27,10 @@ export type SendCheckQuote=Pick<QuoteHeader,'fulfillment'|'ship_to_address'>&{li
  * The ship-to is checked on its own, not through freight: a rep freight override clears
  * `unresolved` even on a delivery with no ship-to, and nobody can deliver without an address.
  * A $0 price counts as priced (it only warns as below floor); a missing, negative or non-finite
- * price does not.
+ * price does not. With `today` (the UTC day, YYYY-MM-DD), an expiration date the rep picked must
+ * still be ahead: a quote can't go out already expired.
  */
-export function sendBlockers(q:SendCheckQuote,freight:Pick<QuoteFreight,'unresolved'>):SendBlocker[]{
+export function sendBlockers(q:SendCheckQuote,freight:Pick<QuoteFreight,'unresolved'>,{today}:{today?:string}={}):SendBlocker[]{
   const blockers:SendBlocker[]=[];
   if(!q.lines.length)blockers.push({code:'no_lines',line_id:null,message:'The quote has no lines.'});
   for(const l of q.lines){
@@ -38,5 +41,7 @@ export function sendBlockers(q:SendCheckQuote,freight:Pick<QuoteFreight,'unresol
   }
   if(q.fulfillment==='delivery'&&!q.ship_to_address?.trim())blockers.push({code:'no_ship_to',line_id:null,message:'Delivery has no ship-to address on file: switch to will call to send it.'});
   if(freight.unresolved)blockers.push({code:'call_for_freight',line_id:null,message:'Freight is still call for freight: set it by hand before sending.'});
+  if(today&&q.expires_on&&q.expires_on<=today)
+    blockers.push({code:'expiration_passed',line_id:null,message:`The expiration date (${longDay(q.expires_on)}) has passed: pick a later one before sending.`});
   return blockers;
 }

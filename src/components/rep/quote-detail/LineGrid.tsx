@@ -6,6 +6,8 @@ import {formatMargin,margin,type FloorContext} from '@/server/floors';
 import {BASIS_LABELS} from '@/server/pricing';
 import {lineFigures,parseMoney,parseQty,priceForMargin,shortName,type DetailLine,type LineFigures} from '@/server/rep/quote-math';
 import {CONFIDENCE} from '@/server/matching/score';
+import {InfoTip} from '../InfoTip';
+import t from '../InfoTip.module.css';
 import {NumberField} from './NumberField';
 import {PriceBasisSelect} from './PriceBasisSelect';
 import {day,money,priceInput} from './format';
@@ -15,7 +17,8 @@ import s from './QuoteDetail.module.css';
 // The line grid (spec §4, docs/design/screens/03-04; task 3.3): item with SKU and pack, qty,
 // available at the quote branch, cost (Show cost), the unit price with its price-basis dropdown,
 // margin, total and remove. A line below floor[rep][category] gets the red warning directly
-// above its price field (never blocking); each line has a collapsed "Why this price?" row.
+// above its price field (never blocking); each line has a collapsed "Why this price?" row, and a
+// "?" next to the price-basis dropdown whose tip lists why Querent suggests its price.
 
 export interface LineGridProps {
   lines:readonly DetailLine[];
@@ -73,6 +76,7 @@ function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,ope
   const {floor:status,stock,priced}=figures;
   const low=status.belowFloor;
   const tags=lineTags(line,figures);
+  const floorLabel=`${firstName(floor.repName)}’s ${status.floorPct}% ${line.category_name} floor`;
 
   function pickBasis(basis:PriceBasis){
     editor.edit(line.id,{basis});
@@ -108,7 +112,10 @@ function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,ope
         <span className={s.cwrap}>$<NumberField ref={priceRef} className={s.cin} data-low={low||undefined} value={priceInput(line.unit_price)} parse={parseMoney}
           disabled={!editable} placeholder="0.00" aria-label={`Unit price for ${line.sku}`} aria-describedby={status.label?warnId:undefined}
           onDraft={price=>editor.draft(line.id,price===null?null:{unitPrice:price})} onCommit={(unitPrice,session)=>editor.edit(line.id,{unitPrice},session)}/></span>
-        {priced&&<PriceBasisSelect options={priced.options} value={line.price_basis} onChange={pickBasis} label={`Price basis for ${line.sku}`} disabled={!editable} asOf={asOf}/>}
+        {priced&&<div className={s.pickRow}>
+          <PriceBasisSelect options={priced.options} value={line.price_basis} onChange={pickBasis} label={`Price basis for ${line.sku}`} disabled={!editable} asOf={asOf}/>
+          <PriceReasons line={line} priced={priced} floorLabel={floorLabel}/>
+        </div>}
       </td>
       <td className={s.marginCell} data-label="Margin">
         <span className={s.cwrap}><NumberField className={`${s.cin} ${s.m}`} data-low={low||undefined} value={figures.margin===null?'':figures.marginLabel.replace('%','')}
@@ -122,7 +129,7 @@ function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,ope
       </td>
     </tr>
     <tr className={s.why} id={whyId} hidden={!isOpen}>
-      <td colSpan={columns}>{isOpen&&<WhyThisPrice line={line} figures={figures} floorLabel={`${firstName(floor.repName)}’s ${status.floorPct}% ${line.category_name} floor`}
+      <td colSpan={columns}>{isOpen&&<WhyThisPrice line={line} figures={figures} floorLabel={floorLabel}
         customerFirstName={customerFirstName} asOf={asOf} editable={editable} onUse={basis=>editor.edit(line.id,{basis})}/>}</td>
     </tr>
   </tbody>;
@@ -153,6 +160,23 @@ function useFocusWhen(when:boolean,ref:RefObject<HTMLInputElement|null>,done?:()
     ref.current.focus();ref.current.select();
     done?.();
   },[when,ref,done]);
+}
+
+/**
+ * The "?" next to the price-basis dropdown: hover, focus or tap lists why Querent suggests its
+ * price (priceReasons: the deciding fact, every other fact checked, the GP), what that price's
+ * margin is against the rep's floor, and the rep's own price when it differs.
+ */
+function PriceReasons({line,priced,floorLabel}:{line:DetailLine;priced:NonNullable<LineFigures['priced']>;floorLabel:string}){
+  const pick=priced.suggestion;
+  if(pick.price===null||pick.basis===null)return null;
+  const offPick=line.price_basis!==pick.basis||line.unit_price!==pick.price;
+  return <InfoTip icon="help" size="sm" label={`Why Querent suggests ${money(pick.price)} for ${line.sku}`}>
+    <span className={t.tipHead}>Querent’s pick: {money(pick.price)} ({BASIS_LABELS[pick.basis]})</span>
+    {priced.reasons.map(reason=><span key={reason} className={t.tipLine}>• {reason}</span>)}
+    {pick.margin!==null&&<span className={t.tipFoot}>{formatMargin(pick.margin)} margin at this price, {pick.belowFloor?'below':'at or above'} {floorLabel}.</span>}
+    {offPick&&line.unit_price!==null&&<span className={t.tipFoot}>You priced it at {line.price_basis?BASIS_LABELS[line.price_basis]:'Custom'}, {money(line.unit_price)}.</span>}
+  </InfoTip>;
 }
 
 /** The collapsed "Why this price?" row: Querent's explanation, every price option with its margin, stock by branch, and what the customer asked for. */

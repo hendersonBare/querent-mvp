@@ -25,7 +25,10 @@ export interface QuoteHeader {
   ship_to_address:string|null;ship_to_lat:number|null;ship_to_lng:number|null;
   /** Freight is computed (task 1.3); only a rep override is stored. */
   freight_override:number|null;freight_override_reason:string|null;
-  valid_days:ValidDays;valid_until:string|null;customer_po:string|null;
+  valid_days:ValidDays;valid_until:string|null;
+  /** The expiration date the rep picked (YYYY-MM-DD), or null for the default: valid_days after the send day. */
+  expires_on:string|null;
+  customer_po:string|null;
   /** customer_note is printed on the quote; change_request_note is the customer's Request changes note. */
   customer_note:string|null;change_request_note:string|null;
   unread_for_rep:boolean;unread_for_customer:boolean;is_sample:boolean;duplicated_from:string|null;
@@ -72,7 +75,8 @@ export interface QuoteSnapshot {
   quote_number:string;revision:number;customer:{name:string;account_number:string};contact:string|null;rep:string;
   fulfillment:Fulfillment;branch:string;valid_until:string|null;subtotal:number;freight:number;total:number;lines:QuoteSnapshotLine[];
   // The terms, frozen at send (task 1.5). Absent on snapshots stored before it (the seeded history).
-  sent_at?:string;valid_days?:ValidDays;customer_po?:string|null;customer_note?:string|null;
+  /** valid_days: the days from the send day to valid_until (the rep can pick any expiration date). */
+  sent_at?:string;valid_days?:number;customer_po?:string|null;customer_note?:string|null;
   /** The delivery address, or null for will call. */
   ship_to?:string|null;
   /** Road miles from the branch that priced delivery freight (task 4.1 prints them); null for will call or unmeasured. */
@@ -160,7 +164,7 @@ export interface NewQuote {
 }
 
 export type QuoteLinePatch=Partial<Pick<NewQuoteLine,'qty'|'unitPrice'|'priceBasis'|'suggestedPrice'|'suggestedBasis'|'customerPrice'|'explanation'>>;
-export interface QuoteTermsPatch {validDays?:ValidDays;customerPo?:string|null;customerNote?:string|null}
+export interface QuoteTermsPatch {validDays?:ValidDays;expiresOn?:string|null;customerPo?:string|null;customerNote?:string|null}
 export interface QuoteFulfillmentPatch {fulfillment?:Fulfillment;branchId?:string;requestedDate?:string|null;shipTo?:{address:string;lat:number|null;lng:number|null}|null}
 
 /**

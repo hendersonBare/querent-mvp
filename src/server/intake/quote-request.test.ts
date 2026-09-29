@@ -141,8 +141,9 @@ describe('Request quote',()=>{
     const q=quote(created.id)!;
     expect(q).toMatchObject({fulfillment:'delivery',branch_id:'ogden',branch_code:'Ogden'});
     expect(q.lines.map(l=>[l.sku,l.qty])).toEqual([['HCS-12-13-2G8',3]]);
-    // 3 boxes is below the 10-box case: a broken case, priced at list (spec §5.1), and the note says why.
-    expect(q.lines[0]).toMatchObject({suggested_basis:'list',unit_price:q.lines[0].list_price});
+    // 3 boxes is below the 10-box case: a broken case, priced at customer price + 10% (spec §5.1,
+    // $30.95 + 10%), and the note says why.
+    expect(q.lines[0]).toMatchObject({suggested_basis:'custom',unit_price:34.05,suggested_price:34.05});
     expect(q.lines[0].explanation).toMatch(/Broken-case/i);
   });
 

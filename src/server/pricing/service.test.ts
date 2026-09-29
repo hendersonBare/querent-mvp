@@ -48,7 +48,7 @@ describe('priceLines',()=>{
 
   it('prices each line by its own qty, and skips unknown items',()=>{
     const priced=wasatch([{itemId:'HCS-12-13-2G8',qty:10},{itemId:'NOPE',qty:1},{itemId:'HCS-12-13-2G8',qty:4}]);
-    expect(priced.map(l=>[l.itemId,l.qty,l.suggestion.reason,l.suggestion.price])).toEqual([['HCS-12-13-2G8',10,'last_paid',31.5],['HCS-12-13-2G8',4,'broken_case',38.95]]);
+    expect(priced.map(l=>[l.itemId,l.qty,l.suggestion.reason,l.suggestion.price])).toEqual([['HCS-12-13-2G8',10,'last_paid',31.5],['HCS-12-13-2G8',4,'broken_case',34.05]]);
     expect(wasatch([])).toEqual([]);
   });
 
