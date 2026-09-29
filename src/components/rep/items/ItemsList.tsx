@@ -10,7 +10,7 @@ import {CategorySelect} from './CategorySelect';
 // loads ?category=. The catalog is the same for every customer, so the "Viewing" picker doesn't
 // narrow it; links keep it.
 
-export {CATEGORY_PARAM} from './CategorySelect';
+export {CATEGORY_PARAM} from './params';
 
 export function ItemsList({list,viewing}:{list:ItemList;viewing:Viewing}){
   const total=list.categories.reduce((sum,c)=>sum+c.count,0);

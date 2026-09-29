@@ -1,12 +1,12 @@
 'use client';
 import {useRouter} from 'next/navigation';
 import {hrefFor,referenceStyles as s,type Viewing} from '../reference/parts';
+import {CATEGORY_PARAM} from './params';
 
 // The Items page's only category filter: a dropdown, All by default. Choosing a category loads
 // /rep/items?category=<id> (keeping the "Viewing" customer), so the page stays server-rendered
 // and a filtered list can still be linked to.
 
-export const CATEGORY_PARAM='category';
 export const ALL_CATEGORIES='';
 
 /** The Items URL for one category, or every category. */

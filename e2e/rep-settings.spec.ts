@@ -302,8 +302,8 @@ test("pricing & delivery: the scarcity uplift is off by default and toggles; bro
   await screenshot(page, testInfo, "settings-delivery-edited");
   await page.reload();
   await expect(page.getByRole("region", { name: "Delivery rates" }).getByRole("spinbutton", { name: "Per road mile" })).toHaveValue("3");
-  const detail = await page.request.get(`/api/rep/quotes/${SAMPLE}`);
-  expect((await detail.json()).delivery_rates).toMatchObject({ per_mile: 3, road_factor: 1.25 });
+  const detail = await page.evaluate(async (path) => (await fetch(path)).json(), `/api/rep/quotes/${SAMPLE}`);
+  expect(detail.delivery_rates).toMatchObject({ per_mile: 3, road_factor: 1.25 });
   // An impossible rate says why and doesn't save; then put the seed rate back.
   await field("Delivery radius").fill("0");
   await expect(rates.getByRole("alert")).toHaveText("Delivery radius must be from 1 to 1,000.");
