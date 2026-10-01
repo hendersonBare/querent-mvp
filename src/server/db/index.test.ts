@@ -42,7 +42,7 @@ it('refuses a database that has tables but no schema version',()=>{
 
 it('reseeds in place, so a second connection to the same file sees the fresh seed',()=>{
   db().prepare("UPDATE quotes SET status='sent' WHERE id='q-24817'").run();
-  db().prepare("INSERT INTO conversations(id,customer_id,started_at) VALUES('conv-e2e','wasatch','2026-09-24T09:00:00.000Z')").run();
+  db().prepare("INSERT INTO conversations(id,customer_id,started_at) VALUES('conv-e2e','timpanogos','2026-09-24T09:00:00.000Z')").run();
   const other=new Database(process.env.DATABASE_PATH!);
   try{
     expect(other.prepare("SELECT status FROM quotes WHERE id='q-24817'").pluck().get()).toBe('sent');

@@ -25,5 +25,5 @@ export const reply=(r:Partial<ChatReply>&Pick<ChatReply,'content'>):ChatReply=>(
 /** "{lead}: phone or email." for the customer's assigned rep, with {rep} replaced by the rep's name. */
 export function repHelp(customerId:string,lead:string){
   const rep=assignedRep(customerId);
-  return rep?`${lead.replace('{rep}',rep.name)}: ${rep.phone} or ${rep.email}.`:'Herrick customer service can help.';
+  return rep?`${lead.replace('{rep}',rep.name)}: ${rep.phone} or ${rep.email}.`:'BOXT customer service can help.';
 }

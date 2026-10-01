@@ -15,7 +15,7 @@ import {differingKeys,parseItem,parseQuery,type ItemParts,type MatchableItem,typ
 // Then order history, among the contenders (the items within 0.15 of the best text score):
 //   - "the usual ..." blends in how often each contender was ordered, weight 0.3;
 //   - otherwise, when the contenders differ in one size only (length, width, diameter, thread, glove
-//     size), history fills it in with weight 0.2: Dana's "1/2 in grade 8 hex bolts" are the 2 in
+//     size, or a box's bundle/pallet tier), history fills it in with weight 0.2: Dana's "1/2 in grade 8 hex bolts" are the 2 in
 //     ones she always buys. A missing type, grade, grit, color or other spec is always asked.
 
 /** A line is confident when the top score is at least minScore and at least minLead ahead of the next. */
@@ -44,7 +44,7 @@ export interface ScoredItem<T> {item:T;score:number}
 export const hundredths=(n:number)=>Math.round(Number((n*100).toPrecision(12)));
 const round2=(n:number)=>hundredths(n)/100;
 const sameNumber=(a:number,b:number)=>Math.abs(a-b)<1e-9;
-const FILLABLE=(key:string)=>key==='thread'||key==='size'||key.includes('#');
+const FILLABLE=(key:string)=>key==='thread'||key==='size'||key==='tier'||key.includes('#');
 
 /** +1 when the item has the attribute, -1 when it has a different value for it, 0 when it has none. */
 function attrFit({key,value}:Attr,item:ItemParts){
@@ -52,18 +52,23 @@ function attrFit({key,value}:Attr,item:ItemParts){
   return have.some(a=>a.value===value)?1:have.length?-1:0;
 }
 
-/** The same for a measure. A number with no unit matches any unit. A thread's diameter matches but never contradicts. */
-function measureFit(m:Measure,item:ItemParts){
-  const comparable=item.measures.filter(x=>!m.unit||!x.unit||x.unit===m.unit);
-  if(comparable.some(x=>sameNumber(x.value,m.value)))return 1;
-  return comparable.some(x=>!x.implied&&(!m.unit||x.unit===m.unit))?-1:0;
+/**
+ * The same for a measure. A number with no unit matches any unit. A thread's diameter matches but never contradicts.
+ * Each of the item's measures matches once (`used`), so "12x9x9" is not a 12x9x6 box.
+ */
+function measureFit(m:Measure,item:ItemParts,used:Set<number>){
+  const comparable=item.measures.map((x,i)=>({x,i})).filter(({x})=>!m.unit||!x.unit||x.unit===m.unit);
+  const hit=comparable.find(({x,i})=>!used.has(i)&&sameNumber(x.value,m.value));
+  if(hit){used.add(hit.i);return 1;}
+  return comparable.some(({x})=>!x.implied&&(!m.unit||x.unit===m.unit))?-1:0;
 }
 
 function textScore(query:QueryParts,item:ItemParts,nouns:ReadonlySet<string>){
   let total=0,got=0;
   const add=(weight:number,fit:number)=>{total+=weight;got+=weight*fit;};
   for(const attr of query.attrs)add(WEIGHTS.attribute,attrFit(attr,item));
-  for(const measure of query.measures)add(WEIGHTS.attribute,measureFit(measure,item));
+  const used=new Set<number>();
+  for(const measure of query.measures)add(WEIGHTS.attribute,measureFit(measure,item,used));
   for(const word of query.words)add(WEIGHTS.word,item.words.has(word)?1:0);
   if(!total)return 0;
   const score=Math.max(0,got)/total;

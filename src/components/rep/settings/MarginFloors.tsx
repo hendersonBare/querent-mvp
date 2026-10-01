@@ -16,7 +16,7 @@ const firstName=(name:string)=>name.trim().split(/\s+/)[0]||name;
 
 export function MarginFloors({mine,others,onSaved}:{mine:RepFloorSet;others:RepFloorSet[];onSaved:(floors:RepFloorSet)=>void}){
   const me=firstName(mine.rep.name);
-  const example=mine.floors.find(f=>f.category_id==='safety')??mine.floors[0];
+  const example=mine.floors.find(f=>f.category_id==='labels')??mine.floors[0];
   return <>
     <section className={`${page.card} ${s.card}`} aria-labelledby="settings-my-floors">
       <div className={s.head}>

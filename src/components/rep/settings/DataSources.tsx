@@ -47,7 +47,7 @@ export function DataSources({initial}:{initial:Sources}){
         <h2>Demo database</h2>
         <span className={s.pill} data-tone="muted">Sample data</span>
       </div>
-      <p className={s.sourceText}>A local SQLite database stands in for Herrick’s ERP in this demo. Querent reads and writes every record here.</p>
+      <p className={s.sourceText}>A local SQLite database stands in for BOXT’s ERP in this demo. Querent reads and writes every record here.</p>
       <dl className={s.facts}>
         <div><dt>Seeded for</dt><dd>{day(database.seed_date)}</dd></div>
         <div><dt>Records</dt><dd>{records.customers} customers, {records.items} items, {records.orders} orders, {records.quotes} quotes</dd></div>
@@ -57,7 +57,7 @@ export function DataSources({initial}:{initial:Sources}){
     </div>
     <div className={s.source}>
       <div className={s.sourceHead}>
-        <h2>Herrick Industrial Supply ERP</h2>
+        <h2>BOXT Packaging ERP</h2>
         <Connection lastUpdated={erp.last_updated}/>
       </div>
       <p className={s.sourceText}>{last?<>Last sync: {last.message}, <Time iso={last.timestamp}/>.</>:'Waiting for the first sync.'}</p>

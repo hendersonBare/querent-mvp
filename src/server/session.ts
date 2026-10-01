@@ -2,10 +2,10 @@ import 'server-only';
 import type {NextRequest} from 'next/server';
 import type {Principal} from '@/lib/contracts';
 export const COOKIE='querent-persona';
-// Demo personas (spec §2): Brandi Gallegos, a Herrick rep, and Dana Ortiz, Purchasing at Wasatch.
+// Demo personas (spec §2): Landon Richards, a BOXT Packaging rep, and Megan Hale, Purchasing at Timpanogos Fulfillment.
 export const personas={
-  supplier:{user_id:'brandi',role:'supplier_admin',customer_id:null,name:'Herrick Industrial Supply',user_name:'Brandi Gallegos',rep_id:'brandi',contact_id:null},
-  customer:{user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'},
+  supplier:{user_id:'landon',role:'supplier_admin',customer_id:null,name:'BOXT Packaging',user_name:'Landon Richards',rep_id:'landon',contact_id:null},
+  customer:{user_id:'megan',role:'customer_user',customer_id:'timpanogos',name:'Timpanogos Fulfillment Co.',user_name:'Megan Hale',rep_id:null,contact_id:'megan'},
 } satisfies Record<string,Principal>;
 export type PersonaId=keyof typeof personas;
 export function principal(request:NextRequest):Principal|null{return principalFromCookie(request.cookies.get(COOKIE)?.value);}

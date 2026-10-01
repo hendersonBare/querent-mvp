@@ -99,7 +99,7 @@ function RecentOrders({view,viewing}:{view:CustomerView;viewing:Viewing}){
         <td><OrderStatusChip status={o.status}/></td>
         <td className={s.num}>{money(o.total)}</td>
       </tr>)}</tbody>
-    </table></div>:<Empty heading="No orders yet">Orders {account.name} places with Herrick show up here, read-only from the ERP.</Empty>}
+    </table></div>:<Empty heading="No orders yet">Orders {account.name} places with BOXT show up here, read-only from the ERP.</Empty>}
   </Panel>;
 }
 

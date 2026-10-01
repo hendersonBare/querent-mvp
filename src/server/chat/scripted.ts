@@ -9,19 +9,20 @@ import {getStockTool,searchItemsTool,toolDenied,type ItemStockAnswer,type ToolCo
 
 export {reply,type ChatReply} from './reply';
 
-// Scripted chat (spec §6.5): a deterministic Dana conversation that needs no API key. CI and every
+// Scripted chat (spec §6.5): a deterministic Megan conversation that needs no API key. CI and every
 // E2E run use it. The script knows a few phrasings; the data behind every answer comes from the
 // same chat tools live chat uses, so stock, SKUs and access toggles are real, and a quote request
-// runs through the same clarification loop (./clarify.ts): each line Dana names is matched by
+// runs through the same clarification loop (./clarify.ts): each line Megan names is matched by
 // search_items (the 1.4 matcher), never by a SKU the script picks.
 //
-//   Dana: Do you have 1/2 in grade 8 hex bolts in stock?        -> stock at every branch (get_stock)
-//   Dana: Please quote 10 boxes of the 1/2 in grade 8 hex bolts
-//         and 6 boxes of cut-off wheels. We'll pick up at SLC.  -> bolts matched; the wheels are vague:
-//                                                                  "Type 1 or Type 27 cut-off wheels?" (round 1)
-//   Dana: Not sure                                               -> round 2: the top 3 wheels as buttons,
-//                                                                  Brandi's contact, and Drop this line
-//   Dana: Type 1 (or presses a button)                           -> the item pop-up's cart (propose_cart)
+//   Megan: Do you have 2 in acrylic tape in stock?                -> stock at every branch (get_stock)
+//   Megan: Please quote 10 cases of the 2 in 1.8 mil acrylic tape
+//          and 6 cases of 18 in 80 gauge stretch wrap. We'll
+//          pick up at Spanish Fork.                               -> tape matched; the wrap is vague: "Cast
+//                                                                    stretch wrap, black blown ... or blown ...?" (round 1)
+//   Megan: Not sure                                               -> round 2: the top 3 wraps as buttons,
+//                                                                    Landon's contact, and Drop this line
+//   Megan: Cast (or presses a button)                             -> the item pop-up's cart (propose_cart)
 //
 // A stock question while a request is open gets its answer and the open question again.
 //
@@ -32,17 +33,17 @@ interface ScriptItem {
   /** Stock questions: the SKU a stock answer is about. */
   sku?:string;
   /**
-   * An item Dana names without saying which: the SKU a stock answer covers for each way she can
-   * narrow it (all of them when she doesn't), and the words a short answer ("27", "the 1s") stands for.
+   * An item Megan names without saying which: the SKU a stock answer covers for each way she can
+   * narrow it (all of them when she doesn't), and the words a short answer ("cast", "blown") stands for.
    */
   vague?:{choices:{sku:string;phrase:string;pattern:RegExp}[]};
 }
 
 const SCRIPT:ScriptItem[]=[
-  {mention:/\bhex\s+(?:bolts?|cap\s+screws?)\b|\bcap\s+screws?\b|\bbolts?\b/i,sku:'HCS-12-13-2G8'},
-  {mention:/\bcut[\s-]?off(?:\s+(?:wheels?|discs?))?\b/i,vague:{choices:[
-    {sku:'CW-45-045-T1',phrase:'Type 1',pattern:/\b(?:type|t)[\s-]*1(?![\d/.])|^\W*(?:the\s+)?1s?\W*$/i},
-    {sku:'CW-45-045-T27',phrase:'Type 27',pattern:/\b(?:type|t)[\s-]*27(?![\d/.])|^\W*(?:the\s+)?27s?\W*$/i},
+  {mention:/\b(?:acrylic|packing|clear|box|carton)\s+(?:sealing\s+)?tape\b|\btape\b/i,sku:'T902170'},
+  {mention:/\bstretch\s+(?:wrap|film)\b|\bpallet\s+wrap\b/i,vague:{choices:[
+    {sku:'SF188CAST',phrase:'clear cast',pattern:/\bcast\b/i},
+    {sku:'SF188',phrase:'clear blown',pattern:/(?<!\bblack\s+)\bblown\b/i},
   ]}},
 ];
 
@@ -82,7 +83,7 @@ function stockAnswer(ctx:ToolContext,skus:string[]):ChatReply{
 
 // ---- Quote request and the clarification loop (./clarify.ts) ----------------------------------
 
-/** Dana asks for goods: search_items matches every line she names; then the pop-up, or a question for each open line. */
+/** Megan asks for goods: search_items matches every line she names; then the pop-up, or a question for each open line. */
 function request(ctx:ToolContext,text:string):ChatReply{
   const said=clauses(text).filter(clause=>SCRIPT.some(item=>item.mention.test(clause)));
   const toolCalls=['search_items'];
@@ -92,14 +93,14 @@ function request(ctx:ToolContext,text:string):ChatReply{
   return requestReply(ctx,undefined,startRequest(found.data.lines,whereIn(text)),{toolCalls,rowCount:rowsOf(found.data.lines)});
 }
 
-/** The words an answer stands for: a short answer the script knows ("27" is "Type 27"), else the answer without its "8 boxes". */
+/** The words an answer stands for: a short answer the script knows ("cast" is clear cast wrap), else the answer without its "8 cases". */
 function phraseOf(text:string){
   const known=SCRIPT.flatMap(item=>item.vague?.choices.filter(c=>c.pattern.test(text))??[]);
   return known.length===1?known[0].phrase:text.replace(UNIT_QTY,' ').trim();
 }
 
 /**
- * Dana replies while lines are open. A button (a candidate's SKU, or Drop) settles its line
+ * Megan replies while lines are open. A button (a candidate's SKU, or Drop) settles its line
  * directly. Otherwise each open line is searched again with her answer added, as Claude searches
  * again in live chat: a confident match among the line's candidates settles it, and a new question
  * about fewer of them narrows it. No reply when the message answers no line.
@@ -163,6 +164,6 @@ export function scriptedReply(ctx:ToolContext,message:string,history:Pick<ChatMe
   if(pending)return requestReply(ctx,pending,advance(pending,[]),tried);
   return reply({
     outcome:'no_rows',
-    content:`I'm running as a scripted demo, so I can only follow the sample conversation: ask whether the 1/2 in grade 8 hex bolts are in stock, then ask for bolts and cut-off wheels to start a quote. ${repHelp(ctx,'For anything else, {rep} can help')}`,
+    content:`I'm running as a scripted demo, so I can only follow the sample conversation: ask whether the 2 in acrylic tape is in stock, then ask for tape and stretch wrap to start a quote. ${repHelp(ctx,'For anything else, {rep} can help')}`,
   });
 }

@@ -186,7 +186,7 @@ export function CustomerChat({
             {turns.length === 0 && (
               <div className="chat-welcome">
                 <img src="/querent-logo.png" alt="" width="55" height="55" />
-                <p className="eyebrow">HERRICK INDUSTRIAL SUPPLY</p>
+                <p className="eyebrow">BOXT PACKAGING</p>
                 <h1>
                   Your business.
                   <br />
@@ -195,8 +195,8 @@ export function CustomerChat({
                 <p>Ask about stock, pricing, orders and quotes.</p>
                 <div className="suggestions">
                   {[
-                    "Do you have 1/2 in grade 8 hex bolts in stock?",
-                    "What did we pay for nitrile gloves last time?",
+                    "Do you have 2 in clear acrylic tape in stock?",
+                    "What did we pay for stretch wrap last time?",
                     "Has our last order shipped?",
                     "What's our open balance?",
                   ].map((q) => (

@@ -42,7 +42,7 @@ export function OrdersList({rows,viewing}:{rows:OrderListRow[];viewing:Viewing})
           </tr>)}</tbody>
         </table>
       </div>:<Empty heading={allCustomers?'No orders yet':`No orders for ${viewing.label} yet`}>
-        Orders placed with Herrick show up here, read-only from the ERP.
+        Orders placed with BOXT show up here, read-only from the ERP.
       </Empty>}
     </section>
   </>;

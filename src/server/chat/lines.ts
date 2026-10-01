@@ -17,13 +17,13 @@ export interface RequestLine {said:string;text:string;qty:number|null}
 
 const UNITS='boxes|box|bx|cases?|cs|packs?|pks?|pkgs?|packages?|each|ea|pcs|pieces?|rolls?|pairs?|prs?|units?|bags?|cartons?|ctns?|bundles?|dozen|doz';
 /** "10 boxes", "6 bx", "12 each": a count with a selling unit. "1/2 in" and "4.5" are sizes, never a count. */
-export const UNIT_QTY=new RegExp(String.raw`(?<![\d/.\-#])(\d{1,4})\s*(?:${UNITS})\b(?:\s+of\b)?`,'i');
+export const UNIT_QTY=new RegExp(String.raw`(?<![\d/.\-#])(?<![x×]\s?)(\d{1,4})\s*(?:${UNITS})\b(?:\s+of\b)?`,'i');
 /** Units of measure: a number before one of these is a size ("2 in", "30 ft"), not a count. */
 const MEASURE_UNITS=String.raw`x|by|in|inch|inches|ft|feet|foot|mm|cm|m|yd|yds|yards?|gal|gallons?|lbs?|pounds?|oz|mil|grit|ga|gauge|ply|psi|v|volts?|amps?|w|"|'`;
 /** Request words that can come before a count: "please quote 10 ...", "can you send 12 of ...". */
 const LEAD_IN=String.raw`(?:(?:please|pls|can\s+you|could\s+you|would\s+you|i'd|we'd|i'll|we'll|i|we|like|would|will|need|want|order|quote|send|get|me|us|also|and|plus|then|add|take|another|more)\s+)*`;
-/** A leading count: "6 cut-off wheels", "12 of the straps". Not "2 in hex bolts" or "30 ft straps". */
-const LEADING_QTY=new RegExp(String.raw`^${LEAD_IN}(\d{1,4})(?![\d/.\-])\s*(?:of\b\s*)?(?!(?:${MEASURE_UNITS})(?![a-z]))(?=[a-z(])`,'i');
+/** A leading count: "6 cut-off wheels", "12 of the straps", "500 12x9x6 boxes". Not "2 in hex bolts", "30 ft straps" or "4x6 labels". */
+const LEADING_QTY=new RegExp(String.raw`^${LEAD_IN}(\d{1,4})(?![\d/.\-])\s*(?:of\b\s*)?(?!(?:${MEASURE_UNITS})(?![a-z]))(?=[a-z(]|\d[\d.]*\s*[x×]\s*\d)`,'i');
 const LEADING_UNIT_QTY=new RegExp(String.raw`^${LEAD_IN}${UNIT_QTY.source}`,'i');
 const ONLY_LEAD_IN=new RegExp(String.raw`^\s*${LEAD_IN}$`,'i');
 /** "qty 6", "quantity: 6". */

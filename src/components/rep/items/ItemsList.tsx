@@ -17,7 +17,7 @@ export function ItemsList({list,viewing}:{list:ItemList;viewing:Viewing}){
   const shown=list.category?.name??'All categories';
   const branchNames=list.branches.map(b=>b.code);
   return <>
-    <RepPageHeader title="Items" description={<>Herrick’s catalog · {count(total,'item')} · stock at {branchNames.slice(0,-1).join(', ')} and {branchNames.at(-1)}
+    <RepPageHeader title="Items" description={<>BOXT’s catalog · {count(total,'item')} · stock at {branchNames.length>1?`${branchNames.slice(0,-1).join(', ')} and ${branchNames.at(-1)}`:branchNames[0]}
       {viewing.customerId&&<> · the same for every customer</>}</>}/>
     <CategorySelect categories={list.categories} value={list.category?.id??null} total={total} viewing={viewing}/>
     <section className={page.card} aria-label={`Items: ${shown}`}>

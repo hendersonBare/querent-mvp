@@ -43,7 +43,7 @@ export function SettingsSection({initial}:{initial:RepSettings}){
     if(left<strip.scrollLeft||left+link.offsetWidth>strip.scrollLeft+strip.clientWidth)strip.scrollLeft=Math.max(0,left-12);
   },[tab]);
   return <>
-    <RepPageHeader title="Settings" description={tab==='access'?`Viewing ${scope.label}`:'Herrick Industrial Supply'}/>
+    <RepPageHeader title="Settings" description={tab==='access'?`Viewing ${scope.label}`:'BOXT Packaging'}/>
     <nav ref={tabsRef} className={s.tabs} aria-label="Settings sections">
       {SETTINGS_TABS.map(t=><Link key={t.id} href={scope.href(`/rep/settings?tab=${t.id}`)} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
     </nav>

@@ -10,7 +10,7 @@ export const NO_MATCH_QUESTION="I couldn't find that item. Can you describe it a
 const MAX_CONTENDERS=6;
 /** The order attributes are asked about. Sizes (the slots, in description order) come after class. */
 const FIRST=['name','type','grade','thread','class'];
-const LATER=['gauge','grit','mil','size','color','finish','hook','tpi'];
+const LATER=['film','tier','gauge','grit','mil','size','color','finish','hook','tpi'];
 const SIZE_ORDER=['XS','S','M','L','XL','XXL'];
 
 const joinOr=(parts:string[])=>parts.length<2?parts.join(''):`${parts.slice(0,-1).join(', ')} or ${parts.at(-1)}`;

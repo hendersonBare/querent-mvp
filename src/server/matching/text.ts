@@ -116,6 +116,9 @@ const RULES:Rule[]=[
     const value=m[0].startsWith('yellow')?'yellow zinc':m[0].startsWith('zinc')?'zinc':m[0].replace(/[\s-]+/,' ');
     return {value,label:value==='zinc'?'zinc plated':value};
   }},
+  {key:'film',re:/\b(cast|blown)\b/g,read:m=>same(v=>v)(m[1])},
+  // Price tier of a box sold by the bundle or by the pallet; not "pallet wrap", "pallet covers" or "pallets".
+  {key:'tier',re:/\b(bundle|pallet)(?![\s-]*(?:wrap|film|covers?|top|sheet|sheeting|rack|racking|s\b|ized\b))\b/g,read:m=>same(v=>v)(m[1])},
   {key:'color',re:/\b(black|blue|silver|white|clear|smoke|lime|yellow|red|orange|green|gr[ae]y)\b/g,read:m=>same(v=>v)(m[1]==='grey'?'gray':m[1])},
 ];
 
@@ -145,8 +148,8 @@ const MEASURE=new RegExp(String.raw`(?<![\w.\/#,])${NUMBER}(?![\d\/])${UNIT}`,'g
 const unitWord=Object.keys(UNIT_OF).filter(u=>/^\w+$/.test(u)).join('|');
 /** A bare count at the start of a line ("6 cut-off wheels"), unless a unit follows ("25 ft tape measure"). */
 const LEADING_COUNT=new RegExp(String.raw`^\s*\d+\s+(?!(?:x|by|${unitWord})\b)(?=[a-z])`);
-/** Quantities, which are never sizes: "10 boxes", "maybe 12", "qty 4". */
-const QUANTITY=/\b\d+\s*(?:boxes|box|bx|cases?|cs|packs?|pks?|pkgs?|packages?|each|ea|rolls?|pairs?|prs?|units?|bags?|cartons?|ctns?|bundles?|dozen|doz)\b|\b(?:maybe|about|around|approx(?:imately)?|roughly|qty|quantity)\s*:?\s*\d+\b/g;
+/** Quantities, which are never sizes: "10 boxes", "maybe 12", "qty 4". Not the last dimension of "12 x 9 x 6 boxes". */
+const QUANTITY=/(?<!\bx\s*)\b\d+\s*(?:boxes|box|bx|cases?|cs|packs?|pks?|pkgs?|packages?|each|ea|rolls?|pairs?|prs?|units?|bags?|cartons?|ctns?|bundles?|dozen|doz)\b|\b(?:maybe|about|around|approx(?:imately)?|roughly|qty|quantity)\s*:?\s*\d+\b/g;
 
 function toNumber(raw:string){
   const mixed=/^(\d+)[\s-](\d+)\/(\d+)$/.exec(raw);

@@ -30,7 +30,7 @@ export function CustomersList({rows,viewing,repId}:{rows:CustomerDirectoryRow[];
           </thead>
           <tbody>{rows.map(row=><CustomerRow key={row.id} row={row} viewing={viewing} mine={row.rep_id===repId}/>)}</tbody>
         </table>
-      </div>:<Empty heading="No customers">Customers come from Herrick’s ERP data.</Empty>}
+      </div>:<Empty heading="No customers">Customers come from BOXT’s ERP data.</Empty>}
     </section>
     {viewing.customerId&&<p className={s.note}>Showing {viewing.label} only. Choose All customers under Viewing to see every account.</p>}
   </>;
