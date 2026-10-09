@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Querent Integration Review</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#ffffff; --panel2:#f0f0ec; --ink:#1d1d1b; --muted:#5e5e58; --line:#d9d9d2;
+  --accent:#2f5bd3; --code:#f3f3ef; --codeink:#2a2a26;
+  --v:#1f7a4d; --vbg:#e3f3ea; --i:#2f5bd3; --ibg:#e4ebfb; --u:#8a3b8f; --ubg:#f4e4f5;
+  --hi:#a3261f; --hibg:#fbe5e3; --me:#9a5b00; --mebg:#fbeed6; --lo:#4f5d6b; --lobg:#e8ecf0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151514; --panel:#1d1d1b; --panel2:#262624; --ink:#ececE6; --muted:#a3a39b; --line:#3a3a36;
+    --accent:#86a5ff; --code:#232321; --codeink:#e6e6de;
+    --v:#6fd3a0; --vbg:#183326; --i:#86a5ff; --ibg:#1c2540; --u:#e09be4; --ubg:#35203a;
+    --hi:#ff8f86; --hibg:#3d1d1a; --me:#f2b266; --mebg:#3a2a14; --lo:#b6c2cf; --lobg:#262c33;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151514; --panel:#1d1d1b; --panel2:#262624; --ink:#ececE6; --muted:#a3a39b; --line:#3a3a36;
+  --accent:#86a5ff; --code:#232321; --codeink:#e6e6de;
+  --v:#6fd3a0; --vbg:#183326; --i:#86a5ff; --ibg:#1c2540; --u:#e09be4; --ubg:#35203a;
+  --hi:#ff8f86; --hibg:#3d1d1a; --me:#f2b266; --mebg:#3a2a14; --lo:#b6c2cf; --lobg:#262c33;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+code{background:var(--code);color:var(--codeink);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
+pre{background:var(--code);color:var(--codeink);padding:10px 12px;border-radius:6px;overflow:auto;margin:6px 0;line-height:1.45;white-space:pre}
+pre code{background:none;padding:0}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+header h1{font-size:17px;margin:0;font-weight:650}
+header .sub{color:var(--muted);font-size:13px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.filters label{display:inline-flex;gap:5px;align-items:center;font-size:12.5px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;cursor:pointer;user-select:none}
+.filters input{margin:0}
+.btn{font:inherit;font-size:12.5px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:calc(100vh - 56px)}
+.layout>*{min-width:0}
+nav{border-right:1px solid var(--line);background:var(--panel);padding:12px 8px;position:sticky;top:56px;align-self:start;height:calc(100vh - 56px);overflow:auto}
+nav button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;background:none;color:var(--ink);border:0;border-radius:6px;padding:7px 10px;cursor:pointer;margin-bottom:2px}
+nav button[aria-selected="true"]{background:var(--panel2);font-weight:600;color:var(--accent)}
+main{padding:20px 24px 80px;max-width:1280px;min-width:0}
+section.tab{display:none}
+section.tab.on{display:block}
+h2{font-size:22px;margin:4px 0 12px}
+h3{font-size:17px;margin:22px 0 8px}
+p{margin:6px 0 10px}
+.lede{font-size:15.5px;color:var(--muted);max-width:900px}
+.note{font-size:13px;color:var(--muted)}
+.claim{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:8px 12px;margin:8px 0;overflow-wrap:anywhere}
+.claim[data-l="V"]{border-left-color:var(--v)}
+.claim[data-l="I"]{border-left-color:var(--i)}
+.claim[data-l="U"]{border-left-color:var(--u)}
+.hide{display:none!important}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.V{color:var(--v);background:var(--vbg)} .tag.I{color:var(--i);background:var(--ibg)} .tag.U{color:var(--u);background:var(--ubg)}
+.tag.HIGH{color:var(--hi);background:var(--hibg)} .tag.MEDIUM{color:var(--me);background:var(--mebg)} .tag.LOW{color:var(--lo);background:var(--lobg)}
+.tag.k{color:var(--muted);background:var(--panel2);font-weight:600}
+details.cite{margin:4px 0}
+details.cite>summary{cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--accent);overflow-wrap:anywhere}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+td{overflow-wrap:anywhere}
+th{background:var(--panel2);font-weight:600;position:sticky;top:0;white-space:nowrap}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable::after{content:" ↕";color:var(--muted);font-weight:400}
+th[aria-sort="ascending"]::after{content:" ↑";color:var(--accent)}
+th[aria-sort="descending"]::after{content:" ↓";color:var(--accent)}
+th button{all:unset;cursor:pointer}
+th button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tbltools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.tbltools input,.tbltools select{font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin:10px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-size:22px}
+.stat span{font-size:12.5px;color:var(--muted)}
+.check{display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0}
+.check.done{opacity:.6}
+.check input{width:18px;height:18px;margin-top:3px}
+.check .n{font-weight:700;color:var(--accent);margin-right:6px}
+.check .kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:3px 10px;font-size:13.5px;margin-top:6px}
+.check .kv>div:nth-child(odd){color:var(--muted);font-weight:600;font-size:12.5px}
+.progress{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:6px 0 2px}
+.progress i{display:block;height:100%;background:var(--v);width:0}
+ol.flat,ul.flat{padding-left:20px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  nav{position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px;border-right:0;border-bottom:1px solid var(--line)}
+  nav button{width:auto;margin:0}
+  main{padding:16px}
+  header{position:static}
+  .check .kv{grid-template-columns:1fr}
+  th{position:static}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Querent v2: integration review</h1>
+    <div class="sub">Where an external system can connect, what could break, and what to test. Evidence from the code at commit 5a60741 (main).</div>
+  </div>
+  <div class="filters" role="group" aria-label="Filter by evidence label">
+    <label><input type="checkbox" data-f="V" checked><span class="tag V">VERIFIED</span></label>
+    <label><input type="checkbox" data-f="I" checked><span class="tag I">INFERRED</span></label>
+    <label><input type="checkbox" data-f="U" checked><span class="tag U">UNKNOWN</span></label>
+    <button class="btn" id="themeBtn" type="button">Theme: auto</button>
+  </div>
+</header>
+<div class="layout">
+<nav role="tablist" aria-label="Sections">
+  <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+  <button role="tab" data-tab="points">Integration Points</button>
+  <button role="tab" data-tab="assume">Breakable Assumptions</button>
+  <button role="tab" data-tab="fail">Failure and Security</button>
+  <button role="tab" data-tab="plan">Verification Plan</button>
+  <button role="tab" data-tab="questions">Open Questions</button>
+</nav>
+<main>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section class="tab on" id="overview">
+<h2>Overview</h2>
+<p class="lede">Querent is one Next.js process with one SQLite file. External systems can reach it today only through its HTTP API (cookie session), by writing the SQLite file directly, or by running code inside the same process. It calls exactly one external service at runtime: the Anthropic API. It has no webhooks, message queues, file imports, outbound events, or order write-back.</p>
+<div class="cards" id="stats"></div>
+
+<h3>Bottom line for an integration</h3>
+<div class="claim" data-l="V"><p><b>No ready-made inbound data path exists.</b> The ERP-sourced tables carry <code>source</code>, <code>external_id</code> and <code>synced_at</code> with a unique index, but no code reads or writes rows by <code>(source, external_id)</code>. Every row today has <code>source='seed'</code>. A sync must be written from scratch.</p>
+<details class="cite"><summary>src/server/db/schema.ts:12, 17, 91</summary><pre><code>export const ERP_SOURCED_TABLES=['branches','product_categories','items','branch_stock','price_levels','customer_prices','contracts','contract_lines','customers','contacts','reps','orders','order_lines'] as const;
+const SYNC="source TEXT NOT NULL DEFAULT 'seed',external_id TEXT,synced_at TEXT";
+${ERP_SOURCED_TABLES.map(t=>`CREATE UNIQUE INDEX IF NOT EXISTS ${t}_external ON ${t}(source,external_id);`).join('\n')}</code></pre></details>
+<details class="cite"><summary>grep external_id|source in src/server/repository (non-test)</summary><pre><code>src/server/repository/erp.ts:8-14   (comments only; demoDatabase() reads max(synced_at))
+No repository function filters or upserts by (source, external_id).</code></pre></details>
+<details class="cite"><summary>src/server/db/seed/insert.ts:18</summary><pre><code>export function erp(externalId:string,syncedAt:string):Row{return {source:'seed',external_id:externalId,synced_at:syncedAt};}</code></pre></details></div>
+<div class="claim" data-l="V"><p><b>No outbound data path exists.</b> Accepting a quote changes its status and writes Activity. It creates no order and sends no event. Orders are inserted only by the seed. The rep menu's "Open customer in ERP" item is disabled.</p>
+<details class="cite"><summary>src/server/quotes/service.ts:243-256</summary><pre><code>export function acceptQuote(customerId:string,quoteIdOrNumber:string,{revision,fulfillmentTime,customerPo,now=clock()}:AcceptInput):Quote{
+  ...
+  return inTransaction(()=>{
+    persist(q,{to:'accepted',at:now,respondedAt:now,fulfillmentTime:time,customerPo:po,unreadForRep:true,unreadForCustomer:false});
+    ...
+    addQuoteActivity(q.id,{actor:'customer',actorId:q.contact_id,kind:'accepted',at:now, message:...});
+    return load(q.id);
+  });
+}</code></pre></details>
+<details class="cite"><summary>grep "insert('orders'" / "INSERT INTO orders" (non-test)</summary><pre><code>src/server/db/seed/history.ts:119   (the only writer of orders)</code></pre></details>
+<details class="cite"><summary>src/components/rep/quote-detail/more-menu/MoreMenu.tsx:95</summary><pre><code>    {label:'Open customer in ERP',disabled:true,tooltip:ERP_TOOLTIP,onSelect:()=>{}},</code></pre></details></div>
+<div class="claim" data-l="V"><p><b>The core is synchronous.</b> Repository functions, the pricing service, the quote intake and every chat tool return plain values, not Promises. A live call to an ERP cannot be placed inside them without refactoring them to be async, or fetching data before the call.</p>
+<details class="cite"><summary>src/server/chat/tools.ts:42-45, src/server/pricing/service.ts:24, src/server/intake/quote-request.ts:106, src/server/repository/sql.ts:20-30</summary><pre><code>export type ToolResult<T>= |{ok:true;data:T} |{ok:false;reason:'restricted';category:Category} |{ok:false;reason:'invalid';message:string};
+export function priceLines({...}:PriceLinesRequest):PricedItemLine[]{
+export function requestQuote(who:QuoteRequester,body:unknown,{...}:QuoteRequestOptions={}):QuoteRequestResult{
+export const one=<T>(text:string,...params:unknown[])=>statement(text).get(...params) as T|undefined;
+export function inTransaction<T>(fn:()=>T):T{return db().transaction(fn)();}</code></pre></details></div>
+<div class="claim" data-l="V"><p><b>Authentication is a demo.</b> An unsigned cookie names one of two hard-coded personas. Anyone who sets <code>querent-persona=supplier</code> becomes the rep and can read cost and margin.</p>
+<details class="cite"><summary>src/server/session.ts:4-13</summary><pre><code>export const COOKIE='querent-persona';
+export const personas={
+  supplier:{user_id:'brandi',role:'supplier_admin',customer_id:null,name:'Herrick Industrial Supply',user_name:'Brandi Gallegos',rep_id:'brandi',contact_id:null},
+  customer:{user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'},
+} satisfies Record<string,Principal>;
+...
+export function principalFromCookie(value:string|undefined):Principal|null{return value&&Object.hasOwn(personas,value)?personas[value as PersonaId]:null;}</code></pre></details></div>
+
+<h3>Inputs used</h3>
+<div class="claim" data-l="V"><p>Leads came from my two earlier pages (<code>docs/architecture-explainer.html</code>, <code>docs/codebase-structure.html</code>) and from <code>docs/erp-integration-readiness.md</code>. I re-checked every claim I reuse against the code. The commit and all source files are unchanged since those pages were written (<code>git status</code> shows only the docs). Facts taken only from the readiness document are not used as evidence.</p></div>
+
+<h3>Terms used on this page</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>Integration point</td><td>A place where an external system could send data into Querent, read data out, or replace a component.</td></tr>
+<tr><td>Persona cookie</td><td>The <code>querent-persona</code> cookie. Its value (<code>customer</code> or <code>supplier</code>) is the whole identity.</td></tr>
+<tr><td>Rep route / customer route</td><td>An endpoint that requires the supplier persona / the customer persona. The customer's id always comes from the persona, never from the request.</td></tr>
+<tr><td>ERP-sourced table</td><td>One of 13 tables listed in <code>ERP_SOURCED_TABLES</code>, meant to be filled by a future sync.</td></tr>
+<tr><td>Idempotency key</td><td>An <code>Idempotency-Key</code> request header. A repeated key returns the first result instead of doing the work again.</td></tr>
+<tr><td>Live mode / scripted mode</td><td>Live: Claude answers chat with tools. Scripted: fixed rules, no model. Chosen from environment variables on each request.</td></tr>
+<tr><td>Effort</td><td>Work to extend a point for an integration. LOW: configuration or one small module. MEDIUM: changes in several modules. HIGH: new subsystem or redesign.</td></tr>
+<tr><td>Severity</td><td>How badly an integration fails if the assumption is broken. HIGH: wrong data, data loss, or security exposure. MEDIUM: visible errors or wrong behavior in some cases. LOW: cosmetic or easy to work around.</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- ===================== INTEGRATION POINTS ===================== -->
+<section class="tab" id="points">
+<h2>Integration points</h2>
+<p class="lede">Every place an external system could connect. Click a column header to sort. Click a citation to see the code.</p>
+<div class="tbltools"><input type="search" id="pointsSearch" placeholder="Filter rows…" aria-label="Filter integration points"><select id="pointsKind" aria-label="Filter by kind"><option value="">All kinds</option></select></div>
+<div class="tablewrap"><table id="pointsTable"></table></div>
+<h3>Absent integration mechanisms</h3>
+<div class="claim" data-l="V"><p>There is no webhook sender or receiver, no message queue, no outbox, no file upload or import endpoint, no Next.js middleware, and no outbound HTTP call from server code except through the Anthropic SDK. A search for <code>webhook</code>, <code>queue</code> and <code>fetch(</code> in <code>src/server</code> finds none; the only API route files are the 36 listed above; no <code>middleware.ts</code> or <code>proxy.ts</code> exists.</p></div>
+</section>
+
+<!-- ===================== ASSUMPTIONS ===================== -->
+<section class="tab" id="assume">
+<h2>Breakable assumptions</h2>
+<p class="lede">Assumptions built into the code that an external system could violate. Sort by severity, area, or label.</p>
+<div class="tbltools"><input type="search" id="assumeSearch" placeholder="Filter rows…" aria-label="Filter assumptions"><select id="assumeSev" aria-label="Filter by severity"><option value="">All severities</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select></div>
+<div class="tablewrap"><table id="assumeTable"></table></div>
+</section>
+
+<!-- ===================== FAILURE AND SECURITY ===================== -->
+<section class="tab" id="fail">
+<h2>Failure and security surface</h2>
+<h3>External dependencies and how failure is handled</h3>
+<div class="tablewrap"><table id="depsTable"></table></div>
+
+<h3>What happens when the model returns invalid, partial, or unexpected output</h3>
+<div class="tablewrap"><table id="modelTable"></table></div>
+
+<h3>Missing or partial controls</h3>
+<div class="tbltools"><select id="ctrlKind" aria-label="Filter by control"><option value="">All controls</option></select></div>
+<div class="tablewrap"><table id="ctrlTable"></table></div>
+</section>
+
+<!-- ===================== PLAN ===================== -->
+<section class="tab" id="plan">
+<h2>Verification plan</h2>
+<p class="lede">Things code reading cannot prove. Ordered by integration risk, highest first. Each test gives the input and the result the code predicts. Tick items as you run them; ticks are saved in this browser only.</p>
+<div class="tbltools">
+  <span id="planCount" class="note"></span>
+  <button class="btn" id="planReset" type="button">Clear ticks</button>
+  <button class="btn" id="planCopy" type="button">Copy results as text</button>
+</div>
+<div class="progress" aria-hidden="true"><i id="planBar"></i></div>
+<div id="planList"></div>
+</section>
+
+<!-- ===================== QUESTIONS ===================== -->
+<section class="tab" id="questions">
+<h2>Open questions</h2>
+<h3>Could not verify from the code</h3>
+<div class="claim" data-l="U"><p>Whether <code>claude-sonnet-5</code> (the default model ID) is accepted by the Anthropic API, and whether the SDK retries on the errors you expect. <span class="note">src/server/chat/mode.ts:8, src/server/chat/live.ts:46</span></p></div>
+<div class="claim" data-l="U"><p>How SQLite behaves under concurrent writers from more than one process. No <code>busy_timeout</code> is set in <code>db()</code>; the library default applies. <span class="note">src/server/db/index.ts:11-23</span></p></div>
+<div class="claim" data-l="U"><p>Request body size limits and timeouts for route handlers. They are framework defaults; no code sets them.</p></div>
+<div class="claim" data-l="U"><p>Whether <code>next build</code> needs network access for <code>next/font/google</code> in your build environment. <span class="note">src/app/rep/layout.tsx:5, 15-17</span></p></div>
+<div class="claim" data-l="U"><p>The ERP's ID formats, currencies, tax rules, units of measure, number of ship-tos, and time zone. The code fixes all of these; whether they match is outside the code.</p></div>
+
+<h3>Questions for you</h3>
+<ol class="flat">
+<li>Which external system, and which direction: an ERP pushing master data in, Querent pushing accepted quotes out, or both?</li>
+<li>Will the integration run in the Next.js process, as a separate worker sharing the SQLite file, or only over HTTP?</li>
+<li>Do ERP item ids equal SKUs? Querent looks items up by "id or SKU", and the seed sets them equal.</li>
+<li>Does the ERP use one currency (USD), quote totals before tax, and integer pack quantities?</li>
+<li>Which time zone defines "valid until"? Today expiry uses UTC days but pickup slots use Mountain time.</li>
+<li>What replaces the persona cookie, and how do your users map to <code>customer_id</code>, <code>contact_id</code> and <code>rep_id</code>?</li>
+<li>Should settings changes (customer access, rep assignment, delivery rates) be restricted per rep and audited?</li>
+<li>Will more than one instance of the app run? If yes, idempotency and caches must move out of process memory.</li>
+<li>Must accepted quotes become ERP orders, and should <code>quotes</code> store the ERP order or quote number?</li>
+</ol>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  var NAMES={V:'VERIFIED',I:'INFERRED',U:'UNKNOWN'};
+  var RANK={HIGH:3,MEDIUM:2,LOW:1};
+  function cite(c){ // c: [summary, code]
+    if(!c)return '';
+    return c.map(function(x){return '<details class="cite"><summary>'+esc(x[0])+'</summary>'+(x[1]?'<pre><code>'+esc(x[1])+'</code></pre>':'')+'</details>';}).join('');
+  }
+  function lbl(l){return '<span class="tag '+l+'">'+NAMES[l]+'</span>';}
+  function lvl(v){return v?'<span class="tag '+v+'">'+v+'</span>':'';}
+
+  // =============== DATA: integration points ===============
+  var POINTS=[
+    {kind:'HTTP API',name:'Customer chat',loc:'POST /api/query/customer/chat',
+      io:'In: {"question": string ≤4000, "conversation_id": string ≤100}. Out: {answer, categories, outcome, row_count, kind, payload}.',
+      auth:'Persona cookie, customer role. Customer id from session.',eff:'MEDIUM',l:'V',
+      why:'Works as a chat API for another front end. Validation is hand-written; the conversation id is chosen by the caller; there is no idempotency, so a retry stores the question twice.',
+      c:[['src/app/api/query/[...path]/customer.ts:21-26',"  if(request.method==='POST'&&name==='chat'&&segments.length===2){\n    const body=await request.json().catch(()=>({}));\n    if(typeof body.question!=='string'||!body.question.trim()||body.question.length>4000||typeof body.conversation_id!=='string'||!body.conversation_id.trim()||body.conversation_id.length>100)return fail('Enter a valid question.',422);\n    try{return NextResponse.json(await ask(user.customer_id,body.conversation_id,body.question.trim(),{contactId:user.contact_id}));}\n    catch(error){if(error instanceof ConversationNotFoundError)return fail('Conversation not found.',404);throw error;}\n  }"]]},
+    {kind:'HTTP API',name:'Chat history and notices',loc:'GET /api/query/customer/history/<conversation>, GET /api/query/customer/notices/<conversation>',
+      io:'Out: ChatTurn[] (history), QuoteNotice[] (quote-ready messages).',auth:'Persona cookie, customer role.',eff:'LOW',l:'V',
+      why:'Read-only. History pairs log rows with messages by answer text.',
+      c:[['src/app/api/query/[...path]/customer.ts:18-20',"  if(request.method==='GET'&&name==='history'&&id)return NextResponse.json(history(user.customer_id,id));\n  if(request.method==='GET'&&name==='notices'&&id&&segments.length===3)return NextResponse.json(chatNotices(user.customer_id,id));"]]},
+    {kind:'HTTP API',name:'Request quote',loc:'POST /api/query/customer/quote-requests',
+      io:'In: {conversation_id, fulfillment: "will_call"|"delivery", branch_id, lines:[{sku, qty 1..9999}] ≤50}, strict (unknown keys → 422). Out: 201/200 {quote:{id, quote_number, status}, turn, replayed}.',
+      auth:'Persona cookie, customer role.',eff:'HIGH',l:'V',
+      why:'Requires an item_popup message in the same conversation (409 otherwise), so an external system cannot create a quote without first going through chat. Creating quotes from outside needs a new endpoint.',
+      c:[['src/server/intake/quote-request.ts:41-47',"const Line=z.strictObject({sku:z.string().trim().min(1).max(64),qty:z.number().int().min(1).max(MAX_QTY)});\nconst Body=z.strictObject({\n  conversation_id:z.string().trim().min(1).max(100),\n  fulfillment:z.enum(FULFILLMENTS),\n  branch_id:z.string().trim().min(1).max(64),\n  lines:z.array(Line).min(1).max(MAX_LINES),\n});"],['src/server/intake/quote-request.ts:112-114',"    const popupIndex=messages.findLastIndex(m=>m.role==='assistant'&&m.kind==='item_popup');\n    const popup=messages[popupIndex];\n    if(!popup||!isPopup(popup.payload))throw new QuoteRequestError(409,'There is no item list to quote in this chat. Ask for the items first.');"]]},
+    {kind:'HTTP API',name:'Customer quotes and preview',loc:'GET /api/query/customer/quotes, GET /api/query/customer/quotes/<id>?rev=n',
+      io:'Out: customer quote list; preview of a sent revision (no cost). rev must match /^[1-9]\\d{0,5}$/.',auth:'Persona cookie, customer role.',eff:'LOW',l:'V',
+      why:'Read-only and customer-safe. Drafts are 404.',
+      c:[['src/app/api/query/customer/quotes/[id]/route.ts:14-21',"export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){\n  const {session,refusal}=customerSession(request);\n  if(refusal)return refusal;\n  const rev=request.nextUrl.searchParams.get('rev');\n  if(rev!==null&&!/^[1-9]\\d{0,5}$/.test(rev))return fail('rev must be a revision number.',400);\n  const preview=customerQuotePreview(session.customerId,(await params).id,rev===null?undefined:Number(rev));\n  return preview?NextResponse.json(preview,{headers:noStore}):fail('Quote not found.',404);\n}"]]},
+    {kind:'HTTP API',name:'Accept / Request changes',loc:'POST /api/query/customer/quotes/<id>/accept, …/request-changes',
+      io:'In: accept {revision, day "YYYY-MM-DD", time "HH:MM" Mountain, po}; changes {revision, note}. Strict. Header Idempotency-Key optional. Out: {quote, replayed}.',
+      auth:'Persona cookie, customer role.',eff:'MEDIUM',l:'V',
+      why:'The natural trigger for an order write-back, but nothing fires on success.',
+      c:[['src/app/api/query/customer/quotes/[id]/accept/route.ts:17-29',"export async function POST(request:NextRequest,{params}:{params:Promise<{id:string}>}){\n  const {session,refusal}=customerSession(request);\n  if(refusal)return refusal;\n  const idempotencyKey=parseIdempotencyKey(request.headers.get('idempotency-key'));\n  ...\n    return NextResponse.json(acceptCustomerQuote(session,(await params).id,body,{idempotencyKey}),{headers:noStore});"],['src/server/customer-response/service.ts:55-56',"const AcceptBody=z.strictObject({revision:Revision,day:z.string().max(40),time:z.string().max(40),po:z.string().max(PO_MAX*10)});\nconst ChangesBody=z.strictObject({revision:Revision,note:z.string().max(NOTE_MAX*10)});"]]},
+    {kind:'HTTP API',name:'Customer sidebars and item pop-up facts',loc:'GET /api/query/customer/contacts, GET /api/query/customer/item-popup?skus=A,B',
+      io:'Out: rep, departments, will-call contacts; items with stock per branch (≤50 SKUs).',auth:'Persona cookie, customer role.',eff:'LOW',l:'V',
+      why:'Read-only.',
+      c:[['src/app/api/query/customer/item-popup/route.ts:10',"export const GET=customerGet((customerId,request)=>itemPopupContext(customerId,(request.nextUrl.searchParams.get('skus')??'').split(',')));"]]},
+    {kind:'HTTP API',name:'Shared: me and ERP status',loc:'GET /api/query/me, GET /api/query/erp/status',
+      io:'Out: the Principal; {last_updated, events[]} from sync_events.',auth:'Persona cookie, either role.',eff:'LOW',l:'V',
+      why:'erp/status reports the in-app heartbeat, not an ERP. A real sync should write here.',
+      c:[['src/app/api/query/[...path]/route.ts:14-15',"  if(request.method==='GET'&&path==='me')return NextResponse.json(user);\n  if(request.method==='GET'&&path==='erp/status')return NextResponse.json(events(user.role==='supplier_admin'));"]]},
+    {kind:'HTTP API',name:'Rep quotes: list, detail, mark read',loc:'GET /api/rep/quotes?customer=&status=, GET /api/rep/quotes/<id>, POST …/read',
+      io:'Out: quote rows with total and margin; full detail with cost, floors, panels.',auth:'Persona cookie, supplier role (repRoute). Own quotes only.',eff:'LOW',l:'V',
+      why:'Readable by an integration that holds the supplier cookie. Includes cost and margin.',
+      c:[['src/server/rep/http.ts:45-53',"export function repRoute<Context=unknown>(handle:(repId:string,request:NextRequest,context:Context)=>Response|Promise<Response>){\n  return async function handler(request:NextRequest,context?:Context){\n    const user=principal(request);\n    if(!user)return repJson({detail:'Choose a demo workspace.'},401);\n    if(user.role!=='supplier_admin'||!user.rep_id)return repJson({detail:'Supplier access required.'},403);\n    return handle(user.rep_id,request,context as Context);\n  };\n}"],['src/server/rep/quotes.ts:118-121',"export function repQuote(repId:string,quoteIdOrNumber:string){\n  const q=quote(quoteIdOrNumber)??quoteByNumber(quoteIdOrNumber);\n  return q&&q.rep_id===repId?q:undefined;\n}"]]},
+    {kind:'HTTP API',name:'Rep quote edits',loc:'PATCH/DELETE /api/rep/quotes/<id>/lines/<lineId>, POST …/lines, PATCH …/fulfillment, PATCH …/terms, PUT/DELETE …/freight, POST …/notes, GET …/items?q=',
+      io:'In: strict zod bodies (qty, basis, unitPrice; branchId, fulfillment; terms; {amount, reason}). Out: fresh QuoteDetail.',auth:'Persona cookie, supplier role, own quote, editable status.',eff:'MEDIUM',l:'V',
+      why:'An external pricing system could push prices here. No idempotency keys on these writes.',
+      c:[['src/server/rep/quote-edits.ts:55-56',"export const LinePatchBody:z.ZodType<LinePatch>=z.strictObject({qty:Qty.optional(),basis:Basis.optional(),unitPrice:Money.nullable().optional()})\n  .refine(b=>b.qty!==undefined||b.basis!==undefined||b.unitPrice!==undefined,{error:'Nothing to change: send qty, basis or unitPrice.'});"],['src/app/api/rep/quotes/[id]/freight/route.ts:12-15',"export const PUT=repRoute<Context>(async(repId,request,{params})=>{\n  const {id}=await params;\n  try{return repJson(await overrideRepQuoteFreight(repId,id,await jsonBody(request)));}catch(error){return repError(error);}\n});"]]},
+    {kind:'HTTP API',name:'Approve & send',loc:'POST /api/rep/quotes/<id>/send',
+      io:'In: {message?, attach_pdf?, revision, total} strict; Idempotency-Key header. Out: {detail, sent, replayed}.',auth:'Persona cookie, supplier role, own quote.',eff:'MEDIUM',l:'V',
+      why:'Writes a frozen revision and posts a chat message. A natural point to notify an external system, but no hook exists.',
+      c:[['src/app/api/rep/quotes/[id]/send/route.ts:14-22',"export const POST=repRoute<{params:Promise<{id:string}>}>(async(repId,request,{params})=>{\n  const {id}=await params;\n  const idempotencyKey=parseIdempotencyKey(request.headers.get('idempotency-key'));\n  if(idempotencyKey===undefined)return repJson({...},400);\n  try{\n    const {value,replayed}=await sendRepQuote(repId,id,await jsonBody(request),{idempotencyKey});\n    return repJson({...value,replayed});\n  }catch(error){return repError(error);}\n});"]]},
+    {kind:'HTTP API',name:'Rep quote actions',loc:'POST /api/rep/quotes/<id>/duplicate, POST …/reset, GET/POST …/upsells',
+      io:'Duplicate: Idempotency-Key; 201 {id, quote_number, duplicated_from, replayed}. Reset: sample quote only. Upsells: {upsellId, fingerprint}.',auth:'Persona cookie, supplier role, own quote.',eff:'LOW',l:'V',
+      why:'Reset is demo-only (409 for any non-sample quote).',
+      c:[['src/app/api/rep/quotes/[id]/duplicate/route.ts:13-21',"export const POST=repRoute<...>(async(repId,request,{params})=>{\n  ...\n    const {value,replayed}=duplicateRepQuote(repId,id,{idempotencyKey});\n    return repJson({...value,replayed},201);"]]},
+    {kind:'HTTP API',name:'Rep analytics and badges',loc:'GET /api/rep/analytics?customer=, GET /api/rep/badges',
+      io:'Out: metrics with margin and GP; {quotes: unread count}.',auth:'Persona cookie, supplier role.',eff:'LOW',l:'V',why:'Read-only.',
+      c:[['src/app/api/rep/analytics/route.ts:11',"export const GET=repRoute((repId,request)=>repJson(repAnalytics(repId,{customerId:scopeFrom(request.nextUrl.searchParams)})));"]]},
+    {kind:'HTTP API',name:'Rep settings',loc:'GET /api/rep/settings, GET …/sources, PUT …/access, …/assignments, …/floors, …/pricing, …/delivery',
+      io:'In: access {customer_id|null, category, enabled}; assignments {customer_id, rep_id}; floors {rep_id?, category_id, floor_pct}; pricing {scarcity_uplift_enabled}; delivery (6 numbers). Hand-validated.',
+      auth:'Persona cookie, supplier role. Access, assignments, pricing and delivery are global: no ownership check.',eff:'MEDIUM',l:'V',
+      why:'A CRM could set rep assignments here. Changes are not logged anywhere.',
+      c:[['src/server/rep/settings.ts:124-146',"export function assignRep(input:unknown):{assignments:AssignmentRow[]}{\n  ...\n  setAssignedRep(customerId,repId);\n  return {assignments:assignmentRows()};\n}\n...\nexport function updateAccess(input:unknown):AccessSettings{\n  ...\n  setAccess(customer,category,enabled);\n  return accessFor(customer);\n}"],['src/app/api/rep/settings/access/route.ts:9',"export const PUT=settingsWrite((_repId,body)=>updateAccess(body));"]]},
+    {kind:'File export',name:'Quote PDF',loc:'GET /api/quotes/<id>/pdf?variant=customer|internal&rev=n|draft',
+      io:'Out: application/pdf. Customer: sent revisions of own quotes only. Rep: customer or internal worksheet, sent or draft.',auth:'Persona cookie, either role; internal variant rep-only.',eff:'LOW',l:'V',
+      why:'Usable as a document feed; built from the frozen snapshot.',
+      c:[['src/app/api/quotes/[id]/pdf/route.ts:24-43',"export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){\n  const user=principal(request);\n  if(!user)return pdfError('Choose a demo workspace.',401);\n  ...\n  if(user.role==='customer_user'){\n    if(query.variant!==CUSTOMER_VARIANT)return pdfError('Supplier access required.',403);\n    ...\n    return customerQuotePdf(user.customer_id,id,query.rev);\n  }\n  ..."]]},
+    {kind:'File export',name:'Quote lines CSV',loc:'GET /api/rep/quotes/<id>/lines.csv?rev=n|draft',
+      io:'Out: text/csv UTF-8 with BOM, CRLF. Columns Line, SKU, Description, Qty, Unit, Unit price, Extended; then Subtotal, Freight, "Total before tax" rows. Amounts are strings; "Call for freight" / "To be confirmed" may appear in amount cells.',
+      auth:'Persona cookie, supplier role, own quote.',eff:'LOW',l:'V',
+      why:'Fine for spreadsheets. A machine reader must skip the summary rows and handle text in number columns.',
+      c:[['src/server/export/line-items.ts:12, 37-40',"export const LINE_ITEM_COLUMNS=['Line','SKU','Description','Qty','Unit','Unit price','Extended'] as const;\n...\n    totalRow('Subtotal',plainAmount(q.subtotal)),\n    totalRow(freightLabel(q),q.freight===null?'Call for freight':plainAmount(q.freight)),\n    ...\n    totalRow('Total before tax',q.total===null?'To be confirmed':plainAmount(q.total)),"],['src/server/export/csv.ts:17-33',"const FORMULA_START=/^(?:[\\t\\r]|[  ]*[=+\\-@＝＋－＠])/;\n...\nexport function csvDocument(rows){\n  return CSV_BOM+rows.map(row=>`${row.map(csvCell).join(',')}\\r\\n`).join('');\n}"]]},
+    {kind:'Authentication hook',name:'Session principal',loc:'src/server/session.ts principal(), principalFromCookie(); POST/DELETE /api/session',
+      io:'In: cookie value. Out: Principal {user_id, role, customer_id, name, user_name, rep_id, contact_id}.',auth:'None (this is the auth).',eff:'MEDIUM',l:'V',
+      why:'One seam: 9 production files call principal() or principalFromCookie(). Replacing it is contained; mapping real users to customer, contact and rep ids is the larger work.',
+      c:[['src/server/session.ts:11-13',"export function principal(request:NextRequest):Principal|null{return principalFromCookie(request.cookies.get(COOKIE)?.value);}\nexport function principalFromCookie(value:string|undefined):Principal|null{return value&&Object.hasOwn(personas,value)?personas[value as PersonaId]:null;}"],['src/app/api/session/route.ts:5',"export async function POST(request:NextRequest){... if(!(id in personas))return ...400; const response=NextResponse.json(personas[id]);response.cookies.set(COOKIE,id,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*24*30});return response;}"]]},
+    {kind:'Database',name:'SQLite file (direct)',loc:'DATABASE_PATH (default ./data/querent.sqlite)',
+      io:'SQLite schema v4. 13 ERP-sourced tables with source / external_id / synced_at and a unique (source, external_id) index. Money as REAL dollars. Dates as ISO TEXT.',
+      auth:'File system access only.',eff:'HIGH',l:'V',
+      why:'The obvious target for a sync, but writing directly bypasses every business rule and the app caches nothing to invalidate. No upsert code exists; schema changes require a reset.',
+      c:[['src/server/db/index.ts:8, 17-18',"export const databasePath=()=>resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH||'./data/querent.sqlite');\n...\n    database.pragma('journal_mode = WAL');\n    database.pragma('foreign_keys = ON');"]]},
+    {kind:'In-process code',name:'Repository functions',loc:'src/server/repository/index.ts (internal), src/server/repository/customer.ts (customer-safe)',
+      io:'Typed synchronous functions, e.g. quote(id), createQuote(NewQuote), saveQuoteTransition(...).',auth:'None (in-process).',eff:'MEDIUM',l:'V',
+      why:'The cleanest place for a sync to write, if it runs inside the Next.js process. Out of process, the server-only import and module singletons get in the way.',
+      c:[['src/server/repository/index.ts:1-18',"// The repository: every read and write of Querent data is a typed function here (spec §6.1).\n// No SQL anywhere else; a future ERP sync sits behind these functions.\nexport * from './access';\n...\nexport {inTransaction} from './sql';"]]},
+    {kind:'Outbound service',name:'Anthropic API (chat)',loc:'src/server/chat/live.ts',
+      io:'Messages API request {model, max_tokens:16000, system, tools(7), messages}; response content blocks.',auth:'ANTHROPIC_API_KEY (read by the SDK).',eff:'MEDIUM',l:'V',
+      why:'The client is injectable (LiveClient interface), so another provider can be adapted, but the loop uses Anthropic message and tool block shapes throughout.',
+      c:[['src/server/chat/live.ts:24-46',"export interface LiveClient {\n  messages:{create(body:Anthropic.MessageCreateParamsNonStreaming,options?:Anthropic.RequestOptions):PromiseLike<Anthropic.Message>};\n}\n...\nfunction defaultClient(){return shared??=new Anthropic({timeout:60_000,maxRetries:2});}"]]},
+    {kind:'Outbound service',name:'Anthropic API (upsell wording)',loc:'src/server/upsells-writer/claude.ts',
+      io:'One request per batch of chips; tool write_upsell_wording returns {chips:[{id,title,reason}]}.',auth:'ANTHROPIC_API_KEY.',eff:'LOW',l:'V',
+      why:'Optional; failures fall back to templates. Replaceable through the ChipWriter type.',
+      c:[['src/server/upsells-writer/claude.ts:102, 153-156',"function defaultClient(){return shared??=new Anthropic({timeout:WRITER_TIMEOUT_MS,maxRetries:0});}\n...\nexport function upsellWriter(env=process.env):ChipWriter|undefined{\n  if(chatMode(env)!=='live')return undefined;\n  return live??=claudeChipWriter({model:chatModel(env)});\n}"]]},
+    {kind:'Tool definition',name:'Chat tools (7)',loc:'src/server/chat/definitions.ts, src/server/chat/tools.ts',
+      io:'search_items, get_stock, get_price, get_order_history, get_order_status, get_account_summary, propose_cart. zod inputs, JSON results.',auth:'Access toggles per customer category, checked in code.',eff:'MEDIUM',l:'V',
+      why:'A new ERP-backed tool needs entries in TOOL_NAMES, TOOL_CATEGORY, INPUTS, DESCRIPTIONS, HANDLERS and ROWS, plus boundary-test rules. Handlers must be synchronous.',
+      c:[['src/server/chat/tools.ts:22-34',"export const TOOL_NAMES=['search_items','get_stock','get_price','get_order_history','get_order_status','get_account_summary','propose_cart'] as const;\n...\nexport const TOOL_CATEGORY={ search_items:'items_stock', get_stock:'items_stock', propose_cart:'items_stock', get_price:'pricing', get_order_history:'orders_quotes', get_order_status:'orders_quotes', get_account_summary:'account' } as const satisfies Record<ToolName,Category>;"],['src/server/chat/definitions.ts:95-107',"export function runTool(ctx:ToolContext,name:string,input:unknown):ToolRun{\n  if(!isToolName(name))return {...,result:{ok:false,reason:'invalid',message:`There is no tool called ${name}.`}};\n  ...\n  const result=(HANDLERS[name] as (ctx:ToolContext,input:unknown)=>ToolResult<unknown>)(ctx,parsed.data);"]]},
+    {kind:'Replaceable component',name:'DistanceProvider',loc:'src/server/freight/distance.ts',
+      io:'roadMiles(from: Place, to: Place): Promise<number|null>.',auth:'n/a',eff:'LOW',l:'V',
+      why:'Already async and injected into freightForQuote, sendCheck and sendQuote. A routing API can plug in here. Note: the default is created inline, so production wiring still needs one change.',
+      c:[['src/server/freight/distance.ts:12, 37-42',"export interface DistanceProvider {roadMiles(from:Place,to:Place):Promise<number|null>}\n...\nexport class HaversineRoadFactorProvider implements DistanceProvider {\n  async roadMiles(from:Place,to:Place){\n    return located(from)&&located(to)?haversineRoadMiles(from,to,this.roadFactor):null;\n  }\n}"],['src/server/freight/quote.ts:32',"  const computed=await computeFreight({...},provider??new HaversineRoadFactorProvider(rates.road_factor));"]]},
+    {kind:'Configuration',name:'Environment variables',loc:'DATABASE_PATH, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, QUERENT_SCRIPTED, QUERENT_SEED_DATE, QUERENT_E2E_RESET, NODE_ENV',
+      io:'Strings read where used; no central config module.',auth:'Deployment environment.',eff:'LOW',l:'V',
+      why:'No variable exists for an ERP endpoint, credentials, tenant, currency or time zone.',
+      c:[['grep process.env (non-test)',"src/server/db/index.ts:8            DATABASE_PATH\nsrc/server/chat/mode.ts:11,17        QUERENT_SCRIPTED, ANTHROPIC_API_KEY, ANTHROPIC_MODEL\nsrc/server/db/seed/dates.ts:27       QUERENT_SEED_DATE\nsrc/app/api/test/reset/route.ts:10   QUERENT_E2E_RESET\nsrc/app/api/session/route.ts:5       NODE_ENV\nscripts/reset-db.ts:5                DATABASE_PATH"]]},
+    {kind:'Test hook',name:'E2E reset and fixtures',loc:'POST /api/test/reset, POST /api/test/rep-quotes',
+      io:'reset: {seed_date?}; reseeds the whole database. rep-quotes: creates fixed quotes for ids brandi, wasatch, canyon-ridge.',auth:'No session check. Enabled only when QUERENT_E2E_RESET=1.',eff:'LOW',l:'V',
+      why:'Not an integration point; listed because it ships in production builds and can wipe data if the variable is set.',
+      c:[['src/app/api/test/reset/route.ts:9-17',"export async function POST(request:NextRequest){\n  if(process.env.QUERENT_E2E_RESET!=='1')return NextResponse.json({detail:'Not found.'},{status:404});\n  ...\n  try{anchor=resetDemoData({seedDate});}"]]},
+    {kind:'CLI',name:'db:reset script',loc:'npm run db:reset (scripts/reset-db.ts)',
+      io:'Deletes the .sqlite, -wal and -shm files, then reopens and reseeds.',auth:'Shell access.',eff:'LOW',l:'V',
+      why:'The only schema-change procedure. Destroys data.',
+      c:[['scripts/reset-db.ts:5-11',"const target=resolve(process.env.DATABASE_PATH||'./data/querent.sqlite');\n...\nfor(const suffix of ['','-wal','-shm'])rmSync(target+suffix,{force:true});\nconst {closeDatabase,seedAnchor}=await import('../src/server/db');"]]},
+    {kind:'Absent',name:'Webhooks, queues, outbox, file import',loc:'—',
+      io:'—',auth:'—',eff:'HIGH',l:'V',
+      why:'None exist. Any push to or from an external system needs new code: an outbox table, a worker, and endpoints.',c:[['search: webhook|queue|fetch( in src/server; middleware.ts',"(no matches; no middleware file)"]]}
+  ];
+
+  // =============== DATA: assumptions ===============
+  var ASSUME=[
+    {area:'Tenancy',a:'One supplier, one deployment. Branches, settings, delivery rates and catalog are global.',sev:'HIGH',l:'V',
+      fail:'A second supplier or business unit would share catalog, prices and settings; rows from two ERPs would mix.',
+      c:[['src/server/db/schema.ts:27-29',"-- Supplier (one per deployment) and key/value settings, e.g. scarcity_uplift_enabled.\nCREATE TABLE IF NOT EXISTS suppliers(...);\nCREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);"],['src/server/repository/settings.ts:14',"export function deliveryRates(){return one<DeliveryRates>('SELECT ... FROM delivery_rates ORDER BY rowid LIMIT 1')!;}"]]},
+    {area:'Identity',a:'Exactly two users exist, hard-coded: rep "brandi" and customer "wasatch" / contact "dana".',sev:'HIGH',l:'V',
+      fail:'Real users cannot sign in; any client can impersonate the rep.',c:[['src/server/session.ts:6-9',"supplier:{user_id:'brandi',...,rep_id:'brandi'...},\ncustomer:{user_id:'dana',...,customer_id:'wasatch',...,contact_id:'dana'},"]]},
+    {area:'IDs',a:'Item id and SKU are interchangeable: lookups match id OR SKU, and the seed sets id = SKU.',sev:'HIGH',l:'V',
+      fail:'If an ERP item id equals another item’s SKU, catalogItem() can return the wrong item. Quote lines store item id; chat and intake take SKUs.',
+      c:[['src/server/repository/catalog.ts:9, 20',"const BY_ID_OR_SKU=' WHERE i.id=? OR upper(i.sku)=upper(?)';\nexport function catalogItem(idOrSku:string){return one<CatalogItem>(ITEM+BY_ID_OR_SKU,idOrSku,idOrSku);}"],['src/server/db/seed/reference.ts:18',"insert('items',{id:item.sku,sku:item.sku,...});"]]},
+    {area:'IDs',a:'Quote numbers are "Q-" plus an integer; the next is max(number after the first 2 characters)+1, starting at 10001. Quote id is "q-N", line id "<quoteId>-<lineNo>", revision id "<quoteId>-r<n>".',sev:'MEDIUM',l:'V',
+      fail:'Quotes imported with another numbering (e.g. "QT-…" or ERP numbers) are cast to 0 or skew the sequence; no column holds an ERP quote or order number.',
+      c:[['src/server/repository/quotes.ts:106-107',"const next=(scalar<number|null>('SELECT max(CAST(substr(quote_number,3) AS INTEGER)) FROM quotes')??10000)+1;\nconst id=`q-${next}`,at=input.at??nowIso();"],['src/server/repository/quotes.ts:78-79, 229-230',"const id=`${quoteId}-${lineNo}`;\n...\n`${quoteId}-r${revision.revision}`"]]},
+    {area:'IDs',a:'Every foreign key uses Querent’s own ids. external_id is stored but never read.',sev:'HIGH',l:'V',
+      fail:'A sync that inserts ERP ids as primary keys works only if they are unique strings across all sources; a sync that keeps Querent ids needs its own mapping code.',
+      c:[['src/server/db/schema.ts:17, 91',"const SYNC=\"source TEXT NOT NULL DEFAULT 'seed',external_id TEXT,synced_at TEXT\";\n... CREATE UNIQUE INDEX ... ON ${t}(source,external_id);"]]},
+    {area:'Money',a:'One currency, USD. No currency column. Money stored as REAL dollars; rounding varies by module.',sev:'HIGH',l:'V',
+      fail:'Non-USD values display with $ and mix silently. Recomputed totals can differ by a cent from Querent’s.',
+      c:[['src/server/db/schema.ts:36, 63, 72',"cost REAL NOT NULL CHECK(cost>=0),list_price REAL NOT NULL ...\nunit_price REAL NOT NULL,unit_cost REAL NOT NULL\nunit_price REAL, ... customer_price REAL,unit_cost REAL NOT NULL"],['src/server/freight/engine.ts:44-45',"const round2=(n:number)=>Math.round(Number((n*100).toPrecision(12)))/100;\nconst usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});"]]},
+    {area:'Money',a:'Quote totals exclude tax: total = subtotal + freight.',sev:'HIGH',l:'V',
+      fail:'An ERP order created from a quote will not match the quote total once tax is applied.',
+      c:[['src/server/quotes/snapshot.ts:54',"    subtotal,freight:cents(freight),total:cents(subtotal+freight),lines,"],['src/server/export/line-items.ts:40',"    totalRow('Total before tax',q.total===null?'To be confirmed':plainAmount(q.total)),"]]},
+    {area:'Units',a:'Prices and quantities are per pack. Quantities are whole numbers from 1 to 9999. case_qty is an integer ≥1 that drives a +10% broken-case uplift.',sev:'MEDIUM',l:'V',
+      fail:'Each-based or decimal quantities from the ERP are refused (422) or priced wrongly; a unit-of-measure mismatch inflates prices by the pack size.',
+      c:[['src/server/db/schema.ts:33-36',"-- pack: the selling unit as printed (\"Box of 50\"); prices and qty are per pack.\n-- case_qty: packs in a full case; a quoted qty below it is a broken case (spec §5.1).\nCREATE TABLE IF NOT EXISTS items(...,pack TEXT NOT NULL,case_qty INTEGER NOT NULL CHECK(case_qty>=1),...);"],['src/server/intake/quote-request.ts:32, 41',"export const MAX_QTY=9999;\nconst Line=z.strictObject({sku:...,qty:z.number().int().min(1).max(MAX_QTY)});"]]},
+    {area:'Pricing',a:'One price per item per price level; one price level per customer; the lowest active contract price wins; "last paid" comes from the local orders table (12 months).',sev:'MEDIUM',l:'V',
+      fail:'ERP price breaks, quantity tiers or price libraries cannot be represented; last-paid uplifts are wrong if order history is not synced.',
+      c:[['src/server/db/schema.ts:42',"CREATE TABLE IF NOT EXISTS customer_prices(...,UNIQUE(price_level_id,item_id));"],['src/server/repository/pricing.ts:31-36',"... ORDER BY l.unit_price,c.starts_on DESC`,...);\n  for(const {item_id,...price} of contractRows)if(!contract.has(item_id))contract.set(item_id,price);"]]},
+    {area:'Time',a:'Calendar days (valid_until, expiry, pricing day, last-paid window) are UTC; Accept time slots are Mountain time (America/Denver).',sev:'HIGH',l:'V',
+      fail:'A quote "valid until Oct 7" expires at 00:00 UTC Oct 8 = 6:00 PM MDT Oct 7. A customer accepting that evening gets 409 expired. ERP dates in local time shift by a day near midnight.',
+      c:[['src/server/quotes/lifecycle.ts:65-67, 123-130',"// valid_until is a day (YYYY-MM-DD). The quote is valid through that whole day and expires at\n// the first instant after it. Days are UTC, like every other date in the app ...\nexport const expiresAt=(validUntil:string)=>new Date(parseDay(validUntil)+DAY_MS).toISOString();\nexport function isExpired(validUntil:string|null,now:string){ ... return parseInstant(now)>=parseDay(validUntil)+DAY_MS; }"],['src/server/quotes/response-rules.ts:17',"export const BRANCH_TIME_ZONE='America/Denver';"]]},
+    {area:'Time',a:'Dates are ISO strings compared as text (e.g. contract starts_on ≤ day ≤ ends_on).',sev:'MEDIUM',l:'V',
+      fail:'ERP dates in another format (MM/DD/YYYY, with times or offsets) compare wrongly without error.',
+      c:[['src/server/repository/pricing.ts:33',"WHERE c.customer_id=? AND c.starts_on<=? AND c.ends_on>=? AND l.item_id IN (...)"]]},
+    {area:'Data model',a:'Exactly one rep per customer; a quote’s rep is the customer’s rep at creation and never changes.',sev:'MEDIUM',l:'V',
+      fail:'Shared accounts or territory changes in a CRM leave quotes with the old rep; the new rep cannot see them (404).',
+      c:[['src/server/db/schema.ts:52-53',"-- Exactly one rep per customer. A quote's rep is always the customer's rep (spec §5.2).\nCREATE TABLE IF NOT EXISTS customer_rep(customer_id TEXT PRIMARY KEY REFERENCES customers(id),rep_id TEXT NOT NULL REFERENCES reps(id));"]]},
+    {area:'Data model',a:'One ship-to address per customer, with optional lat/lng on the customer row.',sev:'MEDIUM',l:'V',
+      fail:'ERP customers with several ship-tos cannot choose one; freight is "call for freight" without coordinates.',
+      c:[['src/server/db/schema.ts:45',"CREATE TABLE IF NOT EXISTS customers(...,ship_to_name TEXT,ship_to_address TEXT,ship_to_city TEXT,ship_to_state TEXT,ship_to_zip TEXT,ship_to_lat REAL,ship_to_lng REAL,...);"]]},
+    {area:'Data model',a:'Fixed enumerations enforced by CHECK constraints: order status open/shipped/closed; valid_days 7/14/30; four access categories; fulfillment will_call/delivery.',sev:'MEDIUM',l:'V',
+      fail:'An ERP status such as "partial" or "cancelled" fails the insert.',
+      c:[['src/server/db/schema.ts:61, 69, 89',"status TEXT NOT NULL CHECK(status IN ('open','shipped','closed'))\nvalid_days INTEGER NOT NULL DEFAULT 14 CHECK(valid_days IN (7,14,30))\ncategory TEXT NOT NULL CHECK(category IN (...))"],['src/lib/contracts.ts:3',"export const categories = ['items_stock','pricing','orders_quotes','account'] as const;"]]},
+    {area:'Ordering',a:'The first branch by insertion order (rowid) is the default branch for chat carts.',sev:'LOW',l:'V',
+      fail:'If a sync inserts branches in another order, the default pickup branch changes.',
+      c:[['src/server/repository/catalog.ts:13',"export function branches(){return all<Branch>(`${BRANCH} ORDER BY rowid`);}"],['src/server/chat/tools.ts:225-226',"  const all=branches();\n  const branch=branch_id===undefined?all[0]:all.find(b=>b.id===branch_id);"]]},
+    {area:'Lookups',a:'An order looked up by PO number returns the newest matching order.',sev:'LOW',l:'V',
+      fail:'Reused PO numbers in the ERP give the customer the wrong order status in chat.',
+      c:[['src/server/repository/orders.ts:54',"return one<OrderSummary>(`${ORDER} WHERE o.customer_id=? AND (upper(o.order_number)=upper(?) OR upper(o.po_number)=upper(?))${NEWEST} LIMIT 1`,customerId,ref,ref);"]]},
+    {area:'Concurrency',a:'One Node.js process. Idempotency results, model clients, the wording cache and the heartbeat timer live in process memory.',sev:'HIGH',l:'V',
+      fail:'With two instances, a retried send or accept routed to the other instance is not replayed (it gets 409 from the status guard); the heartbeat runs twice.',
+      c:[['src/server/rep/quote-send.ts:59',"const sends=new IdempotencyStore();"],['src/server/customer-response/service.ts:51',"const answers=new IdempotencyStore();"],['src/server/rep/idempotency.ts:8-10',"// Results live in this server process's memory: nothing is written to the database (no schema\n// change), and a restart forgets them, ..."]]},
+    {area:'Concurrency',a:'Business logic is synchronous and runs inside SQLite transactions.',sev:'HIGH',l:'V',
+      fail:'Live ERP price or stock calls cannot be awaited inside priceLines(), tools or requestQuote(); adding them requires an async refactor or pre-fetching.',
+      c:[['src/server/intake/quote-request.ts:109, 145',"  return inTransaction(()=>{\n    ...\n    const priced=priceLines({customerId,repId:rep.id,branchId:branch.id,lines:...,on});"]]},
+    {area:'Schema',a:'The schema version must match exactly; there are no migrations. An empty database is seeded with demo data automatically.',sev:'HIGH',l:'V',
+      fail:'Any schema change for the integration requires deleting the database. Pointing the app at a new, empty database fills it with fictional customers, orders and quotes.',
+      c:[['src/server/db/index.ts:25-37',"// No migrations (spec §6.6): a database from another schema version refuses to open, and\n// `npm run db:reset` deletes it and reseeds. A new, empty database is seeded on first open.\n...\n    if(Number(version)!==SCHEMA_VERSION)throw new Error(`SQLite schema ... is incompatible with schema ${SCHEMA_VERSION}. Run npm run db:reset.`);\n...\n  database.transaction(()=>{if(!database.prepare('SELECT count(*) FROM customers').pluck().get())seedDatabase(database,{anchor:seedAnchorFromEnv()});}).immediate();"]]},
+    {area:'Context limits',a:'The model sees at most the last 20 text messages, up to 6 tool rounds per turn, and 16,000 output tokens per call. Tool output is bounded only by tool limits (20 lines × 20 candidates; 50 order lines).',sev:'MEDIUM',l:'V',
+      fail:'Long conversations lose earlier details; a large ERP catalog or history inflates tool results with no size guard.',
+      c:[['src/server/chat/live.ts:37-42',"export const MAX_TOOL_ROUNDS=6;\nexport const MAX_TOKENS=16000;\nexport const HISTORY_LIMIT=20;"]]},
+    {area:'Context limits',a:'The matcher scores the whole catalog in memory on every search_items call.',sev:'MEDIUM',l:'V',
+      fail:'With an ERP catalog of tens of thousands of items, every chat search parses and scores every item; latency grows linearly.',
+      c:[['src/server/chat/tools.ts:94-97',"  const catalog=catalogItems();\n  const rows=clamp(limit,5,20);\n  return {ok:true,data:{lines:requested.map(line=>{\n    const {candidates,confident,question}=matchLine(line.text,catalog,{purchases,limit:rows});"]]},
+    {area:'Language',a:'Request parsing and units are English regexes (boxes, cases, each, in, ft, …).',sev:'LOW',l:'V',
+      fail:'ERP unit codes or non-English item text are not recognized as quantities or sizes.',
+      c:[['src/server/chat/lines.ts:18',"const UNITS='boxes|box|bx|cases?|cs|packs?|pks?|pkgs?|packages?|each|ea|pcs|pieces?|rolls?|pairs?|prs?|units?|bags?|cartons?|ctns?|bundles?|dozen|doz';"]]},
+    {area:'Status signal',a:'"ERP Connected" means the app’s own timer wrote a row in the last 2 minutes.',sev:'HIGH',l:'V',
+      fail:'Operators see "Connected" while no ERP exists or a real sync is failing.',
+      c:[['src/server/heartbeat.ts:4',"globalThis.querentHeartbeat=setInterval(()=>{try{heartbeat();}catch(error){...}},60_000);"],['src/features/erp-status/Status.tsx:6-7',"const stale=!timestamp || now-Date.parse(timestamp)>=120000;\n... {stale?'Update delayed':'Connected'}"]]},
+    {area:'Hard-coded values',a:'The default model is claude-sonnet-5; the scripted engine knows only two SKUs.',sev:'LOW',l:'V',
+      fail:'With a different catalog, scripted mode (used by CI and E2E) answers nothing useful.',
+      c:[['src/server/chat/mode.ts:8',"export const DEFAULT_MODEL='claude-sonnet-5';"],['src/server/chat/scripted.ts:41-47',"const SCRIPT:ScriptItem[]=[\n  {mention:/.../i,sku:'HCS-12-13-2G8'},\n  {mention:/.../i,vague:{choices:[{sku:'CW-45-045-T1',...},{sku:'CW-45-045-T27',...}]}},\n];"]]},
+    {area:'Chat storage',a:'Chat history pairs log rows with assistant messages by exact answer text, in order.',sev:'LOW',l:'V',
+      fail:'If another system writes messages or logs, buttons and pop-ups can attach to the wrong turn on reload.',
+      c:[['src/server/repository/chat.ts:98',"      const found=replies.findIndex((m,i)=>i>=next&&m.content===row.answer);"]]}
+  ];
+
+  // =============== DATA: dependencies ===============
+  var DEPS=[
+    {dep:'Anthropic API (chat)',l:'V',how:'SDK client: 60 s timeout, 2 retries. Any thrown error is caught by the pipeline and replaced by a fixed reply with outcome "error" (HTTP 200). The customer message is already stored.',sev:'MEDIUM',
+      c:[['src/server/chat/live.ts:46','function defaultClient(){return shared??=new Anthropic({timeout:60_000,maxRetries:2});}'],['src/server/pipeline.ts:51-54','  } catch (error) {\n    console.error("Chat pipeline failed", error);\n    result = reply({ outcome: "error", content: "We couldn’t complete that lookup. Please try again." });\n  }']]},
+    {dep:'Anthropic API (upsell wording)',l:'V',how:'8 s timeout, no retries. On failure the writer pauses for 60 s and every chip keeps its template wording. The rep sees chips either way.',sev:'LOW',
+      c:[['src/server/upsells-writer/claude.ts:140-143',"    }catch(error){\n      pausedUntil=now()+WRITER_BACKOFF_MS;\n      warn(`Upsell wording: Claude failed, using the templates (...)`);\n    }"]]},
+    {dep:'SQLite database',l:'V',how:'Opened once per process. A schema-version mismatch throws on open, so every request that touches the DB fails with 500. Errors inside inTransaction roll back. No busy_timeout is configured. Errors outside the chat engine are not caught and become 500.',sev:'HIGH',
+      c:[['src/server/db/index.ts:11-23','export function db(){\n  if(singleton)return singleton;\n  ...\n  try{\n    database.pragma(\'journal_mode = WAL\');\n    database.pragma(\'foreign_keys = ON\');\n    bootstrap(database);\n  }catch(error){database.close();throw error;}']]},
+    {dep:'Distance / routing',l:'V',how:'Local haversine calculation, no network. A ship-to without coordinates gives "call for freight", which blocks send until the rep sets freight.',sev:'LOW',
+      c:[['src/server/freight/engine.ts:7-10',"//   willCall                     ? 0\n//   : miles > MAX_RADIUS         ? CALL_FOR_FREIGHT   (the rep must price it before sending)\n//   : subtotal >= FREE_THRESHOLD ? 0\n//   : max(MIN_CHARGE, BASE_FEE + PER_MILE * miles)"]]},
+    {dep:'ERP',l:'V',how:'Not contacted. The status indicator is simulated by an in-app timer.',sev:'HIGH',
+      c:[['src/server/repository/erp.ts:32-35',"export function heartbeat(at=new Date().toISOString()){\n  run('INSERT INTO sync_events(timestamp,message) VALUES(?,?)',at,'ERP connection refreshed');\n  ..."]]},
+    {dep:'Google Fonts (build time)',l:'I',how:'The rep layout loads fonts through next/font/google. Next.js fetches them at build time; a build without network access may fail. Runtime is not affected.',sev:'LOW',
+      c:[['src/app/rep/layout.tsx:5, 15-17',"import {Archivo,IBM_Plex_Mono,IBM_Plex_Sans} from 'next/font/google';\nconst archivo=Archivo({subsets:['latin'],axes:['wdth'],variable:'--font-archivo'});"]]}
+  ];
+
+  // =============== DATA: model output ===============
+  var MODEL=[
+    {c1:'Calls a tool that does not exist',c2:'The server returns an is_error tool result "There is no tool called X". The model may try again within the 6-round limit.',l:'V',c:[['src/server/chat/definitions.ts:96',"if(!isToolName(name))return {name:null,categories:[],rows:0,result:{ok:false,reason:'invalid',message:`There is no tool called ${name}.`}};"]]},
+    {c1:'Tool input fails the schema',c2:'is_error tool result with the zod error text. Nothing runs.',l:'V',c:[['src/server/chat/definitions.ts:100-101',"const parsed=INPUTS[name].safeParse(input??{});\nif(!parsed.success)return {...,result:{ok:false,reason:'invalid',message:`Invalid input for ${name}: ${z.prettifyError(parsed.error)}`}};"]]},
+    {c1:'Calls a tool the customer may not use',c2:'Refused before validation; the model receives a "restricted" message naming the rep.',l:'V',c:[['src/server/chat/live.ts:89-91',"if(result.reason==='restricted')return {type:'tool_result',tool_use_id:id,content:JSON.stringify({restricted:result.category,message:`This account can't get ...`})};"]]},
+    {c1:'propose_cart with a SKU never matched',c2:'Accepted if the SKU exists in the catalog. The item pop-up opens with it; the customer and rep are the only checks.',l:'V',c:[['src/server/chat/tools.ts:229-232',"  for(const line of lines){\n    const item=catalogItem(line.sku);\n    if(!item)return invalid(`No catalog item has SKU ${line.sku}.`);"]]},
+    {c1:'propose_cart while clarify lines are open',c2:'The pop-up wins; open lines are dropped.',l:'V',c:[['src/server/chat/live.ts:151-154',"if(popup)return reply({...base,kind:'item_popup',payload:popup,...});\nconst request=requestAfter();\nif(request?.open.length)return requestReply(...);"]]},
+    {c1:'Keeps calling tools',c2:'The 7th call is sent with tool_choice none, forcing text.',l:'V',c:[['src/server/chat/live.ts:125-132',"const last=round>=MAX_TOOL_ROUNDS;\n...\n...(last?{tool_choice:{type:'none'}}:{}),\n...\nif(response.stop_reason!=='tool_use'||!uses.length||last)return finish(response);"]]},
+    {c1:'Returns no text',c2:'A fixed fallback text is used.',l:'V',c:[['src/server/chat/live.ts:156',"return reply({...base,outcome,content:text||`I couldn't answer that. ${repHelp(ctx.customerId,'{rep} can help')}`});"]]},
+    {c1:'Stops at max_tokens (partial answer)',c2:'Not handled: the truncated text is stored and shown.',l:'V',c:[['src/server/chat/live.ts:149-150',"if(response.stop_reason==='refusal')return reply({...});\nconst text=textOf(response);"]]},
+    {c1:'Refuses',c2:'Fixed reply pointing to the rep; outcome "no_rows".',l:'V',c:[['src/server/chat/live.ts:149',"if(response.stop_reason==='refusal')return reply({...base,handled:[],outcome:'no_rows',content:`I can't help with that in chat. ...`});"]]},
+    {c1:'States a wrong fact in text (price, stock)',c2:'No check on the text. It is stored and rendered as Markdown. Quote prices are not affected: they come from the pricing engine.',l:'V',c:[['src/server/pipeline.ts:55-60','addMessage(customerId, conversationId, { role: "assistant", kind: result.kind, content: result.content, payload: result.payload });']]},
+    {c1:'Upsell writer: missing, bad or money-mentioning wording',c2:'Rejected per chip by length and a regex for $ % cost price margin…; the template is kept.',l:'V',c:[['src/server/upsells-writer/claude.ts:61-68',"const MADE_UP=/[$%¢€£]|\\b(cost|costs|margin|...|savings?)\\b/i;\nexport function acceptableWording(text){ ... return ok(title,TITLE_MAX)&&ok(reason,REASON_MAX)?{title,reason}:null; }"]]}
+  ];
+
+  // =============== DATA: controls ===============
+  var CTRL=[
+    {k:'Authentication',what:'All endpoints',st:'Unsigned persona cookie; two fixed identities.',sev:'HIGH',l:'V',c:[['src/server/session.ts:11-13',"export function principalFromCookie(value){return value&&Object.hasOwn(personas,value)?personas[value]:null;}"]]},
+    {k:'Authentication',what:'/api/test/*',st:'No session check; gated only by QUERENT_E2E_RESET=1.',sev:'MEDIUM',l:'V',c:[['src/app/api/test/reset/route.ts:10',"if(process.env.QUERENT_E2E_RESET!=='1')return NextResponse.json({detail:'Not found.'},{status:404});"]]},
+    {k:'Authorization',what:'Settings writes',st:'Any rep can change access for one or all customers, reassign any customer’s rep, and change global delivery rates and scarcity. Only floors are restricted to the acting rep.',sev:'HIGH',l:'V',c:[['src/app/api/rep/settings/access/route.ts:9',"export const PUT=settingsWrite((_repId,body)=>updateAccess(body));"],['src/server/rep/settings.ts:181-187',"/** Delivery rates: ... Any rep may change them, like the scarcity uplift. */\nexport function updateDelivery(input:unknown):DeliveryRates{"]]},
+    {k:'Authorization',what:'Quotes',st:'Reps see and edit only their own quotes (others 404); customers only their own sent revisions.',sev:'LOW',l:'V',c:[['src/server/rep/quotes.ts:118-121',"export function repQuote(repId,quoteIdOrNumber){\n  const q=quote(quoteIdOrNumber)??quoteByNumber(quoteIdOrNumber);\n  return q&&q.rep_id===repId?q:undefined;\n}"]]},
+    {k:'Input validation',what:'Chat, settings, query strings',st:'Hand-written checks; zod strict schemas only in 8 modules (intake, edits, panels, send, upsells, customer response, tool inputs, writer output).',sev:'MEDIUM',l:'V',c:[['src/server/rep/settings.ts:141-142',"if(customer!==null&&typeof customer!=='string')throw new SettingsError('Invalid setting.');\nif(typeof category!=='string'||!isCategory(category)||typeof enabled!=='boolean')throw new SettingsError('Invalid setting.');"]]},
+    {k:'Input validation',what:'Request body size',st:'Not limited in code; framework defaults apply.',sev:'LOW',l:'U',c:[]},
+    {k:'Rate limiting',what:'All endpoints, especially chat',st:'None. Each chat POST in live mode can make up to 7 paid model calls.',sev:'HIGH',l:'V',c:[['search: rate limit / throttle / middleware',"(no rate limiting code; no middleware file)"]]},
+    {k:'Idempotency',what:'Send, duplicate, accept, request changes',st:'In-memory, per process, 10 min TTL. The key is not tied to the request body: the same key with a different body returns the first result.',sev:'MEDIUM',l:'V',c:[['src/server/rep/idempotency.ts:51-58',"once<T>(scope:string,key:string|null,work:()=>T){\n  if(key===null)return {value:work(),replayed:false};\n  ...\n  const hit=this.entries.get(id);\n  if(hit)return {value:hit.value as T,replayed:true};"]]},
+    {k:'Idempotency',what:'Request quote',st:'Once per item pop-up message, checked inside the transaction (durable).',sev:'LOW',l:'V',c:[['src/server/intake/quote-request.ts:116-122',"    const done=messages.find(m=>requestedFrom(m)===popup.id);\n    if(done){ ... return {...,replayed:true}; }"]]},
+    {k:'Idempotency',what:'Chat POST, line edits, panel edits, settings',st:'None. A retried chat POST stores the customer message twice and calls the model again.',sev:'MEDIUM',l:'V',c:[['src/server/pipeline.ts:42-44','  openConversation(customerId, conversationId, contactId);\n  const earlier = conversationMessages(customerId, conversationId);\n  addMessage(customerId, conversationId, { role: "customer", content: question });']]},
+    {k:'Logging',what:'Operational logs',st:'Only console.error on chat failure and heartbeat failure, and console.warn from the wording writer. No request log, no correlation id.',sev:'MEDIUM',l:'V',c:[['grep console.(log|warn|error) src (non-test)',"src/server/heartbeat.ts:4\nsrc/server/pipeline.ts:52\nsrc/server/upsells-writer/claude.ts:109"]]},
+    {k:'Logging',what:'Audit trail',st:'Quote changes go to quote_activity; chat turns to query_logs. Settings changes (access, assignments, rates, floors) are not recorded.',sev:'MEDIUM',l:'V',c:[['src/server/repository/settings.ts:17-21',"export function setDeliveryRates(rates:DeliveryRates){\n  run('UPDATE delivery_rates SET ...');\n  return deliveryRates();\n}"]]},
+    {k:'CSRF',what:'Cookie-authenticated POST/PUT',st:'Cookie is SameSite=Lax and HttpOnly; no CSRF token. Lax blocks cookies on cross-site POSTs in current browsers.',sev:'LOW',l:'I',c:[['src/app/api/session/route.ts:5',"response.cookies.set(COOKIE,id,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*24*30});"]]},
+    {k:'Data exposure',what:'Customer routes and chat tools',st:'Limited to the customer-safe repository; enforced by an architecture test.',sev:'LOW',l:'V',c:[['src/server/repository/boundary.test.ts:4-10',"// 3. LLM code may only use the customer-safe repository module, so a chat tool can't reach cost,\n// 4. Customer routes ... may only use the customer-safe repository module ..."]]}
+  ];
+
+  // =============== DATA: verification plan ===============
+  var PLAN=[
+    {id:'p1',risk:'HIGH',t:'Fresh database is auto-seeded',test:'Start the app with DATABASE_PATH pointing to a file that does not exist, then call any API (for example GET /api/session).',inp:'DATABASE_PATH=/tmp/querent-empty.sqlite; then sqlite3 that file "SELECT count(*) FROM customers; SELECT quote_number FROM quotes WHERE is_sample=1;"',exp:'The file is created and filled with demo data: customers > 0, sample quote Q-24817 present, one "ERP connection refreshed" row in sync_events.',c:'src/server/db/index.ts:25-37'},
+    {id:'p2',risk:'HIGH',t:'Forged persona cookie gets rep data',test:'Call a rep endpoint with a hand-made cookie and no login.',inp:'curl -H "Cookie: querent-persona=supplier" http://localhost:3000/api/rep/quotes',exp:'200 with quote rows including margin. Without the cookie: 401. With querent-persona=customer: 403.',c:'src/server/session.ts:11-13; src/server/rep/http.ts:45-53'},
+    {id:'p3',risk:'HIGH',t:'Live mode works with your API key and model',test:'Run with ANTHROPIC_API_KEY set and QUERENT_SCRIPTED unset. Sign in as customer and send a quote request in chat.',inp:'POST /api/query/customer/chat {"question":"Please quote 10 boxes of 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We\'ll pick up at SLC.","conversation_id":"t-live-1"}',exp:'200 with kind "clarify" (wheels need Type 1 or Type 27) or "item_popup". If the model ID is rejected: 200 with outcome "error" and "We couldn’t complete that lookup", and "Chat pipeline failed" in the server log.',c:'src/server/chat/live.ts:103-172; src/server/pipeline.ts:51-54'},
+    {id:'p4',risk:'HIGH',t:'Model API outage behavior',test:'Run live mode with an invalid key (or block network to api.anthropic.com) and send a chat message.',inp:'ANTHROPIC_API_KEY=sk-invalid; POST /api/query/customer/chat {"question":"Do you have hex bolts?","conversation_id":"t-down-1"}',exp:'HTTP 200, outcome "error". messages has the customer message and the error reply; query_logs has outcome "error". Latency can reach several minutes when the network hangs (60 s × up to 3 attempts per call).',c:'src/server/chat/live.ts:46; src/server/pipeline.ts:46-72'},
+    {id:'p5',risk:'HIGH',t:'Server modules in a separate worker',test:'Import the repository from plain Node, as a sync worker would.',inp:'npx tsx -e "import(\'./src/server/repository/index.ts\').then(r=>console.log(Object.keys(r).length))"',exp:'Fails with "Cannot find module \'server-only\'" (observed earlier with tsx). The worker needs an alias or a stub for server-only.',c:'src/server/repository/access.ts:1 (import \'server-only\')'},
+    {id:'p6',risk:'HIGH',t:'Two instances break replay protection',test:'Run two app processes on the same DATABASE_PATH. Send Approve & send to process A, then repeat the same request with the same Idempotency-Key to process B.',inp:'POST /api/rep/quotes/Q-24817/send with header Idempotency-Key: k1 and body {"revision":1,"total":<from send dialog>} to A, then to B.',exp:'A: 200, replayed false. B: 409 illegal_transition ("Can\'t send … it is Sent") instead of a replay. Both processes write heartbeat rows.',c:'src/server/rep/quote-send.ts:59, 72; src/server/quotes/lifecycle.ts:58-62'},
+    {id:'p7',risk:'HIGH',t:'Expiry time zone vs Mountain business day',test:'Send a quote with expiration date D, then accept it at 7:00 PM Mountain on day D.',inp:'Set expires_on=D in Quote terms, send; POST …/accept at D 19:00 America/Denver (= D+1 01:00Z), body {"revision":1,"day":"<next weekday>","time":"10:00","po":"PO-1"}',exp:'409 expired, although the PDF and chat say "valid until D".',c:'src/server/quotes/lifecycle.ts:123-130; src/server/quotes/response-rules.ts:17'},
+    {id:'p8',risk:'HIGH',t:'Concurrent writes from an external writer',test:'While the app serves chat and edits, run an external process that writes to the ERP tables in a long transaction.',inp:'sqlite3 querent.sqlite "BEGIN IMMEDIATE; UPDATE items SET list_price=list_price; -- hold 10 s"; meanwhile POST a rep line edit.',exp:'Unknown from code (no busy_timeout set). Expect the app write to wait for the library default, then fail with SQLITE_BUSY → HTTP 500.',c:'src/server/db/index.ts:11-23'},
+    {id:'p9',risk:'HIGH',t:'Settings writes have no ownership or audit',test:'As the rep, turn off Pricing for all customers.',inp:'PUT /api/rep/settings/access {"customer_id":null,"category":"pricing","enabled":false}',exp:'200; every customer loses get_price in chat; no Activity or log row records the change.',c:'src/server/rep/settings.ts:138-146; src/server/repository/access.ts:30-33'},
+    {id:'p10',risk:'MEDIUM',t:'Item id vs SKU collision',test:'Insert an item whose id equals another item’s SKU, then look it up through chat or the pop-up.',inp:'Insert item A (id \'ERP-100\', sku \'ZZ-1\') and item B (id \'ZZ-1\', sku \'ZZ-2\'); then GET /api/query/customer/item-popup?skus=ZZ-1',exp:'Both rows match "id=? OR upper(sku)=upper(?)"; catalogItem() returns whichever SQLite finds first, so the pop-up may show B when A was meant.',c:'src/server/repository/catalog.ts:9, 20'},
+    {id:'p11',risk:'MEDIUM',t:'Idempotency key reused with a different body',test:'Accept twice with the same key but different PO numbers.',inp:'POST …/accept Idempotency-Key: a1 {"po":"PO-1",…}; then same key {"po":"PO-2",…}',exp:'Second call: 200 replayed true, PO stays PO-1. No error about the changed body.',c:'src/server/rep/idempotency.ts:51-58; src/server/customer-response/service.ts:128'},
+    {id:'p12',risk:'MEDIUM',t:'Chat retry duplicates the question',test:'Send the same chat message twice, as a client retry would.',inp:'POST /api/query/customer/chat twice with identical body.',exp:'Two customer messages and two assistant replies stored; two query_logs rows; in live mode two sets of model calls.',c:'src/server/pipeline.ts:42-72'},
+    {id:'p13',risk:'MEDIUM',t:'Model proposes an unmatched SKU',test:'Unit test with a fake LiveClient whose first response calls propose_cart with an existing SKU that search_items never returned.',inp:'liveReply(ctx,"quote me bolts",[],{client:fake}) where fake returns tool_use propose_cart {lines:[{sku:"GLV-N8-L-1000",qty:1}]}',exp:'Reply kind "item_popup" containing GLV-N8-L-1000.',c:'src/server/chat/tools.ts:222-241; src/server/chat/live.ts:137, 151'},
+    {id:'p14',risk:'MEDIUM',t:'Quote total excludes tax',test:'Send a quote and compare its total with what the ERP would charge.',inp:'Send Q-24817; read quote_revisions.total and the PDF.',exp:'total = subtotal + freight; PDF and CSV say "before tax".',c:'src/server/quotes/snapshot.ts:54; src/server/export/line-items.ts:40'},
+    {id:'p15',risk:'MEDIUM',t:'Large catalog latency in chat',test:'Load 20,000+ items, then time search_items through chat (scripted mode is enough).',inp:'Bulk insert items; POST chat "Do you have 1/2 in grade 8 hex bolts in stock?"',exp:'Latency grows with catalog size because every item is parsed and scored per line. Measure p95.',c:'src/server/chat/tools.ts:94-97'},
+    {id:'p16',risk:'MEDIUM',t:'ERP enum values rejected',test:'Insert an order with a status outside open/shipped/closed.',inp:'INSERT INTO orders(...,status,...) VALUES(...,\'cancelled\',...)',exp:'SQLite CHECK constraint failure.',c:'src/server/db/schema.ts:61'},
+    {id:'p17',risk:'MEDIUM',t:'Schema change forces a reset',test:'Change SCHEMA_VERSION or the meta row and start the app.',inp:'sqlite3 querent.sqlite "UPDATE meta SET value=\'3\' WHERE key=\'schema_version\'"; GET /api/query/me',exp:'Every DB-backed request fails (500) with "SQLite schema 3 … is incompatible with schema 4. Run npm run db:reset."',c:'src/server/db/index.ts:27-32'},
+    {id:'p18',risk:'MEDIUM',t:'No rate limiting',test:'Send 50 chat messages in parallel.',inp:'50 × POST /api/query/customer/chat with distinct conversation ids.',exp:'All are processed; in live mode up to 350 model calls. No 429 from Querent.',c:'(absence: no middleware or limiter)'},
+    {id:'p19',risk:'MEDIUM',t:'CSV consumed by a machine',test:'Export lines.csv for a delivery quote with call for freight and parse it.',inp:'GET /api/rep/quotes/<id>/lines.csv?rev=draft',exp:'BOM + CRLF; header row; line rows; then summary rows where amount cells can be "Call for freight" or "To be confirmed".',c:'src/server/export/line-items.ts:33-40; src/server/export/csv.ts:32-33'},
+    {id:'p20',risk:'MEDIUM',t:'History window of 20 messages',test:'Unit test with a fake LiveClient capturing the request after a 30-message conversation.',inp:'history of 30 alternating messages; liveReply(...,{client:capture})',exp:'messages contains at most 20 earlier text messages plus the new one, starting with a user message.',c:'src/server/chat/live.ts:76-80'},
+    {id:'p21',risk:'LOW',t:'Request quote double click',test:'POST the same Request quote twice.',inp:'POST /api/query/customer/quote-requests (same body twice)',exp:'First 201, second 200 with replayed true and the same quote number.',c:'src/server/intake/quote-request.ts:116-122; src/app/api/query/customer/quote-requests/route.ts:21'},
+    {id:'p22',risk:'LOW',t:'Cross-customer access',test:'As the customer, request a quote that belongs to another customer.',inp:'GET /api/query/customer/quotes/<other customer\'s quote id>',exp:'404 "Quote not found."',c:'src/app/api/query/customer/quotes/[id]/route.ts:19-20'},
+    {id:'p23',risk:'LOW',t:'Simulated ERP status',test:'With no ERP, open Settings > Data sources or GET /api/query/erp/status after 60 s.',inp:'GET /api/query/erp/status (supplier cookie)',exp:'last_updated within the last minute; events "ERP connection refreshed"; UI shows "Connected".',c:'src/server/heartbeat.ts:4; src/server/repository/erp.ts:26-35'},
+    {id:'p24',risk:'LOW',t:'Test hooks disabled in production',test:'Call the reset hook on a production deployment.',inp:'POST /api/test/reset {}',exp:'404 unless QUERENT_E2E_RESET=1. Confirm the variable is unset in every non-test environment.',c:'src/app/api/test/reset/route.ts:10'},
+    {id:'p25',risk:'LOW',t:'Offline build',test:'Run next build without network access.',inp:'npm run build with outbound network blocked',exp:'Unknown from code; next/font/google may need to fetch fonts.',c:'src/app/rep/layout.tsx:5'}
+  ];
+
+  // =============== render: generic sortable table ===============
+  function sortable(table,cols,rows,opts){
+    var state={key:opts.defaultKey,dir:opts.defaultDir||-1};
+    function render(){
+      var data=rows.slice();
+      var filt=opts.filter?opts.filter():function(){return true;};
+      data=data.filter(filt);
+      var col=cols.find(function(c){return c.key===state.key;});
+      if(col&&col.sort)data.sort(function(a,b){var x=col.sort(a),y=col.sort(b);return (x<y?-1:x>y?1:0)*state.dir;});
+      table.innerHTML='<thead><tr>'+cols.map(function(c){
+        var s=c.sort?' class="sortable" aria-sort="'+(state.key===c.key?(state.dir>0?'ascending':'descending'):'none')+'"':'';
+        return '<th'+s+'>'+(c.sort?'<button type="button" data-key="'+c.key+'">'+esc(c.label)+'</button>':esc(c.label))+'</th>';
+      }).join('')+'</tr></thead><tbody>'+data.map(function(r){
+        return '<tr data-l="'+r.l+'">'+cols.map(function(c){return '<td>'+c.html(r)+'</td>';}).join('')+'</tr>';
+      }).join('')+'</tbody>';
+      applyFilter();
+    }
+    table.addEventListener('click',function(e){var b=e.target.closest('th button');if(!b)return;var k=b.dataset.key;if(state.key===k)state.dir*=-1;else{state.key=k;state.dir=-1;}render();});
+    render();return render;
+  }
+  var risk=function(v){return RANK[v]||0;};
+  var labelRank=function(l){return {V:3,I:2,U:1}[l];};
+
+  // points
+  var kinds=[...new Set(POINTS.map(function(p){return p.kind;}))];
+  var kindSel=document.getElementById('pointsKind');kinds.forEach(function(k){var o=document.createElement('option');o.textContent=k;kindSel.appendChild(o);});
+  var pSearch=document.getElementById('pointsSearch');
+  var renderPoints=sortable(document.getElementById('pointsTable'),[
+    {key:'name',label:'Point',sort:function(r){return r.name.toLowerCase();},html:function(r){return '<b>'+esc(r.name)+'</b><br><span class="tag k">'+esc(r.kind)+'</span>'+lbl(r.l);}},
+    {key:'loc',label:'Location',sort:function(r){return r.loc;},html:function(r){return '<code>'+esc(r.loc)+'</code>';}},
+    {key:'io',label:'Input / output',html:function(r){return esc(r.io);}},
+    {key:'auth',label:'Authentication',html:function(r){return esc(r.auth);}},
+    {key:'eff',label:'Effort to extend',sort:function(r){return risk(r.eff);},html:function(r){return lvl(r.eff);}},
+    {key:'why',label:'Notes and evidence',html:function(r){return esc(r.why)+cite(r.c);}}
+  ],POINTS,{defaultKey:'eff',defaultDir:-1,filter:function(){var q=pSearch.value.toLowerCase(),k=kindSel.value;return function(r){return (!k||r.kind===k)&&(!q||JSON.stringify(r).toLowerCase().indexOf(q)>=0);};}});
+  pSearch.addEventListener('input',renderPoints);kindSel.addEventListener('change',renderPoints);
+
+  // assumptions
+  var aSearch=document.getElementById('assumeSearch'),aSev=document.getElementById('assumeSev');
+  var renderAssume=sortable(document.getElementById('assumeTable'),[
+    {key:'sev',label:'Severity',sort:function(r){return risk(r.sev);},html:function(r){return lvl(r.sev);}},
+    {key:'area',label:'Area',sort:function(r){return r.area;},html:function(r){return esc(r.area);}},
+    {key:'a',label:'Assumption',html:function(r){return lbl(r.l)+esc(r.a);}},
+    {key:'fail',label:'Failure mode',html:function(r){return esc(r.fail);}},
+    {key:'ev',label:'Evidence',html:function(r){return cite(r.c);}},
+    {key:'l',label:'Label',sort:function(r){return labelRank(r.l);},html:function(r){return lbl(r.l);}}
+  ],ASSUME,{defaultKey:'sev',filter:function(){var q=aSearch.value.toLowerCase(),s=aSev.value;return function(r){return (!s||r.sev===s)&&(!q||JSON.stringify(r).toLowerCase().indexOf(q)>=0);};}});
+  aSearch.addEventListener('input',renderAssume);aSev.addEventListener('change',renderAssume);
+
+  // deps
+  sortable(document.getElementById('depsTable'),[
+    {key:'dep',label:'Dependency',sort:function(r){return r.dep;},html:function(r){return '<b>'+esc(r.dep)+'</b>';}},
+    {key:'how',label:'Failure handling',html:function(r){return lbl(r.l)+esc(r.how)+cite(r.c);}},
+    {key:'sev',label:'Risk',sort:function(r){return risk(r.sev);},html:function(r){return lvl(r.sev);}}
+  ],DEPS,{defaultKey:'sev'});
+
+  // model
+  sortable(document.getElementById('modelTable'),[
+    {key:'c1',label:'Model output',sort:function(r){return r.c1;},html:function(r){return '<b>'+esc(r.c1)+'</b>';}},
+    {key:'c2',label:'What the code does',html:function(r){return lbl(r.l)+esc(r.c2)+cite(r.c);}}
+  ],MODEL,{defaultKey:null});
+
+  // controls
+  var ctrlSel=document.getElementById('ctrlKind');[...new Set(CTRL.map(function(c){return c.k;}))].forEach(function(k){var o=document.createElement('option');o.textContent=k;ctrlSel.appendChild(o);});
+  var renderCtrl=sortable(document.getElementById('ctrlTable'),[
+    {key:'sev',label:'Risk',sort:function(r){return risk(r.sev);},html:function(r){return lvl(r.sev);}},
+    {key:'k',label:'Control',sort:function(r){return r.k;},html:function(r){return '<b>'+esc(r.k)+'</b>';}},
+    {key:'what',label:'Scope',html:function(r){return esc(r.what);}},
+    {key:'st',label:'State in code',html:function(r){return lbl(r.l)+esc(r.st)+cite(r.c);}}
+  ],CTRL,{defaultKey:'sev',filter:function(){var k=ctrlSel.value;return function(r){return !k||r.k===k;};}});
+  ctrlSel.addEventListener('change',renderCtrl);
+
+  // stats
+  var cnt=function(arr,k,v){return arr.filter(function(x){return x[k]===v;}).length;};
+  document.getElementById('stats').innerHTML=[
+    [POINTS.length,'integration points listed'],[cnt(ASSUME,'sev','HIGH'),'HIGH-severity assumptions'],[cnt(CTRL,'sev','HIGH'),'HIGH-risk control gaps'],
+    [1,'external runtime service (Anthropic)'],[0,'webhooks, queues or import endpoints'],[PLAN.length,'verification tests']
+  ].map(function(c){return '<div class="stat"><b>'+c[0]+'</b><span>'+esc(c[1])+'</span></div>';}).join('');
+
+  // =============== plan checklist ===============
+  var KEY='qir-plan';var done={};
+  try{done=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){done={};}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(done));}catch(e){}}
+  var list=document.getElementById('planList');
+  list.innerHTML=PLAN.map(function(p,i){
+    return '<div class="check'+(done[p.id]?' done':'')+'" data-id="'+p.id+'"><input type="checkbox" id="'+p.id+'"'+(done[p.id]?' checked':'')+' aria-label="Mark test '+(i+1)+' as done"><div><label for="'+p.id+'"><span class="n">'+(i+1)+'.</span><b>'+esc(p.t)+'</b></label> '+lvl(p.risk)+
+      '<div class="kv"><div>Test</div><div>'+esc(p.test)+'</div><div>Input</div><div><code>'+esc(p.inp)+'</code></div><div>Expected</div><div>'+esc(p.exp)+'</div><div>Based on</div><div><code>'+esc(p.c)+'</code></div></div></div></div>';
+  }).join('');
+  function progress(){
+    var n=PLAN.filter(function(p){return done[p.id];}).length;
+    document.getElementById('planCount').textContent=n+' of '+PLAN.length+' done';
+    document.getElementById('planBar').style.width=(100*n/PLAN.length)+'%';
+  }
+  list.addEventListener('change',function(e){var id=e.target.id;if(!id)return;done[id]=e.target.checked;e.target.closest('.check').classList.toggle('done',e.target.checked);save();progress();});
+  document.getElementById('planReset').addEventListener('click',function(){done={};save();list.querySelectorAll('input').forEach(function(i){i.checked=false;i.closest('.check').classList.remove('done');});progress();});
+  document.getElementById('planCopy').addEventListener('click',function(){
+    var text=PLAN.map(function(p,i){return '['+(done[p.id]?'x':' ')+'] '+(i+1)+'. '+p.risk+' '+p.t;}).join('\n');
+    var btn=this;
+    function ok(){btn.textContent='Copied';setTimeout(function(){btn.textContent='Copy results as text';},1500);}
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(ok,function(){fallback();});else fallback();
+    function fallback(){var t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();try{document.execCommand('copy');ok();}catch(e){}t.remove();}
+  });
+  progress();
+
+  // =============== evidence filter ===============
+  function badgeClaims(){
+    document.querySelectorAll('.claim[data-l]:not([data-b])').forEach(function(c){
+      c.setAttribute('data-b','1');var l=c.getAttribute('data-l'),t=document.createElement('span');t.className='tag '+l;t.textContent=NAMES[l];
+      var p=c.querySelector('p');if(p&&p.parentNode===c)p.insertBefore(t,p.firstChild);else c.insertBefore(t,c.firstChild);
+    });
+  }
+  function applyFilter(){
+    badgeClaims();
+    var on={};document.querySelectorAll('.filters input').forEach(function(i){on[i.dataset.f]=i.checked;});
+    document.querySelectorAll('.claim[data-l], tr[data-l]').forEach(function(el){el.classList.toggle('hide',!on[el.getAttribute('data-l')]);});
+  }
+  document.querySelectorAll('.filters input').forEach(function(i){i.addEventListener('change',applyFilter);});
+  applyFilter();
+
+  // =============== theme + tabs ===============
+  var modes=['auto','light','dark'],btn=document.getElementById('themeBtn'),mode='auto';
+  try{mode=localStorage.getItem('qir-theme')||'auto';}catch(e){}
+  function setTheme(m){mode=m;if(m==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',m);btn.textContent='Theme: '+m;try{localStorage.setItem('qir-theme',m);}catch(e){}}
+  setTheme(mode);btn.addEventListener('click',function(){setTheme(modes[(modes.indexOf(mode)+1)%3]);});
+  var tabs=document.querySelectorAll('nav button');
+  function show(id){tabs.forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.tab===id));});document.querySelectorAll('section.tab').forEach(function(s){s.classList.toggle('on',s.id===id);});try{history.replaceState(null,'','#'+id);}catch(e){}window.scrollTo(0,0);}
+  tabs.forEach(function(b){b.addEventListener('click',function(){show(b.dataset.tab);});});
+  var start=(location.hash||'').slice(1),el=document.getElementById(start);if(el&&el.classList.contains('tab'))show(start);
+})();
+</script>
+</body>
+</html>
