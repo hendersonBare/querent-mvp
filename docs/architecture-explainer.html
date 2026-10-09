@@ -1,0 +1,1775 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Querent Request Path</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#ffffff; --panel2:#f0f0ec; --ink:#1d1d1b; --muted:#5e5e58; --line:#d9d9d2;
+  --accent:#2f5bd3; --code:#f3f3ef; --codeink:#2a2a26;
+  --det:#1f7a4d; --detbg:#e3f3ea; --nondet:#a4570a; --nondetbg:#fbecd9;
+  --v:#1f7a4d; --vbg:#e3f3ea; --i:#2f5bd3; --ibg:#e4ebfb; --u:#8a3b8f; --ubg:#f4e4f5;
+  --warn:#a3261f; --warnbg:#fbe5e3;
+  --model:#a4570a; --db:#2f5bd3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151514; --panel:#1d1d1b; --panel2:#262624; --ink:#ececE6; --muted:#a3a39b; --line:#3a3a36;
+    --accent:#86a5ff; --code:#232321; --codeink:#e6e6de;
+    --det:#6fd3a0; --detbg:#183326; --nondet:#f2b266; --nondetbg:#3a2a14;
+    --v:#6fd3a0; --vbg:#183326; --i:#86a5ff; --ibg:#1c2540; --u:#e09be4; --ubg:#35203a;
+    --warn:#ff8f86; --warnbg:#3d1d1a; --model:#f2b266; --db:#86a5ff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151514; --panel:#1d1d1b; --panel2:#262624; --ink:#ececE6; --muted:#a3a39b; --line:#3a3a36;
+  --accent:#86a5ff; --code:#232321; --codeink:#e6e6de;
+  --det:#6fd3a0; --detbg:#183326; --nondet:#f2b266; --nondetbg:#3a2a14;
+  --v:#6fd3a0; --vbg:#183326; --i:#86a5ff; --ibg:#1c2540; --u:#e09be4; --ubg:#35203a;
+  --warn:#ff8f86; --warnbg:#3d1d1a; --model:#f2b266; --db:#86a5ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+code{background:var(--code);color:var(--codeink);padding:1px 4px;border-radius:4px}
+pre{background:var(--code);color:var(--codeink);padding:10px 12px;border-radius:6px;overflow:auto;margin:6px 0;line-height:1.45;white-space:pre}
+pre code{background:none;padding:0}
+a{color:var(--accent)}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+header h1{font-size:17px;margin:0;font-weight:650}
+header .sub{color:var(--muted);font-size:13px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.filters label{display:inline-flex;gap:5px;align-items:center;font-size:12.5px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;cursor:pointer;user-select:none}
+.filters input{margin:0}
+button.theme{font:inherit;font-size:12.5px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:calc(100vh - 56px)}
+nav{border-right:1px solid var(--line);background:var(--panel);padding:12px 8px;position:sticky;top:56px;align-self:start;height:calc(100vh - 56px);overflow:auto}
+nav button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;background:none;color:var(--ink);border:0;border-radius:6px;padding:7px 10px;cursor:pointer;margin-bottom:2px}
+nav button[aria-selected="true"]{background:var(--panel2);font-weight:600;color:var(--accent)}
+main{padding:20px 24px 80px;max-width:1180px;min-width:0}
+.layout>*{min-width:0}
+.claim,.card,.step{overflow-wrap:anywhere}
+section.tab{display:none}
+section.tab.on{display:block}
+h2{font-size:22px;margin:4px 0 12px}
+h3{font-size:17px;margin:22px 0 8px}
+h4{font-size:14.5px;margin:14px 0 6px}
+p{margin:6px 0 10px}
+.lede{font-size:15.5px;color:var(--muted);max-width:860px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0}
+.claim{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:8px 12px;margin:8px 0}
+.claim[data-l="V"]{border-left-color:var(--v)}
+.claim[data-l="I"]{border-left-color:var(--i)}
+.claim[data-l="U"]{border-left-color:var(--u)}
+.claim>p:first-of-type{margin-top:2px}
+.claim.hide{display:none}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:4px;margin-right:6px;vertical-align:1px}
+.tag.V{color:var(--v);background:var(--vbg)}
+.tag.I{color:var(--i);background:var(--ibg)}
+.tag.U{color:var(--u);background:var(--ubg)}
+.tag.DET{color:var(--det);background:var(--detbg)}
+.tag.ND{color:var(--nondet);background:var(--nondetbg)}
+.tag.W{color:var(--warn);background:var(--warnbg)}
+details.cite{margin:4px 0}
+details.cite>summary{cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;color:var(--accent)}
+details.cite>summary::marker{color:var(--muted)}
+.refs{font-size:12.5px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel2);font-weight:600}
+.tablewrap{overflow-x:auto}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:12px 0;padding:0}
+.step>summary{cursor:pointer;list-style:none;padding:10px 14px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.step>summary::-webkit-details-marker{display:none}
+.step>summary .n{font-weight:700;color:var(--accent);min-width:26px}
+.step>summary .t{font-weight:600}
+.step>summary .f{color:var(--muted);font-size:12.5px;font-family:ui-monospace,Menlo,monospace}
+.step .body{padding:0 14px 12px;border-top:1px solid var(--line)}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 12px;margin-top:10px}
+.kv>div:nth-child(odd){color:var(--muted);font-size:13px;font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:8px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:3px;display:inline-block;border:2px solid}
+.diagram-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+.svgbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto}
+svg text{font-family:ui-sans-serif,system-ui,sans-serif}
+.node{cursor:pointer}
+.node rect.box{stroke-width:2}
+.node.det rect.box{fill:var(--detbg);stroke:var(--det)}
+.node.nondet rect.box{fill:var(--nondetbg);stroke:var(--nondet)}
+.node.sel rect.box{stroke-width:4}
+.node:focus{outline:none}
+.node:focus rect.box{stroke-dasharray:4 2}
+.node text.l{fill:var(--ink);font-size:12.5px;font-weight:600}
+.node text.s{fill:var(--muted);font-size:10.5px}
+.node text.k{font-size:9.5px;font-weight:700;letter-spacing:.04em}
+.node.det text.k{fill:var(--det)}
+.node.nondet text.k{fill:var(--nondet)}
+.edge{stroke:var(--muted);stroke-width:1.4;fill:none}
+.edge.hl{stroke:var(--accent);stroke-width:2.4}
+.elabel{fill:var(--muted);font-size:10px}
+.boundary{fill:none;stroke-width:2;stroke-dasharray:7 5}
+.boundary.model{stroke:var(--model)}
+.boundary.db{stroke:var(--db)}
+.blabel{font-size:11px;font-weight:700;letter-spacing:.05em}
+.blabel.model{fill:var(--model)}
+.blabel.db{fill:var(--db)}
+.lane{fill:var(--muted);font-size:11px;font-weight:700;letter-spacing:.06em}
+#detail{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;position:sticky;top:72px;max-height:calc(100vh - 90px);overflow:auto}
+#detail h3{margin-top:0}
+#detail .meta{font-size:13px}
+.note{font-size:13px;color:var(--muted)}
+.warnbox{border:1px solid var(--warn);background:var(--warnbg);border-radius:6px;padding:8px 12px;margin:10px 0}
+.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:12px;margin:0 4px 4px 0}
+ol.flat,ul.flat{padding-left:20px}
+/* ---- Data Flow swimlanes ---- */
+.flow-wrap{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:start}
+.flowbox{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+.flow-grid{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:22px;row-gap:34px}
+.flow-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2}
+.lanebg{border-radius:8px;background:var(--panel2);z-index:0;margin:-6px -8px}
+.lanebg.model{background:var(--nondetbg);border:2px dashed var(--model);opacity:.55}
+.lanebg.db{background:var(--ibg);border:2px dashed var(--db);opacity:.55}
+.lanehead{z-index:1;font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0 0}
+.lanehead.model{color:var(--model)}
+.lanehead.db{color:var(--db)}
+.lanehead small{display:block;font-weight:500;letter-spacing:0;font-size:10.5px}
+.phase{grid-column:1/-1;z-index:1;font-size:12px;font-weight:700;color:var(--accent);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 10px;margin:4px 0}
+.phase span{font-weight:500;color:var(--muted)}
+.fstep{z-index:3;position:relative;font:inherit;text-align:left;cursor:pointer;border:2px solid;border-radius:8px;padding:6px 9px;color:var(--ink);min-height:52px;line-height:1.3}
+.fstep.det{background:var(--detbg);border-color:var(--det)}
+.fstep.nondet{background:var(--nondetbg);border-color:var(--nondet)}
+.fstep .num{font-weight:800;color:var(--accent);margin-right:5px}
+.fstep .ttl{font-size:13px;font-weight:600}
+.fstep .knd{display:block;font-size:9.5px;font-weight:700;letter-spacing:.04em;margin-top:3px}
+.fstep.det .knd{color:var(--det)}
+.fstep.nondet .knd{color:var(--nondet)}
+.fstep .lanetag{display:none;font-size:10px;color:var(--muted);font-weight:600}
+.fstep[aria-pressed="true"]{box-shadow:0 0 0 3px var(--accent)}
+.fstep:focus-visible{outline:2px dashed var(--accent);outline-offset:3px}
+.fedge{fill:none;stroke:var(--muted);stroke-width:1.5;opacity:.75}
+.fedge.alt{stroke-dasharray:5 4}
+.fedge.hl{stroke:var(--accent);stroke-width:2.6;opacity:1}
+.flabel{font-size:10px;fill:var(--muted);paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.flabel.hl{fill:var(--accent);font-weight:700}
+#flowDetail{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;position:sticky;top:72px;max-height:calc(100vh - 90px);overflow:auto}
+#flowDetail h3{margin:2px 0 6px}
+#flowDetail .body{border-top:1px solid var(--line);padding-top:4px}
+#flowDetail .navrow{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:6px}
+#flowDetail .navrow button{font:inherit;font-size:12.5px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer}
+#flowDetail .navrow button:disabled{opacity:.4;cursor:default}
+#flowDetail .conn{margin:8px 0 2px}
+@media (max-width:1100px){.flow-wrap{grid-template-columns:minmax(0,1fr)}#flowDetail{position:static;max-height:none}}
+@media (max-width:640px){
+  .flow-grid{grid-template-columns:minmax(0,1fr);row-gap:20px}
+  .flow-grid>.fstep,.flow-grid>.phase{grid-column:1!important}
+  .lanebg,.lanehead{display:none}
+  .fstep .lanetag{display:block}
+}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  nav{position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px;border-right:0;border-bottom:1px solid var(--line)}
+  nav button{width:auto;margin:0}
+  main{padding:16px}
+  .diagram-wrap{grid-template-columns:1fr}
+  #detail{position:static;max-height:none}
+  .kv{grid-template-columns:1fr}
+  header{position:static}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Querent v2: request path from chat message to quote</h1>
+    <div class="sub">An evidence-based reading of the code at commit 5a60741 (main). The code is the only source of truth used here.</div>
+  </div>
+  <div class="filters" role="group" aria-label="Filter claims by evidence label">
+    <label><input type="checkbox" data-f="V" checked><span class="tag V">VERIFIED</span></label>
+    <label><input type="checkbox" data-f="I" checked><span class="tag I">INFERRED</span></label>
+    <label><input type="checkbox" data-f="U" checked><span class="tag U">UNKNOWN</span></label>
+    <button class="theme" id="themeBtn" type="button">Theme: auto</button>
+  </div>
+</header>
+<div class="layout">
+<nav role="tablist" aria-label="Sections">
+  <button role="tab" data-tab="overview" aria-selected="true">Overview</button>
+  <button role="tab" data-tab="flow">Data Flow</button>
+  <button role="tab" data-tab="det">Determinism</button>
+  <button role="tab" data-tab="tools">Tools</button>
+  <button role="tab" data-tab="context">Context</button>
+  <button role="tab" data-tab="db">Database</button>
+  <button role="tab" data-tab="diagram">Diagram</button>
+  <button role="tab" data-tab="questions">Open Questions</button>
+</nav>
+<main>
+
+<!-- ============================ OVERVIEW ============================ -->
+<section class="tab on" id="overview">
+<h2>Overview</h2>
+<p class="lede">This page traces one request through the backend: a customer types a message, the model answers with the help of tools, the customer confirms a list of items, the server drafts and prices a quote, a rep reviews and sends it, and the customer sees it. Every claim has a label and a file citation you can expand.</p>
+
+<h3>The most important finding</h3>
+<div class="claim" data-l="V"><p><b>The model never creates a quote and never sets a price.</b> In live mode, the model (Claude) can only read data through 7 tools and propose an item list (<code>propose_cart</code>). That proposal is stored as an <i>item pop-up</i> message. A quote is created only when the customer presses <i>Request quote</i>, which calls a separate HTTP endpoint with no model involved. That endpoint validates the input against the stored pop-up, prices every line with a deterministic pricing engine, and writes the quote in one SQLite transaction.</p>
+<details class="cite"><summary>src/server/chat/definitions.ts:53</summary><script type="text/plain">propose_cart:'Open the item pop-up for a quote request. Call it only when every requested line has a confident SKU (or one the customer picked) and a qty. The customer checks quantities, pickup or delivery and the branch in the pop-up, then presses Request quote; this does not create a quote. No prices.',</script></details>
+<details class="cite"><summary>src/server/intake/quote-request.ts:106-152</summary><script type="text/plain">export function requestQuote(who:QuoteRequester,body:unknown,{now=new Date().toISOString(),on=now.slice(0,10)}:QuoteRequestOptions={}):QuoteRequestResult{
+  const input=parse(body);
+  const {customerId}=who;
+  return inTransaction(()=>{
+    ...
+    const priced=priceLines({customerId,repId:rep.id,branchId:branch.id,lines:lines.map(l=>({itemId:l.item.id,qty:l.qty})),on});
+    if(priced.length!==lines.length)throw new Error('Pricing skipped a line.');
+    const request=requestBehind(messages,popupIndex);
+    const q=createQuote({
+      customerId,contactId:who.contactId,conversationId:input.conversation_id,requestText:request.text,fulfillment:input.fulfillment,branchId:branch.id,
+      lines:lines.map((l,i)=>({itemId:l.item.id,qty:l.qty,...draftLineFields(priced[i]),requestedText:l.requestedText,addedBy:'querent'})),
+      requestedAt:now,at:now,
+    });</script></details>
+</div>
+
+<h3>Terms used on this page</h3>
+<div class="tablewrap"><table>
+<tr><th>Term</th><th>Meaning in this codebase</th></tr>
+<tr><td>Turn</td><td>One customer message and the one reply the server returns for it (<code>ask()</code> in <code>src/server/pipeline.ts</code>).</td></tr>
+<tr><td>Engine</td><td>What produces the reply. <b>Scripted engine</b>: fixed rules, no model (<code>src/server/chat/scripted.ts</code>). <b>Live engine</b>: Claude with tools (<code>src/server/chat/live.ts</code>).</td></tr>
+<tr><td>Model call</td><td>One HTTP request to the Anthropic Messages API (<code>client.messages.create</code>).</td></tr>
+<tr><td>Tool</td><td>A server function the model may ask to run by returning a <code>tool_use</code> block. The server runs it and returns a <code>tool_result</code> block.</td></tr>
+<tr><td>Tool round</td><td>One model call that ends with tool use, plus the server running those tools. The live engine allows at most 6 per turn.</td></tr>
+<tr><td>Customer-safe repository</td><td>The subset of database functions that never return cost, margin or another customer's data (<code>src/server/repository/customer.ts</code>). All chat tools use only this subset.</td></tr>
+<tr><td>Matcher</td><td>The deterministic scorer that maps a line of text ("10 boxes of 1/2 in grade 8 hex bolts") to catalog SKUs (<code>src/server/matching/</code>).</td></tr>
+<tr><td>Clarify state</td><td>The JSON state of an open quote request (matched lines, open lines with questions, dropped lines), stored as the payload of the last assistant message with <code>kind='clarify'</code>.</td></tr>
+<tr><td>Item pop-up</td><td>An assistant message with <code>kind='item_popup'</code> whose payload is a cart (SKUs, quantities, pickup or delivery, branch). The customer confirms it to request a quote.</td></tr>
+<tr><td>Draft quote</td><td>A row in <code>quotes</code> with status <code>ready_for_review</code>, priced by the pricing engine and waiting for the rep.</td></tr>
+<tr><td>Revision snapshot</td><td>A frozen JSON copy of what the customer was sent, one row per send in <code>quote_revisions</code>.</td></tr>
+<tr><td>Model boundary</td><td>The line where data leaves the server for the Anthropic API and model output comes back.</td></tr>
+<tr><td>Database boundary</td><td>The line where code reads or writes the single SQLite file through <code>better-sqlite3</code>.</td></tr>
+<tr><td>Deterministic</td><td>Same inputs and same database state give the same output. Nondeterministic steps depend on model sampling, the clock, random IDs, network, or request ordering.</td></tr>
+</table></div>
+
+<h3>System at a glance</h3>
+<div class="claim" data-l="V"><p>One Next.js app (Node runtime) serves both the customer chat and the rep portal. All data is in one SQLite file opened with <code>better-sqlite3</code> (synchronous), WAL mode, foreign keys on. There are no migrations: a database with another schema version refuses to open.</p>
+<details class="cite"><summary>src/server/db/index.ts:8-38</summary><script type="text/plain">export const databasePath=()=>resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH||'./data/querent.sqlite');
+let singleton:Database.Database|undefined;
+
+export function db(){
+  if(singleton)return singleton;
+  ...
+  const database=new Database(path);
+  try{
+    database.pragma('journal_mode = WAL');
+    database.pragma('foreign_keys = ON');
+    bootstrap(database);
+  }catch(error){database.close();throw error;}
+  ...
+// No migrations (spec §6.6): a database from another schema version refuses to open, and
+// `npm run db:reset` deletes it and reseeds. A new, empty database is seeded on first open.
+function bootstrap(database:Database.Database){
+  ...
+    if(Number(version)!==SCHEMA_VERSION)throw new Error(`SQLite schema ${version??'(unversioned)'} at ${databasePath()} is incompatible with schema ${SCHEMA_VERSION}. Run npm run db:reset.`);</script></details>
+</div>
+<div class="claim" data-l="V"><p>The engine is chosen per request from environment variables: <b>scripted</b> when <code>QUERENT_SCRIPTED=1|true</code> or <code>ANTHROPIC_API_KEY</code> is empty; otherwise <b>live</b>. CI forces scripted mode, so the live tool loop is exercised only by unit tests with a fake client.</p>
+<details class="cite"><summary>src/server/chat/mode.ts:8-19</summary><script type="text/plain">export const DEFAULT_MODEL='claude-sonnet-5';
+
+/** `scripted` when QUERENT_SCRIPTED=1 or no ANTHROPIC_API_KEY is set, otherwise `live`. */
+export function chatMode(env:Record<string,string|undefined>=process.env):ChatMode{
+  const forced=/^(1|true)$/i.test(env.QUERENT_SCRIPTED?.trim()??'');
+  return forced||!env.ANTHROPIC_API_KEY?.trim()?'scripted':'live';
+}
+
+/** The model live chat calls: ANTHROPIC_MODEL, or the default. */
+export function chatModel(env:Record<string,string|undefined>=process.env){
+  return env.ANTHROPIC_MODEL?.trim()||DEFAULT_MODEL;
+}</script></details>
+<details class="cite"><summary>.github/workflows/ci.yml:18-19</summary><script type="text/plain">  QUERENT_SCRIPTED: '1'
+  ANTHROPIC_API_KEY: ''</script></details>
+</div>
+<div class="claim" data-l="V"><p>There are exactly <b>two places that call the model</b>: the live chat loop, and the rep-side upsell wording writer. No other file imports <code>@anthropic-ai/sdk</code> except for types.</p>
+<details class="cite"><summary>grep "@anthropic-ai/sdk" src (non-test)</summary><script type="text/plain">src/server/upsells-writer/claude.ts:2:import Anthropic from '@anthropic-ai/sdk';
+src/server/chat/live.ts:2:import Anthropic from '@anthropic-ai/sdk';
+src/server/chat/definitions.ts:2:import type Anthropic from '@anthropic-ai/sdk';</script></details>
+</div>
+<div class="claim" data-l="V"><p>Authentication is a demo persona cookie. <code>POST /api/session</code> sets cookie <code>querent-persona</code> to <code>customer</code> or <code>supplier</code>, and each request maps that string to a hard-coded principal. The cookie is not signed; anyone who sets it to <code>supplier</code> becomes the rep.</p>
+<details class="cite"><summary>src/server/session.ts:4-13</summary><script type="text/plain">export const COOKIE='querent-persona';
+// Demo personas (spec §2): Brandi Gallegos, a Herrick rep, and Dana Ortiz, Purchasing at Wasatch.
+export const personas={
+  supplier:{user_id:'brandi',role:'supplier_admin',customer_id:null,name:'Herrick Industrial Supply',user_name:'Brandi Gallegos',rep_id:'brandi',contact_id:null},
+  customer:{user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'},
+} satisfies Record<string,Principal>;
+...
+export function principalFromCookie(value:string|undefined):Principal|null{return value&&Object.hasOwn(personas,value)?personas[value as PersonaId]:null;}</script></details>
+</div>
+
+<h3>Problems found while reading</h3>
+<div class="claim" data-l="V"><p><span class="tag W">GAP</span><code>propose_cart</code> accepts <b>any SKU that exists in the catalog</b>. It does not check that the SKU came from <code>search_items</code> or from the clarify state. The "use only matched SKUs" rule is in the prompt and tool description only. The checks that follow are the customer reviewing the pop-up and the rep reviewing the draft.</p>
+<details class="cite"><summary>src/server/chat/tools.ts:229-236</summary><script type="text/plain">  for(const line of lines){
+    const item=catalogItem(line.sku);
+    if(!item)return invalid(`No catalog item has SKU ${line.sku}.`);
+    if(!Number.isInteger(line.qty)||line.qty<1||line.qty>9999)return invalid(`Qty for ${item.sku} must be a whole number from 1 to 9999.`);
+    const existing=merged.get(item.sku);
+    if(existing)existing.qty+=line.qty;
+    else merged.set(item.sku,{sku:item.sku,qty:line.qty,...(line.requested_text?{requested_text:line.requested_text}:{})});
+  }</script></details>
+</div>
+<div class="claim" data-l="V"><p><span class="tag W">GAP</span>In live mode, a successful <code>propose_cart</code> wins over an open clarify state: <code>finish()</code> checks the pop-up before the request state. So the model can open the pop-up while lines are still open, and the open lines are dropped.</p>
+<details class="cite"><summary>src/server/chat/live.ts:150-154</summary><script type="text/plain">    const text=textOf(response);
+    if(popup)return reply({...base,kind:'item_popup',payload:popup,outcome:'answered',
+      content:text||'Here is your list. Check the quantities, choose pickup or delivery, then press Request quote.'});
+    const request=requestAfter();
+    if(request?.open.length)return requestReply(toolCtx,pending,request,{...base,content:text||undefined});</script></details>
+</div>
+<div class="claim" data-l="V"><p><span class="tag W">DIVERGENCE</span>Live and scripted engines differ when the last open line gets matched. Scripted mode calls <code>requestReply</code>, which opens the pop-up automatically once nothing is open. Live mode calls <code>requestReply</code> only when <code>request.open.length</code> is non-zero; if every line is now matched but the model did not call <code>propose_cart</code>, the reply is plain text and the matched cart is not stored anywhere. The next message has no pending request.</p>
+<details class="cite"><summary>src/server/chat/live.ts:153-156</summary><script type="text/plain">    const request=requestAfter();
+    if(request?.open.length)return requestReply(toolCtx,pending,request,{...base,content:text||undefined});
+    const outcome:ChatReply['outcome']=restricted&&!handled.length?'restricted':calls.length&&!rowCount&&!restricted?'no_rows':'answered';
+    return reply({...base,outcome,content:text||`I couldn't answer that. ${repHelp(ctx.customerId,'{rep} can help')}`});</script></details>
+<details class="cite"><summary>src/server/chat/clarify.ts:257-259 (scripted path)</summary><script type="text/plain">export function requestReply(ctx:ToolContext,before:ClarifyPayload|undefined,after:ClarifyPayload,{toolCalls=[],rowCount=0,categories=[],handled=[],content}:RequestReplyOptions={}):ChatReply{
+  if(!after.open.length&&after.cart.lines.length)return itemPopupReply(ctx,after.cart,{toolCalls,lead:news(before,after).filter(p=>p.startsWith('Dropped')).join('\n\n')||undefined});</script></details>
+</div>
+<div class="claim" data-l="V"><p><span class="tag W">NOT ATOMIC</span>A chat turn writes three rows (customer message, assistant message, query log) without a transaction, and the customer message is written <i>before</i> the model call. A crash or an exception outside the engine's try/catch leaves a customer message with no reply.</p>
+<details class="cite"><summary>src/server/pipeline.ts:42-72</summary><script type="text/plain">  openConversation(customerId, conversationId, contactId);
+  const earlier = conversationMessages(customerId, conversationId);
+  addMessage(customerId, conversationId, { role: "customer", content: question });
+  let result: ChatReply;
+  try {
+    result = chatMode() === "scripted" ? scriptedReply(...) : await liveReply(...);
+  } catch (error) { ... }
+  addMessage(customerId, conversationId, { role: "assistant", ... });
+  appendLog({ ... });</script></details>
+</div>
+<div class="claim" data-l="V"><p><span class="tag W">DEAD FIELD</span><code>quote_lines.match_score</code> is never set for quotes created from chat. The intake does not pass <code>matchScore</code>; only the seed's sample quote and <code>duplicateQuote</code> (which copies it) set it.</p>
+<details class="cite"><summary>src/server/intake/quote-request.ts:150</summary><script type="text/plain">      lines:lines.map((l,i)=>({itemId:l.item.id,qty:l.qty,...draftLineFields(priced[i]),requestedText:l.requestedText,addedBy:'querent'})),</script></details>
+<details class="cite"><summary>grep matchScore (non-test)</summary><script type="text/plain">src/server/db/seed/sample-quote.ts:70,75
+src/server/repository/quotes.ts:81,128,138
+src/server/quotes/service.ts:288   (duplicateQuote copies l.match_score)
+src/domain/quotes.ts:152</script></details>
+</div>
+<div class="claim" data-l="V"><p><span class="tag W">DEAD CODE</span><code>resolveUsual()</code> is exported from the matching barrel but no non-test code calls it. "The usual" is handled inside <code>scoreItems</code> instead.</p>
+<details class="cite"><summary>src/server/matching/index.ts:11, src/server/matching/usual.ts:15</summary><script type="text/plain">export {resolveUsual,type UsualItem} from './usual';
+...
+export function resolveUsual<T extends MatchableItem>(phrase:string,catalog:readonly T[],purchases:readonly Purchase[]):UsualItem<T>|undefined{</script></details>
+</div>
+<div class="claim" data-l="V"><p><span class="tag W">DUPLICATE</span>Two different <code>pricedSubtotal</code> functions round differently: one rounds each line to the cent and then the sum (<code>quotes/service.ts</code>), the other rounds only the sum (<code>freight/quote.ts</code>). Freight thresholds and the send total can therefore be computed from slightly different subtotals. Also, <code>cents()</code> means "to integer cents" in the pricing engine but "round dollars to the cent" in the snapshot module.</p>
+<details class="cite"><summary>src/server/quotes/service.ts:78</summary><script type="text/plain">const pricedSubtotal=(q:Quote)=>cents(q.lines.reduce((sum,l)=>sum+(l.unit_price!==null&&Number.isFinite(l.unit_price)?cents(l.qty*l.unit_price):0),0));</script></details>
+<details class="cite"><summary>src/server/freight/quote.ts:16-18</summary><script type="text/plain">export function pricedSubtotal(lines:readonly Pick<QuoteLine,'qty'|'unit_price'>[]){
+  return Math.round(lines.reduce((sum,l)=>sum+(l.unit_price===null?0:l.qty*l.unit_price),0)*100)/100;
+}</script></details>
+<details class="cite"><summary>src/server/pricing/engine.ts:81 vs src/server/quotes/snapshot.ts:8</summary><script type="text/plain">const cents=(amount:number)=>Math.round(amount*100);                                   // engine: dollars -> integer cents
+export const cents=(n:number)=>Math.round(Number((n*100).toPrecision(12)))/100;      // snapshot: dollars rounded to the cent</script></details>
+</div>
+<div class="claim" data-l="U"><p><span class="tag W">CONTRADICTION?</span>Comments say "adaptive thinking is on by default on the default model", but no <code>thinking</code> parameter is sent, and the default model ID is <code>claude-sonnet-5</code>. Whether that ID resolves, and whether thinking is on, depends on the Anthropic API, which the code does not show.</p>
+<details class="cite"><summary>src/server/chat/live.ts:39-40, 126-130</summary><script type="text/plain">/** Output budget per request, thinking included (adaptive thinking is on by default on the default model). */
+export const MAX_TOKENS=16000;
+...
+    const response=await client.messages.create({
+      model,max_tokens:MAX_TOKENS,messages,tools:TOOL_DEFINITIONS,
+      system:[{type:'text',text:system,cache_control:{type:'ephemeral'}}],
+      ...(last?{tool_choice:{type:'none'}}:{}),
+    });</script></details>
+</div>
+</section>
+
+<!-- ============================ DATA FLOW ============================ -->
+<section class="tab" id="flow">
+<h2>Data Flow: one request, in order</h2>
+<p class="lede">Steps 1 to 11 are one chat turn. Steps 12 to 16 are the customer's Request quote click. Steps 17 to 20 are the rep's review and the trip back to the customer. Each step sits in the lane where it runs. Click a step (or focus it and press Enter) to see its inputs, outputs, errors, evidence and code. Use the arrow keys or Previous / Next to walk the path in order.</p>
+<div class="legend">
+  <span><i class="sw" style="background:var(--detbg);border-color:var(--det)"></i>DETERMINISTIC</span>
+  <span><i class="sw" style="background:var(--nondetbg);border-color:var(--nondet)"></i>NONDETERMINISTIC</span>
+  <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--muted)" stroke-width="1.6"/></svg>Main path</span>
+  <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"/></svg>Loop, shortcut or alternate path</span>
+  <span><i class="sw" style="border-style:dashed;border-color:var(--model)"></i>Model boundary</span>
+  <span><i class="sw" style="border-style:dashed;border-color:var(--db)"></i>Database boundary</span>
+</div>
+<div class="flow-wrap">
+  <div class="flowbox"><div class="flow-grid" id="flowGrid"></div><svg class="flow-svg" id="flowSvg" aria-hidden="true"></svg></div>
+  <aside id="flowDetail" aria-live="polite"></aside>
+</div>
+<div id="stepStore" hidden>
+
+<details class="step" open><summary><span class="n">1</span><span class="t">Client sends the message</span><span class="tag ND">NONDETERMINISTIC</span><span class="f">src/features/chat/Chat.tsx, src/lib/api.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>Text typed by the customer; a conversation ID kept in <code>localStorage</code> (created with <code>crypto.randomUUID()</code> on first use).</div>
+<div>Output</div><div><code>POST /api/query/customer/chat</code> with body <code>{"question": string, "conversation_id": string}</code>.</div>
+<div>Next step trigger</div><div>The fetch call.</div>
+<div>Errors, retry</div><div>On any non-2xx response, the optimistic turn is removed and the text is put back in the input box. No automatic retry. A 401 calls <code>onUnauthorized</code>.</div>
+</div>
+<div class="claim" data-l="V"><p>The conversation ID is generated on the client and stored per user in <code>localStorage</code>.</p>
+<details class="cite"><summary>src/features/chat/Chat.tsx:60-63</summary><script type="text/plain">    const key = `querent-conversation-${user.user_id}`;
+    const id = localStorage.getItem(key) || crypto.randomUUID();
+    localStorage.setItem(key, id);
+    setConversation(id);</script></details>
+<details class="cite"><summary>src/features/chat/Chat.tsx:133-144</summary><script type="text/plain">      const result = await api.send<ChatAnswer>("customer/chat", "POST", {
+        question: text,
+        conversation_id: conversation,
+      });
+      setTurns((t) =>
+        t.map((turn) => (turn.id === id ? { ...turn, ...result } : turn)),
+      );
+      if (result.kind === "item_popup") setPopupToOpen(id);
+    } catch (e) {
+      setTurns((t) => t.filter((turn) => turn.id !== id));
+      setQuestion(text);
+      setError(e instanceof Error ? e.message : "Unable to send.");</script></details>
+<details class="cite"><summary>src/lib/api.ts:3-11</summary><script type="text/plain">  async function request<T>(path:string, method:string, body?:unknown):Promise<T> {
+    const response=await fetch(`/api/query/${path}`,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store'});
+    const result=await response.json();
+    if(!response.ok) {
+      if(response.status===401) onUnauthorized?.();
+      throw new Error(typeof result.detail==='string'?result.detail:'The request could not be completed. Please try again.');
+    }
+    return result as T;
+  }</script></details>
+</div>
+<div class="claim" data-l="I"><p>Because the server stores the customer message before it answers (step 3), a client-side retry after a failed request stores the same question twice.</p></div>
+</div></details>
+
+<details class="step"><summary><span class="n">2</span><span class="t">Route and session check</span><span class="tag DET">DETERMINISTIC</span><span class="f">src/app/api/query/[...path]/route.ts, customer.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>HTTP request, cookie <code>querent-persona</code>.</div>
+<div>Output</div><div>A call to <code>ask(customerId, conversationId, question, {contactId})</code>, where the customer and contact come from the session, never the body.</div>
+<div>Next step trigger</div><div>Direct function call.</div>
+<div>Errors</div><div>401 without a session; 422 for an empty question, a question over 4000 characters, or a bad conversation ID (over 100 characters); 404 when the conversation belongs to another customer; any other exception becomes a 500 (rethrown).</div>
+</div>
+<div class="claim" data-l="V"><p>Body validation is hand-written (not zod) in the customer route.</p>
+<details class="cite"><summary>src/app/api/query/[...path]/customer.ts:21-26</summary><script type="text/plain">  if(request.method==='POST'&&name==='chat'&&segments.length===2){
+    const body=await request.json().catch(()=>({}));
+    if(typeof body.question!=='string'||!body.question.trim()||body.question.length>4000||typeof body.conversation_id!=='string'||!body.conversation_id.trim()||body.conversation_id.length>100)return fail('Enter a valid question.',422);
+    try{return NextResponse.json(await ask(user.customer_id,body.conversation_id,body.question.trim(),{contactId:user.contact_id}));}
+    catch(error){if(error instanceof ConversationNotFoundError)return fail('Conversation not found.',404);throw error;}
+  }</script></details>
+<details class="cite"><summary>src/app/api/query/[...path]/route.ts:13-16</summary><script type="text/plain">async function handle(request:NextRequest,segments:string[]){ensureHeartbeat();const user=principal(request);if(!user)return fail('Choose a demo workspace.',401);const path=segments.join('/');
+  ...
+  if(user.role==='customer_user'&&user.customer_id){const answered=await customerRoute(request,{...user,customer_id:user.customer_id},segments);if(answered)return answered;}</script></details>
+</div>
+<div class="claim" data-l="V"><p>Every request to this route also starts a 60-second interval timer (once per process) that writes an "ERP connection refreshed" row to <code>sync_events</code>. It is a heartbeat, not a sync.</p>
+<details class="cite"><summary>src/server/heartbeat.ts:4, src/server/repository/erp.ts:32-35</summary><script type="text/plain">export function ensureHeartbeat(){if(!globalThis.querentHeartbeat){globalThis.querentHeartbeat=setInterval(()=>{try{heartbeat();}catch(error){...}},60_000);globalThis.querentHeartbeat.unref();}}
+...
+export function heartbeat(at=new Date().toISOString()){
+  run('INSERT INTO sync_events(timestamp,message) VALUES(?,?)',at,'ERP connection refreshed');
+  run('DELETE FROM sync_events WHERE id NOT IN (SELECT id FROM sync_events ORDER BY timestamp DESC,id DESC LIMIT 100)');
+}</script></details>
+</div>
+</div></details>
+
+<details class="step"><summary><span class="n">3</span><span class="t">Pipeline opens the conversation and stores the customer message</span><span class="tag ND">NONDETERMINISTIC (time, IDs)</span><span class="f">src/server/pipeline.ts, src/server/repository/chat.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>customerId</code>, <code>conversationId</code>, <code>question</code>.</div>
+<div>Output</div><div><code>earlier</code>: every stored message of the conversation (read <i>before</i> the new message is written); a new <code>messages</code> row with role <code>customer</code>.</div>
+<div>Next step trigger</div><div>Engine selection (step 4).</div>
+<div>Errors</div><div>Creating a conversation whose ID already belongs to another customer raises a SQLite constraint error, which becomes <code>ConversationNotFoundError</code> (404).</div>
+</div>
+<div class="claim" data-l="V"><p>The conversation is created on the first message with the client's ID.</p>
+<details class="cite"><summary>src/server/pipeline.ts:24-33</summary><script type="text/plain">function openConversation(customerId: string, conversationId: string, contactId: string | null) {
+  if (conversation(customerId, conversationId)) return;
+  try {
+    createConversation({ id: conversationId, customerId, contactId });
+  } catch (error) {
+    if ((error as { code?: string }).code?.startsWith("SQLITE_CONSTRAINT"))
+      throw new ConversationNotFoundError(`Conversation ${conversationId} not found.`);
+    throw error;
+  }
+}</script></details>
+<details class="cite"><summary>src/server/repository/chat.ts:40-44</summary><script type="text/plain">export function addMessage(customerId:string,conversationId:string,{id=randomUUID(),role,kind='text',content,payload=null,at=nowIso()}:{...}){
+  if(!conversation(customerId,conversationId))return undefined;
+  run('INSERT INTO messages(id,conversation_id,role,kind,content,payload,created_at) VALUES(?,?,?,?,?,?,?)',id,conversationId,role,kind,content,payload===null?null:JSON.stringify(payload),at);
+  return toMessage(one<MessageRow>(`${MESSAGE} WHERE m.id=?`,id)!);
+}</script></details>
+</div>
+<div class="claim" data-l="I"><p>Two concurrent requests on the same conversation can interleave: each reads <code>earlier</code> before the other's reply is written, because the live engine awaits the network between the read and the write. Nothing locks a conversation.</p></div>
+</div></details>
+
+<details class="step"><summary><span class="n">4</span><span class="t">Engine selection</span><span class="tag DET">DETERMINISTIC</span><span class="f">src/server/chat/mode.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>process.env.QUERENT_SCRIPTED</code>, <code>process.env.ANTHROPIC_API_KEY</code>.</div>
+<div>Output</div><div><code>'scripted'</code> or <code>'live'</code>, read on every turn.</div>
+<div>Errors</div><div>Any exception thrown by either engine is caught and replaced by a fixed error reply (step 10).</div>
+</div>
+<div class="claim" data-l="V"><p>Both engines return the same <code>ChatReply</code> shape and use the same tool handlers and the same clarification module.</p>
+<details class="cite"><summary>src/server/chat/reply.ts:9-23</summary><script type="text/plain">export interface ChatReply {
+  kind:ChatReplyKind;
+  /** Markdown shown in the chat bubble. */
+  content:string;
+  payload:ClarifyPayload|ItemPopupPayload|null;
+  /** Information categories the message asked about, and those actually answered. */
+  categories:Category[];
+  handled:Category[];
+  toolCalls:string[];
+  rowCount:number;
+  outcome:ChatAnswer['outcome'];
+}
+
+/** A reply with defaults: plain text, answered, no categories, tools or payload. */
+export const reply=(r:Partial<ChatReply>&Pick<ChatReply,'content'>):ChatReply=>({kind:'text',payload:null,categories:[],handled:[],toolCalls:[],rowCount:0,outcome:'answered',...r});</script></details>
+</div>
+<div class="claim" data-l="V"><p>The scripted engine recognizes only two item phrases (hex bolts, cut-off wheels) by regex. Everything else gets a fixed "scripted demo" reply. Its data still comes from the real tools.</p>
+<details class="cite"><summary>src/server/chat/scripted.ts:41-47, 164-167</summary><script type="text/plain">const SCRIPT:ScriptItem[]=[
+  {mention:/\bhex\s+(?:bolts?|cap\s+screws?)\b|\bcap\s+screws?\b|\bbolts?\b/i,sku:'HCS-12-13-2G8'},
+  {mention:/\bcut[\s-]?off(?:\s+(?:wheels?|discs?))?\b/i,vague:{choices:[
+    {sku:'CW-45-045-T1',phrase:'Type 1',pattern:/.../i},
+    {sku:'CW-45-045-T27',phrase:'Type 27',pattern:/.../i},
+  ]}},
+];
+...
+  return reply({
+    outcome:'no_rows',
+    content:`I'm running as a scripted demo, so I can only follow the sample conversation: ...`,
+  });</script></details>
+</div>
+</div></details>
+
+<details class="step"><summary><span class="n">5</span><span class="t">Button replies are settled without the model</span><span class="tag DET">DETERMINISTIC</span><span class="f">src/server/chat/live.ts:106-113, clarify.ts:186-196</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>The message text and the pending clarify state (payload of the last assistant message, if its kind is <code>clarify</code>).</div>
+<div>Output</div><div>If the text is a drop command or names exactly one candidate SKU of an open line, the state is advanced and a reply is returned. <b>No model call happens.</b></div>
+<div>Next step trigger</div><div>If nothing was settled, go to context assembly (step 6).</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/chat/live.ts:106-113</summary><script type="text/plain">  const pending=pendingRequest(history);
+  if(pending){
+    const outcomes=readAction(message,pending);
+    if(outcomes.length){
+      if(toolDenied(toolCtx,'search_items'))return itemsDenied(ctx,['search_items']);
+      return requestReply(toolCtx,pending,advance(pending,outcomes,{where:whereIn(message,pending.cart)}));
+    }
+  }</script></details><p>The pending request is read from the last assistant message only.</p>
+<details class="cite"><summary>src/server/chat/clarify.ts:148-153</summary><script type="text/plain">export function pendingRequest(history:readonly {role:string;kind?:string;payload?:unknown}[]):ClarifyPayload|undefined{
+  const last=history.findLast(m=>m.role==='assistant');
+  const payload=last?.kind==='clarify'?last.payload as Partial<ClarifyPayload>|null:undefined;
+  // A clarify payload from before this shape (task 2.1) has no `open` lines: it is not resumed.
+  return payload&&Array.isArray(payload.open)&&payload.cart?payload as ClarifyPayload:undefined;
+}</script></details></div>
+</div></details>
+
+<details class="step"><summary><span class="n">6</span><span class="t">Context assembly for the model call</span><span class="tag ND">NONDETERMINISTIC (date)</span><span class="f">src/server/chat/live.ts:49-80, 114-122</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>Customer ID, today's UTC date, stored history, optional clarify state.</div>
+<div>Output</div><div>A Messages API request: <code>system</code> (one text block, cache-marked), <code>tools</code> (7 fixed definitions), <code>messages</code> (up to 20 earlier text turns plus the new user message).</div>
+<div>Details</div><div>See the <b>Context</b> tab.</div>
+</div>
+</div></details>
+
+<details class="step"><summary><span class="n">7</span><span class="t">Model call (Anthropic Messages API)</span><span class="tag ND">NONDETERMINISTIC (sampling, network)</span><span class="f">src/server/chat/live.ts:124-141</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>{model, max_tokens:16000, messages, tools, system, tool_choice?}</code>. No <code>temperature</code>, <code>top_p</code> or seed is set anywhere.</div>
+<div>Output</div><div><code>Anthropic.Message</code>: content blocks (<code>text</code>, <code>tool_use</code>, possibly thinking blocks) and a <code>stop_reason</code>.</div>
+<div>Next step trigger</div><div>If <code>stop_reason === 'tool_use'</code> and there are tool_use blocks and this is not the 7th call, run the tools (step 8) and call again. Otherwise finish (step 9).</div>
+<div>Errors, retry</div><div>SDK client: 60 s timeout, <code>maxRetries: 2</code>. Any thrown error propagates to the pipeline's catch (step 10). There is no app-level retry.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/chat/live.ts:37-46</summary><script type="text/plain">/** Claude may call tools this many times in one turn; the next request must answer in text. */
+export const MAX_TOOL_ROUNDS=6;
+/** Output budget per request, thinking included (adaptive thinking is on by default on the default model). */
+export const MAX_TOKENS=16000;
+/** Earlier messages sent with each question. */
+export const HISTORY_LIMIT=20;
+
+let shared:LiveClient|undefined;
+/** One client per server process; the SDK reads ANTHROPIC_API_KEY. */
+function defaultClient(){return shared??=new Anthropic({timeout:60_000,maxRetries:2});}</script></details>
+<details class="cite"><summary>src/server/chat/live.ts:124-141</summary><script type="text/plain">  for(let round=0;;round++){
+    const last=round>=MAX_TOOL_ROUNDS;
+    const response=await client.messages.create({
+      model,max_tokens:MAX_TOKENS,messages,tools:TOOL_DEFINITIONS,
+      system:[{type:'text',text:system,cache_control:{type:'ephemeral'}}],
+      ...(last?{tool_choice:{type:'none'}}:{}),
+    });
+    const uses=response.content.filter((b):b is Anthropic.ToolUseBlock=>b.type==='tool_use');
+    if(response.stop_reason!=='tool_use'||!uses.length||last)return finish(response);
+    messages.push({role:'assistant',content:response.content});
+    messages.push({role:'user',content:uses.map(use=>{
+      const call=runTool(toolCtx,use.name,use.input);
+      calls.push(call);
+      if(call.name==='propose_cart'&&call.result.ok)popup=call.result.data as ItemPopupPayload;
+      if(call.name==='search_items'&&call.result.ok&&isQuoteRequest(use.input))quoteSearches.push(call.result.data as ItemSearchResult);
+      return toolResult(use.id,call,repContact);
+    })});
+  }</script></details></div>
+<div class="claim" data-l="I"><p>Worst-case latency of one turn is large: up to 7 model calls, each with a 60 s timeout and up to 2 SDK retries. The client has no timeout of its own. (The retry conditions are SDK behavior, not shown in this repo.)</p></div>
+<div class="claim" data-l="V"><p>Tools run synchronously in the order the model listed them; a turn with several tool_use blocks runs them one after another, not in parallel.</p></div>
+</div></details>
+
+<details class="step"><summary><span class="n">8</span><span class="t">Tool dispatch and execution</span><span class="tag DET">DETERMINISTIC (given DB state)</span><span class="f">src/server/chat/definitions.ts:95-107, tools.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>tool_use</code> block: <code>{id, name, input}</code> chosen by the model.</div>
+<div>Output</div><div><code>tool_result</code> block back to the model: JSON data; or a JSON "restricted" object; or <code>is_error: true</code> with a message.</div>
+<div>Order of checks</div><div>1) tool name exists, 2) customer's access toggle for the tool's category, 3) zod validation of the input, 4) handler (which validates again and reads the customer-safe repository).</div>
+<div>Errors</div><div>Errors are returned to the model as tool results, not thrown. The model decides what to do next.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/chat/definitions.ts:95-107</summary><script type="text/plain">export function runTool(ctx:ToolContext,name:string,input:unknown):ToolRun{
+  if(!isToolName(name))return {name:null,categories:[],rows:0,result:{ok:false,reason:'invalid',message:`There is no tool called ${name}.`}};
+  const categories:Category[]=[TOOL_CATEGORY[name]];
+  const denied=toolDenied(ctx,name);
+  if(denied)return {name,categories,rows:0,result:denied};
+  const parsed=INPUTS[name].safeParse(input??{});
+  if(!parsed.success)return {name,categories,rows:0,result:{ok:false,reason:'invalid',message:`Invalid input for ${name}: ${z.prettifyError(parsed.error)}`}};
+  const result=(HANDLERS[name] as (ctx:ToolContext,input:unknown)=>ToolResult<unknown>)(ctx,parsed.data);
+  if(!result.ok)return {name,categories,rows:0,result};
+  const rows=(ROWS[name] as (data:unknown)=>number)(result.data);
+  const pricesShown=name==='get_order_history'&&(result.data as {prices_shown:boolean}).prices_shown&&rows>0;
+  return {name,categories:pricesShown?[...categories,'pricing']:categories,rows,result};
+}</script></details>
+<details class="cite"><summary>src/server/chat/live.ts:86-93 (how a result returns to the model)</summary><script type="text/plain">function toolResult(id:string,call:ToolRun,repContact:string):Anthropic.ToolResultBlockParam{
+  const {result}=call;
+  if(result.ok)return {type:'tool_result',tool_use_id:id,content:JSON.stringify(result.data)};
+  if(result.reason==='restricted')return {type:'tool_result',tool_use_id:id,content:JSON.stringify({
+    restricted:result.category,message:`This account can't get ${labels[result.category]} information in chat. Tell the customer it isn't available here and that ${repContact}`,
+  })};
+  return {type:'tool_result',tool_use_id:id,is_error:true,content:result.message};
+}</script></details></div>
+<div class="claim" data-l="V"><p><code>search_items</code> splits the query into lines with regexes, reads each line's quantity, and scores the whole catalog with the matcher. A line is confident when the top score is at least 0.75 and leads the next by at least 0.15.</p>
+<details class="cite"><summary>src/server/matching/score.ts:22, 135-139</summary><script type="text/plain">export const CONFIDENCE={minScore:0.75,minLead:0.15} as const;
+...
+export function isConfident(candidates:readonly {score:number}[],rule:ConfidenceRule=CONFIDENCE){
+  if(!candidates.length)return false;
+  const [top,next=0]=candidates.map(c=>hundredths(c.score)).sort((a,b)=>b-a);
+  return top>=hundredths(rule.minScore)&&top-next>=hundredths(rule.minLead);
+}</script></details>
+<details class="cite"><summary>src/server/chat/tools.ts:89-103</summary><script type="text/plain">export const searchItemsTool=gated('search_items',(ctx,{query,limit}:{query:string;limit?:number}):ToolResult<ItemSearchResult>=>{
+  if(!query.trim())return invalid('Give search_items some words to search for.');
+  const requested=splitRequest(query).slice(0,MAX_REQUEST_LINES);
+  if(!requested.length)return invalid('Say what the item is, not just how many: e.g. "1/2 in grade 8 hex bolts".');
+  const purchases=has(ctx,'orders_quotes')?purchasedItems(ctx.customerId):[];
+  const catalog=catalogItems();
+  const rows=clamp(limit,5,20);
+  return {ok:true,data:{lines:requested.map(line=>{
+    const {candidates,confident,question}=matchLine(line.text,catalog,{purchases,limit:rows});
+    return {
+      requested_text:line.said,qty:line.qty,confident,question,
+      candidates:candidates.map(({item:{sku,description,pack,category_name},score})=>({sku,description,pack,category_name,score})),
+    };
+  })}};
+});</script></details>
+</div>
+</div></details>
+
+<details class="step"><summary><span class="n">9</span><span class="t">Finish: build the reply (text, clarify, or item pop-up)</span><span class="tag ND">NONDETERMINISTIC (model text and choices)</span><span class="f">src/server/chat/live.ts:143-172, clarify.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>The final model message, every <code>ToolRun</code> of the turn, the last successful <code>propose_cart</code> result, and every <code>search_items</code> result whose input had <code>quote_request: true</code>.</div>
+<div>Output</div><div>A <code>ChatReply</code>. Priority: (1) <code>stop_reason==='refusal'</code> gives a fixed refusal text; (2) a successful <code>propose_cart</code> gives <code>kind:'item_popup'</code>; (3) an open quote request gives <code>kind:'clarify'</code>; (4) otherwise plain text.</div>
+<div>Errors</div><div>If the model returns no text, a fixed fallback string is used. A <code>max_tokens</code> stop reason is not handled specially, so truncated text is returned as is.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/chat/live.ts:143-171</summary><script type="text/plain">  function finish(response:Anthropic.Message):ChatReply{
+    const categories=unique(calls.flatMap(c=>c.categories));
+    const handled=unique(calls.flatMap(c=>c.result.ok?c.categories:[]));
+    const restricted=calls.some(c=>!c.result.ok&&c.result.reason==='restricted');
+    const rowCount=calls.reduce((n,c)=>n+c.rows,0);
+    const base={categories,handled,rowCount,toolCalls:calls.map(c=>c.name??'unknown')};
+    if(response.stop_reason==='refusal')return reply({...base,handled:[],outcome:'no_rows',content:`I can't help with that in chat. ${repHelp(ctx.customerId,'{rep} can help')}`});
+    const text=textOf(response);
+    if(popup)return reply({...base,kind:'item_popup',payload:popup,outcome:'answered',
+      content:text||'Here is your list. Check the quantities, choose pickup or delivery, then press Request quote.'});
+    const request=requestAfter();
+    if(request?.open.length)return requestReply(toolCtx,pending,request,{...base,content:text||undefined});
+    const outcome:ChatReply['outcome']=restricted&&!handled.length?'restricted':calls.length&&!rowCount&&!restricted?'no_rows':'answered';
+    return reply({...base,outcome,content:text||`I couldn't answer that. ${repHelp(ctx.customerId,'{rep} can help')}`});
+  }
+
+  function requestAfter(){
+    if(toolDenied(toolCtx,'search_items'))return undefined;
+    const search=quoteSearches.at(-1);
+    if(pending){
+      const {outcomes,added}=continueWith(pending,search?.lines??[]);
+      return advance(pending,outcomes,{added,where:whereIn(message,pending.cart)});
+    }
+    return search&&startRequest(search.lines,whereIn(message));
+  }</script></details></div>
+<div class="claim" data-l="V"><p>In the clarify case, the text shown to the customer is the model's text when it has any; the buttons and rep contact come from the deterministic state (<code>present()</code>: candidates become buttons from round 2).</p>
+<details class="cite"><summary>src/server/chat/clarify.ts:136-140, 263-267</summary><script type="text/plain">export function present(ctx:ToolContext,state:ClarifyPayload):ClarifyPayload{
+  const open=state.open.map(line=>({...line,choices:line.round>=CANDIDATE_ROUND?line.candidates.slice(0,CANDIDATE_BUTTONS):[]}));
+  const rep=open.some(line=>line.round>=CANDIDATE_ROUND)?repContact(ctx.customerId):null;
+  return {...state,open,rep};
+}
+...
+  const payload=present(ctx,after);
+  return reply({
+    kind:'clarify',payload,content:content||clarifyText(before,payload),
+    ...
+  });</script></details>
+</div>
+<div class="claim" data-l="V"><p>Pickup vs delivery and the branch for a clarify/scripted cart are read from the message by regex (<code>whereIn</code>), not by the model.</p>
+<details class="cite"><summary>src/server/chat/clarify.ts:54-63</summary><script type="text/plain">const DELIVERY=/\bdeliver(?:y|ed)?\b|\bship(?:ped|ping)?\b/i;
+...
+export function whereIn(text:string,fallback?:Where):Where{
+  const all=branches();
+  const fulfillment=DELIVERY.test(text)?'delivery':fallback?.fulfillment??'will_call';
+  const named=all.find(b=>[b.code,b.name,b.city,b.city.replace(/\s+city$/i,'')].some(n=>new RegExp(`\\b${escape(n)}\\b`,'i').test(text)));
+  return {fulfillment,branch_id:named?.id??fallback?.branch_id??all[0].id};
+}</script></details>
+</div>
+</div></details>
+
+<details class="step"><summary><span class="n">10</span><span class="t">Persist the reply and the query log; respond</span><span class="tag ND">NONDETERMINISTIC (time, IDs)</span><span class="f">src/server/pipeline.ts:51-80</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>ChatReply</code> (or the fixed error reply).</div>
+<div>Output (DB)</div><div>One <code>messages</code> row (role <code>assistant</code>, <code>kind</code>, <code>content</code>, JSON <code>payload</code>); one <code>query_logs</code> row (question, categories, handled, tool names, row count, latency, outcome, answer).</div>
+<div>Output (HTTP)</div><div><code>ChatAnswer</code> JSON, status 200 (also for the error reply).</div>
+<div>Errors</div><div>Engine exceptions are logged with <code>console.error</code> and turned into <code>{outcome:'error', content:'We couldn’t complete that lookup. Please try again.'}</code>.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/pipeline.ts:46-80</summary><script type="text/plain">  try {
+    result =
+      chatMode() === "scripted"
+        ? scriptedReply({ customerId }, question, earlier)
+        : await liveReply({ customerId }, question, earlier);
+  } catch (error) {
+    console.error("Chat pipeline failed", error);
+    result = reply({ outcome: "error", content: "We couldn’t complete that lookup. Please try again." });
+  }
+  addMessage(customerId, conversationId, {
+    role: "assistant",
+    kind: result.kind,
+    content: result.content,
+    payload: result.payload,
+  });
+  appendLog({ customerId, conversationId, question, categories: result.categories, handled: result.handled,
+    toolCalls: result.toolCalls, rowCount: result.rowCount, latency: Date.now() - started, outcome: result.outcome, answer: result.content });
+  return {
+    answer: result.content, categories: result.categories, outcome: result.outcome,
+    row_count: result.rowCount, kind: result.kind, payload: result.payload,
+  };</script></details></div>
+<h4>Example response payload (shape from <code>src/lib/contracts.ts:18</code>; values illustrative)</h4>
+<pre>{
+  "answer": "I need a detail on 1 line: Type 1 or Type 27 cut-off wheels?",
+  "categories": ["items_stock"],
+  "outcome": "answered",
+  "row_count": 4,
+  "kind": "clarify",
+  "payload": {
+    "open": [{
+      "requested_text": "6 boxes of cut-off wheels", "qty": 6,
+      "question": "Type 1 or Type 27 cut-off wheels?", "round": 1,
+      "candidates": [{"sku":"CW-45-045-T1","description":"...","pack":"...","category_name":"..."}],
+      "choices": [], "text": "cut-off wheels"
+    }],
+    "cart": {"fulfillment":"will_call","branch_id":"...","lines":[{"sku":"HCS-12-13-2G8","qty":10,"requested_text":"10 boxes of the 1/2 in grade 8 hex bolts"}]},
+    "dropped": [],
+    "rep": null
+  }
+}</pre>
+<div class="claim" data-l="I"><p>The chat history endpoint rebuilds turns by pairing <code>query_logs</code> rows with assistant messages <b>by exact answer text</b>, in order. Two stores hold the same answer, and if they ever disagree, payloads (buttons, pop-ups) can attach to the wrong turn or be lost on reload.</p>
+<details class="cite"><summary>src/server/repository/chat.ts:92-104</summary><script type="text/plain">export function history(customerId:string,conversationId:string):ChatTurn[]{
+  const replies=conversationMessages(customerId,conversationId).filter(m=>m.role==='assistant');
+  let next=0;
+  return all<...>('SELECT id,question,answer,categories,outcome,row_count,timestamp FROM query_logs WHERE customer_id=? AND conversation_id=? ORDER BY timestamp,rowid',customerId,conversationId)
+    .map(row=>{
+      const turn:ChatTurn={...row,categories:JSON.parse(row.categories) as Category[]};
+      const found=replies.findIndex((m,i)=>i>=next&&m.content===row.answer);
+      ...</script></details>
+</div>
+</div></details>
+
+<details class="step"><summary><span class="n">11</span><span class="t">Client renders the reply</span><span class="tag DET">DETERMINISTIC</span><span class="f">src/features/chat/Chat.tsx</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>ChatAnswer</code>.</div>
+<div>Output</div><div>Markdown bubble (<code>react-markdown</code> + <code>remark-gfm</code>), clarify buttons, or the item pop-up when <code>kind==='item_popup'</code>.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/features/chat/Chat.tsx:4, 140, 241</summary><script type="text/plain">import ReactMarkdown from "react-markdown";
+...
+      if (result.kind === "item_popup") setPopupToOpen(id);
+...
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}></script></details></div>
+<div class="claim" data-l="I"><p>Model text is rendered as Markdown without <code>rehype-raw</code>, so raw HTML in model output is not rendered as HTML (library default). Links in model output are rendered as links.</p></div>
+</div></details>
+
+<details class="step"><summary><span class="n">12</span><span class="t">Customer presses Request quote</span><span class="tag ND">NONDETERMINISTIC (human)</span><span class="f">src/components/customer/ItemPopup.tsx:87-88</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>The pop-up's lines; the customer may change quantities, pickup/delivery and branch.</div>
+<div>Output</div><div><code>POST /api/query/customer/quote-requests</code> with <code>{conversation_id, fulfillment, branch_id, lines:[{sku, qty}]}</code>.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/components/customer/ItemPopup.tsx:87-88</summary><script type="text/plain">    const body:QuoteRequestInput={conversation_id:conversationId,fulfillment,branch_id:branchId,lines:lines.map((l,i)=>({sku:l.sku,qty:qtys[i]!}))};
+    try{onRequested(await api.send<QuoteRequestResult>('customer/quote-requests','POST',body));}</script></details></div>
+</div></details>
+
+<details class="step"><summary><span class="n">13</span><span class="t">Quote intake: validate against the stored pop-up</span><span class="tag DET">DETERMINISTIC (given DB state)</span><span class="f">src/server/intake/quote-request.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>Untrusted body; session customer and contact.</div>
+<div>Validation</div><div>Strict zod schema (unknown keys such as a price are refused with 422); conversation must be the customer's (404); the last <code>item_popup</code> message must exist (409); each SKU must exist, be on that pop-up, and appear once (422); branch must exist (422); customer must have a rep (409); delivery needs a ship-to on file (422).</div>
+<div>Idempotency</div><div>If a <code>quote_requested</code> message already points at this pop-up, the earlier quote is returned with <code>replayed: true</code> (HTTP 200) and nothing is written.</div>
+<div>Errors</div><div><code>QuoteRequestError</code> with status 404/409/422; the whole transaction rolls back.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/intake/quote-request.ts:41-47</summary><script type="text/plain">const Line=z.strictObject({sku:z.string().trim().min(1).max(64),qty:z.number().int().min(1).max(MAX_QTY)});
+const Body=z.strictObject({
+  conversation_id:z.string().trim().min(1).max(100),
+  fulfillment:z.enum(FULFILLMENTS),
+  branch_id:z.string().trim().min(1).max(64),
+  lines:z.array(Line).min(1).max(MAX_LINES),
+});</script></details>
+<details class="cite"><summary>src/server/intake/quote-request.ts:109-134</summary><script type="text/plain">  return inTransaction(()=>{
+    if(!conversation(customerId,input.conversation_id))throw new QuoteRequestError(404,'Conversation not found.');
+    const messages=conversationMessages(customerId,input.conversation_id);
+    const popupIndex=messages.findLastIndex(m=>m.role==='assistant'&&m.kind==='item_popup');
+    const popup=messages[popupIndex];
+    if(!popup||!isPopup(popup.payload))throw new QuoteRequestError(409,'There is no item list to quote in this chat. Ask for the items first.');
+
+    // The same pop-up again (a double click, a retry): the quote it already made.
+    const done=messages.find(m=>requestedFrom(m)===popup.id);
+    if(done){ ... return {quote:{...},turn:earlierTurn(messages,done),replayed:true}; }
+
+    const offered=new Map(popup.payload.lines.map(l=>[l.sku.toUpperCase(),l]));
+    const seen=new Set<string>();
+    const lines=input.lines.map(({sku,qty})=>{
+      const item=catalogItem(sku);
+      if(!item)throw new QuoteRequestError(422,`No item has SKU ${sku}.`);
+      const listed=offered.get(item.sku.toUpperCase());
+      if(!listed)throw new QuoteRequestError(422,`${item.sku} isn't on your list. Ask for it in the chat to add it.`);
+      if(seen.has(item.id))throw new QuoteRequestError(422,`${item.sku} is on the request twice.`);
+      seen.add(item.id);
+      return {item,qty,requestedText:listed.requested_text??null};
+    });</script></details></div>
+<div class="claim" data-l="V"><p>Only the <b>most recent</b> pop-up in the conversation can be quoted. <code>requested_text</code> for each line is taken from the stored pop-up payload, not from the request body.</p></div>
+</div></details>
+
+<details class="step"><summary><span class="n">14</span><span class="t">Pricing engine prices every line</span><span class="tag DET">DETERMINISTIC (given DB state and day)</span><span class="f">src/server/pricing/service.ts, engine.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>Customer, rep, branch, lines <code>[{itemId, qty}]</code>, pricing day. Facts loaded: list, customer price-level price, active contract price, last paid in 12 months, cost, case qty, stock, scarcity setting, rep floor.</div>
+<div>Output</div><div>Per line: suggested price and basis, reason, explanation text, GP vs customer price, margin and below-floor flag.</div>
+<div>Rule</div><div>Active contract wins (no uplift, no cap). Otherwise the highest of: customer price, last paid (if higher), broken case (+10%), scarcity (+5%, setting off by default); capped at list. Floor never changes the pick. No customer price: list. No list: no price.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/pricing/engine.ts:118-145</summary><script type="text/plain">export function suggestPrice(input:PricingInput):PriceSuggestion{
+  const {sources,qty}=input;
+  const list=usable(sources.list_price)?cents(sources.list_price):null;
+  const customer=usable(sources.customer_price)?cents(sources.customer_price):null;
+  const brokenCase=qty>0&&qty<sources.case_qty;
+  const scarcity=input.scarcityEnabled?scarcityAt(input.stock,input.branchId,qty):null;
+  ...
+  if(sources.contract&&usable(sources.contract.unit_price))return finish({basis:'contract',cents:cents(sources.contract.unit_price),reason:'contract'});
+  if(customer===null)return finish(list===null?null:{basis:'list',cents:list,reason:'no_customer_price'});
+
+  const candidates:Candidate[]=[];
+  const lastPaid=sources.last_paid&&usable(sources.last_paid.unit_price)?cents(sources.last_paid.unit_price):null;
+  if(lastPaid!==null&&lastPaid>customer)candidates.push({basis:'last_paid',cents:lastPaid,reason:'last_paid'});
+  if(brokenCase)candidates.push({basis:'custom',cents:uplift(customer,BROKEN_CASE_UPLIFT_PERCENT),reason:'broken_case'});
+  if(scarcity)candidates.push({basis:'custom',cents:uplift(customer,SCARCITY_UPLIFT_PERCENT),reason:'scarcity'});
+  candidates.push({basis:'customer',cents:customer,reason:'customer'});
+  const best=candidates.reduce((a,b)=>b.cents>a.cents?b:a);
+  if(list!==null&&best.cents>list)return finish({basis:'list',cents:list,reason:best.reason},best.cents);
+  return finish(best);
+}</script></details>
+<details class="cite"><summary>src/server/pricing/index.ts:19-21</summary><script type="text/plain">export function draftLineFields({suggestion,explanation}:PricedLine):DraftLineFields{
+  return {unitPrice:suggestion.price,priceBasis:suggestion.basis,suggestedPrice:suggestion.price,suggestedBasis:suggestion.basis,customerPrice:suggestion.customerPrice,explanation};
+}</script></details></div>
+<div class="claim" data-l="V"><p>The intake throws a plain <code>Error</code> (HTTP 500, transaction rolled back) if pricing returns fewer lines than requested, which happens when <code>priceSources</code> finds no row for an item.</p>
+<details class="cite"><summary>src/server/intake/quote-request.ts:146</summary><script type="text/plain">    if(priced.length!==lines.length)throw new Error('Pricing skipped a line.');</script></details></div>
+</div></details>
+
+<details class="step"><summary><span class="n">15</span><span class="t">Write the draft quote</span><span class="tag ND">NONDETERMINISTIC (time)</span><span class="f">src/server/repository/quotes.ts:102-117</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>NewQuote</code> from the intake.</div>
+<div>Output (DB)</div><div>One <code>quotes</code> row (status <code>ready_for_review</code>, revision 0, <code>unread_for_rep=1</code>); one <code>quote_lines</code> row per line (unit cost copied from <code>items.cost</code>); three <code>quote_activity</code> rows (requested, matched, drafted); a customer message and an assistant <code>quote_requested</code> message; a <code>query_logs</code> row with tool name <code>request_quote</code>.</div>
+<div>Consistency</div><div>All of it runs inside the intake's <code>inTransaction</code>; <code>createQuote</code>'s own transaction nests as a savepoint. The quote number is <code>max(existing)+1</code> computed inside the transaction.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/repository/quotes.ts:102-116</summary><script type="text/plain">export function createQuote(input:NewQuote):Quote{
+  return inTransaction(()=>{
+    const repId=scalar<string>('SELECT rep_id FROM customer_rep WHERE customer_id=?',input.customerId);
+    if(!repId)throw new Error(`Customer ${input.customerId} has no assigned rep.`);
+    const next=(scalar<number|null>('SELECT max(CAST(substr(quote_number,3) AS INTEGER)) FROM quotes')??10000)+1;
+    const id=`q-${next}`,at=input.at??nowIso();
+    const shipTo=input.shipTo===undefined?customerShipTo(input.customerId):input.shipTo;
+    run(`INSERT INTO quotes(...) VALUES(?,?,?,?,?,'ready_for_review',0,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,0,?)`, ...);
+    for(const line of input.lines)insertLine(id,line,'querent');
+    return quote(id)!;
+  });
+}</script></details>
+<details class="cite"><summary>src/server/repository/quotes.ts:70-73</summary><script type="text/plain">/** Writes one line; unit cost is copied from the item, never taken from the caller. `atLineNo` must be free (restoreQuoteLine checks). */
+function insertLine(quoteId:string,line:NewQuoteLine,addedBy:LineSource,atLineNo?:number){
+  checkQty(line.qty);
+  const cost=scalar<number>('SELECT cost FROM items WHERE id=?',line.itemId);</script></details></div>
+<div class="claim" data-l="I"><p><code>better-sqlite3</code> runs each transaction synchronously, so within one Node process two quote requests cannot interleave. With several processes on one file, <code>db().transaction(fn)()</code> starts a DEFERRED transaction, so the read of <code>max(quote_number)</code> and the insert could race; the UNIQUE constraint on <code>quote_number</code> would then fail one request with a 500 rather than produce a duplicate.</p></div>
+</div></details>
+
+<details class="step"><summary><span class="n">16</span><span class="t">Confirmation back to the customer</span><span class="tag DET">DETERMINISTIC</span><span class="f">src/app/api/query/customer/quote-requests/route.ts</span></summary><div class="body">
+<div class="kv">
+<div>Output (HTTP)</div><div>201 (new) or 200 (replay): <code>{quote:{id, quote_number, status}, turn: ChatTurn, replayed}</code>. No prices, cost or basis.</div>
+</div>
+<pre>{
+  "quote": {"id": "q-24818", "quote_number": "Q-24818", "status": "ready_for_review"},
+  "turn": {"id": "...", "question": "Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1 (pickup at SLC).",
+           "answer": "Sent to Brandi for review. Your quote number is **Q-24818**. Brandi will price it and send it to you here in chat.",
+           "categories": [], "outcome": "answered", "row_count": 2, "kind": "quote_requested",
+           "payload": {"quote_id":"q-24818","quote_number":"Q-24818","status":"ready_for_review","popup_message_id":"..."}},
+  "replayed": false
+}</pre>
+<p class="note">Shape from <code>src/lib/contracts.ts:43</code> and <code>src/server/intake/quote-request.ts:163-173</code>; the quote number and branch code are illustrative.</p>
+</div></details>
+
+<details class="step"><summary><span class="n">17</span><span class="t">Rep reviews and edits the draft</span><span class="tag DET">DETERMINISTIC</span><span class="f">src/server/rep/quote-edits.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>Rep edits (qty, price basis, typed price, add/remove/restore line) through <code>/api/rep/quotes/&lt;id&gt;/lines…</code>.</div>
+<div>Output</div><div>Updated <code>quote_lines</code> and an Activity row, in one transaction per edit. New lines are priced by the same engine.</div>
+<div>Guards</div><div>Rep must own the quote (404 otherwise); status must be <code>ready_for_review</code> or <code>changes_requested</code> (409 otherwise); zod validates money (whole cents, 0 to max) and qty.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/rep/quote-edits.ts:35-41</summary><script type="text/plain">export function editableQuote(repId:string,quoteIdOrNumber:string,now:string):Quote{
+  const q=repQuote(repId,quoteIdOrNumber);
+  if(!q)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
+  const status=effectiveStatus(q,now);
+  if(!canEditDraft(status))throw new QuoteActionError('illegal_transition',(NOT_EDITABLE[status]??(n=>`${n} can't be edited.`))(q.quote_number));
+  return q;
+}</script></details></div>
+</div></details>
+
+<details class="step"><summary><span class="n">18</span><span class="t">Upsell chips, worded by the second model call</span><span class="tag ND">NONDETERMINISTIC (model, in live mode)</span><span class="f">src/server/rep/quote-upsells.ts, src/server/upsells-writer/claude.ts</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>Chips chosen by deterministic rules (matching fastener, full case, bought together), stripped of cost/price/GP by <code>chipFacts()</code>.</div>
+<div>Output</div><div>A title and reason per chip, shown only in the rep portal. Not stored in the database (cached in process memory, 500 entries).</div>
+<div>Errors, retry</div><div>8 s timeout, no retries, then a 60 s pause during which templates are used. Any failure keeps the template wording.</div>
+</div>
+<p>Full detail is on the <b>Tools</b> tab.</p>
+</div></details>
+
+<details class="step"><summary><span class="n">19</span><span class="t">Approve &amp; send: revision snapshot and chat notice</span><span class="tag ND">NONDETERMINISTIC (time)</span><span class="f">src/server/quotes/service.ts:133-160</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div><code>{message, attach_pdf, revision, total}</code> and an <code>Idempotency-Key</code> header.</div>
+<div>Output (DB)</div><div>Quote status <code>sent</code>, revision n+1, <code>valid_until</code>; one immutable <code>quote_revisions</code> row with a JSON snapshot; a <code>messages</code> row with role <code>system</code>, kind <code>quote_ready</code>, in the quote's chat; an Activity row.</div>
+<div>Consistency</div><div>Freight is computed before the transaction (it is async); inside, the quote is reloaded and the send is refused if <code>updated_at</code> changed, if blockers exist, or if the revision/total differs from what the rep confirmed. The status update is guarded with <code>WHERE status=?</code>.</div>
+<div>Idempotency</div><div>In-memory store per process, 10 min TTL.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/quotes/service.ts:133-160</summary><script type="text/plain">export async function sendQuote(quoteIdOrNumber:string,{repId,message=null,attachPdf=true,expected={},now=clock(),provider}:SendOptions){
+  const text=sanitizeChatText(message);
+  ...
+  const draft=load(quoteIdOrNumber);
+  assertEvent(draft,'send');
+  const sender=repName(repId);
+  const freight=await freightForQuote(draft,{provider});
+  return inTransaction(()=>{
+    const q=load(draft.id);
+    assertEvent(q,'send');
+    if(q.updated_at!==draft.updated_at)throw new QuoteActionError('conflict',`${q.quote_number} was edited while it was being sent. Review it and send again.`);
+    const blockers=sendBlockers(q,freight,{today:utcDay(now)});
+    if(blockers.length)throw new QuoteActionError('send_blocked',...);
+    const revision=q.revision+1,validUntil=validUntilOnSend(q,now);
+    const snapshot=buildSnapshot(q,{revision,sentAt:now,validUntil,...});
+    if(expected.revision!==undefined&&expected.revision!==revision) throw new QuoteActionError('conflict',...);
+    if(expected.total!==undefined&&cents(expected.total)!==snapshot.total) throw new QuoteActionError('conflict',...);
+    persist(q,{to:'sent',at:now,revision,sentAt:now,validUntil,unreadForRep:false,unreadForCustomer:true});
+    const stored=addQuoteRevision(q.id,{revision,sentBy:repId,message:text||null,attachPdf,total:snapshot.total,snapshot,sentAt:now});
+    const payload=quoteReadyPayload({...});
+    const posted=addMessage(q.customer_id,quoteChat(q,now),{role:'system',kind:QUOTE_READY_KIND,content:text,payload,at:now});
+    if(!posted)throw new Error(`${q.quote_number}: the quote's chat couldn't be written.`);
+    addQuoteActivity(q.id,{...});
+    return {quote:load(q.id),revision:stored,message:posted};
+  });
+}</script></details>
+<details class="cite"><summary>src/server/rep/quote-send.ts:59, 72</summary><script type="text/plain">const sends=new IdempotencyStore();
+...
+  return sends.onceAsync(`${repId}:${q.id}`,idempotencyKey,async()=>{</script></details></div>
+</div></details>
+
+<details class="step"><summary><span class="n">20</span><span class="t">Customer sees the quote; accepts or requests changes</span><span class="tag ND">NONDETERMINISTIC (polling, human)</span><span class="f">src/features/chat/Chat.tsx, src/server/quotes/service.ts:243-268</span></summary><div class="body">
+<div class="kv">
+<div>Input</div><div>The chat polls <code>GET customer/notices/&lt;conversation&gt;</code> while the tab is visible; the customer opens the PDF of the sent revision.</div>
+<div>Output</div><div>Accept (<code>sent → accepted</code>, with PO and pickup/delivery time) or Request changes (<code>sent → changes_requested</code>, with a note). Both refuse an expired quote or a stale revision.</div>
+</div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/quotes/lifecycle.ts:28-33</summary><script type="text/plain">export const TRANSITIONS:Readonly<Record<QuoteEvent,TransitionRule>>={
+  send:{from:['ready_for_review','changes_requested'],to:'sent',actor:'rep'},
+  accept:{from:['sent'],to:'accepted',actor:'customer'},
+  request_changes:{from:['sent'],to:'changes_requested',actor:'customer'},
+  expire:{from:['sent'],to:'expired',actor:'system'},
+};</script></details></div>
+<div class="claim" data-l="V"><p>Expiry is lazy: there is no scheduler. <code>expireOverdueQuotes</code> runs when the rep's quote list, badges, reference pages or analytics load, and a customer action on an overdue quote stores the expiry first.</p>
+<details class="cite"><summary>callers of expireOverdueQuotes (non-test)</summary><script type="text/plain">src/server/rep/quotes.ts:105
+src/server/rep/reference.ts:94
+src/server/rep/badges.ts:26
+src/server/analytics/service.ts:42</script></details></div>
+</div></details>
+</div>
+</section>
+
+<!-- ============================ DETERMINISM ============================ -->
+<section class="tab" id="det">
+<h2>Deterministic vs nondeterministic behavior</h2>
+<p class="lede">"Deterministic" here means: same inputs and same database state give the same output. The table lists every step of the path.</p>
+<div class="tablewrap"><table>
+<tr><th>#</th><th>Step</th><th>Mode</th><th>Source of nondeterminism</th><th>Controls that exist</th></tr>
+<tr><td>1</td><td>Client send</td><td><span class="tag ND">NONDET</span></td><td>Human input; <code>crypto.randomUUID()</code> conversation ID</td><td>Length checks on the server</td></tr>
+<tr><td>2</td><td>Route and session</td><td><span class="tag DET">DET</span></td><td>—</td><td>Cookie lookup; hand-written body checks</td></tr>
+<tr><td>3</td><td>Store customer message</td><td><span class="tag ND">NONDET</span></td><td>Clock (<code>nowIso</code>), <code>randomUUID</code> message ID; concurrency between requests</td><td>Per-customer scoping in every query</td></tr>
+<tr><td>4</td><td>Engine selection</td><td><span class="tag DET">DET</span></td><td>Environment only</td><td>—</td></tr>
+<tr><td>5</td><td>Button settle</td><td><span class="tag DET">DET</span></td><td>—</td><td>Regex on SKU/drop text</td></tr>
+<tr><td>6</td><td>Context assembly</td><td><span class="tag ND">NONDET</span></td><td>Clock (today's date in the system prompt)</td><td>Fixed tool order; history limit 20</td></tr>
+<tr><td>7</td><td>Model call (chat)</td><td><span class="tag ND">NONDET</span></td><td>Model sampling; external API availability and latency</td><td>max_tokens 16000; 6 tool rounds then <code>tool_choice:none</code>; SDK timeout 60 s, 2 retries. <b>No temperature, top_p or seed.</b></td></tr>
+<tr><td>8</td><td>Tool execution</td><td><span class="tag DET">DET</span></td><td>Inputs are chosen by the model; execution is deterministic given DB state and day</td><td>Access toggle check, zod schema, handler checks, row limits</td></tr>
+<tr><td>8a</td><td>Matcher (<code>search_items</code>)</td><td><span class="tag DET">DET</span></td><td>— (query text is model-written in live mode)</td><td>Confidence rule 0.75 / 0.15; ties broken by order count then catalog order</td></tr>
+<tr><td>9</td><td>Finish reply</td><td><span class="tag ND">NONDET</span></td><td>Model text; which tools the model called</td><td>Clarify state machine; refusal handling; fallback texts</td></tr>
+<tr><td>10</td><td>Persist reply and log</td><td><span class="tag ND">NONDET</span></td><td>Clock, UUIDs, latency</td><td>None on content</td></tr>
+<tr><td>12</td><td>Request quote click</td><td><span class="tag ND">NONDET</span></td><td>Human (qty, branch, fulfillment may be changed)</td><td>Strict zod schema</td></tr>
+<tr><td>13</td><td>Intake validation</td><td><span class="tag DET">DET</span></td><td>—</td><td>SKUs must be on the stored pop-up; replay detection</td></tr>
+<tr><td>14</td><td>Pricing</td><td><span class="tag DET">DET</span></td><td>Pricing day defaults to the clock</td><td>Integer-cent arithmetic; documented rule order</td></tr>
+<tr><td>15</td><td>Create quote</td><td><span class="tag ND">NONDET</span></td><td>Clock; quote number depends on existing rows</td><td>One transaction</td></tr>
+<tr><td>17</td><td>Rep edits</td><td><span class="tag DET">DET</span></td><td>Human rep input</td><td>Zod validation; status guard</td></tr>
+<tr><td>18</td><td>Upsell wording</td><td><span class="tag ND">NONDET</span></td><td>Model sampling (live mode); timeouts</td><td>Cost-key scan before the call; output regex/length filter; template fallback</td></tr>
+<tr><td>19</td><td>Send</td><td><span class="tag ND">NONDET</span></td><td>Clock; in-memory idempotency store</td><td>Optimistic check on <code>updated_at</code>, expected revision/total, status-guarded UPDATE</td></tr>
+<tr><td>—</td><td>Freight distance</td><td><span class="tag DET">DET</span></td><td>— (haversine × road factor; no network)</td><td>Interface allows a network provider later</td></tr>
+</table></div>
+
+<div class="claim" data-l="V"><p>No sampling controls are set. A search of the chat and writer code finds no <code>temperature</code>, <code>top_p</code> or <code>seed</code>.</p>
+<details class="cite"><summary>grep "temperature|top_p|seed" src/server/chat src/server/upsells-writer (non-test)</summary><script type="text/plain">(no matches)</script></details></div>
+<div class="claim" data-l="V"><p>Freight distance is computed locally (haversine × road factor). There is no external distance API call.</p>
+<details class="cite"><summary>src/server/freight/distance.ts:37-42</summary><script type="text/plain">export class HaversineRoadFactorProvider implements DistanceProvider {
+  constructor(readonly roadFactor=ROAD_FACTOR){}
+  async roadMiles(from:Place,to:Place){
+    return located(from)&&located(to)?haversineRoadMiles(from,to,this.roadFactor):null;
+  }
+}</script></details></div>
+
+<h3>Where model output becomes trusted data</h3>
+<p>Each row is a point where something the model produced is stored or acted on, and the checks between the two.</p>
+<div class="tablewrap"><table>
+<tr><th>Model output</th><th>Where it lands</th><th>Checks in between</th><th>Label</th></tr>
+<tr><td>Assistant text</td><td><code>messages.content</code>, <code>query_logs.answer</code>, shown to the customer as Markdown</td><td>None on content. Only <code>stop_reason==='refusal'</code> replaces it. Prompt rules ask the model to answer only from tool results.</td><td><span class="tag V">VERIFIED</span></td></tr>
+<tr><td>Tool name and input</td><td>Runs a tool</td><td>Name allow-list; access toggle; zod schema; handler validation</td><td><span class="tag V">VERIFIED</span></td></tr>
+<tr><td><code>search_items.query</code> with <code>quote_request:true</code></td><td>Clarify state (<code>messages.payload</code>)</td><td>The matcher, not the model, decides confidence and candidates. The model controls only the query text and the flag.</td><td><span class="tag V">VERIFIED</span></td></tr>
+<tr><td><code>propose_cart</code> lines, fulfillment, branch</td><td><code>item_popup</code> payload in <code>messages</code>; later the allow-list for the intake</td><td>SKU exists in catalog; qty 1..9999; branch exists. <b>Not</b> checked against search results or clarify state. Then a human gate: the customer confirms the pop-up.</td><td><span class="tag V">VERIFIED</span></td></tr>
+<tr><td><code>propose_cart.lines[].requested_text</code></td><td><code>quote_lines.requested_text</code> (shown to the rep as "what the customer asked")</td><td>Max 500 characters. Nothing checks it matches what the customer said.</td><td><span class="tag V">VERIFIED</span></td></tr>
+<tr><td>Upsell title and reason</td><td>Rep portal UI only (in-memory cache)</td><td>Must call the tool; zod shape; length 3..90 / 3..240; no newlines; regex bans <code>$ % cost margin price…</code></td><td><span class="tag V">VERIFIED</span></td></tr>
+<tr><td>Prices, totals, status</td><td>—</td><td>Never model output. Prices come from the pricing engine and rep edits.</td><td><span class="tag V">VERIFIED</span></td></tr>
+</table></div>
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/upsells-writer/claude.ts:60-68</summary><script type="text/plain">/** Words Claude may not use: it never sees a price, cost or margin, so any mention would be made up. */
+const MADE_UP=/[$%¢€£]|\b(cost|costs|margin|margins|profit|profits|discount|discounted|price|prices|priced|pricing|cheaper|savings?)\b/i;
+
+/** Claude's wording, trimmed, if it is usable on a chip: within length, one line, and nothing about money. */
+export function acceptableWording(text:{title:string;reason:string}):ChipWording|null{
+  const title=text.title.trim(),reason=text.reason.trim();
+  const ok=(value:string,max:number)=>value.length>=3&&value.length<=max&&!/[\r\n]/.test(value)&&!MADE_UP.test(value);
+  return ok(title,TITLE_MAX)&&ok(reason,REASON_MAX)?{title,reason}:null;
+}</script></details></div>
+<div class="claim" data-l="I"><p>The access toggles are enforced in code before each tool runs, so a prompt injection in a customer message cannot make a restricted tool return data. It can still influence which allowed tools run and what text the model writes.</p></div>
+</section>
+
+<!-- ============================ TOOLS ============================ -->
+<section class="tab" id="tools">
+<h2>Tools the model can call</h2>
+<p class="lede">The live chat model gets 7 tools. The upsell writer gets 1 tool. All tools are executed by the Next.js server process, synchronously, inside the request that made the model call. None of the chat tools writes to the database.</p>
+
+<div class="tablewrap"><table>
+<tr><th>Tool</th><th>Purpose</th><th>Gate (category)</th><th>Output (success)</th><th>Side effects</th><th>File</th></tr>
+<tr><td><code>search_items</code></td><td>Map request text to catalog SKUs</td><td>items_stock</td><td><code>{lines:[{requested_text, qty, candidates:[{sku,description,pack,category_name,score}], confident, question}]}</code></td><td>None in DB. With <code>quote_request:true</code> the live engine turns the last result into clarify state.</td><td>tools.ts:89-103</td></tr>
+<tr><td><code>get_stock</code></td><td>Stock per branch</td><td>items_stock</td><td><code>{items:[{sku,description,pack,total_available,branches:[…]}], unknown:[sku]}</code></td><td>None</td><td>tools.ts:110-118</td></tr>
+<tr><td><code>get_price</code></td><td>Customer-visible prices</td><td>pricing</td><td><code>{items:[{sku,…,list_price,customer_price,contract,your_price,price_basis}], unknown}</code></td><td>None</td><td>tools.ts:134-148</td></tr>
+<tr><td><code>get_order_history</code></td><td>Past purchases</td><td>orders_quotes (+ pricing for unit price)</td><td><code>{lines:[{order_number,order_date,po_number,sku,description,pack,qty,unit_price?}], unknown, prices_shown}</code></td><td>None</td><td>tools.ts:156-165</td></tr>
+<tr><td><code>get_order_status</code></td><td>One order or quote</td><td>orders_quotes</td><td><code>{reference, order|null, quote|null}</code>; quote total is the last <i>sent</i> total</td><td>None</td><td>tools.ts:182-193</td></tr>
+<tr><td><code>get_account_summary</code></td><td>Terms, credit, rep</td><td>account</td><td><code>{account_number,name,terms,credit_limit,open_balance,past_due_balance,available_credit,tax_status,rep}</code></td><td>None</td><td>tools.ts:203-211</td></tr>
+<tr><td><code>propose_cart</code></td><td>Open the item pop-up</td><td>items_stock</td><td><code>{fulfillment, branch_id, lines:[{sku,qty,requested_text?}]}</code> (repeated SKUs merged)</td><td>None directly; the live engine stores it as the <code>item_popup</code> message payload</td><td>tools.ts:222-241</td></tr>
+<tr><td><code>write_upsell_wording</code> (writer only)</td><td>Word upsell chips</td><td>live mode only</td><td>Read by the server from the <code>tool_use</code> input; no <code>tool_result</code> is sent back</td><td>In-memory cache</td><td>upsells-writer/claude.ts:30-42</td></tr>
+</table></div>
+
+<div class="claim" data-l="V"><p>Failure outputs. A denied category returns <code>{ok:false, reason:'restricted', category}</code>, sent to the model as JSON with a message naming the rep. Invalid input returns <code>{ok:false, reason:'invalid', message}</code>, sent as <code>is_error:true</code>. An unknown tool name is reported the same way.</p>
+<details class="cite"><summary>src/server/chat/tools.ts:42-59</summary><script type="text/plain">export type ToolResult<T>=
+  |{ok:true;data:T}
+  |{ok:false;reason:'restricted';category:Category}
+  |{ok:false;reason:'invalid';message:string};
+
+const invalid=(message:string):ToolResult<never>=>({ok:false,reason:'invalid',message});
+const has=(ctx:ToolContext,category:Category)=>enabledCategories(ctx.customerId).has(category);
+
+/** The refusal for a tool whose category the customer has turned off, or undefined when it may run. */
+export function toolDenied(ctx:ToolContext,name:ToolName):ToolResult<never>|undefined{
+  const category=TOOL_CATEGORY[name];
+  return has(ctx,category)?undefined:{ok:false,reason:'restricted',category};
+}
+
+/** Wraps a tool so it is refused when the customer has its category turned off. No tool skips this. */
+function gated<I,O>(name:ToolName,run:(ctx:ToolContext,input:I)=>ToolResult<O>){
+  return (ctx:ToolContext,input:I):ToolResult<O>=>toolDenied(ctx,name)??run(ctx,input);
+}</script></details></div>
+<div class="claim" data-l="V"><p>The access check runs twice per call: once in <code>runTool</code> and again inside <code>gated()</code>. Harmless duplication.</p></div>
+<div class="claim" data-l="V"><p>Tool input schemas are generated from zod with <code>z.toJSONSchema(schema,{io:'input'})</code>, and the same zod schemas validate the model's input. Unknown input keys are stripped (non-strict <code>z.object</code>), not refused.</p>
+<details class="cite"><summary>src/server/chat/definitions.ts:110-116</summary><script type="text/plain">function inputSchema(schema:z.ZodType):Anthropic.Tool.InputSchema{
+  const {$schema:_,...json}=z.toJSONSchema(schema,{io:'input'}) as Record<string,unknown>;
+  return json as Anthropic.Tool.InputSchema;
+}
+
+/** The tool list sent to Claude, in a fixed order so the request prefix stays cacheable. */
+export const TOOL_DEFINITIONS:Anthropic.Tool[]=TOOL_NAMES.map(name=>({name,description:DESCRIPTIONS[name],input_schema:inputSchema(INPUTS[name])}));</script></details></div>
+
+<h3>Exact tool definitions the chat model receives</h3>
+<div class="claim" data-l="V"><p>Generated by importing <code>TOOL_DEFINITIONS</code> and <code>WORDING_TOOL</code> from the real modules in a throwaway Vitest run and serializing them. This is the <code>tools</code> array sent on every live chat call.</p>
+<details class="cite"><summary>TOOL_DEFINITIONS (src/server/chat/definitions.ts:116), serialized</summary><script type="text/plain">[
+  {
+    "name": "search_items",
+    "description": "Match what the customer asked for to catalog SKUs. Returns, for each requested line, scored candidates (identity only: SKU, description, pack, category), whether the best one is a confident match, and if not, the clarifying question to ask. Call it whenever the customer names goods, before get_stock, get_price or propose_cart, and never guess a SKU it did not return. Handles \"the usual\" from order history. Set quote_request when the customer wants the goods quoted.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string", "minLength": 1, "maxLength": 2000,
+          "description": "What the customer asked for, one item per line (up to 20), in their words: \"10 boxes of 1/2 in grade 8 hex bolts\\n6 boxes of cut-off wheels\". Quantities may stay in; they are read and taken out before scoring."
+        },
+        "limit": {
+          "description": "Candidates per line, best first. Default 5.",
+          "type": "integer", "minimum": 1, "maximum": 20
+        },
+        "quote_request": {
+          "description": "true when the customer is asking for these goods to be quoted, not just asking about them. Querent then tracks the request line by line: each line that is not confident stays open with its clarifying question, and from the second round the customer sees its top candidates as buttons and the rep's contact.",
+          "type": "boolean"
+        }
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "get_stock",
+    "description": "Stock on hand at every branch for up to 20 SKUs: available, on order, and the next receipt date. Use for \"do you have ...\", \"how many ... at Ogden\".",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "skus": {
+          "minItems": 1, "maxItems": 20, "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 40},
+          "description": "Catalog SKUs, e.g. [\"HCS-12-13-2G8\"]. Use the SKUs search_items returned."
+        }
+      },
+      "required": ["skus"]
+    }
+  },
+  {
+    "name": "get_price",
+    "description": "The customer's own prices per pack for up to 20 SKUs: list price, their price-level price, an active contract price, and your_price (what they pay today). Use for \"what's my price on ...\". A quote is priced by the rep and can differ.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "skus": {
+          "minItems": 1, "maxItems": 20, "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 40},
+          "description": "Catalog SKUs, e.g. [\"HCS-12-13-2G8\"]. Use the SKUs search_items returned."
+        }
+      },
+      "required": ["skus"]
+    }
+  },
+  {
+    "name": "get_order_history",
+    "description": "Lines the customer bought, newest first: order number, date, PO, SKU, qty, and the unit price paid when their account shows prices. Use for \"what did we pay last time\", \"when did we last order ...\", \"how many do we usually buy\".",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "skus": {
+          "description": "Only these SKUs. Leave out for everything the customer bought.",
+          "minItems": 1, "maxItems": 20, "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 40}
+        },
+        "since": {"description": "Only orders on or after this day, YYYY-MM-DD.", "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "limit": {"description": "Most lines to return, newest first. Default 20.", "type": "integer", "minimum": 1, "maximum": 50}
+      }
+    }
+  },
+  {
+    "name": "get_order_status",
+    "description": "Status of one order (by order number or PO number, or the latest order when no reference is given): status, dates, pickup or delivery, branch, tracking and totals. A quote number (Q-...) gives that quote's status, revision, valid-until date and last sent total.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "description": "An order number (SO-51223), the customer's PO number, or a quote number (Q-24817). Leave out for the latest order.",
+          "type": "string", "maxLength": 40
+        }
+      }
+    }
+  },
+  {
+    "name": "get_account_summary",
+    "description": "The customer's account: payment terms, credit limit, open and past-due balances, available credit, tax status, and their assigned rep.",
+    "input_schema": {"type": "object", "properties": {}}
+  },
+  {
+    "name": "propose_cart",
+    "description": "Open the item pop-up for a quote request. Call it only when every requested line has a confident SKU (or one the customer picked) and a qty. The customer checks quantities, pickup or delivery and the branch in the pop-up, then presses Request quote; this does not create a quote. No prices.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "minItems": 1, "maxItems": 50, "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sku": {"type": "string", "minLength": 1, "maxLength": 40, "description": "A SKU search_items matched with confidence, or one the customer picked from the candidates."},
+              "qty": {"type": "integer", "minimum": 1, "maximum": 9999, "description": "Packs to quote (the item's pack, e.g. boxes of 50). 1 when the customer gave no qty."},
+              "requested_text": {"description": "What the customer said for this line.", "type": "string", "maxLength": 500}
+            },
+            "required": ["sku", "qty"]
+          }
+        },
+        "fulfillment": {"description": "will_call (pickup, the default) or delivery.", "type": "string", "enum": ["will_call", "delivery"]},
+        "branch_id": {"description": "Branch id to pick up from or deliver from (see the branch list). Default: the first branch.", "type": "string"}
+      },
+      "required": ["lines"]
+    }
+  }
+]</script></details>
+<details class="cite"><summary>WORDING_TOOL (src/server/upsells-writer/claude.ts:30-42), serialized</summary><script type="text/plain">{
+  "name": "write_upsell_wording",
+  "description": "Records the wording for every suggestion, by its id.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "chips": {"type": "array", "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "title", "reason"],
+        "properties": {
+          "id": {"type": "string", "description": "The suggestion id, exactly as given."},
+          "title": {"type": "string", "description": "The headline, at most 90 characters."},
+          "reason": {"type": "string", "description": "Why Querent suggests it: one or two short sentences, at most 240 characters."}
+        }
+      }}
+    },
+    "required": ["chips"],
+    "additionalProperties": false
+  }
+}</script></details></div>
+
+<h3>Example tool round (shapes from code; values illustrative)</h3>
+<pre>// model → server (assistant content block)
+{"type":"tool_use","id":"toolu_01","name":"search_items",
+ "input":{"query":"10 boxes of 1/2 in grade 8 hex bolts\n6 boxes of cut-off wheels","quote_request":true}}
+
+// server → model (next user message)
+{"type":"tool_result","tool_use_id":"toolu_01",
+ "content":"{\"lines\":[{\"requested_text\":\"10 boxes of 1/2 in grade 8 hex bolts\",\"qty\":10,\"confident\":true,\"question\":null,\"candidates\":[{\"sku\":\"HCS-12-13-2G8\",...,\"score\":0.9}]},{\"requested_text\":\"6 boxes of cut-off wheels\",\"qty\":6,\"confident\":false,\"question\":\"Type 1 or Type 27 cut-off wheels?\",\"candidates\":[...]}]}"}
+
+// restricted category
+{"type":"tool_result","tool_use_id":"toolu_02",
+ "content":"{\"restricted\":\"pricing\",\"message\":\"This account can't get Pricing information in chat. Tell the customer it isn't available here and that Brandi Gallegos can help: ... or ....\"}"}
+
+// invalid input
+{"type":"tool_result","tool_use_id":"toolu_03","is_error":true,"content":"Invalid input for get_price: ✖ ..."}</pre>
+
+<h3>The upsell writer (second model call)</h3>
+<div class="claim" data-l="V"><p>Runs only in live mode, only from the rep portal (<code>GET /api/rep/quotes/&lt;id&gt;/upsells</code>). Deterministic rules choose every chip and its quantity; the model only rewrites the title and reason. The input is cost-free by construction (<code>chipFacts</code>) and checked again by a key scan that throws if any key looks like cost, price, GP, margin, floor, amount or total.</p>
+<details class="cite"><summary>src/server/upsells-writer/claude.ts:119-145</summary><script type="text/plain">  return async chips=>{
+    const leaked=costKeys(chips);
+    if(leaked.length)throw new Error(`Chip facts for Claude may not carry cost, price or profit (${leaked.join(', ')}).`);
+    const out:(ChipWording|null)[]=chips.map(chip=>{ ...cache lookup... });
+    const todo=chips.flatMap((chip,i)=>out[i]?[]:[{chip,i}]);
+    if(!todo.length||now()<pausedUntil)return out;
+    try{
+      const response=await (client??defaultClient()).messages.create({
+        model,max_tokens:WRITER_MAX_TOKENS,system:SYSTEM_PROMPT,tools:[WORDING_TOOL],
+        tool_choice:{type:'auto',disable_parallel_tool_use:true},
+        messages:[{role:'user',content:`Word these ${todo.length===1?'suggestion':`${todo.length} suggestions`}. The facts, as JSON:\n${JSON.stringify(todo.map(t=>t.chip))}`}],
+      },{timeout:timeoutMs,maxRetries:0});
+      const written=wordingFrom(response);
+      ...
+    }catch(error){
+      pausedUntil=now()+WRITER_BACKOFF_MS;
+      warn(`Upsell wording: Claude failed, using the templates (...)`);
+    }
+    return out;
+  };</script></details>
+<details class="cite"><summary>src/server/upsells-writer/facts.ts:58-65</summary><script type="text/plain">export const COST_KEY=/cost|price|basis|gp|margin|profit|floor|amount|total/i;
+
+export function costKeys(value:unknown,path=''):string[]{
+  if(Array.isArray(value))return value.flatMap((v,i)=>costKeys(v,`${path}[${i}]`));
+  if(value&&typeof value==='object')return Object.entries(value).flatMap(([key,v])=>[...(COST_KEY.test(key)?[`${path}.${key}`]:[]),...costKeys(v,`${path}.${key}`)]);
+  return [];
+}</script></details></div>
+<div class="claim" data-l="I"><p>The writer uses <code>tool_choice:{type:'auto'}</code>, so the model may answer without calling the tool; in that case <code>wordingFrom</code> returns an empty map and every chip keeps its template. This is a designed fallback, not an error.</p></div>
+<div class="claim" data-l="V"><p>If the cost-key scan throws, <code>wordUpsells</code> catches it and keeps every template. The throw does not reach the HTTP response.</p>
+<details class="cite"><summary>src/server/upsells/wording.ts:91-94</summary><script type="text/plain">export async function wordUpsells(upsells:readonly Upsell[],writer?:UpsellWriter):Promise<Upsell[]>{
+  if(!writer||!upsells.length)return [...upsells];
+  let written:readonly (Partial<UpsellWording>|null|undefined)[]=[];
+  try{written=await writer(upsells);}catch{written=[];}</script></details></div>
+</section>
+
+<!-- ============================ CONTEXT ============================ -->
+<section class="tab" id="context">
+<h2>Context: what goes into each model call</h2>
+<p class="lede">Each live chat model call is <code>{model, max_tokens, system, tools, messages, tool_choice?}</code>. Below is how each part is built, and what is sent always vs sometimes.</p>
+
+<div class="tablewrap"><table>
+<tr><th>Part</th><th>Sent</th><th>Built by</th><th>Contents</th></tr>
+<tr><td><code>system</code></td><td>Every call</td><td><code>systemPrompt()</code> live.ts:49-70</td><td>Fixed rules + supplier name + customer account name/number + assigned rep contact + every branch (id, code, address, will-call phone) + today's date. One text block with <code>cache_control: ephemeral</code>.</td></tr>
+<tr><td><code>tools</code></td><td>Every call</td><td><code>TOOL_DEFINITIONS</code></td><td>All 7 tools, fixed order. Not filtered by the customer's access toggles: a restricted tool is still offered and refuses at run time.</td></tr>
+<tr><td>Earlier turns</td><td>Every call (if any)</td><td><code>historyParams()</code> live.ts:76-80</td><td>Last 20 stored messages with role customer/assistant and non-empty text, starting from the first customer message in that window. Text only: no stored tool calls, tool results or payloads.</td></tr>
+<tr><td>Open request note</td><td>Only when a clarify request is pending</td><td><code>requestNote()</code> clarify.ts:271-279</td><td>A text block before the customer's message: matched lines, open lines (round, question, candidate SKUs), dropped lines, and instructions to re-search.</td></tr>
+<tr><td>New user message</td><td>Every call</td><td>live.ts:118-119</td><td>The customer's text.</td></tr>
+<tr><td>Tool rounds of this turn</td><td>From the 2nd call of a turn</td><td>live.ts:133-140</td><td>The assistant content (including tool_use blocks) and a user message of tool_result blocks, appended per round.</td></tr>
+<tr><td><code>tool_choice: none</code></td><td>Only on the 7th call of a turn</td><td>live.ts:129</td><td>Forces a text answer.</td></tr>
+</table></div>
+
+<div class="claim" data-l="V"><details class="cite"><summary>src/server/chat/live.ts:49-70 (system prompt, full text)</summary><script type="text/plain">export function systemPrompt(ctx:ToolContext,today:string){
+  const company=supplier();
+  const account=accountSummary(ctx.customerId);
+  const rep=assignedRep(ctx.customerId);
+  const branchList=branches().map(b=>`- ${b.id}: ${b.code} branch, ${b.address}, ${b.city}, ${b.state} (will-call ${b.will_call_phone})`).join('\n');
+  return `You are Querent, the chat assistant for ${company.name}, an industrial supply distributor. You are chatting with a purchasing contact at ${account?`${account.name} (account ${account.account_number})`:'a customer'}.
+
+How to answer:
+- Answer only from tool results. Never guess a SKU, stock level, price, order detail or account fact. If the tools don't have it, say so.
+- When the customer names goods, call search_items first, with every requested line in their words, one item per line. Use only SKUs it returns.
+- Stock questions: search_items, then get_stock. Name items as "SKU (description, pack)", and give stock per branch.
+- Quote requests: call search_items with quote_request: true and every requested line. If a line is not confident, ask its clarifying question (one short question per line, no guessing) and do not call propose_cart yet. Querent tracks each line: from the second round it shows the customer the line's top candidates as buttons and ${rep?.name??'the rep'}'s contact, so don't list them yourself; the customer may also drop a line. While a request is open you're shown its lines with each message: when the customer answers, call search_items with quote_request: true again with every line still wanted. When every line has a confident SKU, or one the customer picked from the candidates, call propose_cart with the SKUs, quantities, pickup or delivery, and the branch they named. Then tell them to check the list in the pop-up and press Request quote. You don't create quotes, and you never quote prices in a quote request: ${rep?.name??'their rep'} prices the quote.
+- Prices come only from get_price (or the prices paid in get_order_history). A quote can differ from these prices.
+- If a tool says an information category is restricted for this account, say plainly that it isn't available in chat, and give the rep's name, phone and email. Don't try another tool to get around it.
+- You never have cost, margin or internal notes, and never speculate about them.
+- Be brief and plain. Use a short Markdown list for several items. No preamble.
+
+The customer's rep: ${rep?`${rep.name}, ${rep.title}, ${rep.phone}, ${rep.email}`:'none assigned; point them to customer service'}.
+Branches (id: name):
+${branchList}
+Today is ${today}.`;
+}</script></details>
+<details class="cite"><summary>src/server/chat/live.ts:76-80 (history)</summary><script type="text/plain">function historyParams(history:readonly EarlierMessage[]):Anthropic.MessageParam[]{
+  const turns=history.filter(m=>(m.role==='customer'||m.role==='assistant')&&m.content.trim()).slice(-HISTORY_LIMIT);
+  const first=turns.findIndex(m=>m.role==='customer');
+  return first<0?[]:turns.slice(first).map(m=>({role:m.role==='customer'?'user':'assistant',content:m.content}));
+}</script></details>
+<details class="cite"><summary>src/server/chat/live.ts:114-119 (assembly)</summary><script type="text/plain">  const client=options.client??defaultClient();
+  const model=options.model??chatModel();
+  const system=systemPrompt(ctx,today);
+  const repContact=repHelp(ctx.customerId,'{rep} can help');
+  const said:Anthropic.MessageParam['content']=pending?[{type:'text',text:requestNote(pending)},{type:'text',text:message}]:message;
+  const messages:Anthropic.MessageParam[]=[...historyParams(history),{role:'user',content:said}];</script></details>
+<details class="cite"><summary>src/server/chat/clarify.ts:271-279 (request note)</summary><script type="text/plain">export function requestNote(state:ClarifyPayload){
+  return [
+    'Open quote request. Querent tracks it line by line; from round 2 the customer sees each open line\'s top candidates as buttons and the rep\'s contact.',
+    ...state.cart.lines.map(l=>`- Matched: ${l.qty} × ${l.sku}${l.requested_text?` (${quoted(l.requested_text)})`:''}`),
+    ...state.open.map(l=>`- Open, round ${l.round}: ${quoted(l.requested_text)}, qty ${l.qty}. Asked: ${quoted(l.question)} Candidates: ${l.candidates.map(c=>c.sku).join(', ')||'none'}.`),
+    ...state.dropped.map(d=>`- Dropped: ${quoted(d.requested_text)}`),
+    'If the customer\'s message answers an open line, call search_items with quote_request: true and every line still wanted: matched lines as their SKU and qty, open lines in the customer\'s words plus their answer. Once every line is matched, call propose_cart.',
+  ].join('\n');
+}</script></details></div>
+
+<h3>How the model learns tools exist, and how results return</h3>
+<div class="claim" data-l="V"><p>The model learns about tools only from the <code>tools</code> parameter (name, description, JSON schema) and from the system prompt, which names <code>search_items</code>, <code>get_stock</code>, <code>get_price</code>, <code>get_order_history</code> and <code>propose_cart</code>. Results return as <code>tool_result</code> blocks in a <code>user</code> message whose <code>tool_use_id</code> matches the request. Successful data is <code>JSON.stringify(result.data)</code>, unformatted.</p></div>
+
+<h3>Growth, trimming, summarization, limits</h3>
+<div class="claim" data-l="V"><p><b>Across turns:</b> trimmed by message count only (last 20 text messages). No token counting, no summarization. Tool data from earlier turns is never re-sent, so the model sees earlier facts only through its own earlier text. <code>system</code>-role messages (the "quote is ready" notices) are excluded from history.</p></div>
+<div class="claim" data-l="V"><p><b>Within a turn:</b> the message list grows by two messages per tool round, up to 6 rounds. Tool result size is bounded only by tool limits (e.g. <code>search_items</code>: up to 20 lines × up to 20 candidates; <code>get_order_history</code>: up to 50 lines). Output is bounded by <code>max_tokens: 16000</code> per call.</p></div>
+<div class="claim" data-l="I"><p>The clarify state is the one piece of structured memory carried across turns, and it lives only in the payload of the last assistant message. Any reply that is not a <code>clarify</code> reply (for example an off-topic answer, or the error reply) ends the pending request.</p></div>
+<div class="claim" data-l="I"><p>Prompt caching: the cache marker is on the system block, so the cached prefix is tools + system. Because the system prompt contains today's date and per-customer data, the cache is per customer per day. The cache benefit within a turn's tool rounds is real; across customers it is none.</p></div>
+<div class="claim" data-l="U"><p>If a stored turn has a customer message but no assistant message (crash during a model call), history will contain two consecutive <code>user</code> messages. Whether the API accepts or merges them is not shown in this code.</p></div>
+</section>
+
+<!-- ============================ DATABASE ============================ -->
+<section class="tab" id="db">
+<h2>Quote and database</h2>
+
+<h3>How a quote is created, validated, calculated and stored</h3>
+<ol class="flat">
+<li><b>Created</b> only by <code>requestQuote()</code> (customer click), <code>duplicateQuote()</code> (rep menu) or the seed. Not by the model.</li>
+<li><b>Validated</b> against the strict body schema and the last stored <code>item_popup</code> payload (step 13).</li>
+<li><b>Calculated</b> by the pricing engine (step 14). Totals are not stored on the quote; list views compute <code>sum(qty*unit_price)</code> in SQL, and the send computes the snapshot total. Freight is computed on read; only a rep override is stored.</li>
+<li><b>Stored</b> in one transaction (step 15). Each send stores an immutable revision snapshot (step 19).</li>
+</ol>
+
+<h3>Who sets each field of a chat-created quote</h3>
+<div class="tablewrap"><table>
+<tr><th>Field</th><th>Set by</th><th>Source</th></tr>
+<tr><td><code>quotes.customer_id</code>, <code>contact_id</code></td><td>Code</td><td>Session persona</td></tr>
+<tr><td><code>quotes.rep_id</code></td><td>Code</td><td><code>customer_rep</code> table</td></tr>
+<tr><td><code>quotes.quote_number</code>, <code>id</code></td><td>Code</td><td><code>max+1</code>, starting after 10000</td></tr>
+<tr><td><code>quotes.status</code>, <code>revision</code>, <code>unread_*</code></td><td>Code</td><td>Constants on insert; lifecycle service after</td></tr>
+<tr><td><code>quotes.conversation_id</code></td><td>Client</td><td>Request body, checked to belong to the customer</td></tr>
+<tr><td><code>quotes.request_text</code></td><td>Customer</td><td>The customer message before the clarify chain that led to the pop-up</td></tr>
+<tr><td><code>quotes.fulfillment</code>, <code>branch_id</code></td><td>Customer (default proposed by model or regex)</td><td>Pop-up form; default from <code>propose_cart</code> (live) or <code>whereIn</code> (clarify/scripted)</td></tr>
+<tr><td><code>quotes.ship_to_*</code></td><td>Code</td><td>Customer record</td></tr>
+<tr><td><code>quote_lines.item_id</code></td><td>Customer, constrained</td><td>Must be on the pop-up; pop-up SKUs came from the model (<code>propose_cart</code>) or the matcher (clarify path)</td></tr>
+<tr><td><code>quote_lines.qty</code></td><td>Customer</td><td>Pop-up form (default from model or the matcher's qty parse)</td></tr>
+<tr><td><code>quote_lines.unit_price</code>, <code>price_basis</code>, <code>suggested_*</code>, <code>customer_price</code>, <code>explanation</code></td><td>Code</td><td>Pricing engine</td></tr>
+<tr><td><code>quote_lines.unit_cost</code></td><td>Code</td><td>Copied from <code>items.cost</code> at insert</td></tr>
+<tr><td><code>quote_lines.requested_text</code></td><td><b>Model</b> (live, via <code>propose_cart</code>) or code (clarify path: customer's words from <code>splitRequest</code>)</td><td>Stored pop-up payload</td></tr>
+<tr><td><code>quote_lines.match_score</code></td><td>Nobody</td><td>Left NULL for chat-created quotes</td></tr>
+<tr><td><code>quote_lines.added_by</code></td><td>Code</td><td><code>'querent'</code></td></tr>
+</table></div>
+
+<h3>Schema (SCHEMA_VERSION 4)</h3>
+<div class="claim" data-l="V"><p>All tables are created by one DDL string. Tables an ERP sync would own carry <code>source</code>, <code>external_id</code>, <code>synced_at</code> and a unique index on <code>(source, external_id)</code>.</p>
+<details class="cite"><summary>src/server/db/schema.ts:66-89 (quote and chat tables)</summary><script type="text/plain">CREATE TABLE IF NOT EXISTS quotes(id TEXT PRIMARY KEY,quote_number TEXT NOT NULL UNIQUE,customer_id TEXT NOT NULL REFERENCES customers(id),contact_id TEXT REFERENCES contacts(id),rep_id TEXT NOT NULL REFERENCES reps(id),status TEXT NOT NULL CHECK(status IN (...)),revision INTEGER NOT NULL DEFAULT 0,conversation_id TEXT REFERENCES conversations(id),request_text TEXT,requested_at TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,sent_at TEXT,responded_at TEXT,fulfillment TEXT NOT NULL CHECK(fulfillment IN ('will_call','delivery')),branch_id TEXT NOT NULL REFERENCES branches(id),requested_date TEXT,fulfillment_time TEXT,ship_to_address TEXT,ship_to_lat REAL,ship_to_lng REAL,freight_override REAL,freight_override_reason TEXT,valid_days INTEGER NOT NULL DEFAULT 14 CHECK(valid_days IN (7,14,30)),valid_until TEXT,expires_on TEXT CHECK(...),customer_po TEXT,customer_note TEXT,change_request_note TEXT,unread_for_rep INTEGER NOT NULL DEFAULT 0,unread_for_customer INTEGER NOT NULL DEFAULT 0,is_sample INTEGER NOT NULL DEFAULT 0,duplicated_from TEXT REFERENCES quotes(id));
+CREATE INDEX IF NOT EXISTS quotes_customer ON quotes(customer_id,requested_at);
+-- unit_price NULL = not priced yet. suggested_* is Querent's pick; customer_price is kept for "+$X GP vs customer price".
+CREATE TABLE IF NOT EXISTS quote_lines(id TEXT PRIMARY KEY,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,line_no INTEGER NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),qty INTEGER NOT NULL CHECK(qty>=0),unit_price REAL,price_basis TEXT CHECK(price_basis IN (...)),suggested_price REAL,suggested_basis TEXT CHECK(...),customer_price REAL,unit_cost REAL NOT NULL,explanation TEXT,requested_text TEXT,match_score REAL,added_by TEXT NOT NULL DEFAULT 'querent' CHECK(added_by IN ('querent','rep','upsell')),UNIQUE(quote_id,line_no));
+CREATE TABLE IF NOT EXISTS quote_removed_lines(quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,line_no INTEGER NOT NULL,item_id TEXT NOT NULL REFERENCES items(id),requested_text TEXT,match_score REAL,added_by TEXT NOT NULL CHECK(...),removed_at TEXT NOT NULL,PRIMARY KEY(quote_id,line_no));
+CREATE TABLE IF NOT EXISTS quote_revisions(id TEXT PRIMARY KEY,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,revision INTEGER NOT NULL,sent_at TEXT NOT NULL,sent_by TEXT NOT NULL REFERENCES reps(id),message TEXT,attach_pdf INTEGER NOT NULL DEFAULT 1,total REAL NOT NULL,snapshot TEXT NOT NULL,UNIQUE(quote_id,revision));
+CREATE TABLE IF NOT EXISTS quote_activity(id INTEGER PRIMARY KEY AUTOINCREMENT,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,at TEXT NOT NULL,actor TEXT NOT NULL CHECK(actor IN ('customer','querent','rep','system')),actor_id TEXT,kind TEXT NOT NULL,message TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS quote_notes(id INTEGER PRIMARY KEY AUTOINCREMENT,quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,rep_id TEXT NOT NULL REFERENCES reps(id),body TEXT NOT NULL,created_at TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY,customer_id TEXT NOT NULL REFERENCES customers(id),contact_id TEXT REFERENCES contacts(id),started_at TEXT NOT NULL);
+-- kind: text, item_popup, quote_requested, quote_ready, ...; payload is kind-specific JSON.
+CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,role TEXT NOT NULL CHECK(role IN ('customer','assistant','system')),kind TEXT NOT NULL DEFAULT 'text',content TEXT NOT NULL,payload TEXT,created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS query_logs(id TEXT PRIMARY KEY,customer_id TEXT NOT NULL REFERENCES customers(id),conversation_id TEXT NOT NULL,question TEXT NOT NULL,categories TEXT NOT NULL,handled_categories TEXT NOT NULL,tool_calls TEXT NOT NULL DEFAULT '[]',row_count INTEGER NOT NULL,latency_ms INTEGER NOT NULL,outcome TEXT NOT NULL,answer TEXT NOT NULL,timestamp TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS access(customer_id TEXT NOT NULL REFERENCES customers(id),category TEXT NOT NULL CHECK(category IN ('items_stock','pricing','orders_quotes','account')),enabled INTEGER NOT NULL,PRIMARY KEY(customer_id,category));</script></details>
+<details class="cite"><summary>src/server/db/schema.ts:12 (ERP-sourced tables)</summary><script type="text/plain">export const ERP_SOURCED_TABLES=['branches','product_categories','items','branch_stock','price_levels','customer_prices','contracts','contract_lines','customers','contacts','reps','orders','order_lines'] as const;</script></details></div>
+<div class="claim" data-l="V"><p>Money is stored as SQLite <code>REAL</code> (floating point). Code rounds to cents in JavaScript at the edges (pricing engine works in integer cents; snapshot rounds half up).</p></div>
+<div class="claim" data-l="V"><p><code>query_logs.conversation_id</code> has no foreign key, unlike every other conversation reference.</p></div>
+<div class="claim" data-l="V"><p>Message <code>payload</code> and revision <code>snapshot</code> are JSON text with no schema at the DB level. Readers re-validate them: <code>pendingRequest</code> checks for an <code>open</code> array, <code>quoteNotices</code> rebuilds fields one by one, <code>customerSnapshot</code> copies only listed fields.</p>
+<details class="cite"><summary>src/server/repository/quotes.ts:269-279</summary><script type="text/plain">/** Copies only the fields a customer may see from a stored snapshot, whatever else it holds. */
+function customerSnapshot(s:QuoteSnapshot):QuoteSnapshot{
+  return {quote_number:s.quote_number,revision:s.revision,customer:{...},contact:s.contact??null,rep:s.rep,
+    fulfillment:s.fulfillment,branch:s.branch,valid_until:s.valid_until??null,subtotal:s.subtotal,freight:s.freight,total:s.total,
+    ...
+    lines:s.lines.map(l=>({sku:l.sku,description:l.description,pack:l.pack,qty:l.qty,unit_price:l.unit_price,total:l.total}))};
+}</script></details></div>
+
+<h3>Read and write paths</h3>
+<div class="tablewrap"><table>
+<tr><th>Path</th><th>Reads</th><th>Writes</th><th>Transaction</th></tr>
+<tr><td>Chat turn (<code>ask</code>)</td><td>conversations, messages, access, catalog, stock, prices, orders, quotes (customer-safe)</td><td>conversations (first turn), messages ×2, query_logs</td><td><b>None</b>; each write is its own implicit transaction</td></tr>
+<tr><td>Request quote</td><td>conversations, messages, items, branches, customer_rep, customers, price facts, stock, floors, settings</td><td>quotes, quote_lines, quote_activity ×3, messages ×2, query_logs</td><td>One (<code>inTransaction</code>)</td></tr>
+<tr><td>Rep line edit</td><td>quotes, quote_lines, price facts</td><td>quote_lines (or quote_removed_lines), quotes.updated_at, quote_activity</td><td>One per edit</td></tr>
+<tr><td>Send</td><td>quotes, lines, rates, branch, rep, supplier, conversations</td><td>quotes (guarded), quote_revisions, messages (quote_ready), quote_activity</td><td>One; freight computed before it, with an optimistic <code>updated_at</code> check</td></tr>
+<tr><td>Accept / Request changes</td><td>quotes, quote_revisions</td><td>quotes (guarded), quote_activity</td><td>One</td></tr>
+<tr><td>Expiry sweep</td><td>quotes with status sent</td><td>quotes, quote_activity</td><td>One per sweep</td></tr>
+</table></div>
+<div class="claim" data-l="V"><p>Status changes use a compare-and-set: the UPDATE includes <code>WHERE status=?</code> with the status the decision was made on, and a zero-row result becomes a 409 conflict that rolls back the transaction.</p>
+<details class="cite"><summary>src/server/repository/quotes.ts:202-210</summary><script type="text/plain">export function saveQuoteTransition(quoteId:string,t:QuoteTransition){
+  const columns:[string,unknown][]=[['status',t.to]];
+  ...
+  const set=[...columns,['updated_at',t.at??nowIso()] as [string,unknown]];
+  return run(`UPDATE quotes SET ${set.map(([column])=>`${column}=?`).join(',')} WHERE id=? AND status=?`,...set.map(([,value])=>value),quoteId,t.from).changes===1;
+}</script></details>
+<details class="cite"><summary>src/server/repository/sql.ts:26-30</summary><script type="text/plain">/**
+ * Runs `fn` in one SQLite transaction, so a service can group several repository writes
+ * (for example create a quote and log its activity). Nested calls become savepoints.
+ */
+export function inTransaction<T>(fn:()=>T):T{return db().transaction(fn)();}</script></details></div>
+<div class="claim" data-l="V"><p>Customer reads never see draft prices: the customer quote total is the last <i>sent</i> revision's total, and the customer view is built from the snapshot.</p>
+<details class="cite"><summary>src/server/repository/quotes.ts:29, 260</summary><script type="text/plain">const LATEST_SENT_TOTAL='(SELECT v.total FROM quote_revisions v WHERE v.quote_id=q.id ORDER BY v.revision DESC LIMIT 1)';
+...
+const CUSTOMER_QUOTE=`SELECT q.id,q.quote_number,q.status,q.revision,q.requested_at,q.sent_at,q.valid_until,${LATEST_SENT_TOTAL} total,q.unread_for_customer unread FROM quotes q`;</script></details></div>
+<div class="claim" data-l="I"><p>The design assumes one server process: the DB connection is a module singleton, the idempotency store and the upsell wording cache are in process memory, and the heartbeat timer is per process. Several instances sharing one SQLite file would lose replay protection across instances.</p></div>
+</section>
+
+<!-- ============================ DIAGRAM ============================ -->
+<section class="tab" id="diagram">
+<h2>Diagram</h2>
+<p class="lede">Click a node (or focus it and press Enter) to see its files, formats and notes. Green boxes are deterministic; amber boxes are nondeterministic. The dashed amber frame is the model boundary; the dashed blue frame is the database boundary.</p>
+<div class="legend">
+  <span><i class="sw" style="background:var(--detbg);border-color:var(--det)"></i>DETERMINISTIC</span>
+  <span><i class="sw" style="background:var(--nondetbg);border-color:var(--nondet)"></i>NONDETERMINISTIC</span>
+  <span><i class="sw" style="border-style:dashed;border-color:var(--model)"></i>Model boundary</span>
+  <span><i class="sw" style="border-style:dashed;border-color:var(--db)"></i>Database boundary</span>
+</div>
+<div class="diagram-wrap">
+  <div class="svgbox"><svg id="dg" viewBox="0 0 1120 820" style="width:100%;min-width:760px;height:auto;display:block" role="img" aria-label="Architecture diagram"></svg></div>
+  <aside id="detail"><h3>Select a node</h3><p class="note">Details for the selected component appear here.</p></aside>
+</div>
+</section>
+
+<!-- ============================ QUESTIONS ============================ -->
+<section class="tab" id="questions">
+<h2>Open questions</h2>
+<h3>What could not be verified from the code</h3>
+<div class="claim" data-l="U"><p>Whether <code>claude-sonnet-5</code> (the default model ID) is a valid model for your API key, and whether extended or adaptive thinking is active. The comments assume it; no <code>thinking</code> parameter is sent.</p></div>
+<div class="claim" data-l="U"><p>Which mode runs in any real deployment. CI forces scripted mode; nothing in the repo shows a deployed environment's variables.</p></div>
+<div class="claim" data-l="U"><p>The Anthropic SDK's exact retry conditions and backoff for <code>maxRetries: 2</code> (library behavior, not in this repo).</p></div>
+<div class="claim" data-l="U"><p>How the live model behaves end to end (tool order, whether it follows the "only matched SKUs" rule). Only fake-client unit tests exercise the live loop.</p></div>
+<div class="claim" data-l="U"><p>How the API handles two consecutive <code>user</code> messages in history after a partial turn.</p></div>
+<div class="claim" data-l="U"><p>Multi-process deployment behavior on one SQLite file (busy timeouts are not configured in <code>db()</code>).</p></div>
+
+<h3>Questions for you</h3>
+<ol class="flat">
+<li>Which model ID and mode run in production today, and should sampling be pinned (for example <code>temperature: 0</code>) for repeatable answers?</li>
+<li>Should <code>propose_cart</code> be restricted in code to SKUs the matcher returned in this turn or in the clarify state?</li>
+<li>In live mode, when the last open line is matched but the model does not call <code>propose_cart</code>, should the server open the pop-up itself (as scripted mode does)?</li>
+<li>For the integration, will the persona cookie be replaced by real authentication? Which identity maps to <code>customer_id</code> and <code>contact_id</code>?</li>
+<li>Will the system run as more than one process or instance? If so, idempotency, the wording cache and SQLite locking need a plan.</li>
+<li>Is the integration reading from Querent (quotes, revisions) or writing into it (the ERP-sourced tables keyed on <code>source, external_id</code>)? <code>docs/erp-integration-readiness.md</code> exists but I did not read it.</li>
+<li>Should <code>match_score</code> be stored for chat-created lines, or should the column be removed?</li>
+<li>Should a chat turn's three writes be one transaction, and should the customer message be written only after a reply exists?</li>
+</ol>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  // ---------- citations: turn inert text/plain scripts into <pre><code> ----------
+  document.querySelectorAll('details.cite > script[type="text/plain"]').forEach(function(s){
+    var pre=document.createElement('pre'),code=document.createElement('code');
+    code.textContent=s.textContent.replace(/^\n/,'');
+    pre.appendChild(code);s.replaceWith(pre);
+  });
+  // ---------- evidence badges ----------
+  var NAMES={V:'VERIFIED',I:'INFERRED',U:'UNKNOWN'};
+  document.querySelectorAll('.claim[data-l]').forEach(function(c){
+    var l=c.getAttribute('data-l'),t=document.createElement('span');
+    t.className='tag '+l;t.textContent=NAMES[l];
+    var first=c.querySelector('p');
+    if(first&&first.parentNode===c)first.insertBefore(t,first.firstChild);else c.insertBefore(t,c.firstChild);
+  });
+  // ---------- filter ----------
+  function applyFilter(){
+    var on={};document.querySelectorAll('.filters input').forEach(function(i){on[i.dataset.f]=i.checked;});
+    document.querySelectorAll('.claim[data-l]').forEach(function(c){c.classList.toggle('hide',!on[c.getAttribute('data-l')]);});
+    try{localStorage.setItem('qa-filter',JSON.stringify(on));}catch(e){}
+  }
+  try{var saved=JSON.parse(localStorage.getItem('qa-filter')||'null');if(saved)document.querySelectorAll('.filters input').forEach(function(i){if(i.dataset.f in saved)i.checked=saved[i.dataset.f];});}catch(e){}
+  document.querySelectorAll('.filters input').forEach(function(i){i.addEventListener('change',applyFilter);});
+  applyFilter();
+  // ---------- theme ----------
+  var modes=['auto','light','dark'],btn=document.getElementById('themeBtn'),mode='auto';
+  try{mode=localStorage.getItem('qa-theme')||'auto';}catch(e){}
+  function setTheme(m){mode=m;if(m==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',m);btn.textContent='Theme: '+m;try{localStorage.setItem('qa-theme',m);}catch(e){}}
+  setTheme(mode);
+  btn.addEventListener('click',function(){setTheme(modes[(modes.indexOf(mode)+1)%3]);});
+  // ---------- tabs ----------
+  var tabs=document.querySelectorAll('nav button');
+  function show(id){
+    tabs.forEach(function(b){b.setAttribute('aria-selected',String(b.dataset.tab===id));});
+    document.querySelectorAll('section.tab').forEach(function(s){s.classList.toggle('on',s.id===id);});
+    try{history.replaceState(null,'','#'+id);}catch(e){}
+    window.scrollTo(0,0);
+  }
+  tabs.forEach(function(b){b.addEventListener('click',function(){show(b.dataset.tab);});});
+  var start=(location.hash||'').slice(1);if(document.getElementById(start)&&document.getElementById(start).classList.contains('tab'))show(start);
+
+  // ---------- data flow swimlanes ----------
+  (function(){
+    var grid=document.getElementById('flowGrid'),svgF=document.getElementById('flowSvg'),box=grid.parentNode,panel=document.getElementById('flowDetail');
+    var NSF='http://www.w3.org/2000/svg';
+    var LANES=[{id:'client',name:'CLIENT',sub:'browser'},{id:'server',name:'SERVER',sub:'Next.js, Node runtime'},{id:'model',name:'MODEL API',sub:'Anthropic, external'},{id:'db',name:'SQLITE',sub:'one file, better-sqlite3'}];
+    var LANE_OF={1:'client',2:'server',3:'db',4:'server',5:'server',6:'server',7:'model',8:'server',9:'server',10:'db',11:'client',12:'client',13:'server',14:'server',15:'db',16:'client',17:'server',18:'model',19:'server',20:'client'};
+    var PHASES={1:['A · One chat turn','steps 1–11'],12:['B · Request quote','steps 12–16'],17:['C · Rep review and the trip back to the customer','steps 17–20']};
+    // [from, to, label, route, offset, alternate]
+    var FE=[
+      [1,2,'POST {question, conversation_id}'],[2,3,'ask()'],[3,4,'earlier messages'],[4,5,'live engine'],[5,6,'not a button reply'],
+      [6,7,'system · 7 tools · messages'],[7,8,'tool_use'],[8,7,'tool_result · up to 6 rounds','v',30,1],[7,9,'final message','v',26,1],
+      [9,10,'ChatReply'],[10,11,'ChatAnswer JSON'],[4,8,'scripted engine calls tools directly','loopL',0,1],[5,10,'button settled: no model call','h',0,1],
+      [11,12,'item_popup opens'],[12,13,'POST quote-requests'],[13,14,'validated lines'],[14,15,'priced lines'],[15,16,'201 {quote, turn}'],
+      [16,17,'draft waits for the rep'],[17,18,'chip facts (no cost)'],[18,17,'title + reason, or template','v',-30,1],[17,19,'Approve & send','loopL',0,1],
+      [19,20,'quote_ready message (polled)'],[20,17,'request changes: editable again','v',30,1]
+    ];
+    var LANE_NAME={client:'Client (browser)',server:'Server',model:'Model API (outside the server)',db:'SQLite database'};
+    var STEPS={},ORDER=[],cards={},edgeEls=[],cur=null;
+    document.querySelectorAll('#stepStore details.step').forEach(function(d){
+      var sm=d.querySelector('summary'),n=+sm.querySelector('.n').textContent;
+      var tag=sm.querySelector('.tag');
+      STEPS[n]={n:n,title:sm.querySelector('.t').textContent,file:(sm.querySelector('.f')||{}).textContent||'',tag:tag,det:tag.classList.contains('DET'),body:d.querySelector('.body'),home:d};
+      ORDER.push(n);
+    });
+    ORDER.sort(function(a,b){return a-b;});
+    function add(tag,cls,props){var e=document.createElement(tag);if(cls)e.className=cls;for(var k in props)e.style[k]=props[k];grid.appendChild(e);return e;}
+    // rows: 1 = lane headers; a phase bar takes a row before steps 1, 12 and 17
+    var row=1,rowOf={};
+    ORDER.forEach(function(n){if(PHASES[n])row++;row++;rowOf[n]=row;});
+    var last=row;
+    LANES.forEach(function(l,i){
+      add('div','lanebg '+l.id,{gridColumn:String(i+1),gridRow:'1 / '+(last+1)});
+      var h=add('div','lanehead '+l.id,{gridColumn:String(i+1),gridRow:'1'});h.textContent=l.name;var s=document.createElement('small');s.textContent=l.sub;h.appendChild(s);
+    });
+    ORDER.forEach(function(n){
+      var s=STEPS[n];
+      if(PHASES[n]){var p=add('div','phase',{gridRow:String(rowOf[n]-1)});p.textContent=PHASES[n][0]+' ';var sp=document.createElement('span');sp.textContent=PHASES[n][1];p.appendChild(sp);}
+      var col=LANES.findIndex(function(l){return l.id===LANE_OF[n];})+1;
+      var b=add('button','fstep '+(s.det?'det':'nondet'),{gridColumn:String(col),gridRow:String(rowOf[n])});
+      b.type='button';b.dataset.n=n;b.setAttribute('aria-pressed','false');
+      b.setAttribute('aria-label','Step '+n+': '+s.title+' ('+s.tag.textContent+')');
+      var lt=document.createElement('span');lt.className='lanetag';lt.textContent=LANE_NAME[LANE_OF[n]];b.appendChild(lt);
+      var num=document.createElement('span');num.className='num';num.textContent=n;b.appendChild(num);
+      var tt=document.createElement('span');tt.className='ttl';tt.textContent=s.title;b.appendChild(tt);
+      var k=document.createElement('span');k.className='knd';k.textContent=s.tag.textContent;b.appendChild(k);
+      b.addEventListener('click',function(){select(n);});
+      cards[n]=b;
+    });
+    grid.addEventListener('keydown',function(ev){
+      var t=ev.target.closest&&ev.target.closest('.fstep');if(!t)return;
+      var i=ORDER.indexOf(+t.dataset.n),j=ev.key==='ArrowDown'||ev.key==='ArrowRight'?i+1:ev.key==='ArrowUp'||ev.key==='ArrowLeft'?i-1:-1;
+      if(j>=0&&j<ORDER.length&&j!==i){ev.preventDefault();select(ORDER[j]);cards[ORDER[j]].focus();}
+    });
+    function pill(text){var s=document.createElement('span');s.className='pill';s.textContent=text;return s;}
+    function select(n){
+      if(cur!==null){STEPS[cur].home.appendChild(STEPS[cur].body);cards[cur].setAttribute('aria-pressed','false');}
+      cur=n;var s=STEPS[n];cards[n].setAttribute('aria-pressed','true');
+      panel.innerHTML='';
+      var nav=document.createElement('div');nav.className='navrow';
+      var i=ORDER.indexOf(n),prev=document.createElement('button'),next=document.createElement('button'),pos=document.createElement('span');
+      prev.type=next.type='button';prev.textContent='← Previous';next.textContent='Next →';pos.className='note';pos.textContent='Step '+n+' of '+ORDER.length;
+      prev.disabled=i===0;next.disabled=i===ORDER.length-1;
+      prev.onclick=function(){select(ORDER[i-1]);};next.onclick=function(){select(ORDER[i+1]);};
+      nav.appendChild(prev);nav.appendChild(pos);nav.appendChild(next);panel.appendChild(nav);
+      var h=document.createElement('h3');h.textContent=n+'. '+s.title;panel.appendChild(h);
+      var meta=document.createElement('p');meta.appendChild(s.tag.cloneNode(true));meta.appendChild(document.createTextNode(' Lane: '+LANE_NAME[LANE_OF[n]]));panel.appendChild(meta);
+      if(s.file){var f=document.createElement('p');f.className='refs';var c=document.createElement('code');c.textContent=s.file;f.appendChild(c);panel.appendChild(f);}
+      var conn=document.createElement('p');conn.className='conn';
+      FE.forEach(function(e){
+        if(e[0]===n)conn.appendChild(pill('→ '+e[1]+'. '+STEPS[e[1]].title+(e[2]?' ('+e[2]+')':'')));
+        if(e[1]===n)conn.appendChild(pill('← '+e[0]+'. '+STEPS[e[0]].title+(e[2]?' ('+e[2]+')':'')));
+      });
+      panel.appendChild(conn);
+      panel.appendChild(s.body);
+      panel.scrollTop=0;
+      edgeEls.forEach(function(x){var on=x.e[0]===n||x.e[1]===n;x.p.classList.toggle('hl',on);x.p.setAttribute('marker-end',on?'url(#fah2)':'url(#fah)');if(x.t)x.t.classList.toggle('hl',on);});
+    }
+    function mk(id,color,parent){
+      var m=document.createElementNS(NSF,'marker');
+      [['id',id],['viewBox','0 0 10 10'],['refX','9'],['refY','5'],['markerWidth','7'],['markerHeight','7'],['orient','auto-start-reverse']].forEach(function(a){m.setAttribute(a[0],a[1]);});
+      var p=document.createElementNS(NSF,'path');p.setAttribute('d','M0,0 L10,5 L0,10 z');p.setAttribute('fill',color);m.appendChild(p);parent.appendChild(m);
+    }
+    function draw(){
+      while(svgF.firstChild)svgF.removeChild(svgF.firstChild);edgeEls=[];
+      if(!grid.offsetWidth)return;
+      var base=box.getBoundingClientRect();
+      svgF.setAttribute('viewBox','0 0 '+base.width+' '+base.height);
+      var defs=document.createElementNS(NSF,'defs');svgF.appendChild(defs);
+      mk('fah','var(--muted)',defs);mk('fah2','var(--accent)',defs);
+      var narrow=getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length===1;
+      var rects=Object.keys(cards).map(function(n){return R(n);}),placed=[];
+      function hit(a,b){return a.x<b.r&&a.x+a.width>b.l&&a.y<b.b&&a.y+a.height>b.t;}
+      function overlaps(bb){
+        if(bb.x<0||bb.x+bb.width>base.width)return true;
+        return rects.some(function(c){return hit(bb,c);})||placed.some(function(q){return hit(bb,{l:q.x,r:q.x+q.width,t:q.y,b:q.y+q.height});});
+      }
+      function R(n){var r=cards[n].getBoundingClientRect();return {l:r.left-base.left,r:r.right-base.left,t:r.top-base.top,b:r.bottom-base.top,cx:(r.left+r.right)/2-base.left,cy:(r.top+r.bottom)/2-base.top};}
+      FE.forEach(function(e){
+        var a=R(e[0]),b=R(e[1]),mode=e[3]||'S',off=e[4]||0,d,below=b.t>a.b;
+        if(narrow)mode=e[1]===e[0]+1||(e[0]===16&&e[1]===17)||(e[0]===11&&e[1]===12)?'S':below?'loopL':'loopR';
+        if(mode==='S'){var my=(a.b+b.t)/2;d='M'+a.cx+','+a.b+' C'+a.cx+','+my+' '+b.cx+','+my+' '+b.cx+','+b.t;}
+        else if(mode==='v'){var x=a.cx+off,sy=below?a.b:a.t,ex=b.cx<x?b.r:b.l;d='M'+x+','+sy+' C'+x+','+b.cy+' '+x+','+b.cy+' '+ex+','+b.cy;}
+        else if(mode==='h'){var sx=b.cx>a.cx?a.r:a.l;d='M'+sx+','+a.cy+' C'+b.cx+','+a.cy+' '+b.cx+','+a.cy+' '+b.cx+','+b.t;}
+        else if(mode==='loopL'){var bw=Math.min(a.l,b.l)-30;d='M'+a.l+','+a.cy+' C'+bw+','+a.cy+' '+bw+','+b.cy+' '+b.l+','+b.cy;}
+        else {var bw2=Math.max(a.r,b.r)+30;d='M'+a.r+','+a.cy+' C'+bw2+','+a.cy+' '+bw2+','+b.cy+' '+b.r+','+b.cy;}
+        var p=document.createElementNS(NSF,'path');p.setAttribute('d',d);p.setAttribute('class','fedge'+(e[5]?' alt':''));p.setAttribute('marker-end','url(#fah)');svgF.appendChild(p);
+        var t=null;
+        if(e[2]&&!narrow){
+          var L=p.getTotalLength();
+          t=document.createElementNS(NSF,'text');t.setAttribute('class','flabel');t.setAttribute('dominant-baseline','middle');t.textContent=e[2];svgF.appendChild(t);
+          // Try spots along the arrow, on either side, until the label is clear of every card and earlier label.
+          var spots=[];[0.5,0.4,0.6,0.3,0.7,0.2,0.8].forEach(function(f){['start','end'].forEach(function(an){spots.push([f,an]);});});
+          for(var si=0;si<spots.length;si++){
+            var pt=p.getPointAtLength(L*spots[si][0]);
+            t.setAttribute('text-anchor',spots[si][1]);t.setAttribute('x',pt.x+(spots[si][1]==='start'?6:-6));t.setAttribute('y',pt.y);
+            if(!overlaps(t.getBBox()))break;
+          }
+          placed.push(t.getBBox());
+        }
+        edgeEls.push({e:e,p:p,t:t});
+      });
+      if(cur!==null){var n=cur;edgeEls.forEach(function(x){var on=x.e[0]===n||x.e[1]===n;x.p.classList.toggle('hl',on);x.p.setAttribute('marker-end',on?'url(#fah2)':'url(#fah)');if(x.t)x.t.classList.toggle('hl',on);});}
+    }
+    window.drawFlow=draw;
+    if(window.ResizeObserver)new ResizeObserver(function(){draw();}).observe(grid);else window.addEventListener('resize',draw);
+    select(ORDER[0]);draw();
+  })();
+
+  // ---------- diagram ----------
+  var W=176,H=58;
+  var N=[
+    {id:'ui',x:20,y:110,l:'Chat UI',s:'Chat.tsx / api.ts',k:'nondet'},
+    {id:'popup',x:20,y:420,l:'Item pop-up',s:'ItemPopup.tsx',k:'nondet'},
+    {id:'notice',x:20,y:520,l:'Quote notice + PDF',s:'Chat.tsx poll, PDF route',k:'nondet'},
+    {id:'repui',x:20,y:620,l:'Rep portal UI',s:'/rep/quotes/[id]',k:'nondet'},
+    {id:'route',x:230,y:110,l:'Chat API route',s:'api/query/[...path]',k:'det'},
+    {id:'pipe',x:230,y:200,l:'ask() pipeline',s:'server/pipeline.ts',k:'nondet'},
+    {id:'mode',x:230,y:290,l:'Engine selection',s:'chat/mode.ts',k:'det'},
+    {id:'scripted',x:440,y:290,l:'Scripted engine',s:'chat/scripted.ts',k:'det'},
+    {id:'live',x:440,y:110,l:'Live tool loop',s:'chat/live.ts',k:'nondet'},
+    {id:'clarify',x:440,y:200,l:'Clarification loop',s:'chat/clarify.ts',k:'det'},
+    {id:'llm',x:900,y:110,l:'Anthropic API (chat)',s:'messages.create',k:'nondet'},
+    {id:'llm2',x:900,y:290,l:'Anthropic API (writer)',s:'messages.create',k:'nondet'},
+    {id:'runtool',x:660,y:110,l:'Tool dispatcher',s:'chat/definitions.ts',k:'det'},
+    {id:'tools',x:660,y:200,l:'7 chat tools',s:'chat/tools.ts',k:'det'},
+    {id:'match',x:660,y:290,l:'Matcher',s:'server/matching/*',k:'det'},
+    {id:'intake',x:230,y:420,l:'Quote intake',s:'intake/quote-request.ts',k:'det'},
+    {id:'pricing',x:440,y:420,l:'Pricing engine',s:'server/pricing/*',k:'det'},
+    {id:'upsell',x:660,y:420,l:'Upsell rules + writer',s:'rep/quote-upsells.ts',k:'nondet'},
+    {id:'edits',x:230,y:620,l:'Rep edits',s:'rep/quote-edits.ts',k:'det'},
+    {id:'send',x:440,y:620,l:'Send / accept / expire',s:'quotes/service.ts',k:'nondet'},
+    {id:'custrepo',x:300,y:740,l:'Customer-safe repo',s:'repository/customer.ts',k:'det'},
+    {id:'repo',x:520,y:740,l:'Internal repository',s:'repository/*.ts',k:'det'},
+    {id:'sqlite',x:760,y:740,l:'SQLite file',s:'better-sqlite3, WAL',k:'det'}
+  ];
+  var E=[
+    ['ui','route','POST chat'],['route','pipe',''],['pipe','mode',''],['mode','live','live'],['mode','scripted','scripted'],
+    ['live','llm','request'],['llm','live','tool_use / text'],['live','runtool','tool_use'],['runtool','tools',''],['tools','match','search_items'],
+    ['live','clarify',''],['scripted','clarify',''],['scripted','tools',''],['clarify','tools','propose_cart'],
+    ['pipe','custrepo','messages, logs'],['tools','custrepo','reads'],
+    ['ui','popup','item_popup'],['popup','intake','POST quote-requests'],['intake','pricing',''],['intake','repo','one transaction'],['pricing','repo','price facts'],
+    ['repui','edits',''],['edits','pricing',''],['edits','repo',''],['repui','upsell',''],['upsell','llm2','chip facts'],['upsell','pricing',''],
+    ['repui','send','Approve & send'],['send','repo','revision + quote_ready'],['notice','send','accept / changes'],
+    ['custrepo','sqlite',''],['repo','sqlite','']
+  ];
+  var D={
+    ui:{t:'Chat UI (client)',k:'nondet',why:'Human input; conversation ID from crypto.randomUUID().',files:['src/features/chat/Chat.tsx:60-63, 115-148','src/lib/api.ts:3-11'],
+      inp:'Typed text.',out:'POST /api/query/customer/chat {question, conversation_id}',notes:'No retry; on error the turn is removed and the text restored. Renders model text with react-markdown + remark-gfm.'},
+    route:{t:'Chat API route',k:'det',files:['src/app/api/query/[...path]/route.ts:13-22','src/app/api/query/[...path]/customer.ts:21-26','src/server/session.ts:11-13'],
+      inp:'HTTP + cookie querent-persona.',out:'ask(customerId, conversationId, question, {contactId}) → ChatAnswer JSON',notes:'401 no session; 422 invalid body; 404 foreign conversation; other errors 500. Starts the per-process heartbeat timer.'},
+    pipe:{t:'ask() pipeline',k:'nondet',why:'Clock and UUIDs; not transactional.',files:['src/server/pipeline.ts:35-81'],
+      inp:'customerId, conversationId, question',out:'ChatAnswer {answer, categories, outcome, row_count, kind, payload}',notes:'Writes customer message before the engine runs, then assistant message and query_logs. Engine exceptions become a fixed error reply (HTTP 200).'},
+    mode:{t:'Engine selection',k:'det',files:['src/server/chat/mode.ts:11-19'],inp:'QUERENT_SCRIPTED, ANTHROPIC_API_KEY, ANTHROPIC_MODEL',out:"'scripted' | 'live'; model ID (default claude-sonnet-5)",notes:'Read on every turn.'},
+    scripted:{t:'Scripted engine',k:'det',files:['src/server/chat/scripted.ts:137-168'],inp:'message, history',out:'ChatReply',notes:'Regex script for two items; uses the real tools and the clarify module. Used by CI and E2E.'},
+    live:{t:'Live tool loop',k:'nondet',why:'Model output decides tool calls and text.',files:['src/server/chat/live.ts:103-172'],
+      inp:'message, history (text only), optional clarify state',out:'ChatReply (text | clarify | item_popup)',notes:'Max 6 tool rounds then tool_choice none; max_tokens 16000; SDK timeout 60 s, 2 retries. Button replies settle without a model call. propose_cart result wins over open clarify lines.'},
+    clarify:{t:'Clarification loop',k:'det',files:['src/server/chat/clarify.ts:85-133, 186-196, 257-279'],inp:'ClarifyPayload + search results or button text',out:'Next ClarifyPayload; clarify reply or item pop-up',notes:'State lives only in the last assistant message payload. Round 2+ shows 3 candidate buttons and the rep contact.'},
+    llm:{t:'Anthropic Messages API (chat)',k:'nondet',why:'Model sampling; network.',files:['src/server/chat/live.ts:126-130'],
+      inp:'{model, max_tokens:16000, system:[cached text], tools:7, messages, tool_choice?}',out:'Message {content:[text|tool_use|...], stop_reason}',notes:'No temperature, top_p or seed. Outside the server: the model boundary.'},
+    llm2:{t:'Anthropic Messages API (writer)',k:'nondet',why:'Model sampling; network.',files:['src/server/upsells-writer/claude.ts:130-134'],
+      inp:'{model, max_tokens:4000, system, tools:[write_upsell_wording], tool_choice:auto, one user message with chip facts JSON}',out:'tool_use input {chips:[{id,title,reason}]}',notes:'8 s timeout, no retries, 60 s pause after failure. Live mode only.'},
+    runtool:{t:'Tool dispatcher (runTool)',k:'det',files:['src/server/chat/definitions.ts:95-107'],inp:'tool name + input from tool_use',out:'ToolRun {name, categories, result, rows} → tool_result block',notes:'Order: name allow-list → access toggle → zod → handler.'},
+    tools:{t:'Chat tools',k:'det',files:['src/server/chat/tools.ts'],inp:'Validated input + customerId',out:'ToolResult<T>',notes:'Read-only. Only import repository/customer (no cost or margin). propose_cart checks SKU exists, not that it was matched.'},
+    match:{t:'Matcher',k:'det',files:['src/server/chat/lines.ts:73-90','src/server/matching/index.ts:31-35','src/server/matching/score.ts:114-139','src/server/matching/question.ts:55-69'],
+      inp:'One request line + catalog + order counts',out:'{candidates (≤limit), confident, question}',notes:'Confident when top ≥ 0.75 and lead ≥ 0.15. resolveUsual() is exported but unused.'},
+    popup:{t:'Item pop-up (client)',k:'nondet',why:'Human confirmation and edits.',files:['src/components/customer/ItemPopup.tsx:87-88'],inp:'item_popup payload',out:'POST /api/query/customer/quote-requests {conversation_id, fulfillment, branch_id, lines:[{sku,qty}]}',notes:'The human gate between model output and a stored quote.'},
+    intake:{t:'Quote intake',k:'det',files:['src/app/api/query/customer/quote-requests/route.ts:15-26','src/server/intake/quote-request.ts:106-175'],
+      inp:'Strict body; session customer/contact',out:'{quote:{id, quote_number, status}, turn, replayed}',notes:'SKUs must be on the last pop-up. One transaction. Replays the earlier quote for the same pop-up.'},
+    pricing:{t:'Pricing engine',k:'det',files:['src/server/pricing/service.ts:24-40','src/server/pricing/engine.ts:118-145','src/server/repository/pricing.ts:50-60'],
+      inp:'customer, rep, branch, lines, day',out:'PricedLine {options, suggestion, explanation, reasons}',notes:'Contract > max(customer, last paid, broken case +10%, scarcity +5%) capped at list. Integer cents.'},
+    upsell:{t:'Upsell rules + wording writer',k:'nondet',why:'Wording from the model in live mode.',files:['src/server/rep/quote-upsells.ts:54-99','src/server/upsells-writer/claude.ts:109-156'],
+      inp:'Quote + history; chipFacts (cost-free) to the writer',out:'RepUpsell[] with wording_source claude|template',notes:'Rules are deterministic; only wording varies. Output filtered by length and a money-word regex.'},
+    repui:{t:'Rep portal UI',k:'nondet',why:'Human rep input.',files:['src/app/rep/quotes/[id]/page.tsx','src/components/rep/quote-detail/*'],inp:'Rep actions',out:'Calls /api/rep/quotes/<id>/…',notes:'Not read in detail for this page.'},
+    edits:{t:'Rep edits',k:'det',files:['src/server/rep/quote-edits.ts:35-175'],inp:'Line patch / new line / remove',out:'Fresh QuoteDetail',notes:'Rep must own the quote; status must allow edits; one transaction per edit with an Activity row.'},
+    send:{t:'Lifecycle services',k:'nondet',why:'Clock; in-memory idempotency.',files:['src/server/quotes/service.ts:133-268','src/server/quotes/lifecycle.ts:28-33','src/server/rep/quote-send.ts:68-81'],
+      inp:'Send body {message, attach_pdf, revision, total} + Idempotency-Key; customer accept/changes',out:'Revision snapshot, quote_ready message, status change',notes:'Optimistic updated_at check; WHERE status=? guard; blockers; expected revision/total.'},
+    notice:{t:'Quote notice + PDF (client)',k:'nondet',why:'Polling timing; human response.',files:['src/features/chat/Chat.tsx:88-111','src/server/repository/chat.ts:64-71'],inp:'GET customer/notices/<conversation>',out:'Accept or Request changes',notes:'Polls while the tab is visible.'},
+    custrepo:{t:'Customer-safe repository',k:'det',files:['src/server/repository/customer.ts:7-13'],inp:'Function calls scoped by customerId',out:'Rows without cost, margin or other customers',notes:'Re-exports a fixed subset of the internal repository. A boundary test enforces the subset.'},
+    repo:{t:'Internal repository',k:'det',files:['src/server/repository/index.ts','src/server/repository/quotes.ts','src/server/repository/sql.ts:30'],inp:'Typed function calls',out:'Typed rows incl. cost and margin',notes:'All SQL lives here. inTransaction nests as savepoints.'},
+    sqlite:{t:'SQLite database',k:'det',files:['src/server/db/index.ts:11-38','src/server/db/schema.ts'],inp:'Prepared statements',out:'Rows',notes:'One file (DATABASE_PATH, default ./data/querent.sqlite). WAL, foreign keys on, schema version 4, no migrations.'}
+  };
+  var svg=document.getElementById('dg'),NS='http://www.w3.org/2000/svg';
+  function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e;}
+  var defs=el('defs',{});var mk=el('marker',{id:'ah',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'},defs);
+  el('path',{d:'M0,0 L10,5 L0,10 z',fill:'currentColor'},mk);mk.style.color='var(--muted)';
+  var mk2=el('marker',{id:'ah2',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'7',markerHeight:'7',orient:'auto-start-reverse'},defs);
+  el('path',{d:'M0,0 L10,5 L0,10 z',fill:'currentColor'},mk2);mk2.style.color='var(--accent)';
+  // lanes
+  el('text',{x:20,y:28,'class':'lane'}).textContent='CLIENT (browser)';
+  el('text',{x:230,y:28,'class':'lane'}).textContent='SERVER (Next.js, Node runtime)';
+  // boundaries
+  el('rect',{x:880,y:60,width:216,height:320,rx:10,'class':'boundary model'});
+  el('text',{x:892,y:82,'class':'blabel model'}).textContent='MODEL BOUNDARY';
+  el('rect',{x:280,y:712,width:700,height:96,rx:10,'class':'boundary db'});
+  el('text',{x:292,y:732,'class':'blabel db'}).textContent='DATABASE BOUNDARY';
+  var byId={};N.forEach(function(n){byId[n.id]=n;});
+  function clip(a,b){ // point on a's border toward b's center
+    var cx=a.x+W/2,cy=a.y+H/2,dx=(b.x+W/2)-cx,dy=(b.y+H/2)-cy;
+    if(!dx&&!dy)return [cx,cy];
+    var sx=dx?(W/2)/Math.abs(dx):Infinity,sy=dy?(H/2)/Math.abs(dy):Infinity,s=Math.min(sx,sy);
+    return [cx+dx*s,cy+dy*s];
+  }
+  var edgeEls=[];
+  var g=el('g',{});
+  E.forEach(function(e){
+    var a=byId[e[0]],b=byId[e[1]];
+    var p1=clip(a,b),p2=clip(b,a);
+    // offset reciprocal pairs
+    var rev=E.some(function(f){return f[0]===e[1]&&f[1]===e[0];});
+    var ox=0,oy=0;if(rev){var dx=p2[0]-p1[0],dy=p2[1]-p1[1],len=Math.hypot(dx,dy)||1;ox=-dy/len*6;oy=dx/len*6;}
+    var line=el('line',{x1:p1[0]+ox,y1:p1[1]+oy,x2:p2[0]+ox,y2:p2[1]+oy,'class':'edge','marker-end':'url(#ah)'},g);
+    edgeEls.push({e:e,el:line});
+    if(e[2]){var t=el('text',{x:(p1[0]+p2[0])/2+ox+4,y:(p1[1]+p2[1])/2+oy-4,'class':'elabel'},g);t.textContent=e[2];}
+  });
+  var nodeEls={};
+  N.forEach(function(n){
+    var grp=el('g',{'class':'node '+n.k,tabindex:'0',role:'button','aria-label':n.l+' ('+(n.k==='det'?'deterministic':'nondeterministic')+')'});
+    el('rect',{x:n.x,y:n.y,width:W,height:H,rx:7,'class':'box'},grp);
+    el('text',{x:n.x+10,y:n.y+19,'class':'l'},grp).textContent=n.l;
+    el('text',{x:n.x+10,y:n.y+34,'class':'s'},grp).textContent=n.s;
+    el('text',{x:n.x+10,y:n.y+50,'class':'k'},grp).textContent=n.k==='det'?'DETERMINISTIC':'NONDETERMINISTIC';
+    grp.addEventListener('click',function(){select(n.id);});
+    grp.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();select(n.id);}});
+    nodeEls[n.id]=grp;
+  });
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function select(id){
+    Object.keys(nodeEls).forEach(function(k){nodeEls[k].classList.toggle('sel',k===id);});
+    edgeEls.forEach(function(x){var on=x.e[0]===id||x.e[1]===id;x.el.classList.toggle('hl',on);x.el.setAttribute('marker-end',on?'url(#ah2)':'url(#ah)');});
+    var d=D[id],box=document.getElementById('detail');
+    var tag=d.k==='det'?'<span class="tag DET">DETERMINISTIC</span>':'<span class="tag ND">NONDETERMINISTIC</span>';
+    var inOut=E.filter(function(e){return e[0]===id||e[1]===id;}).map(function(e){return e[0]===id?'→ '+byId[e[1]].l:'← '+byId[e[0]].l;});
+    box.innerHTML='<h3>'+esc(d.t)+'</h3><p>'+tag+(d.why?' <span class="note">'+esc(d.why)+'</span>':'')+'</p>'+
+      '<h4>Files</h4><ul class="flat meta">'+d.files.map(function(f){return '<li><code>'+esc(f)+'</code></li>';}).join('')+'</ul>'+
+      '<h4>Input</h4><p class="meta">'+esc(d.inp)+'</p><h4>Output</h4><p class="meta">'+esc(d.out)+'</p>'+
+      '<h4>Notes</h4><p class="meta">'+esc(d.notes)+'</p>'+
+      '<h4>Connections</h4><p>'+inOut.map(function(s){return '<span class="pill">'+esc(s)+'</span>';}).join('')+'</p>';
+  }
+})();
+</script>
+</body>
+</html>
