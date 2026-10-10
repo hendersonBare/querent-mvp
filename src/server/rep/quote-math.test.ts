@@ -156,6 +156,19 @@ describe('quote figures: totals and the summary card',()=>{
     expect(figures(SAMPLE_LINES,override)).toMatchObject({total:1262.4,freight:{label:'Freight (set by rep)'}});
   });
 
+  it('totals at the customer-facing price (unit price + freight recovery), keeping cost, GP and margin on the unit price (spec §4.5, OA-10)',()=>{
+    const recovered=[{...bolts,freight_recovery:63},wheels,gloves,straps];
+    // Bolts: 10 × ($31.50 + $0.63) = $321.30, so items $1,128.70; GP and margin as without recovery.
+    expect(lineFigures(recovered[0],ctx)).toMatchObject({total:321.3,marginLabel:lineFigures(bolts,ctx).marginLabel,floor:lineFigures(bolts,ctx).floor});
+    const free=sampleDetail({freight:{computed:{rule:'free_delivery_pricing',amount:0,miles:15,formula:null,explanation:'Free delivery pricing: freight is recovered in item prices.'},override:null,amount:0,source:'computed',unresolved:false}});
+    const f=figures(recovered,free);
+    expect(f).toMatchObject({items:1128.7,goods:1122.4,cost:761,gp:361.4,marginLabel:'32.2%',total:1128.7,freight:{amount:0,callForFreight:false,label:'Freight (15.0 mi)'}});
+    expect(f.floor).toEqual(figures().floor);
+    // The free-delivery threshold compares the goods before recovery: $1,122.40 of goods + $400 recovered still pays distance freight.
+    const delivery=sampleDetail({freight:{computed:{rule:'distance',amount:62.5,miles:15,formula:'',explanation:''},override:null,amount:62.5,source:'computed',unresolved:false}});
+    expect(figures([{...bolts,freight_recovery:4000},wheels,gloves,straps],delivery)).toMatchObject({items:1522.4,goods:1122.4,freight:{amount:62.5}});
+  });
+
   it('blends the floor marker by revenue: each line’s floor weighted by its total',()=>{
     // (315×20% + 216×25% + 316×30% + 275.40×20%) / 1,122.40 = 23.78%
     const floor=blendedFloor(SAMPLE_LINES,ctx);

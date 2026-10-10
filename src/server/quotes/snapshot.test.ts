@@ -4,12 +4,12 @@ import {buildSnapshot,cents,letterheadOf,repContactOf} from './snapshot';
 
 const line=(n:number,qty:number,unit_price:number|null,extra:Partial<QuoteLine>={}):QuoteLine=>({id:`q-1-${n}`,quote_id:'q-1',line_no:n,item_id:`SKU-${n}`,sku:`SKU-${n}`,
   description:`Item ${n}`,pack:'Each',case_qty:1,category_id:'fasteners',category_name:'Fasteners',list_price:99,qty,unit_price,price_basis:'custom',suggested_price:1,
-  suggested_basis:'customer',customer_price:1,unit_cost:0.5,explanation:'Internal: margin is thin',requested_text:'bolts',match_score:0.9,added_by:'querent',...extra});
+  suggested_basis:'customer',customer_price:1,unit_cost:0.5,freight_recovery:0,explanation:'Internal: margin is thin',requested_text:'bolts',match_score:0.9,added_by:'querent',...extra});
 
 const QUOTE:Quote={id:'q-1',quote_number:'Q-1',customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',contact_id:'dana',contact_name:'Dana Ortiz',
   rep_id:'brandi',rep_name:'Brandi Gallegos',status:'ready_for_review',revision:0,conversation_id:null,request_text:null,requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',
   updated_at:'2026-09-23T16:15:00.000Z',sent_at:null,responded_at:null,fulfillment:'delivery',branch_id:'slc',branch_code:'SLC',requested_date:'2026-09-24',fulfillment_time:null,
-  ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,valid_days:14,expires_on:null,valid_until:null,
+  ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null,valid_days:14,expires_on:null,valid_until:null,
   customer_po:'7781',customer_note:'Prices include cutting to length.',change_request_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,
   lines:[line(1,10,31.5,{sku:'HCS-12-13-2G8',description:'Hex cap screw',pack:'Box of 50'}),line(2,3,0.1),line(3,7,12.345)]};
 
@@ -59,6 +59,14 @@ describe('buildSnapshot',()=>{
     expect(snap).not.toHaveProperty('terms');
     expect(snap).not.toHaveProperty('rep_contact');
     expect(snap).not.toHaveProperty('letterhead');
+  });
+
+  it('freezes the customer-facing unit price: unit price + freight recovery, with no recovery field (spec §4.5)',()=>{
+    const recovered={...QUOTE,lines:[line(1,10,31.5,{sku:'HCS-12-13-2G8',freight_recovery:63}),line(2,3,0.1),line(3,7,12.345,{freight_recovery:2})]};
+    const frozen=buildSnapshot(recovered,{revision:1,sentAt:'2026-09-24T15:00:00.000Z',validUntil:'2026-10-08',freight:0});
+    expect(frozen.lines.map(l=>[l.unit_price,l.total])).toEqual([[32.13,321.3],[0.1,0.3],[12.365,86.56]]);
+    expect(frozen).toMatchObject({subtotal:408.16,freight:0,total:408.16});
+    expect(JSON.stringify(frozen)).not.toMatch(/recover|rate_bp|ramp|modelled/i);
   });
 
   it('has no ship-to on will call',()=>{

@@ -147,12 +147,12 @@ describe('customerPdfModel',()=>{
 
 describe('fromDraft (the rep\'s preview of an unsent draft)',()=>{
   const line=(n:number,qty:number,unit_price:number|null):QuoteLine=>({id:`q-1-${n}`,quote_id:'q-1',line_no:n,item_id:`SKU-${n}`,sku:`SKU-${n}`,description:`Item ${n}`,pack:'Each',case_qty:1,
-    category_id:'fasteners',category_name:'Fasteners',list_price:99,qty,unit_price,price_basis:'custom',suggested_price:1,suggested_basis:'customer',customer_price:1,unit_cost:0.5,
+    category_id:'fasteners',category_name:'Fasteners',list_price:99,qty,unit_price,price_basis:'custom',suggested_price:1,suggested_basis:'customer',customer_price:1,unit_cost:0.5,freight_recovery:0,
     explanation:'Last paid $1.00 on Aug 12. +$5.50 GP vs customer price.',requested_text:'bolts',match_score:0.9,added_by:'querent'});
   const DRAFT:Quote={id:'q-1',quote_number:'Q-1',customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',contact_id:'dana',contact_name:'Dana Ortiz',
     rep_id:'brandi',rep_name:'Brandi Gallegos',status:'changes_requested',revision:1,conversation_id:null,request_text:'Need bolts',requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',
     updated_at:'2026-09-24T16:15:00.000Z',sent_at:'2026-09-23T17:00:00.000Z',responded_at:null,fulfillment:'delivery',branch_id:'slc',branch_code:'SLC',requested_date:null,fulfillment_time:null,
-    ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,valid_days:14,expires_on:null,valid_until:'2026-10-07',
+    ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null,valid_days:14,expires_on:null,valid_until:'2026-10-07',
     customer_po:'7781',customer_note:'Call on arrival.',change_request_note:'Can you do 20 boxes?',unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,
     lines:[line(1,20,31.5),line(2,3,null)]};
   const FREIGHT:QuoteFreight={computed:{rule:'distance',amount:62.5,miles:15,formula:'$25.00 + $2.50/mi × 15.0 mi = $62.50',explanation:'15.0 mi from SLC'},override:null,amount:62.5,source:'computed',unresolved:false};

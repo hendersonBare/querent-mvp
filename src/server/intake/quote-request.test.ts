@@ -1,7 +1,7 @@
 import {afterAll,afterEach,beforeAll,describe,expect,it} from 'vitest';
 import type {ItemPopupPayload,QuoteRequestedPayload} from '@/domain';
 import type {QuoteRequestInput} from '@/lib/contracts';
-import {SEED_DATE,useSeededDatabase} from '@/server/repository/test-db';
+import {SEED_DATE,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 
 useSeededDatabase();
 
@@ -59,7 +59,7 @@ describe('Request quote',()=>{
     ]});
     const badge=repBadges('brandi',{now:NOW}).quotes;
 
-    const result=requestQuote(DANA,body(id),OPTIONS);
+    const result=await requestQuote(DANA,body(id),OPTIONS);
     expect(result).toMatchObject({quote:{quote_number:'Q-24818',status:'ready_for_review'},replayed:false});
 
     const q=quote(result.quote.id)!;
@@ -89,7 +89,7 @@ describe('Request quote',()=>{
   it('logs the request in Activity and confirms in the chat with Brandi\'s name and the quote number',async()=>{
     const {requestQuote,quoteActivity,conversationMessages,history}=await services();
     const {id}=await popupConversation([REQUEST,'Not sure','Type 1']);
-    const {quote:created,turn}=requestQuote(DANA,body(id),OPTIONS);
+    const {quote:created,turn}=await requestQuote(DANA,body(id),OPTIONS);
 
     expect(quoteActivity(created.id).map(a=>[a.actor,a.actor_id,a.kind,a.message,a.at])).toEqual([
       ['customer','dana','requested','Dana requested a quote in Querent chat: 2 items, pickup at SLC',NOW],
@@ -114,10 +114,10 @@ describe('Request quote',()=>{
 
   it('prices freight from the quote (task 1.3): will call is free, delivery goes by distance from the branch',async()=>{
     const {requestQuote,quote,freightForQuote}=await services();
-    const pickup=requestQuote(DANA,body((await popupConversation()).id),OPTIONS);
+    const pickup=await requestQuote(DANA,body((await popupConversation()).id),OPTIONS);
     expect(await freightForQuote(quote(pickup.quote.id)!)).toMatchObject({amount:0,computed:{rule:'will_call'},source:'computed'});
 
-    const delivery=requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery'}),OPTIONS);
+    const delivery=await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery'}),OPTIONS);
     const q=quote(delivery.quote.id)!;
     expect(q).toMatchObject({fulfillment:'delivery',branch_id:'slc',ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.5513,ship_to_lng:-111.933});
     // Spec §5.3's example: 12 mi straight line from SLC, 15.0 road miles, $25 + $2.50 x 15.0 = $62.50.
@@ -126,7 +126,7 @@ describe('Request quote',()=>{
 
   it('leaves the upsell chips (task 1.6) to the quote: nuts and washers for the bolts',async()=>{
     const {requestQuote,quoteUpsells}=await services();
-    const {quote:created}=requestQuote(DANA,body((await popupConversation()).id),OPTIONS);
+    const {quote:created}=await requestQuote(DANA,body((await popupConversation()).id),OPTIONS);
     const chips=quoteUpsells(created.id,{on:SEED_DATE})!;
     expect(chips.map(c=>c.kind)).toContain('matching_fastener');
     const parts=chips.flatMap(c=>c.kind==='matching_fastener'?[c.evidence.part]:[]);
@@ -137,7 +137,7 @@ describe('Request quote',()=>{
   it('takes the customer\'s edits: qty, removed lines, delivery and another branch',async()=>{
     const {requestQuote,quote}=await services();
     const {id}=await popupConversation();
-    const {quote:created}=requestQuote(DANA,body(id,{fulfillment:'delivery',branch_id:'ogden',lines:[{sku:'hcs-12-13-2g8',qty:3}]}),OPTIONS);
+    const {quote:created}=await requestQuote(DANA,body(id,{fulfillment:'delivery',branch_id:'ogden',lines:[{sku:'hcs-12-13-2g8',qty:3}]}),OPTIONS);
     const q=quote(created.id)!;
     expect(q).toMatchObject({fulfillment:'delivery',branch_id:'ogden',branch_code:'Ogden'});
     expect(q.lines.map(l=>[l.sku,l.qty])).toEqual([['HCS-12-13-2G8',3]]);
@@ -149,7 +149,7 @@ describe('Request quote',()=>{
 
   it('returns only customer-safe fields: no price, cost, margin, basis or explanation anywhere',async()=>{
     const {requestQuote,quote}=await services();
-    const result=requestQuote(DANA,body((await popupConversation()).id),OPTIONS);
+    const result=await requestQuote(DANA,body((await popupConversation()).id),OPTIONS);
     expect(keys(result).filter(k=>FORBIDDEN.test(k))).toEqual([]);
     const values=leaves(result);
     const strings=values.filter((v):v is string=>typeof v==='string');
@@ -167,13 +167,66 @@ describe('Request quote',()=>{
   });
 });
 
+describe('free delivery pricing at creation (spec §4.2, §4.4, §4.5)',()=>{
+  const DAY=86_400_000;
+  /** 60 boxes of bolts and 6 boxes of the contract wheels, delivered from SLC: over the $1,500 threshold. */
+  const BIG=[{sku:'HCS-12-13-2G8',qty:60},{sku:'CW-45-045-T1',qty:6}];
+  const RECOVERY=/recover|rate|ramp|modelled/i;
+  afterEach(async()=>{for(const key of ['free_delivery_pricing','free_delivery_enabled_at','freight_fuel_manual_cents'])await setSettingFixture(key,null);});
+
+  it('freezes the rate in force, its ramp step and the modelled cost, and allocates recovery to the lines',async()=>{
+    const {requestQuote,quote}=await services();
+    const {allocateRecovery}=await import('@/server/freight/recovery');
+    const {toCents}=await import('@/lib/money');
+    await setSettingFixture('free_delivery_pricing','true');
+    await setSettingFixture('free_delivery_enabled_at',new Date(Date.parse(NOW)-35*DAY).toISOString());
+    await setSettingFixture('freight_fuel_manual_cents','340');
+    const result=await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),OPTIONS);
+    const q=quote(result.quote.id)!;
+    // The 300 bp starting rate (no eligible quotes yet) at ramp step 2 of 3 = 200 bp; the spec §4.2 example cost, 4,213¢.
+    expect(q).toMatchObject({freight_rate_bp:200,freight_ramp_step:2,freight_ramp_steps:3,modelled_freight_cents:4213});
+    const expected=allocateRecovery({rateBp:200,lineCapBp:800,lines:q.lines.map(l=>({line_no:l.line_no,qty:l.qty,unitPriceCents:toCents(l.unit_price!),unitCostCents:toCents(l.unit_cost),basis:l.price_basis}))});
+    expect(q.lines.map(l=>l.freight_recovery)).toEqual(expected.map(e=>e.freight_recovery));
+    expect(q.lines.map(l=>[l.sku,l.price_basis,l.freight_recovery>0])).toEqual([['HCS-12-13-2G8',expect.anything(),true],['CW-45-045-T1','contract',false]]);
+    // The customer's answer says nothing about it.
+    expect(keys(result).filter(k=>RECOVERY.test(k)||FORBIDDEN.test(k))).toEqual([]);
+  });
+
+  it('with free delivery pricing off, freezes only the modelled cost of a delivery: no rate, no recovery',async()=>{
+    const {requestQuote,quote}=await services();
+    const delivery=quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),OPTIONS)).quote.id)!;
+    // No fuel price yet (C3 stores them): 600 + 450 + 2,142.86¢ = 3,193¢.
+    expect(delivery).toMatchObject({freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:3193});
+    expect(delivery.lines.map(l=>l.freight_recovery)).toEqual([0,0]);
+    const pickup=quote((await requestQuote(DANA,body((await popupConversation()).id,{lines:BIG}),OPTIONS)).quote.id)!;
+    expect(pickup).toMatchObject({freight_rate_bp:null,modelled_freight_cents:null});
+  });
+
+  it('carries no recovery on will call even with free delivery pricing on',async()=>{
+    const {requestQuote,quote}=await services();
+    await setSettingFixture('free_delivery_pricing','true');
+    await setSettingFixture('free_delivery_enabled_at',new Date(Date.parse(NOW)-35*DAY).toISOString());
+    const pickup=quote((await requestQuote(DANA,body((await popupConversation()).id,{lines:BIG}),OPTIONS)).quote.id)!;
+    expect(pickup).toMatchObject({freight_rate_bp:null,modelled_freight_cents:null});
+    expect(pickup.lines.map(l=>l.freight_recovery)).toEqual([0,0]);
+  });
+
+  it('measures the miles with the DistanceProvider it is given',async()=>{
+    const {requestQuote,quote}=await services();
+    const provider={roadMiles:async()=>20};
+    const q=quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),{...OPTIONS,provider})).quote.id)!;
+    // 40 mi round trip: 800 + 600 + 2,857.14¢ = 4,257¢.
+    expect(q.modelled_freight_cents).toBe(4257);
+  });
+});
+
 describe('one quote per pop-up',()=>{
   it('replays the quote when Request quote is pressed again, without a second quote, badge or confirmation',async()=>{
     const {requestQuote,quotes,conversationMessages,repBadges}=await services();
     const {id}=await popupConversation();
     const count=quotes({customerId:'wasatch'}).length,badge=repBadges('brandi',{now:NOW}).quotes;
-    const first=requestQuote(DANA,body(id),OPTIONS);
-    const again=requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:99}]}),OPTIONS);
+    const first=await requestQuote(DANA,body(id),OPTIONS);
+    const again=await requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:99}]}),OPTIONS);
     expect(again).toMatchObject({replayed:true,quote:first.quote});
     expect(again.turn).toMatchObject({question:first.turn.question,answer:first.turn.answer,kind:'quote_requested'});
     expect(quotes({customerId:'wasatch'})).toHaveLength(count+1);
@@ -185,9 +238,9 @@ describe('one quote per pop-up',()=>{
     const {requestQuote}=await services();
     const {ask}=await import('@/server/pipeline');
     const {id}=await popupConversation();
-    const first=requestQuote(DANA,body(id),OPTIONS);
+    const first=await requestQuote(DANA,body(id),OPTIONS);
     expect(await ask('wasatch',id,'Please quote 2 boxes of the 1/2 in grade 8 hex bolts',{contactId:'dana'})).toMatchObject({kind:'item_popup'});
-    const second=requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:2}]}),OPTIONS);
+    const second=await requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:2}]}),OPTIONS);
     expect(second.replayed).toBe(false);
     expect(second.quote.quote_number).not.toBe(first.quote.quote_number);
   });
@@ -200,45 +253,45 @@ describe('server-side validation',()=>{
   ])('refuses %s: the rep sets prices',async(_,extra)=>{
     const {requestQuote,QuoteRequestError}=await services();
     const {id}=await popupConversation();
-    expect(()=>requestQuote(DANA,{...body(id),...extra},OPTIONS)).toThrow(QuoteRequestError);
-    expect(()=>requestQuote(DANA,{...body(id),...extra},OPTIONS)).toThrow(/Your rep sets the prices/);
-    expect(()=>requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:10,unit_price:0.01} as never]}),OPTIONS)).toThrow(/not unit_price/);
+    await expect(requestQuote(DANA,{...body(id),...extra},OPTIONS)).rejects.toThrow(QuoteRequestError);
+    await expect(requestQuote(DANA,{...body(id),...extra},OPTIONS)).rejects.toThrow(/Your rep sets the prices/);
+    await expect(requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:10,unit_price:0.01} as never]}),OPTIONS)).rejects.toThrow(/not unit_price/);
   });
 
   it.each([0,-1,1.5,10000,Number.NaN,'10' as never])('refuses qty %s',async qty=>{
     const {requestQuote}=await services();
     const {id}=await popupConversation();
-    expect(()=>requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty}]}),OPTIONS)).toThrow('Quantities must be whole numbers from 1 to 9999.');
+    await expect(requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty}]}),OPTIONS)).rejects.toThrow('Quantities must be whole numbers from 1 to 9999.');
   });
 
   it('refuses unknown, unlisted and repeated SKUs, and an empty list',async()=>{
     const {requestQuote}=await services();
     const {id}=await popupConversation();
-    const refusal=(lines:QuoteRequestInput['lines'])=>{try{requestQuote(DANA,body(id,{lines}),OPTIONS);}catch(e){return [(e as {status:number}).status,(e as Error).message];}return undefined;};
-    expect(refusal([{sku:'NOPE-1',qty:1}])).toEqual([422,'No item has SKU NOPE-1.']);
-    expect(refusal([{sku:'GLV-N8-L-1000',qty:1}])).toEqual([422,'GLV-N8-L-1000 isn\'t on your list. Ask for it in the chat to add it.']);
-    expect(refusal([{sku:'HCS-12-13-2G8',qty:1},{sku:'hcs-12-13-2g8',qty:2}])).toEqual([422,'HCS-12-13-2G8 is on the request twice.']);
-    expect(refusal([])).toEqual([422,'Your list is empty: keep at least one item.']);
+    const refusal=async(lines:QuoteRequestInput['lines'])=>{try{await requestQuote(DANA,body(id,{lines}),OPTIONS);}catch(e){return [(e as {status:number}).status,(e as Error).message];}return undefined;};
+    expect(await refusal([{sku:'NOPE-1',qty:1}])).toEqual([422,'No item has SKU NOPE-1.']);
+    expect(await refusal([{sku:'GLV-N8-L-1000',qty:1}])).toEqual([422,'GLV-N8-L-1000 isn\'t on your list. Ask for it in the chat to add it.']);
+    expect(await refusal([{sku:'HCS-12-13-2G8',qty:1},{sku:'hcs-12-13-2g8',qty:2}])).toEqual([422,'HCS-12-13-2G8 is on the request twice.']);
+    expect(await refusal([])).toEqual([422,'Your list is empty: keep at least one item.']);
   });
 
   it('refuses an unknown branch or fulfillment, and a body that is not a request',async()=>{
     const {requestQuote}=await services();
     const {id}=await popupConversation();
-    expect(()=>requestQuote(DANA,body(id,{branch_id:'boise'}),OPTIONS)).toThrow('Choose a branch: SLC, Ogden, Provo.');
-    expect(()=>requestQuote(DANA,body(id,{fulfillment:'drone' as never}),OPTIONS)).toThrow('Choose pickup or delivery.');
-    for(const bad of [null,'x',[],{}])expect(()=>requestQuote(DANA,bad,OPTIONS)).toThrow(/incomplete|Choose|empty/);
+    await expect(requestQuote(DANA,body(id,{branch_id:'boise'}),OPTIONS)).rejects.toThrow('Choose a branch: SLC, Ogden, Provo.');
+    await expect(requestQuote(DANA,body(id,{fulfillment:'drone' as never}),OPTIONS)).rejects.toThrow('Choose pickup or delivery.');
+    for(const bad of [null,'x',[],{}])await expect(requestQuote(DANA,bad,OPTIONS)).rejects.toThrow(/incomplete|Choose|empty/);
   });
 
   it("refuses another customer's conversation as not found, and a chat with no pop-up",async()=>{
     const {requestQuote,createConversation}=await services();
     const {ask}=await import('@/server/pipeline');
     const {id}=await popupConversation();
-    expect(()=>requestQuote({customerId:'great-basin',contactId:null},body(id),OPTIONS)).toThrow(expect.objectContaining({status:404,message:'Conversation not found.'}));
-    expect(()=>requestQuote(DANA,body('no-such-chat'),OPTIONS)).toThrow(expect.objectContaining({status:404}));
+    await expect(requestQuote({customerId:'great-basin',contactId:null},body(id),OPTIONS)).rejects.toThrow(expect.objectContaining({status:404,message:'Conversation not found.'}));
+    await expect(requestQuote(DANA,body('no-such-chat'),OPTIONS)).rejects.toThrow(expect.objectContaining({status:404}));
     await ask('wasatch','no-popup','Do you have 1/2 in grade 8 hex bolts in stock?',{contactId:'dana'});
-    expect(()=>requestQuote(DANA,body('no-popup'),OPTIONS)).toThrow(expect.objectContaining({status:409,message:'There is no item list to quote in this chat. Ask for the items first.'}));
+    await expect(requestQuote(DANA,body('no-popup'),OPTIONS)).rejects.toThrow(expect.objectContaining({status:409,message:'There is no item list to quote in this chat. Ask for the items first.'}));
     createConversation({id:'empty-chat',customerId:'wasatch'});
-    expect(()=>requestQuote(DANA,body('empty-chat'),OPTIONS)).toThrow(expect.objectContaining({status:409}));
+    await expect(requestQuote(DANA,body('empty-chat'),OPTIONS)).rejects.toThrow(expect.objectContaining({status:409}));
   });
 
   it('refuses delivery without a ship-to on file, writing nothing',async()=>{
@@ -247,16 +300,16 @@ describe('server-side validation',()=>{
     addMessage('great-basin','great-basin-chat',{role:'assistant',kind:'item_popup',content:'Here is your list.',payload:{fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:1}]}});
     const who={customerId:'great-basin',contactId:null};
     const request={conversation_id:'great-basin-chat',fulfillment:'delivery' as const,branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:1}]};
-    expect(()=>requestQuote(who,request,OPTIONS)).toThrow(expect.objectContaining({status:422,message:'We have no delivery address on file for your account. Choose pickup, or ask Brandi to add one.'}));
+    await expect(requestQuote(who,request,OPTIONS)).rejects.toThrow(expect.objectContaining({status:422,message:'We have no delivery address on file for your account. Choose pickup, or ask Brandi to add one.'}));
     expect(quotes({customerId:'great-basin'})).toEqual([]);
     // Pickup needs no address.
-    expect(requestQuote(who,{...request,fulfillment:'will_call'},OPTIONS).quote.status).toBe('ready_for_review');
+    expect((await requestQuote(who,{...request,fulfillment:'will_call'},OPTIONS)).quote.status).toBe('ready_for_review');
   });
 
   it('quotes a pop-up opened before Items & stock was turned off',async()=>{
     const {requestQuote,setAccess}=await services();
     const {id}=await popupConversation();
     setAccess('wasatch','items_stock',false);
-    expect(requestQuote(DANA,body(id),OPTIONS).quote.status).toBe('ready_for_review');
+    expect((await requestQuote(DANA,body(id),OPTIONS)).quote.status).toBe('ready_for_review');
   });
 });

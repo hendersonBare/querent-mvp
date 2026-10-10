@@ -25,6 +25,12 @@ export interface QuoteHeader {
   ship_to_address:string|null;ship_to_lat:number|null;ship_to_lng:number|null;
   /** Freight is computed (task 1.3); only a rep override is stored. */
   freight_override:number|null;freight_override_reason:string|null;
+  /**
+   * Free delivery pricing (spec §4.4, §4.5), internal: the recovery rate frozen into the quote in bp
+   * (null: the quote carries no recovery) with its ramp step of steps, and the modelled delivery cost
+   * in cents (null for will call or call for freight). Never on a customer-safe type.
+   */
+  freight_rate_bp:number|null;freight_ramp_step:number|null;freight_ramp_steps:number|null;modelled_freight_cents:number|null;
   valid_days:ValidDays;valid_until:string|null;
   /** The expiration date the rep picked (YYYY-MM-DD), or null for the default: valid_days after the send day. */
   expires_on:string|null;
@@ -44,6 +50,12 @@ export interface QuoteLine {
   /** Kept for "+$X GP vs customer price". */
   customer_price:number|null;
   unit_cost:number;
+  /**
+   * Freight recovered in this line's price, integer cents per unit (spec §4.5, OA-6). The customer
+   * pays unit_price + freight_recovery; unit_price stays the engine or rep price, so margin, floors
+   * and suggestions ignore it (OA-10). 0 when the quote carries no recovery.
+   */
+  freight_recovery:number;
   /** Querent's "Why this price?" note. */
   explanation:string|null;requested_text:string|null;match_score:number|null;added_by:LineSource;
 }

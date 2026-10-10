@@ -154,7 +154,7 @@ describe('resetRepSampleQuote',()=>{
   it('keeps quotes requested in the sample conversation and duplicates of the sample working',async()=>{
     const {actions,repo,detail,intake}={...await load(),intake:await import('@/server/intake/quote-request')};
     // Dana presses Request quote on the pop-up in the sample's own chat (conv-q-24817): a new quote.
-    const requested=intake.requestQuote({customerId:'wasatch',contactId:'dana'},
+    const requested=await intake.requestQuote({customerId:'wasatch',contactId:'dana'},
       {conversation_id:'conv-q-24817',fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10},{sku:'GLV-N8-L-1000',qty:4}]},{now:NOW});
     expect(requested.replayed).toBe(false);
     // Another request in Dana's own chat, as in the golden flow.
