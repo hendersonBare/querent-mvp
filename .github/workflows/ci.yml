@@ -14,9 +14,10 @@ concurrency:
 
 env:
   NEXT_TELEMETRY_DISABLED: '1'
-  # Scripted chat only: CI never needs or receives an API key.
+  # Scripted chat and the seeded fuel price only: CI never needs or receives an API key.
   QUERENT_SCRIPTED: '1'
   ANTHROPIC_API_KEY: ''
+  OILPRICEAPI_KEY: ''
 
 jobs:
   checks:

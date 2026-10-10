@@ -1,6 +1,7 @@
+// @vitest-environment node
 import {readdirSync,readFileSync,statSync} from 'node:fs';
 import {join,relative,resolve} from 'node:path';
-import {describe,expect,it} from 'vitest';
+import {describe,expect,it,vi} from 'vitest';
 
 // Secrets guard (decision 9, spec §11, plan T1). Keys are read server-side only, in a known set of
 // modules that each carry TODO(R-2), and no console call ever logs one. Tests may set fake or empty
@@ -56,5 +57,18 @@ describe('secrets guard',()=>{
 
   it('detects a console call that logs a key (self-check)',()=>{
     expect(consoleCalls('console.log(`key ${process.env.ANTHROPIC_API_KEY}`, f(x));').join()).toMatch(/ANTHROPIC_API_KEY/);
+  });
+
+  it('blanks both keys for the E2E server and in CI, so .env.local can never hand next start a real key',async()=>{
+    // next start loads .env.local, but never overrides a variable already set (even to ''), so the
+    // server Playwright starts runs scripted, with no fuel price API.
+    vi.stubEnv('QUERENT_WEBSERVER','1');
+    try{
+      const {default:config}=await import('../playwright.config');
+      const server=Array.isArray(config.webServer)?config.webServer[0]:config.webServer;
+      expect(server?.env).toMatchObject({ANTHROPIC_API_KEY:'',OILPRICEAPI_KEY:''});
+    }finally{vi.unstubAllEnvs();}
+    const ci=read('.github/workflows/ci.yml');
+    for(const key of ['ANTHROPIC_API_KEY','OILPRICEAPI_KEY'])expect(ci).toMatch(new RegExp(`^\\s+${key}: ''$`,'m'));
   });
 });
