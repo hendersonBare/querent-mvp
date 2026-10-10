@@ -8,3 +8,7 @@ if(typeof window!=='undefined'){
   if(!window.matchMedia) window.matchMedia=(query:string)=>({matches:false,media:query,onchange:null,addListener(){},removeListener(){},addEventListener(){},removeEventListener(){},dispatchEvent:()=>false}) as unknown as MediaQueryList;
 }
 afterEach(cleanup);
+// No test may reach the real fuel price API (decision 30): the client builds its HTTP source only
+// when OILPRICEAPI_KEY is set, so a key in the developer's shell is dropped here. Tests that need
+// the source pass a fake, or stub the key and fetch themselves.
+delete process.env.OILPRICEAPI_KEY;

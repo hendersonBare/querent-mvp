@@ -117,8 +117,8 @@ describe('free delivery pricing on',()=>{
     expect(pickup.freight.computed.rule).toBe('will_call');
     await freeDelivery(70);
     await panels.editRepQuoteFulfillment('brandi',q.id,{fulfillment:'delivery'},{now:LATER});
-    // 300 bp of 157,500¢ = 4,725¢ -> 94.5 -> 95¢ a box. Fuel has no price yet (C3), so the modelled cost is 3,193¢.
-    expect(await frozen(q.id)).toEqual({rate:300,step:3,steps:3,modelled:3193,recovery:[95,0]});
+    // 300 bp of 157,500¢ = 4,725¢ -> 94.5 -> 95¢ a box. Fuel at the seeded UT $3.40/gal (C3): the spec §4.2 cost, 4,213¢.
+    expect(await frozen(q.id)).toEqual({rate:300,step:3,steps:3,modelled:4213,recovery:[95,0]});
   });
 
   it('measures the modelled cost from the quote branch when it changes',async()=>{
@@ -126,10 +126,10 @@ describe('free delivery pricing on',()=>{
     await freeDelivery();
     const q=await draft();
     await open(q.id);
-    expect((await frozen(q.id)).modelled).toBe(3193);
+    expect((await frozen(q.id)).modelled).toBe(4213);
     await panels.editRepQuoteFulfillment('brandi',q.id,{branchId:'provo'},{now:LATER});
-    // Provo is 34.3 road mi away: 68.6 mi round trip = 1,372 + 1,029 + 4,900¢ driver = 7,301¢.
-    expect(await frozen(q.id)).toMatchObject({rate:200,modelled:7301,recovery:[63,0]});
+    // Provo is 34.3 road mi away: 68.6 mi round trip = 2,332.4¢ fuel + 1,372 + 1,029 + 4,900¢ driver = 9,633¢.
+    expect(await frozen(q.id)).toMatchObject({rate:200,modelled:9633,recovery:[63,0]});
   });
 
   it('drops the recovery on a freight override and takes the quote out of the pool; clearing it re-freezes the rate in force (OA-22)',async()=>{
