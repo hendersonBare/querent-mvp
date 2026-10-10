@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {deliveryRates,floorFor,freeDeliverySettings,freightCostSettings,freightRateSettings,pricingSettings,repFloors,setScarcityUplift,updateOwnFloor} from './settings';
+import {agingThresholds,deliveryRates,floorFor,freeDeliverySettings,freightCostSettings,freightRateSettings,pricingSettings,repFloors,setScarcityUplift,updateOwnFloor} from './settings';
 import {setSettingFixture,useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -78,5 +78,27 @@ describe('free delivery pricing and freight settings (spec §1.3, OA-4)',()=>{
     await setSettingFixture('free_delivery_enabled_at',null);
     expect(freightCostSettings()).toMatchObject({fuelManualCents:null,mpg:10,fuelType:'gasoline'});
     expect(freeDeliverySettings()).toEqual({enabled:false,enabledAt:null});
+  });
+});
+
+describe('aging thresholds (v3 spec §1.3, decision 16; the edit UI comes with roles in D1)',()=>{
+  const KEYS=['aging_rfr_amber_h','aging_rfr_red_h','aging_cr_amber_h','aging_cr_red_h','aging_sent_amber_h','aging_sent_red_h'];
+  it('fall back to the code defaults, in hours, when no key is stored',()=>{
+    expect(agingThresholds()).toEqual({rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:72,sentRedH:168});
+  });
+
+  it('read each stored key',async()=>{
+    const values=['2','12','6','30','48','120'];
+    for(const [i,key] of KEYS.entries())await setSettingFixture(key,values[i]);
+    expect(agingThresholds()).toEqual({rfrAmberH:2,rfrRedH:12,crAmberH:6,crRedH:30,sentAmberH:48,sentRedH:120});
+  });
+
+  it('fall back per key on a blank, unreadable, zero or negative value',async()=>{
+    await setSettingFixture('aging_rfr_amber_h','');
+    await setSettingFixture('aging_rfr_red_h','soon');
+    await setSettingFixture('aging_cr_amber_h','0');
+    await setSettingFixture('aging_cr_red_h','-5');
+    expect(agingThresholds()).toEqual({rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:48,sentRedH:120});
+    for(const key of KEYS)await setSettingFixture(key,null);
   });
 });

@@ -2,17 +2,20 @@
 import {useCallback,useEffect,useId,useMemo,useRef,useState,type FormEvent,type ReactNode} from 'react';
 import Link from 'next/link';
 import {usePathname,useSearchParams} from 'next/navigation';
-import {Bell,LogOut} from 'lucide-react';
+import {Bell,LogOut,TriangleAlert} from 'lucide-react';
 import type {CustomerListItem} from '@/domain';
 import {createAPI} from '@/lib/api';
 import {usePoll} from '@/lib/use-poll';
 import type {RepBadges} from '@/server/rep/badges';
+import {ATTENTION_PARAM,overdueLabel} from './quotes/labels';
 import {RepPortalContext,useRepPortal,useRepScope,type RepIdentity,type RepPortalValue} from './context';
 import {ALL_CUSTOMERS,HOME_SECTION,REP_SECTIONS,SCOPE_PARAM,sectionFor} from './scope';
 import s from './RepShell.module.css';
 
 // The rep portal frame (spec §4, docs/design/screens/03): the app bar (Querent, Herrick, the
-// section nav with the Quotes unread badge, search, bell, BG), then the "Viewing" customer picker.
+// section nav with the Quotes unread badge, search, the red Needs attention badge, bell, BG), then
+// the "Viewing" customer picker. The Needs attention badge (v3 spec §3, task A2) counts the rep's
+// red quotes only and sits beside the unread badge, which stays (OA-8).
 
 /** How often the nav badges are re-read, so a customer's new request shows up without a reload. */
 export const BADGE_POLL_MS=5000;
@@ -73,6 +76,7 @@ function RepHeader(){
       </nav>
       <PortalSearch/>
       <div className={s.user}>
+        <AttentionBadge/>
         <Link className={s.iconButton} href={scope.href(HOME_SECTION.href)} aria-label={unread?`Notifications: ${unread} unread ${unread===1?'quote':'quotes'}`:'Notifications: none unread'}>
           <Bell aria-hidden="true" size={18} strokeWidth={1.7}/>
           {unread>0&&<span className={s.dot}/>}
@@ -82,6 +86,17 @@ function RepHeader(){
     </div>
     <CustomerPicker/>
   </header>;
+}
+
+/** The rep's red (Overdue) quotes, opening the Quotes list's Needs attention filter. Hidden at zero. */
+function AttentionBadge(){
+  const {badges}=useRepPortal();
+  const scope=useRepScope();
+  const count=badges.attention??0;
+  if(count<=0)return null;
+  return <Link className={s.attention} href={scope.href(`/rep/quotes?${ATTENTION_PARAM}=1`)} aria-label={`Needs attention: ${overdueLabel(count)}`} title={`${overdueLabel(count)}: open the Needs attention list`}>
+    <TriangleAlert aria-hidden="true" size={14} strokeWidth={2.2}/><span className={s.attentionWord}>Needs attention</span><span className={s.attentionCount}>{count}</span>
+  </Link>;
 }
 
 /** Search is sample-only, as in the mockup: Enter explains it rather than doing nothing. */

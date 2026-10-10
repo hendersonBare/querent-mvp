@@ -1,7 +1,7 @@
 import 'server-only';
 import type {CustomerQuotePreview,CustomerQuoteResponse,CustomerQuoteView,Rep} from '@/domain';
 import {customerPdfUrl,effectiveStatus} from '@/server/quotes';
-import {assignedRep,customerQuote,customerQuoteRevision} from '@/server/repository/customer';
+import {assignedRep,customerQuote,customerQuoteRevision,markCustomerViewed} from '@/server/repository/customer';
 
 // The customer's PDF preview modal (spec §3, task 5.1). Customer-facing, so it reads only the
 // customer-safe repository module: a revision the rep sent, never the draft. Task 5.2 adds what
@@ -36,4 +36,15 @@ export function customerQuotePreview(customerId:string,quoteIdOrNumber:string,re
   return {...base,rep:contact(sent.rep),shown:{revision:sent.revision,sent_at:sent.sent_at,total:s.total,valid_until:s.valid_until??null,
     attach_pdf:sent.attach_pdf,pdf_url:customerPdfUrl(q.id,sent.revision),
     fulfillment:s.fulfillment,branch:s.branch,ship_to:s.fulfillment==='delivery'?s.ship_to??null:null,customer_po:s.customer_po??null}};
+}
+
+/**
+ * The customer opened the preview modal (GET /api/query/customer/quotes/:id): the preview, and when
+ * it shows a sent revision, customer_viewed_at (v3 spec §3, decision 25) with the unread flag cleared.
+ * The accept / request changes / decline answers reuse customerQuotePreview, which doesn't stamp.
+ */
+export function openCustomerQuotePreview(customerId:string,quoteIdOrNumber:string,revision?:number,now=new Date().toISOString()):CustomerQuotePreview|undefined{
+  const preview=customerQuotePreview(customerId,quoteIdOrNumber,revision,now);
+  if(preview?.shown)markCustomerViewed(customerId,preview.id,now);
+  return preview;
 }

@@ -33,23 +33,23 @@ const customers:CustomerListItem[]=[
 ];
 const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'};
 
-let badgeCount=1;
+let badgeCount=1,attentionCount=0;
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
-  if(url==='/api/rep/badges')return Response.json({quotes:badgeCount});
+  if(url==='/api/rep/badges')return Response.json({quotes:badgeCount,attention:attentionCount});
   if(url==='/api/session'&&init?.method==='DELETE')return Response.json({ok:true});
   if(url==='/api/query/erp/status')return Response.json({last_updated:null,events:[]});
   return Response.json({detail:'Not found.'},{status:404});
 });
 
-function renderShell(children:ReactNode=<ScopedPage/>,initialBadges={quotes:1}){
+function renderShell(children:ReactNode=<ScopedPage/>,initialBadges={quotes:1,attention:0}){
   return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={customers} initialBadges={initialBadges}>{children}</RepShell>);
 }
 const at=(pathname:string,query='')=>{nav.pathname=pathname;nav.query=query;};
 const portalNav=()=>screen.getByRole('navigation',{name:'Rep portal'});
 const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 
-beforeEach(()=>{at('/rep/quotes');nav.replace.mockClear();fetchMock.mockClear();badgeCount=1;vi.stubGlobal('fetch',fetchMock);});
+beforeEach(()=>{at('/rep/quotes');nav.replace.mockClear();fetchMock.mockClear();badgeCount=1;attentionCount=0;vi.stubGlobal('fetch',fetchMock);});
 afterEach(()=>vi.unstubAllGlobals());
 
 describe('header',()=>{
@@ -91,7 +91,7 @@ describe('Quotes unread badge',()=>{
 
   it('hides the count when nothing is unread',async()=>{
     badgeCount=0;
-    renderShell(undefined,{quotes:0});
+    renderShell(undefined,{quotes:0,attention:0});
     await waitFor(()=>expect(requested()).toContain('/api/rep/badges'));
     expect(within(portalNav()).getByRole('link',{name:'Quotes'})).toBeInTheDocument();
     expect(screen.getByRole('link',{name:'Notifications: none unread'})).toBeInTheDocument();
@@ -105,6 +105,33 @@ describe('Quotes unread badge',()=>{
       badgeCount=2;
       await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
       expect(within(portalNav()).getByRole('link',{name:'Quotes 2 unread'})).toBeInTheDocument();
+    }finally{vi.useRealTimers();}
+  });
+});
+
+describe('Needs attention badge (v3 spec §3, §6; task A2)',()=>{
+  const badge=()=>screen.queryByRole('link',{name:/^Needs attention/});
+  it('counts red quotes only, beside the unread badge (OA-8), and opens the Needs attention filter for the picked customer',async()=>{
+    attentionCount=2;
+    at('/rep/analytics','customer=wasatch');
+    renderShell(undefined,{quotes:1,attention:2});
+    expect(badge()).toHaveAccessibleName('Needs attention: 2 overdue quotes');
+    expect(badge()).toHaveTextContent('2');
+    expect(badge()).toHaveTextContent('Needs attention');
+    expect(badge()).toHaveAttribute('href','/rep/quotes?attention=1&customer=wasatch');
+    expect(badge()!.querySelector('svg')).not.toBeNull();
+    expect(within(portalNav()).getByRole('link',{name:'Quotes 1 unread'})).toBeInTheDocument();
+  });
+
+  it('is hidden when nothing is overdue, and follows the poll',async()=>{
+    vi.useFakeTimers();
+    try{
+      renderShell();
+      await act(async()=>{await vi.advanceTimersByTimeAsync(0);});
+      expect(badge()).toBeNull();
+      attentionCount=1;
+      await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+      expect(badge()).toHaveAccessibleName('Needs attention: 1 overdue quote');
     }finally{vi.useRealTimers();}
   });
 });

@@ -46,7 +46,7 @@ afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
 function renderMenu(quote=SAMPLE,flush=vi.fn(async()=>{})){
   render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
-    initialBadges={{quotes:1}}><MoreMenu quote={quote} flush={flush}/></RepShell>);
+    initialBadges={{quotes:1,attention:0}}><MoreMenu quote={quote} flush={flush}/></RepShell>);
   return {flush};
 }
 const openMenu=()=>{fireEvent.click(screen.getByRole('button',{name:'More actions'}));return screen.getByRole('menu',{name:'More actions'});};
@@ -179,7 +179,7 @@ describe('Duplicate quote',()=>{
     await waitFor(()=>expect(nav.push).toHaveBeenCalled());
     // The copy's page mounts its own menu, which shows the note once.
     render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
-      initialBadges={{quotes:1}}><MoreMenu quote={{id:'q-24830',quote_number:'Q-24830',is_sample:false}} flush={async()=>{}}/></RepShell>);
+      initialBadges={{quotes:1,attention:0}}><MoreMenu quote={{id:'q-24830',quote_number:'Q-24830',is_sample:false}} flush={async()=>{}}/></RepShell>);
     expect(await screen.findByText('Duplicated Q-24817 as Q-24830')).toBeInTheDocument();
     expect(sessionStorage.length).toBe(0);
   });

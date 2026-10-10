@@ -31,7 +31,7 @@ const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 
 function renderPage(query=''){
   nav.query=query;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:1}}><AnalyticsPage/></RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:1,attention:0}}><AnalyticsPage/></RepShell>);
 }
 const card=(name:string)=>screen.getByRole('region',{name});
 

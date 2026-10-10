@@ -72,7 +72,7 @@ export interface Quote extends QuoteHeader {lines:QuoteLine[]}
 /** One row of the rep's Quotes list. subtotal, cost_total and margin cover priced lines only (margin per spec §5.2). */
 export interface QuoteListRow {
   id:string;quote_number:string;customer_id:string;customer_name:string;rep_id:string;rep_name:string;status:QuoteStatus;revision:number;
-  requested_at:string;updated_at:string;sent_at:string|null;valid_until:string|null;fulfillment:Fulfillment;change_request_note:string|null;
+  requested_at:string;created_at:string;updated_at:string;sent_at:string|null;responded_at:string|null;valid_until:string|null;fulfillment:Fulfillment;change_request_note:string|null;
   unread_for_rep:boolean;is_sample:boolean;line_count:number;subtotal:number;cost_total:number;margin:number|null;freight_override:number|null;
   /** Total of the last sent revision, or null if never sent. */
   sent_total:number|null;

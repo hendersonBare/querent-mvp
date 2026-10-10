@@ -1,6 +1,7 @@
 import 'server-only';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {unreadQuoteCount} from '@/server/repository';
+import {redQuoteCount} from './quotes';
 
 // The rep portal's nav badges (spec §4: "Unread badges on Quotes").
 //
@@ -12,17 +13,23 @@ import {unreadQuoteCount} from '@/server/repository';
 //          detail page calls, task 3.3).
 // The badge counts the signed-in rep's unread quotes across all their customers. It does not
 // follow the "Viewing" picker, so a request from another customer is never hidden.
+//
+// Beside it (OA-8), the red "Needs attention" badge counts the rep's red quotes only (v3 spec §3,
+// decision 18), across all their customers like the unread badge. Amber quotes show only in the
+// Quotes list's Needs attention filter.
 
 export interface RepBadges {
   /** The rep's unread quotes. */
   quotes:number;
+  /** The rep's red (Overdue) open quotes. */
+  attention:number;
 }
 
 /**
  * The badge counts for one rep. Expiry is lazy (task 1.5), so this stores the expiry of every
  * sent quote past valid_until first; counts then read effective statuses. `now` is for tests.
  */
-export function repBadges(repId:string,{now}:{now?:string}={}):RepBadges{
-  expireOverdueQuotes(now===undefined?{}:{now});
-  return {quotes:unreadQuoteCount(repId)};
+export function repBadges(repId:string,{now=new Date().toISOString()}:{now?:string}={}):RepBadges{
+  expireOverdueQuotes({now});
+  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(repId,now)};
 }

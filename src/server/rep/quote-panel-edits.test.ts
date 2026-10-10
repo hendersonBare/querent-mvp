@@ -31,8 +31,8 @@ describe('the panels in the detail',()=>{
       contact:{name:'Dana Ortiz',title:'Purchasing',phone:'(801) 555-0142',email:'dana.ortiz@wasatchmechanical.example'},
       account_number:'WAS-1142',terms:'Net 30',open_balance:18420,past_due_balance:0,credit_limit:50000,tax_status:'taxable',tax_state:'UT',
       last_order:expect.objectContaining({order_date:'2026-09-09'}),
-      // 17 of the 24 decided quotes in the seeded year were won (71%); Q-24817 is still open.
-      win_rate:{rate:17/24,won:17,lost:7,open:1},
+      // 17 of the 24 decided quotes in the seeded year were won (71%); Q-24817 and the three aging quotes (task A2) are still open.
+      win_rate:{rate:17/24,won:17,lost:7,open:4},
     });
     expect(panels.branches).toEqual([{id:'slc',code:'SLC',name:expect.any(String)},{id:'ogden',code:'Ogden',name:expect.any(String)},{id:'provo',code:'Provo',name:expect.any(String)}]);
     expect(panels.notes).toEqual([]);
@@ -46,7 +46,7 @@ describe('the panels in the detail',()=>{
     const copy=service.duplicateQuote('Q-24817',{repId:'brandi',now:'2026-09-01T15:00:00.000Z'});
     await service.sendQuote(copy.id,{repId:'brandi',now:'2026-09-01T16:00:00.000Z'});
     const {panels}=(await detail.repQuoteDetail('brandi','Q-24817',{now:NOW}))!;
-    expect(panels.customer.win_rate).toEqual({rate:17/25,won:17,lost:8,open:1});
+    expect(panels.customer.win_rate).toEqual({rate:17/25,won:17,lost:8,open:4});
   });
 
   it('counts a declined quote as lost in the Customer panel win rate (task A1)',async()=>{

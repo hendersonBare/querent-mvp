@@ -2,7 +2,7 @@ import type {AnchorHTMLAttributes,ReactNode} from 'react';
 import {act,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {RepQuoteList} from '@/server/rep/quotes';
-import {CHANGES,CUSTOMERS,OLD,SAMPLE,WASATCH,quoteList,quoteRow} from './test-fixtures';
+import {AGING,CHANGES,CUSTOMERS,OLD,OVERDUE,SAMPLE,WASATCH,quoteList,quoteRow} from './test-fixtures';
 
 // The rep's Quotes list (task 3.2, spec §4), rendered in the portal shell like the real page.
 
@@ -33,7 +33,7 @@ const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 function renderList(initial:RepQuoteList,query=''){
   nav.query=query;
   served=initial;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:2}}><QuotesList initial={initial}/></RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:2,attention:0}}><QuotesList initial={initial}/></RepShell>);
 }
 const table=()=>screen.getByRole('table');
 const quoteBlock=(number:string)=>within(table()).getAllByRole('rowgroup').find(g=>within(g).queryByRole('link',{name:number}))!;
@@ -106,9 +106,9 @@ describe('the status filter',()=>{
     renderList(quoteList({customer:WASATCH}),'customer=wasatch');
     const filter=screen.getByRole('navigation',{name:'Filter by status'});
     const links=within(filter).getAllByRole('link');
-    expect(links.map(l=>l.textContent)).toEqual(['All4','Draft ready1','Changes requested1','Sent0','Accepted2','Expired0','Declined0']);
+    expect(links.map(l=>l.textContent)).toEqual(['All4','Needs attention0','Draft ready1','Changes requested1','Sent0','Accepted2','Expired0','Declined0']);
     expect(links.map(l=>l.getAttribute('href'))).toEqual([
-      '/rep/quotes?customer=wasatch',
+      '/rep/quotes?customer=wasatch','/rep/quotes?attention=1&customer=wasatch',
       '/rep/quotes?status=ready_for_review&customer=wasatch','/rep/quotes?status=changes_requested&customer=wasatch',
       '/rep/quotes?status=sent&customer=wasatch','/rep/quotes?status=accepted&customer=wasatch','/rep/quotes?status=expired&customer=wasatch',
       '/rep/quotes?status=declined&customer=wasatch',
@@ -167,6 +167,8 @@ describe('staying fresh',()=>{
     expect(quotesApiPath('wasatch',null)).toBe('/api/rep/quotes?customer=wasatch');
     expect(quotesApiPath('wasatch','changes_requested')).toBe('/api/rep/quotes?customer=wasatch&status=changes_requested');
     expect(quotesApiPath(null,'sent')).toBe('/api/rep/quotes?status=sent');
+    expect(quotesApiPath(null,null,{attention:true,sort:'urgent'})).toBe('/api/rep/quotes?attention=1');
+    expect(quotesApiPath('wasatch',null,{attention:true,sort:'oldest'})).toBe('/api/rep/quotes?customer=wasatch&attention=1&sort=oldest');
   });
 
   it('re-reads the list for the same scope, so a quote opened elsewhere loses its dot',async()=>{
@@ -185,5 +187,65 @@ describe('staying fresh',()=>{
     renderList(quoteList());
     expect(await screen.findByText('Unable to refresh quotes. Trying again in a few seconds.')).toBeInTheDocument();
     expect(within(table()).getByRole('link',{name:'Q-24817'})).toBeInTheDocument();
+  });
+});
+
+describe('aging and the Needs attention filter (v3 spec §3, §6; task A2)',()=>{
+  const SCOPE=[OVERDUE,AGING,SAMPLE,quoteRow(),OLD];
+  const status=(number:string)=>within(quoteBlock(number)).getAllByRole('cell')[2];
+
+  it('marks amber and red rows with an icon and a word as well as colour, the reason as the tooltip',()=>{
+    renderList(quoteList({scope:SCOPE}));
+    const amber=within(status('Q-24789')).getByText('Aging').closest('[data-level]')!;
+    expect(amber).toHaveAttribute('data-level','amber');
+    expect(amber).toHaveAttribute('title','Sent 4 days ago');
+    expect(amber.querySelector('svg')).not.toBeNull();
+    expect(status('Q-24789')).toHaveTextContent('SentAging');
+    const red=within(status('Q-24790')).getByText('Overdue').closest('[data-level]')!;
+    expect(red).toHaveAttribute('data-level','red');
+    expect(red).toHaveAttribute('title','Changes requested 30 hours ago');
+    // Fine and final quotes carry no marker.
+    expect(status('Q-24817')).toHaveTextContent(/^Draft ready$/);
+    expect(status('Q-24816')).toHaveTextContent(/^Accepted$/);
+  });
+
+  it('counts the quotes needing attention in the filter, and links to it keeping the picked customer',()=>{
+    renderList(quoteList({scope:SCOPE,customer:WASATCH}),'customer=wasatch');
+    const link=within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{name:/^Needs attention/});
+    expect(link).toHaveTextContent('Needs attention2');
+    expect(link).toHaveAttribute('href','/rep/quotes?attention=1&customer=wasatch');
+    expect(link).not.toHaveAttribute('aria-current');
+  });
+
+  it('shows only the amber and red quotes in the server’s order, with the sort toggle on Most urgent',()=>{
+    renderList(quoteList({scope:SCOPE,attention:true}),'attention=1');
+    const filter=screen.getByRole('navigation',{name:'Filter by status'});
+    expect(within(filter).getByRole('link',{current:'page'})).toHaveTextContent('Needs attention2');
+    expect(within(table()).getAllByRole('rowheader').map(h=>within(h).getByRole('link').textContent)).toEqual(['Q-24790','Q-24789']);
+    expect(within(table()).getByText(/^Quotes needing attention for all your customers, overdue first, then the largest totals$/)).toBeInTheDocument();
+    const sort=screen.getByRole('navigation',{name:'Sort quotes needing attention'});
+    expect(within(sort).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
+      ['Most urgent','/rep/quotes?attention=1'],['Oldest first','/rep/quotes?attention=1&sort=oldest'],
+    ]);
+    expect(within(sort).getByRole('link',{current:'page'})).toHaveTextContent('Most urgent');
+  });
+
+  it('marks Oldest first current when toggled, and polls that view',async()=>{
+    vi.useFakeTimers({shouldAdvanceTime:true});
+    renderList(quoteList({scope:SCOPE,attention:true,sort:'oldest',customer:WASATCH}),'attention=1&sort=oldest&customer=wasatch');
+    const sort=screen.getByRole('navigation',{name:'Sort quotes needing attention'});
+    expect(within(sort).getByRole('link',{current:'page'})).toHaveTextContent('Oldest first');
+    expect(within(sort).getByRole('link',{name:'Most urgent'})).toHaveAttribute('href','/rep/quotes?attention=1&customer=wasatch');
+    expect(within(table()).getByText(/oldest first$/)).toBeInTheDocument();
+    await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+    expect(requested()).toContain('/api/rep/quotes?customer=wasatch&attention=1&sort=oldest');
+  });
+
+  it('says so when nothing needs attention',()=>{
+    renderList(quoteList({attention:true}),'attention=1');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading',{name:'Nothing needs attention'})).toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'Show every status'})).toHaveAttribute('href','/rep/quotes');
+    expect(screen.queryByRole('navigation',{name:'Sort quotes needing attention'})).not.toBeInTheDocument();
   });
 });

@@ -67,7 +67,7 @@ afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
-    initialBadges={{quotes:1}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:1,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const row=(sku:string)=>screen.getByRole('rowheader',{name:new RegExp(sku)}).closest('tbody')!;
 const cells=(sku:string)=>within(row(sku)).getAllByRole('cell');
@@ -87,6 +87,18 @@ describe('header and panels',()=>{
     expect(screen.getByText('Draft ready')).toBeInTheDocument();
     expect(screen.getByText('Q-24817 · Dana Ortiz, Purchasing · Requested Wed Sep 23, 10:14 AM · Valid until Oct 9')).toBeInTheDocument();
     for(const name of ['Save draft','Export','More actions','Approve & send'])expect(screen.getByRole('button',{name})).toBeEnabled();
+  });
+
+  it('marks an aging or overdue quote beside its status chip, with the reason as the tooltip (v3 spec §6, task A2)',()=>{
+    const {unmount}=renderPage();
+    expect(screen.queryByText('Aging')).toBeNull();
+    expect(screen.queryByText('Overdue')).toBeNull();
+    unmount();
+    renderPage(sampleDetail({aging:{level:'red',since:'2026-09-23T16:15:00.000Z',reason:'Requested 30 hours ago'}}));
+    const marker=screen.getByText('Overdue').closest('[data-level]')!;
+    expect(marker).toHaveAttribute('data-level','red');
+    expect(marker).toHaveAttribute('title','Requested 30 hours ago');
+    expect(screen.getByRole('heading',{level:1}).parentElement).toContainElement(marker as HTMLElement);
   });
 
   it('opens the Export and ⋯ menus, and Approve & send opens the send dialog (task 3.7; more in send/ApproveAndSend.test.tsx)',()=>{

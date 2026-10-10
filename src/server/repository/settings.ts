@@ -1,6 +1,7 @@
 import 'server-only';
 import {FUEL_TYPES,type DeliveryRates,type FreeDeliverySettings,type FreightCostSettings,type FreightRateSettings,type FuelType,type PricingSettings,type RepFloor} from '@/domain';
 import {COST_MODEL_DEFAULTS} from '../freight/cost-model';
+import {AGING_DEFAULTS,type AgingThresholds} from '../quotes/aging';
 import {POOL_DEFAULTS} from '../freight/pool';
 import {all,nowIso,one,run,scalar} from './sql';
 
@@ -64,6 +65,20 @@ export function freightRateSettings():FreightRateSettings{
     lineCapBp:numberSetting('freight_line_cap_bp',d.lineCapBp),
     rampSteps:numberSetting('freight_ramp_steps',d.rampSteps),
     rampDays:numberSetting('freight_ramp_days',d.rampDays),
+  };
+}
+
+/**
+ * The aging thresholds in hours (v3 spec §1.3, §3; decision 16): the six aging_* keys, each falling
+ * back to its code default when absent, unreadable, zero or negative. Managers edit them in D1.
+ */
+export function agingThresholds():AgingThresholds{
+  const d=AGING_DEFAULTS;
+  const hours=(key:string,fallback:number)=>{const value=numberSetting(key,fallback);return value>0?value:fallback;};
+  return {
+    rfrAmberH:hours('aging_rfr_amber_h',d.rfrAmberH),rfrRedH:hours('aging_rfr_red_h',d.rfrRedH),
+    crAmberH:hours('aging_cr_amber_h',d.crAmberH),crRedH:hours('aging_cr_red_h',d.crRedH),
+    sentAmberH:hours('aging_sent_amber_h',d.sentAmberH),sentRedH:hours('aging_sent_red_h',d.sentRedH),
   };
 }
 

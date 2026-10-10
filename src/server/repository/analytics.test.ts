@@ -54,13 +54,13 @@ describe('query analytics',()=>{
 describe('quote analytics facts',()=>{
   it('returns one fact per quote with send and response times',()=>{
     const facts=quoteFacts('wasatch');
-    expect(facts).toHaveLength(25);
+    expect(facts).toHaveLength(28); // 24 history, the sample and the three aging quotes (task A2)
     expect(facts.find(f=>f.quote_number==='Q-24816')).toEqual({id:'q-24816',quote_number:'Q-24816',customer_id:'wasatch',rep_id:'brandi',status:'accepted',is_sample:false,
       requested_at:'2026-09-07T15:20:00.000Z',first_sent_at:'2026-09-07T16:20:00.000Z',last_sent_at:'2026-09-07T16:20:00.000Z',responded_at:'2026-09-09T16:05:00.000Z',
       valid_until:'2026-09-21',revisions:1,sent_total:655.25});
-    expect(facts.at(-1)).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',is_sample:true,first_sent_at:null,valid_until:null,revisions:0,sent_total:null});
+    expect(facts.find(f=>f.quote_number==='Q-24817')).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',is_sample:true,first_sent_at:null,valid_until:null,revisions:0,sent_total:null});
     expect(facts.filter(f=>f.status==='accepted')).toHaveLength(17);
-    expect(quoteFacts(null)).toHaveLength(25);
+    expect(quoteFacts(null)).toHaveLength(28);
     expect(quoteFacts(['great-basin','wasatch'])).toEqual(facts);
     expect(quoteFacts('great-basin')).toEqual([]);
     expect(quoteFacts([])).toEqual([]);
@@ -78,7 +78,7 @@ describe('quote analytics facts',()=>{
 
   it('returns the lines of each quote\'s last sent revision, as the customer saw them, with cost and the rep\'s floor',()=>{
     const sent=sentLineFacts('wasatch');
-    expect(sent).toHaveLength(56); // the 24 sent quotes; the draft sample Q-24817 has no revision
+    expect(sent).toHaveLength(61); // the 24 sent history quotes and the 3 aging ones (5 lines); the draft sample Q-24817 has no revision
     expect(sent.some(l=>l.quote_id==='q-24817')).toBe(false);
     expect(sent.filter(l=>l.quote_id==='q-24816')).toEqual([
       {quote_id:'q-24816',revision:1,item_id:'CW-45-045-T1',sku:'CW-45-045-T1',category_id:'abrasives',qty:4,unit_price:36,unit_cost:24.1,margin_floor:0.25},
@@ -92,7 +92,7 @@ describe('quote analytics facts',()=>{
 
   it('ranks the most requested items',()=>{
     expect(topRequestedItems('wasatch',3)).toEqual([
-      {item_id:'HCS-12-13-2G8',sku:'HCS-12-13-2G8',description:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc',quote_count:6,total_qty:60},
+      {item_id:'HCS-12-13-2G8',sku:'HCS-12-13-2G8',description:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc',quote_count:7,total_qty:64},
       {item_id:'CW-45-045-T1',sku:'CW-45-045-T1',description:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1',quote_count:6,total_qty:44},
       {item_id:'HN-12-13-G8',sku:'HN-12-13-G8',description:'Hex nut 1/2-13, Grade 8, yellow zinc',quote_count:5,total_qty:25},
     ]);

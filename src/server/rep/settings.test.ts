@@ -41,7 +41,7 @@ describe('repSettings: the page snapshot',()=>{
       ['Uinta Facility Services','UFS-4051','Nora Chen',true],
       ['Wasatch Mechanical Contractors','WAS-1142','Brandi Gallegos',false],
     ]);
-    expect(settings.assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:25}]);
+    expect(settings.assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]); // with the 3 aging quotes (task A2)
     expect(settings.assignments.find(a=>a.id==='great-basin')!.quotes).toEqual([]);
   });
 
@@ -84,11 +84,11 @@ describe('assignRep: one rep per customer',()=>{
     expect(quote('q-24817')?.rep_id).toBe('brandi');
     expect(quoteFloors('q-24817')).toMatchObject({rep_id:'brandi',belowFloorCount:1});
     const brandi=await repQuoteList('brandi',{customerId:'wasatch',now:NOW});
-    expect(brandi).toMatchObject({other_rep:true,counts:{all:25}});
-    expect(brandi.rows[0]).toMatchObject({quote_number:'Q-24817',below_floor_count:1});
+    expect(brandi).toMatchObject({other_rep:true,counts:{all:28}});
+    expect(brandi.rows.find(r=>r.quote_number==='Q-24817')).toMatchObject({below_floor_count:1});
     const row=repSettings('brandi').assignments.find(a=>a.id==='wasatch')!;
     expect(row.rep_name).toBe('Mara Jensen');
-    expect(row.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:25}]);
+    expect(row.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]);
   });
 
   it("reassigns the customer: the rep contact Dana sees follows, and new quotes go to the new rep",()=>{
@@ -105,7 +105,7 @@ describe('assignRep: one rep per customer',()=>{
     const fresh=createQuote({customerId:'wasatch',contactId:'dana',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5,priceBasis:'last_paid'}]});
     expect(fresh.rep_id).toBe('mara');
     expect(repSettings('brandi').assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([
-      {rep_id:'brandi',rep_name:'Brandi Gallegos',count:25},{rep_id:'mara',rep_name:'Mara Jensen',count:1},
+      {rep_id:'brandi',rep_name:'Brandi Gallegos',count:28},{rep_id:'mara',rep_name:'Mara Jensen',count:1},
     ]);
   });
 
@@ -172,7 +172,7 @@ describe('updateMyFloor: My margin floors',()=>{
     const lowered=updateMyFloor('brandi',{rep_id:'brandi',category_id:'safety',floor_pct:25});
     expect(lowered.floors.find(f=>f.category_id==='safety')).toMatchObject({margin_floor:0.25,label:'25.0%'});
     expect(quoteFloors('q-24817')?.belowFloorCount).toBe(0);
-    expect((await repQuoteList('brandi',{now:NOW})).rows[0]).toMatchObject({quote_number:'Q-24817',below_floor_count:0});
+    expect((await repQuoteList('brandi',{now:NOW})).rows.find(r=>r.quote_number==='Q-24817')).toMatchObject({below_floor_count:0});
     // The bolts are at 32.1% ($31.50 on a $21.40 cost): a 35% Fasteners floor puts them below too.
     updateMyFloor('brandi',{category_id:'safety',floor_pct:30});
     updateMyFloor('brandi',{category_id:'fasteners',floor_pct:35});

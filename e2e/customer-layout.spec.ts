@@ -82,14 +82,20 @@ test("desktop: rep and departments on the left, quotes newest first on the right
 
   await test.step("one button per quote, newest first, with a status chip", async () => {
     const buttons = quotes.getByRole("button", { name: /^Quote · / });
-    await expect(buttons).toHaveCount(25);
+    // 24 past quotes, the sample, and the three open aging quotes (task A2), which are dated from the
+    // reset time and so come first: two sent, one with changes requested.
+    await expect(buttons).toHaveCount(28);
+    await expect(buttons.nth(0)).toContainText("Q-24791");
+    await expect(buttons.nth(0).locator(".cx-chip")).toHaveText("Sent");
+    await expect(buttons.nth(1)).toContainText("Q-24790");
+    await expect(buttons.nth(2)).toContainText("Q-24789");
     // Q-24817 has no total until Brandi's first send, so it reads "Awaiting rep" (task 0.3).
-    await expect(buttons.first()).toContainText(`Quote · Sep 23 · Awaiting rep`);
-    await expect(buttons.first()).toContainText("Q-24817");
-    await expect(buttons.first().locator(".cx-chip")).toHaveText("Awaiting rep");
-    await expect(buttons.nth(1)).toContainText(/Quote · Sep \d+ · \$\d[\d,]*\.\d\d/);
-    await expect(buttons.nth(1)).toContainText("Q-24816");
-    await expect(buttons.nth(1).locator(".cx-chip")).toHaveText("Accepted");
+    await expect(buttons.nth(3)).toContainText(`Quote · Sep 23 · Awaiting rep`);
+    await expect(buttons.nth(3)).toContainText("Q-24817");
+    await expect(buttons.nth(3).locator(".cx-chip")).toHaveText("Awaiting rep");
+    await expect(buttons.nth(4)).toContainText(/Quote · Sep \d+ · \$\d[\d,]*\.\d\d/);
+    await expect(buttons.nth(4)).toContainText("Q-24816");
+    await expect(buttons.nth(4).locator(".cx-chip")).toHaveText("Accepted");
     await expect(quotes.locator(".cx-chip", { hasText: "Expired" })).not.toHaveCount(0);
     await expect(buttons.last()).toContainText(/Quote · \w{3} \d+, 2025 · \$/);
   });
@@ -152,7 +158,8 @@ test("390px: the header fits and the sidebars collapse into tabs", async ({ page
     await tabs.getByRole("tab", { name: "Quotes" }).click();
     await expect(quotes).toBeVisible();
     await expect(contacts).toBeHidden();
-    const first = quotes.getByRole("button", { name: /^Quote · / }).first();
+    // The sample comes after the seed's three aging quotes (task A2), which are dated from the reset time.
+    const first = quotes.getByRole("button", { name: /Q-24817/ });
     await expect(first).toContainText("Quote · Sep 23 · Awaiting rep");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     await page.screenshot({ path: testInfo.outputPath("customer-390-quotes.png") });

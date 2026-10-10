@@ -35,8 +35,8 @@ describe('reading quotes',()=>{
   });
 
   it('lists quotes newest first with subtotal, cost and margin of priced lines',()=>{
-    const list=quotes();
-    expect(list).toHaveLength(25);
+    const list=quotes().slice(3); // the seed's three aging quotes (task A2) come first: they are dated from the reset time
+    expect(quotes()).toHaveLength(28);
     expect(list.map(q=>q.quote_number).slice(0,2)).toEqual(['Q-24817','Q-24816']);
     expect(list[0]).toMatchObject({status:'ready_for_review',line_count:4,subtotal:1122.4,cost_total:761,sent_total:null,unread_for_rep:true,is_sample:true,customer_name:'Wasatch Mechanical Contractors',rep_name:'Brandi Gallegos'});
     expect(list[0].margin).toBeCloseTo(361.4/1122.4,10);
@@ -46,7 +46,7 @@ describe('reading quotes',()=>{
   it('filters the list by status, customer and rep',()=>{
     expect(quotes({statuses:['accepted']})).toHaveLength(17);
     expect(quotes({statuses:['expired','ready_for_review']})).toHaveLength(8);
-    expect(quotes({customerId:'wasatch',repId:'brandi'})).toHaveLength(25);
+    expect(quotes({customerId:'wasatch',repId:'brandi'})).toHaveLength(28);
     expect(quotes({customerId:'great-basin'})).toEqual([]);
     expect(quotes({repId:'mara'})).toEqual([]);
     expect(quotes({statuses:[]})).toEqual([]);

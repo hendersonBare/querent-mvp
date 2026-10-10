@@ -16,15 +16,15 @@ export function quoteRow(overrides:Partial<RepQuoteRow>={}):RepQuoteRow{
   return {id:'q-24816',quote_number:'Q-24816',revision:1,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
     status:'accepted',requested_at:'2026-09-07T15:20:00.000Z',sent_at:'2026-09-07T16:20:00.000Z',valid_until:'2026-09-21',
     total:782.75,total_basis:'sent',freight_pending:false,margin:0.281,margin_label:'28.1%',below_floor_count:0,
-    unread:false,is_sample:false,line_count:3,change_request:null,...overrides};
+    unread:false,is_sample:false,line_count:3,change_request:null,aging:null,quoted_total:782.75,...overrides};
 }
 
 export const SAMPLE=quoteRow({id:'q-24817',quote_number:'Q-24817',revision:0,status:'ready_for_review',requested_at:'2026-09-23T16:14:00.000Z',sent_at:null,valid_until:null,
-  total:1122.4,total_basis:'draft',margin:361.4/1122.4,margin_label:'32.2%',below_floor_count:1,unread:true,is_sample:true,line_count:4});
+  total:1122.4,quoted_total:1122.4,total_basis:'draft',margin:361.4/1122.4,margin_label:'32.2%',below_floor_count:1,unread:true,is_sample:true,line_count:4});
 export const CHANGES=quoteRow({id:'q-24818',quote_number:'Q-24818',revision:1,status:'changes_requested',requested_at:'2026-09-24T15:00:00.000Z',sent_at:'2026-09-24T17:00:00.000Z',
-  valid_until:'2026-10-08',total:315,total_basis:'draft',margin:0.3,margin_label:'30.0%',unread:true,line_count:1,
+  valid_until:'2026-10-08',total:315,quoted_total:315,total_basis:'draft',margin:0.3,margin_label:'30.0%',unread:true,line_count:1,
   change_request:{note:'Make it 12 boxes and deliver Friday.',by:'Dana Ortiz',at:'2026-09-25T15:00:00.000Z'}});
-export const OLD=quoteRow({id:'q-24793',quote_number:'Q-24793',requested_at:'2025-09-28T15:20:00.000Z',sent_at:'2025-09-28T16:55:00.000Z',total:525.2});
+export const OLD=quoteRow({id:'q-24793',quote_number:'Q-24793',requested_at:'2025-09-28T15:20:00.000Z',sent_at:'2025-09-28T16:55:00.000Z',total:525.2,quoted_total:525.2});
 
 const counts=(rows:RepQuoteRow[]):QuoteStatusCounts=>{
   const c:QuoteStatusCounts={all:0,ready_for_review:0,sent:0,changes_requested:0,accepted:0,expired:0,declined:0};
@@ -32,7 +32,19 @@ const counts=(rows:RepQuoteRow[]):QuoteStatusCounts=>{
   return c;
 };
 
-/** A list as the API returns it: counts and unread cover `scope`, rows are `scope` filtered by `status`. */
-export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,customer=null,other_rep=false}:{scope?:RepQuoteRow[];status?:RepQuoteList['status'];customer?:CustomerListItem|null;other_rep?:boolean}={}):RepQuoteList{
-  return {as_of:AS_OF,customer,other_rep,status,counts:counts(scope),unread:scope.filter(r=>r.unread).length,rows:status?scope.filter(r=>r.status===status):scope};
+/** Aging quotes (task A2): sent 4 days ago (amber), and a change request waiting 30 hours (red). */
+export const AGING=quoteRow({id:'q-24789',quote_number:'Q-24789',status:'sent',requested_at:'2026-09-21T12:27:00.000Z',sent_at:'2026-09-21T14:00:00.000Z',valid_until:'2026-10-05',
+  total:360.8,quoted_total:360.8,aging:{level:'amber',since:'2026-09-21T14:00:00.000Z',reason:'Sent 4 days ago'}});
+export const OVERDUE=quoteRow({...CHANGES,id:'q-24790',quote_number:'Q-24790',total:1210,quoted_total:1164,
+  aging:{level:'red',since:'2026-09-24T12:00:00.000Z',reason:'Changes requested 30 hours ago'}});
+
+/**
+ * A list as the API returns it: counts and unread cover `scope`, rows are `scope` filtered by `status`,
+ * or, with `attention`, the amber and red rows in the order given (the server sorts them).
+ */
+export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,customer=null,other_rep=false,attention=false,sort='urgent'}:
+  {scope?:RepQuoteRow[];status?:RepQuoteList['status'];customer?:CustomerListItem|null;other_rep?:boolean;attention?:boolean;sort?:RepQuoteList['sort']}={}):RepQuoteList{
+  const aged=scope.filter(r=>r.aging&&r.aging.level!=='ok');
+  return {as_of:AS_OF,customer,other_rep,status:attention?null:status,attention,sort,attention_count:aged.length,counts:counts(scope),unread:scope.filter(r=>r.unread).length,
+    rows:attention?aged:status?scope.filter(r=>r.status===status):scope};
 }

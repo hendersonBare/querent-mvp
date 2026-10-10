@@ -7,6 +7,7 @@ import {DECLINE_REASON_LABELS,fulfillmentTimeLabel} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
 import {useRepScope} from '../context';
+import {AgingMarker} from '../quotes/AgingMarker';
 import {StatusChip} from '../quotes/QuotesList';
 import {ViewFullChat} from './chat-drawer/ViewFullChat';
 import {ExportMenu} from './export-menu/ExportMenu';
@@ -101,7 +102,7 @@ function QuoteHeader({detail,editor,onApprove}:{detail:QuoteDetail;editor:QuoteE
     </nav>
     <div className={s.qtop}>
       <div className={s.qtitle}>
-        <div className={list.titleRow}><h1 className={s.title}>{quote.customer_name}</h1><StatusChip status={quote.status}/>
+        <div className={list.titleRow}><h1 className={s.title}>{quote.customer_name}</h1><StatusChip status={quote.status}/><AgingMarker aging={detail.aging}/>
           {quote.freight_rate_bp!==null&&<span className={list.tag} title="Free delivery pricing: this rate of the goods value is recovered in item prices (rep-only)">Freight recovery {formatRateBp(quote.freight_rate_bp)}</span>}</div>
         <p className={s.qmeta}>{quote.quote_number}{quote.revision>0&&` rev ${quote.revision}`}{who&&` · ${who}`} · Requested {requestedAt(quote.requested_at)} · Valid until {day(detail.valid_until,detail.as_of)}</p>
       </div>

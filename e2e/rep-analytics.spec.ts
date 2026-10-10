@@ -92,15 +92,19 @@ async function tabThroughInfoTips(page: Page, viewport: { width: number; height:
   return belowFold;
 }
 
-/** The five cards read Brandi's seed numbers (All customers or Wasatch). */
+/**
+ * The five cards read Brandi's seed numbers (All customers or Wasatch): the 24 past quotes and the
+ * sample, plus the three open aging quotes (task A2: two sent, one with changes requested, each first
+ * sent 93 minutes after the request, so the median holds).
+ */
 async function expectSeedCards(page: Page) {
   await expect(card(page, "Median time to send")).toContainText("1 h 33 min");
-  await expect(card(page, "Median time to send")).toContainText("From request to first send, 24 quotes");
+  await expect(card(page, "Median time to send")).toContainText("From request to first send, 27 quotes");
   await expect(card(page, "Win rate")).toContainText("71%");
-  await expect(card(page, "Win rate")).toContainText("17 won, 7 lost, 1 open");
-  await expect(card(page, "Quoted vs accepted")).toContainText("$9,045 quoted");
-  await expect(card(page, "Quoted vs accepted")).toContainText("$7,008 accepted, 77%");
-  await expect(card(page, "Hours saved")).toContainText("8.0 hours");
+  await expect(card(page, "Win rate")).toContainText("17 won, 7 lost, 4 open");
+  await expect(card(page, "Quoted vs accepted")).toContainText("$10,666 quoted");
+  await expect(card(page, "Quoted vs accepted")).toContainText("$7,008 accepted, 66%");
+  await expect(card(page, "Hours saved")).toContainText("9.0 hours");
   await expect(card(page, "Extra GP Querent found")).toContainText("+$10.20");
 }
 

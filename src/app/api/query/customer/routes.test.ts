@@ -41,6 +41,7 @@ it("returns Wasatch's quotes newest first, Q-24817 with no total yet",async()=>{
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')??'').not.toMatch(/max-age=[1-9]/);
   const body=await response.json();
-  expect(body[0]).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',total:null});
+  // After the seed's three aging quotes (task A2), dated from the reset time.
+  expect(body[3]).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',total:null});
   expect(body.length).toBeGreaterThan(20);
 });

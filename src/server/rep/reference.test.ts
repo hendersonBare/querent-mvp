@@ -65,9 +65,11 @@ describe('customerDetail',()=>{
     expect(view.orders.recent.map(o=>o.order_number)).toEqual(['SO-51223','SO-51222','SO-51221','SO-51220','SO-51219']);
     expect(view.orders.recent).toHaveLength(RECENT);
 
-    expect(view.quotes.count).toBe(25);
-    expect(view.quotes.recent[0]).toEqual({id:'q-24817',quote_number:'Q-24817',revision:0,status:'ready_for_review',requested_at:expect.any(String),sent_total:null,rep_name:'Brandi Gallegos',line_count:4});
-    expect(view.quotes.recent[1]).toMatchObject({quote_number:'Q-24816',revision:1,status:'accepted',sent_total:expect.any(Number)});
+    expect(view.quotes.count).toBe(28);
+    // The seed's three aging quotes (task A2) are dated from the reset time, so they are the newest.
+    expect(view.quotes.recent.slice(0,3).map(q=>q.quote_number)).toEqual(['Q-24791','Q-24790','Q-24789']);
+    expect(view.quotes.recent[3]).toEqual({id:'q-24817',quote_number:'Q-24817',revision:0,status:'ready_for_review',requested_at:expect.any(String),sent_total:null,rep_name:'Brandi Gallegos',line_count:4});
+    expect(view.quotes.recent[4]).toMatchObject({quote_number:'Q-24816',revision:1,status:'accepted',sent_total:expect.any(Number)});
     expect(view.quotes.recent).toHaveLength(RECENT);
   });
 
@@ -165,6 +167,8 @@ describe('declined quotes (task A1; last: it adds a quote to the shared database
     const view=customerDetail('wasatch',{now:NOW})!;
     expect([view.quotes_won,view.quotes_decided]).toEqual([before.quotes_won,before.quotes_decided+1]);
     expect(view.win_rate).toBeCloseTo(before.quotes_won/(before.quotes_decided+1));
-    expect(view.quotes.recent.find(q=>q.id===copy.id)).toMatchObject({quote_number:copy.quote_number,status:'declined'});
+    // The seed's aging quotes (task A2) are newer than the copy, so it is counted but not among the five most recent.
+    expect(view.quotes.count).toBe(before.quotes.count+1);
+    expect(quote(copy.id)).toMatchObject({quote_number:copy.quote_number,status:'declined'});
   });
 });

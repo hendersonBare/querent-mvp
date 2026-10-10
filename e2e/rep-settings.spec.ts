@@ -119,7 +119,8 @@ test("tabs: every Settings section, with Rep assignments first; the old Data bro
     ["Wasatch Mechanical Contractors", "Brandi Gallegos (you)"],
   ])
     await expect(page.getByRole("combobox", { name: `Rep for ${customer}` }).locator("option:checked")).toHaveText(rep);
-  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("25 with Brandi Gallegos");
+  // 28: the 24 past quotes, the sample and the three aging quotes (task A2).
+  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("28 with Brandi Gallegos");
   await expect(page.getByRole("row", { name: /Great Basin Fabrication/ })).toContainText("Placeholder");
   await screenshot(page, testInfo, "settings-assignments-1440");
 
@@ -245,9 +246,9 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
   const wasatch = page.getByRole("combobox", { name: "Rep for Wasatch Mechanical Contractors" });
   await wasatch.selectOption("mara");
   await expect(page.getByRole("status").filter({ hasText: "is now" })).toHaveText(
-    "Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 25 existing quotes stay with Brandi Gallegos.",
+    "Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 28 existing quotes stay with Brandi Gallegos.",
   );
-  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("25 with Brandi Gallegos");
+  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("28 with Brandi Gallegos");
   await screenshot(page, testInfo, "settings-assignments-reassigned-1440");
   // The "Viewing" picker's rep follows.
   await page.getByLabel("Viewing").selectOption("wasatch");
