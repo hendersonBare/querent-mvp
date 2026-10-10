@@ -3,7 +3,7 @@
 Derived from `docs/plans/decision-log.md` (final). Where this spec and the decision log disagree, the decision log wins. Choices the log does not settle are listed in `docs/plans/open-assumptions.md` (referenced here as **OA-n**). Task slices and their order are in `docs/plans/plan.md`.
 
 Conventions used below:
-- Money: new money math is integer cents through the shared helper `src/lib/money.ts` (T1). Existing REAL dollar columns stay REAL; new money columns are `INTEGER` cents with a `_cents` suffix, except `quote_lines.freight_recovery` (name fixed by the log, integer cents per unit, OA-6).
+- Money: new money math is integer cents through the shared helper `src/lib/money.ts` (T1): `toCents(dollars)` converts dollars to integer cents (float-noise safe, 1.005 → 101), `roundCents(x)` rounds a fractional cent amount to integer cents (half away from zero), `fromCents(c)` gives dollars. Every `roundCents(...)` below takes cents. Existing REAL dollar columns stay REAL; new money columns are `INTEGER` cents with a `_cents` suffix, except `quote_lines.freight_recovery` (name fixed by the log, integer cents per unit, OA-6).
 - Rates: integer basis points (`_bp`, 1 bp = 0.01%), so 5.0% = 500 bp.
 - Times: ISO-8601 UTC strings in the database (`nowIso()`). The browser formats and buckets them in its own time zone.
 
@@ -84,7 +84,8 @@ sent              --expire (system)--------> expired           (final)
 
 - `lifecycle.ts`: `QUOTE_EVENTS` adds `decline`; `TRANSITIONS.decline = {from:['sent'], to:'declined', actor:'customer'}`; `STATUS_LABELS.declined = 'Declined'`. `effectiveStatus` is unchanged (only `sent` can read as expired). `customerCanRespond` stays "effective status is sent", so Decline is available exactly when Accept is.
 - Win/loss helpers: `quoteOutcome` treats `declined` as `lost`. The Team metrics (section 7) keep declined and expired apart.
-- Final statuses (`accepted`, `expired`, `declined`) allow only Duplicate.
+- Final statuses (`accepted`, `expired`, `declined`) allow only Duplicate and a manager's reassignment (decision 21).
+- Expiry is unchanged (decision 17): the rep picks 7, 14 or 30 days or a custom date; the default is 14 days after the send day.
 
 ### 2.1 Decline
 
@@ -107,8 +108,8 @@ Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `agi
 | `sent` | `sent_at` (latest send) | 72 h | 168 h |
 
 - Wall-clock hours. A level starts at the threshold instant (`now - start >= amber` is amber).
-- A `sent` quote is also amber from 00:00Z two days before its last valid day (`valid_until - 2 days`) and red from 00:00Z on `valid_until` (its last day). The worse of the two levels wins.
-- Worked example (`sent`, sent 2026-10-01T15:00Z, valid_until 2026-10-15): ok until 10-04T15:00Z; amber from 10-04T15:00Z (72 h); red from 10-08T15:00Z (168 h). A quote sent 10-10T09:00Z valid until 10-14: amber from 10-12T00:00Z (expiry rule), red from 10-14T00:00Z.
+- A `sent` quote is also amber from 2 days before expiry and red on its last day. Expiry is 00:00Z on the day after `valid_until` (`expiresAt` in `lifecycle.ts`), so amber starts at 00:00Z on `valid_until - 1 day` and red at 00:00Z on `valid_until`. The worse of the two levels wins.
+- Worked example (`sent`, sent 2026-10-01T15:00Z, valid_until 2026-10-15): ok until 10-04T15:00Z; amber from 10-04T15:00Z (72 h); red from 10-08T15:00Z (168 h). A quote sent 10-10T09:00Z valid until 10-14 (expires 10-15T00:00Z): amber from 10-13T00:00Z (expiry rule), red from 10-14T00:00Z.
 - UI: amber shows a clock icon and the text "Aging", red shows an alert icon and "Overdue" (text label and icon besides colour). The tooltip gives the reason ("Sent 4 days ago", "Expires tomorrow").
 - Quotes list: a **Needs attention** filter shows amber and red open quotes. In that view the default sort is red first, then amber, then quoted total descending; a toggle switches to oldest clock first (OA-9). Other filters keep today's sort.
 - Header badge: a red "Needs attention" count in the rep header counts red quotes only, scoped like the list (own quotes; all reps for a manager in All-reps scope after D2). The existing unread badge stays (OA-8).
@@ -209,7 +210,7 @@ Worked example (decision log): bolts qty 1 at $20.00 (cost $19.00), drill qty 1 
 
 Same quote at qty 10 bolts at $2.00 (cost $1.90): line margin is still 100¢, share 32¢, per unit roundCents(3.2) = 3¢, so the bolts line recovers 30¢ and the customer sees $2.03 a box.
 
-Per-line cap example: a $5.00 item (cost $1.00, qty 1) as the only line with a 1000 bp rate on a $5 quote: target 50¢, cap 40¢ → +$0.40.
+Per-line cap example (rate cap raised to 10%): a $5.00 item (cost $1.00, qty 1) as the only line with a 1000 bp rate on a $5 quote: target 50¢, cap 40¢ → +$0.40.
 
 - Customer-facing unit price = `unit_price + freight_recovery`. `unit_price` remains the engine or rep price (pre-recovery), so price bases, floors, the floor warning and suggestion logic are unchanged. Margin and GP figures stay computed from `unit_price`; recovery is reported separately (OA-10).
 - Totals: line total = (unit_price_cents + freight_recovery) × qty; quote total = Σ line totals + freight. The snapshot freezes the customer-facing unit price, so the customer PDF shows only the final unit price and "Freight $0.00".
@@ -375,7 +376,7 @@ Each slice writes failing tests first, then implements.
 
 | Area | Tests |
 |---|---|
-| Money helper | `toCents`, `fromCents`, `roundCents` (half away from zero, float-noise safe: 1.005 → 101¢), equality with the three replaced helpers on a table of values |
+| Money helper | `toCents` (dollars, float-noise safe: 1.005 → 101), `roundCents` (fractional cents, half away from zero: 4212.857 → 4213, -0.5 → -1), `fromCents`; equality with the three replaced helpers on a table of values |
 | Migrations | empty DB builds from 001…N; 001 matches the v4 fixture; v4 DB adoption; incompatible DB refused; failing migration rolls back and leaves `schema_migrations` unchanged; set-difference ordering; each rebuild keeps rows and FKs |
 | Lifecycle | decline transition legal only from `sent`; final; labels; `quoteOutcome` |
 | Decline API | reasons, Other length 250, no-reason decline, idempotency replay, 409 after expiry, customer response deep-scanned for cost and for the decline note |

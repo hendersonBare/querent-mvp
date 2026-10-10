@@ -24,3 +24,14 @@ Choices the decision log does not settle, made by the unattended build. Each has
 | OA-18 | Rep personas Mara and Eli are added to the server session in D1 (needed for role tests); the workspace chooser buttons are added in F1. | The log puts personas in F1, but D1's role checks need them to exist. |
 | OA-19 | The Team dashboard window is sent as two ISO instants the browser computes at local midnight; the server does no time-zone math. | Decision 10/23 bucket by the browser's time zone; the browser already knows it. |
 | OA-20 | Each slice adds the minimal seed rows its own tests need; F1 completes the demo set (aging mix, >20 eligible accepted delivery quotes, every status). | Slices must be testable on their own before F1. |
+| OA-21 | The ramp is linear: rate in force = capped rate × step ÷ steps, with equal steps of `ramp_days ÷ steps` days (30 days by default). | Simplest reading of "applies the rate in steps". |
+| OA-22 | Clearing a rep's freight override re-freezes the rate in force at that moment and reallocates. | The quote rejoins the pool on the same terms as a new quote. |
+| OA-23 | The pop-up shows at most 3 suggestions. | The log sets a minimum of 2; 3 keeps the pop-up compact. |
+| OA-24 | A rounding remainder tie between equal-margin lines goes to the lowest `line_no`. | Deterministic and stable. |
+| OA-25 | "Engine price before the freight uplift" is the line's `unit_price`, which may be the rep's chosen price; the pool denominator and the per-line cap use it. | Recovery sits on top of whatever price the rep approved; the engine's pick is only a suggestion. |
+| OA-26 | Until a fuel price exists (API or manual), the fuel component is 0 and a warning shows. | The log requires a manual price but quotes must still price. |
+| OA-27 | Inactive reps are hidden from the workspace chooser and from reassignment targets, and stay in Team history. | Deactivation should stop new work without losing reporting. |
+| OA-28 | The Other decline note is trimmed and stripped of control characters before storage. | Plain text only (decision 14). |
+| OA-29 | A PR gets at most 3 fix-and-validate rounds, then is labelled `blocked` and recorded in `status.md`. | From the build instructions; keeps the run moving. |
+| OA-30 | D3 is blocked by C1 (freight recovered metric) and E1 (suggestion acceptance) as well as D2. | Its metrics read columns those slices add. |
+| OA-31 | A merged task's branch is deleted after merge, so the claim check also skips tasks `status.md` lists as merged. | Build instructions require deleting merged branches; decision 2 relies on names, so status.md fills the gap. |

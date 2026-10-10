@@ -4,7 +4,7 @@ Tasks for the v3 build. The spec is `docs/plans/spec.md`; final decisions are in
 
 ## Claiming work
 
-1. Before claiming, run `git worktree list` and `git branch -a`. If any worktree or branch name contains the task ID, skip that task: someone has it.
+1. Before claiming, run `git worktree list` and `git branch -a`. If any worktree or branch name contains the task ID, skip that task: someone has it. Also skip any task that `docs/plans/status.md` lists as merged (its branch is deleted after merge, step 7).
 2. A task is claimable only when every task it is blocked by is merged to `main`.
 3. Claim by creating a worktree and branch named `task/<task-id>-<slug>` from the latest `main`.
 4. At most 3 agents work at once.
@@ -18,17 +18,12 @@ Tasks for the v3 build. The spec is `docs/plans/spec.md`; final decisions are in
 - All SQL stays in `src/server/repository/` (and migrations in `src/server/db/`). Customer-facing code never touches cost or margin.
 - New money math uses integer cents and `src/lib/money.ts` (after T1).
 - Migrations: take the next free number on `main` when the PR is opened, and renumber when rebasing if `main` gained one. A table rebuild is written against `main`'s schema at merge time (all current columns). Migration ids must be contiguous (`001`…`N`); a test enforces it.
-- Mark deferred work as `TODO(R-n)` with an ID from the decision log's registry.
+- Mark deferred work as `TODO(R-n)` with an ID from the decision log's registry. Planned placements: R-2 in `.env.example` and beside each key read in `src/` (T1); R-3, R-7, R-8 in `src/server/quotes/aging.ts` (A2, deferred reminders); R-10, R-11 in `src/server/freight/cost-model.ts` (C1); R-9 in `src/server/freight/fuel-price.ts` (C3); R-12 in `src/server/rep/http.ts` (D1); R-1 in `src/server/team/metrics.ts` (D3); R-4, R-5, R-6 in `src/server/session.ts`, `src/server/repository/chat.ts`, `src/app/api/test/*` (F1); R-13 in the registry only (tooling, nothing in `src/`).
 - Keep the diff to the task. Unrelated issues go to `docs/plans/unrelated-issues.md`.
 
 ## Dependency graph
 
-```
-T0 ─ T1 ─┬─ A1 ─ A2 ─┐
-         ├─ B1       ├─ D1 ─ D2 ─ D3 ─┐
-         ├─ C1 ─ C2 ─┼──── C3         ├─ F1
-         └─ E1 ──────┴────────────────┘
-```
+The table is authoritative. Lanes A, B, C and E start after T1; D starts after A2; C3 waits for D1; D3 waits for D2, C1 and E1; F1 is last.
 
 | ID | Lane | Blocked by |
 |---|---|---|
@@ -63,7 +58,7 @@ T0 ─ T1 ─┬─ A1 ─ A2 ─┐
 - **Scope:** Numbered SQL migrations with adoption of v4 databases, one money helper replacing three rounding copies, `.env.example`.
 - **Blocked by:** T0. **Lane:** T.
 - **Files:** `src/server/db/migrate.ts` (new), `src/server/db/migrations/001_baseline.sql` (new), `src/server/db/index.ts`, `src/server/db/schema.ts` (keep the exported constants, drop the DDL and `SCHEMA_VERSION`), `src/server/repository/erp.ts`, `src/lib/money.ts` (new), `src/server/quotes/snapshot.ts`, `src/server/freight/engine.ts`, `src/server/repository/sql.ts`, `scripts/reset-db.ts`, `.env.example` (new), `.gitignore`, tests beside each.
-- **Tests first:** `migrate.test.ts` (fresh build, v4 fixture equality, adoption, refusal of other versions, rollback on failure, set-difference order, contiguous ids); `money.test.ts` (rounding table incl. 1.005, negative values, equality with the old helpers); `env-example.test.ts` (every key from decision 9 present, placeholders only, no `JEV_API_KEY`, `.env.example` not ignored).
+- **Tests first:** `migrate.test.ts` (fresh build, v4 fixture equality, adoption, refusal of other versions, rollback on failure, set-difference order, contiguous ids); `money.test.ts` (rounding table incl. 1.005, negative values, equality with the old helpers); `env-example.test.ts` (every key from decision 9 present, placeholders only, no `JEV_API_KEY`, `.env.example` not ignored); `secrets-guard.test.ts` (the names `ANTHROPIC_API_KEY` and `OILPRICEAPI_KEY` appear in `src/` only in an allow-listed set of key-reading modules; no `console.*` call logs a key variable).
 - **Migration:** `001_baseline.sql` = v4. Existing v4 databases are adopted as already at 001.
 - **Rollback:** revert the PR; a database touched by it only gained a `schema_migrations` table, which the old code ignores (it checks `meta.schema_version`, still 4). Restore the volume backup otherwise.
 - **Acceptance:** app starts on a fresh DB and on a v4 DB; `db:reset` builds through migrations and reads `.env.local`; one rounding function is used by snapshot, freight and repository; all existing tests green; README deploy step updated to "migrations run on start; back up the volume first".
