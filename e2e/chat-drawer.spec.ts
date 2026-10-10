@@ -45,6 +45,7 @@ test("opens Dana's whole chat from the Customer request box and closes it", asyn
   const button = page.getByRole("button", { name: "View full chat, 5 messages" });
   await expect(button).toBeVisible();
   await expect(button).toContainText("5 messages");
+  await attachScreenshot(page, testInfo, "request-box-1440");
 
   await button.click();
   const drawer = page.getByRole("dialog", { name: "Full chat" });
@@ -96,7 +97,11 @@ test("opens Dana's whole chat from the Customer request box and closes it", asyn
 test("phone (390px): the drawer takes the full width and nothing scrolls sideways", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openQuote(page);
-  await page.getByRole("button", { name: "View full chat, 5 messages" }).click();
+  const button = page.getByRole("button", { name: "View full chat, 5 messages" });
+  await expect(button).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  await attachScreenshot(page, testInfo, "request-box-390");
+  await button.click();
   const drawer = page.getByRole("dialog", { name: "Full chat" });
   await expect(drawer.getByRole("listitem")).toHaveCount(5);
   const box = (await drawer.boundingBox())!;
