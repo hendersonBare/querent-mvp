@@ -9,7 +9,9 @@ export const QUOTE_STATUSES=['ready_for_review','sent','accepted','changes_reque
 export type QuoteStatus=typeof QUOTE_STATUSES[number];
 export const PRICE_BASES=['contract','customer','list','last_paid','custom'] as const;
 export type PriceBasis=typeof PRICE_BASES[number];
-export type LineSource='querent'|'rep'|'upsell';
+/** Who added a line: Querent's match, the rep, a rep-taken upsell chip, or the customer from the pop-up's suggestions (task E1). */
+export const LINE_SOURCES=['querent','rep','upsell','suggestion'] as const;
+export type LineSource=typeof LINE_SOURCES[number];
 export type ActivityActor='customer'|'querent'|'rep'|'system';
 export type ValidDays=7|14|30;
 

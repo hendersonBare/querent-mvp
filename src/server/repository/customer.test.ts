@@ -10,13 +10,18 @@ useSeededDatabase();
 // compile time on the return types (npm run typecheck).
 
 const FORBIDDEN=/cost|margin|floor|suggest|explanation|internal/i;
+/**
+ * The item pop-up's "Frequently bought together" (task E1, decision 37) is customer-facing by design:
+ * these two payload keys pass "suggest" (which is here for suggested_price); what they hold is scanned.
+ */
+const CUSTOMER_KEYS=new Set(['suggestions','suggestions_offered']);
 const ON='2026-09-23';
 
 /** Every key path in `value` whose key looks internal. */
 function leaks(value:unknown,path='$'):string[]{
   if(value instanceof Set||value instanceof Map)return leaks([...value.values()],path);
   if(Array.isArray(value))return value.flatMap((v,i)=>leaks(v,`${path}[${i}]`));
-  if(value&&typeof value==='object')return Object.entries(value).flatMap(([k,v])=>[...(FORBIDDEN.test(k)?[`${path}.${k}`]:[]),...leaks(v,`${path}.${k}`)]);
+  if(value&&typeof value==='object')return Object.entries(value).flatMap(([k,v])=>[...(FORBIDDEN.test(k)&&!CUSTOMER_KEYS.has(k)?[`${path}.${k}`]:[]),...leaks(v,`${path}.${k}`)]);
   return [];
 }
 
@@ -53,6 +58,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   orders:()=>customer.orders('wasatch'),
   orderStatus:()=>customer.orderStatus('wasatch'),
   purchasedItems:()=>customer.purchasedItems('wasatch'),
+  coPurchases:()=>customer.coPurchases('wasatch','CW-45-045-T1'),
   customerPrices:()=>customer.customerPrices('wasatch',ALL_ITEMS(),ON),
   customerQuote:()=>customer.customerQuote('wasatch','Q-24816'),
   customerQuoteRevision:()=>customer.customerQuoteRevision('wasatch','Q-24816'),
@@ -84,6 +90,7 @@ describe('customer-safe repository module',()=>{
     expect(leaks(internal.quotes()[0])).toEqual(expect.arrayContaining(['$.cost_total','$.margin']));
     expect(leaks(internal.repFloors('brandi'))).toContain('$[0].margin_floor');
     expect(leaks(new Set([{unit_cost:1}]))).toEqual(['$[0].unit_cost']);
+    expect(leaks({suggestions:[{sku:'HN-12-13-G8',suggested_price:1}],suggestions_offered:1})).toEqual(['$.suggestions[0].suggested_price']);
   });
 });
 
@@ -91,5 +98,5 @@ describe('customer-safe repository module',()=>{
 type Keys<T>=T extends readonly (infer U)[]?Keys<U>:T extends Set<infer U>?Keys<U>:T extends object?{[K in keyof T]-?:(K&string)|Keys<T[K]>}[keyof T]:never;
 type CustomerKeys={[F in keyof typeof customer]:(typeof customer)[F] extends (...args:never[])=>infer R?Keys<R>:never}[keyof typeof customer];
 type Forbidden=`${string}${'cost'|'margin'|'floor'|'suggest'|'explanation'|'internal'}${string}`;
-const noInternalKeys:[Extract<CustomerKeys,Forbidden>] extends [never]?true:false=true;
+const noInternalKeys:[Extract<Exclude<CustomerKeys,'suggestions'|'suggestions_offered'>,Forbidden>] extends [never]?true:false=true;
 void noInternalKeys;

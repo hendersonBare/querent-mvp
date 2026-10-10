@@ -161,6 +161,8 @@ function lineTags(line:DetailLine,figures:LineFigures){
   if(line.match_score!==null&&line.match_score<CONFIDENCE.minScore)tags.push({label:'Confirm match',tone:'warn'});
   if(line.added_by==='rep')tags.push({label:'Added',tone:'info'});
   if(line.added_by==='upsell')tags.push({label:'Suggested',tone:'info'});
+  // The customer added it from the item pop-up's "Frequently bought together" (task E1).
+  if(line.added_by==='suggestion')tags.push({label:'Chat suggestion',tone:'info'});
   return tags;
 }
 

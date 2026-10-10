@@ -77,7 +77,11 @@ export function purchasedItems(customerId:string,{since='0000-01-01',until='9999
     GROUP BY item_id ORDER BY order_count DESC,last_order_date DESC,sku`,customerId,since,until);
 }
 
-/** Internal: items bought on the same orders as `itemId`, most often first (frequently bought together, task 1.6). */
+/**
+ * Items the customer bought on the same orders as `itemId`, most often first (frequently bought
+ * together: the rep's upsell chips, task 1.6, and the pop-up suggestions, task E1). Customer-safe:
+ * identity and order counts only, for one customer.
+ */
 export function coPurchases(customerId:string,itemId:string,{since='0000-01-01',until='9999-12-31'}:DateWindow={}){
   return all<CoPurchase>(`SELECT other.item_id,i.sku,i.description,count(DISTINCT other.order_id) orders_together
     FROM order_lines mine JOIN orders o ON o.id=mine.order_id JOIN order_lines other ON other.order_id=mine.order_id AND other.item_id<>mine.item_id JOIN items i ON i.id=other.item_id

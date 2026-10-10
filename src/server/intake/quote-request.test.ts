@@ -56,7 +56,7 @@ describe('Request quote',()=>{
     expect(popup).toEqual({fulfillment:'will_call',branch_id:'slc',lines:[
       {sku:'HCS-12-13-2G8',qty:10,requested_text:'10 boxes of the 1/2 in grade 8 hex bolts'},
       {sku:'CW-45-045-T1',qty:6,requested_text:'6 boxes of cut-off wheels'},
-    ]});
+    ],suggestions:expect.any(Array),suggestions_offered:3});
     const badge=repBadges('brandi',{now:NOW}).quotes;
 
     const result=await requestQuote(DANA,body(id),OPTIONS);
@@ -243,6 +243,26 @@ describe('one quote per pop-up',()=>{
     const second=await requestQuote(DANA,body(id,{lines:[{sku:'HCS-12-13-2G8',qty:2}]}),OPTIONS);
     expect(second.replayed).toBe(false);
     expect(second.quote.quote_number).not.toBe(first.quote.quote_number);
+  });
+});
+
+describe('lines added from the pop-up suggestions (task E1)',()=>{
+  it("accepts an offered suggestion at the customer's qty and stores it as added_by 'suggestion'; the matched lines stay 'querent'",async()=>{
+    const {requestQuote,quote}=await services();
+    const {id,popup}=await popupConversation();
+    expect(popup.suggestions!.map(s=>s.sku)).toEqual(['HN-12-13-G8','FW-12-G8','FD-45-60Z']);
+    const result=await requestQuote(DANA,body(id,{lines:[...CART,{sku:'hn-12-13-g8',qty:1}]}),OPTIONS);
+    const lines=quote(result.quote.id)!.lines;
+    expect(lines.map(l=>[l.item_id,l.qty,l.added_by,l.requested_text])).toEqual([
+      ['HCS-12-13-2G8',10,'querent','10 boxes of the 1/2 in grade 8 hex bolts'],['CW-45-045-T1',6,'querent','6 boxes of cut-off wheels'],['HN-12-13-G8',1,'suggestion',null]]);
+    expect(lines[2].unit_price).toBeGreaterThan(0);
+    expect(result.turn.question).toBe('Request quote: 10 × HCS-12-13-2G8, 6 × CW-45-045-T1, 1 × HN-12-13-G8 (pickup at SLC).');
+  });
+
+  it('still refuses a SKU that was neither on the list nor offered',async()=>{
+    const {requestQuote}=await services();
+    const {id}=await popupConversation();
+    await expect(requestQuote(DANA,body(id,{lines:[...CART,{sku:'GLV-N8-L-1000',qty:1}]}),OPTIONS)).rejects.toThrow("GLV-N8-L-1000 isn't on your list. Ask for it in the chat to add it.");
   });
 });
 

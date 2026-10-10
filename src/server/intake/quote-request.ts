@@ -33,6 +33,10 @@ import {
 // first, with the DistanceProvider, from the chosen branch to the account's ship-to (the quote's).
 // None of it reaches the customer's answer.
 //
+// Lines the customer added from the pop-up's "Frequently bought together" (task E1) are accepted
+// only when that pop-up offered them, and are stored as added_by 'suggestion' (the matched lines
+// stay 'querent'), so the Team dashboard can count accepted suggestions.
+//
 // One pop-up makes at most one quote: the quote_requested message records the pop-up it came from,
 // and pressing Request quote again (a double click, a retry, a second tab) replays that quote. The
 // check and the writes are one synchronous transaction, so two requests can't both create one.
@@ -144,16 +148,20 @@ export async function requestQuote(who:QuoteRequester,body:unknown,{now=new Date
       return {quote:{id:payload.quote_id,quote_number:payload.quote_number,status},turn:earlierTurn(messages,done),replayed:true};
     }
 
+    // The pop-up's lines, and the "Frequently bought together" items it offered (task E1): the only
+    // SKUs a request may carry. Who added a line is decided here, never taken from the body.
     const offered=new Map(popup.payload.lines.map(l=>[l.sku.toUpperCase(),l]));
+    const suggested=new Set((popup.payload.suggestions??[]).map(s=>s.sku.toUpperCase()));
     const seen=new Set<string>();
     const lines=input.lines.map(({sku,qty})=>{
       const item=catalogItem(sku);
       if(!item)throw new QuoteRequestError(422,`No item has SKU ${sku}.`);
       const listed=offered.get(item.sku.toUpperCase());
-      if(!listed)throw new QuoteRequestError(422,`${item.sku} isn't on your list. Ask for it in the chat to add it.`);
+      const fromSuggestion=!listed&&suggested.has(item.sku.toUpperCase());
+      if(!listed&&!fromSuggestion)throw new QuoteRequestError(422,`${item.sku} isn't on your list. Ask for it in the chat to add it.`);
       if(seen.has(item.id))throw new QuoteRequestError(422,`${item.sku} is on the request twice.`);
       seen.add(item.id);
-      return {item,qty,requestedText:listed.requested_text??null};
+      return {item,qty,requestedText:listed?.requested_text??null,addedBy:fromSuggestion?'suggestion' as const:'querent' as const};
     });
     const all=branches();
     const branch=all.find(b=>b.id===input.branch_id);
@@ -170,7 +178,7 @@ export async function requestQuote(who:QuoteRequester,body:unknown,{now=new Date
     const request=requestBehind(messages,popupIndex);
     const q=createQuote({
       customerId,contactId:who.contactId,conversationId:input.conversation_id,requestText:request.text,fulfillment:input.fulfillment,branchId:branch.id,
-      lines:lines.map((l,i)=>({itemId:l.item.id,qty:l.qty,...draftLineFields(priced[i]),requestedText:l.requestedText,addedBy:'querent'})),
+      lines:lines.map((l,i)=>({itemId:l.item.id,qty:l.qty,...draftLineFields(priced[i]),requestedText:l.requestedText,addedBy:l.addedBy})),
       requestedAt:now,at:now,
     });
     applyQuoteRecovery(q,miles,{now,remodel:true});
