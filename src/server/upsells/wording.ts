@@ -1,4 +1,4 @@
-import {itemName} from './fasteners';
+import {itemNoun,pluralize} from '@/server/companions/words';
 import type {Upsell,UpsellDraft} from './rules';
 
 // Chip wording (spec §5.5): the rules decide every suggestion; only the words are Claude's. This is
@@ -27,17 +27,7 @@ const USD=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 /** "$1,109.50" */
 export const formatUsd=(amount:number)=>USD.format(amount);
 
-/** "Hex cap screw" -> "hex cap screw"; a leading acronym or code ("N95 ...") keeps its case. */
-export function lowerFirst(text:string){return /^[A-Z][a-z]/.test(text)?text[0].toLowerCase()+text.slice(1):text;}
-
-/** Plural of a catalog noun phrase: "cut-off wheel" -> "cut-off wheels", "box" -> "boxes"; "gloves" stays. */
-export function pluralize(noun:string){
-  if(/s$/i.test(noun))return noun;
-  if(/[^aeiou]y$/i.test(noun))return `${noun.slice(0,-1)}ies`;
-  if(/fe$/i.test(noun))return `${noun.slice(0,-2)}ves`;
-  if(/(sh|ch|x|z)$/i.test(noun))return `${noun}es`;
-  return `${noun}s`;
-}
+export {itemNoun,lowerFirst,pluralize} from '@/server/companions/words';
 
 /** The selling unit named by a pack: "Box of 25" -> "box", "4 pack" -> "pack", "Each" -> null. */
 export function packUnit(pack:string){
@@ -47,9 +37,6 @@ export function packUnit(pack:string){
 
 /** "8 boxes", "1 case", or just "20" for items sold each. */
 export function countOf(qty:number,unit:string|null){return unit?`${qty} ${qty===1?unit:pluralize(unit)}`:String(qty);}
-
-/** The plural short name of an item: "Cut-off wheel 4.5 x .045 ..." -> "cut-off wheels". */
-export const itemNoun=(description:string)=>pluralize(lowerFirst(itemName(description)));
 
 function onOrders(together:number,orders:number){
   if(orders===1)return 'on the one order that had them';

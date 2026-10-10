@@ -12,7 +12,9 @@ export const DECLINE_REASONS=['price_too_high','found_other_source','need_sooner
 export type DeclineReason=typeof DECLINE_REASONS[number];
 export const PRICE_BASES=['contract','customer','list','last_paid','custom'] as const;
 export type PriceBasis=typeof PRICE_BASES[number];
-export type LineSource='querent'|'rep'|'upsell';
+/** Who added a line: Querent's match, the rep, a rep-taken upsell chip, or the customer from the pop-up's suggestions (task E1). */
+export const LINE_SOURCES=['querent','rep','upsell','suggestion'] as const;
+export type LineSource=typeof LINE_SOURCES[number];
 export type ActivityActor='customer'|'querent'|'rep'|'system';
 export type ValidDays=7|14|30;
 

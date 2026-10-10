@@ -50,6 +50,8 @@ describe('scripted mode (no API key, or QUERENT_SCRIPTED=1)',()=>{
     expect(again).toMatchObject({kind:'clarify',payload:{open:[{round:2,choices:[{sku:'CW-45-045-T1'},{sku:'CW-45-045-T27'},{sku:'CW-45-090-T27'}]}],rep:{name:'Brandi Gallegos'}}});
     const popup=await ask('wasatch','conv-scripted','Type 1',{contactId:'dana'});
     expect(popup).toMatchObject({kind:'item_popup',payload:{fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10},{sku:'CW-45-045-T1',qty:6}]}});
+    // "Frequently bought together" (task E1): scripted picks from the pool, stored with the offered count.
+    expect(popup.payload).toMatchObject({suggestions:[{sku:'HN-12-13-G8'},{sku:'FW-12-G8'},{sku:'FD-45-60Z'}],suggestions_offered:3});
 
     expect(conversation('wasatch','conv-scripted')).toMatchObject({customer_id:'wasatch',contact_id:'dana'});
     const messages=conversationMessages('wasatch','conv-scripted');

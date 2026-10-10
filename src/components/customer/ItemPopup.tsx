@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent} from 'react';
 import {createPortal} from 'react-dom';
-import {Check,ListChecks,X} from 'lucide-react';
+import {Check,ListChecks,Plus,X} from 'lucide-react';
 import type {Fulfillment,ItemPopupPayload} from '@/domain';
 import type {API,ItemPopupContext,QuoteRequestInput,QuoteRequestResult} from '@/lib/contracts';
 
@@ -10,6 +10,11 @@ import type {API,ItemPopupContext,QuoteRequestInput,QuoteRequestResult} from '@/
 // qty, remove a line, choose pickup or delivery and the branch, then press Request quote, which
 // drafts the quote for the rep (POST customer/quote-requests) and adds the chat's confirmation.
 // Stock is read when the pop-up opens (GET customer/item-popup), not stored with the list.
+//
+// Below the cart, "Frequently bought together" (decision 37, task E1) lists the suggestions chosen
+// when the pop-up was created (payload.suggestions: item, pack and a reason, never a price). Add puts
+// one in the cart at qty 1, where it is a line like any other (qty, stock, remove); a suggestion in
+// the cart leaves the section, and comes back if its line is removed.
 //
 // In the chat bubble, a button reopens the pop-up while its list can still be quoted; once quoted
 // the bubble names the quote instead.
@@ -49,12 +54,13 @@ function ItemPopupDialog({api,conversationId,payload,onClose,onRequested}:Dialog
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(false);
   const dialog=useRef<HTMLDivElement>(null);
-  const title=useId(),intro=useId();
+  const title=useId(),intro=useId(),together=useId();
 
-  // Stock is read now, for every branch, so switching branch needs no second request.
+  // Stock is read now, for every branch, so switching branch needs no second request. It covers the
+  // suggestions too, so one added to the cart shows its stock like any line.
   useEffect(()=>{
     let cancelled=false;
-    const skus=payload.lines.map(l=>l.sku).join(',');
+    const skus=[...payload.lines,...payload.suggestions??[]].map(l=>l.sku).join(',');
     api.get<ItemPopupContext>(`customer/item-popup?skus=${encodeURIComponent(skus)}`)
       .then(result=>{if(!cancelled)setContext(result);})
       .catch(e=>{if(!cancelled)setLoadError(e instanceof Error?e.message:'Stock could not be loaded.');});
@@ -80,6 +86,8 @@ function ItemPopupDialog({api,conversationId,payload,onClose,onRequested}:Dialog
   const qtys=lines.map(l=>parseQty(l.qty));
   const noShipTo=fulfillment==='delivery'&&context!==null&&!context.ship_to;
   const canRequest=!busy&&lines.length>0&&qtys.every(q=>q!==null)&&!noShipTo&&context!==null;
+  const inCart=new Set(lines.map(l=>l.sku.toUpperCase()));
+  const suggestions=(payload.suggestions??[]).filter(s=>!inCart.has(s.sku.toUpperCase()));
 
   async function request(){
     if(!canRequest)return;
@@ -146,6 +154,18 @@ function ItemPopupDialog({api,conversationId,payload,onClose,onRequested}:Dialog
           </ul>}
         {context&&!context.stock_shown&&<p className="ip-note">Stock isn’t shown for your account. {rep} confirms availability on the quote.</p>}
         {loadError&&<p className="ip-note">Stock couldn’t be loaded ({loadError}). You can still request the quote.</p>}
+        {suggestions.length>0&&<section className="ip-together" aria-labelledby={together}>
+          <h3 id={together} className="ip-together-title">Frequently bought together</h3>
+          {suggestions.map(s=><div key={s.sku} className="ip-suggestion">
+            <div className="ip-item">
+              <span className="ip-desc">{s.description}</span>
+              <span className="ip-id"><span className="ip-sku">{s.sku}</span><span className="ip-pack">{s.pack}</span></span>
+              <span className="ip-reason">{s.reason}</span>
+            </div>
+            <button type="button" className="ip-add" aria-label={`Add ${s.sku} to your list`} disabled={busy}
+              onClick={()=>setLines(ls=>[...ls,{sku:s.sku,qty:'1'}])}><Plus size={15} aria-hidden="true"/>Add</button>
+          </div>)}
+        </section>}
         {error&&<p className="error" role="alert">{error}</p>}
       </div>
 
