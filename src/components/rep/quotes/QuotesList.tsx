@@ -6,14 +6,15 @@ import {ChevronRight} from 'lucide-react';
 import type {QuoteStatus} from '@/domain';
 import {usePoll} from '@/lib/use-poll';
 import type {ReassignResult} from '@/server/rep/reassign';
+import type {AgingLevel} from '@/server/quotes';
 import type {AttentionSort,RepQuoteList,RepQuoteRow} from '@/server/rep/quotes';
 import {useRepPortal,useRepScope} from '../context';
 import {ReassignDialog} from '../reassign/ReassignDialog';
 import {RepPageHeader,repPageStyles as page} from '../RepPage';
 import {BADGE_POLL_MS} from '../RepShell';
-import {ALL_REPS,REPS_PARAM,REP_PARAM,SCOPE_PARAM,TEAM_PARAM} from '../scope';
+import {ALL_REPS,FROM_PARAM,REPS_PARAM,REP_PARAM,SCOPE_PARAM,TEAM_PARAM,TO_PARAM} from '../scope';
 import {AgingMarker} from './AgingMarker';
-import {ATTENTION_PARAM,EMPTY_ATTENTION,EMPTY_STATUS,REP_STATUS,SORT_PARAM,STATUS_FILTERS,STATUS_PARAM,belowFloorNote,listDate,money,reassignedLabel,revisionLabel,totalNote,unreadLabel} from './labels';
+import {AGING_PARAM,ATTENTION_PARAM,EMPTY_ATTENTION,EMPTY_STATUS,REP_STATUS,SORT_PARAM,STATUS_FILTERS,STATUS_PARAM,belowFloorNote,listDate,money,reassignedLabel,revisionLabel,totalNote,unreadLabel} from './labels';
 import s from './QuotesList.module.css';
 
 // The rep's queue (spec §4, task 3.2): every quote of the signed-in rep with its status,
@@ -25,6 +26,9 @@ import s from './QuotesList.module.css';
 // The manager (v3 spec §6; decisions 21, 22; task D2) also gets a "My quotes / All reps" switch
 // (?scope=all), and in All reps a Rep column with rep and team filters (?rep=, ?team=) and row
 // checkboxes with a "Reassign…" bulk action.
+// The Team dashboard (task D3) drills into All reps with a window (?from=&to=, quotes created in
+// [from, to)), an aging level of the open quotes (?aging=) and several reps (?rep=a,b); the list
+// keeps the window on its links and says what it is narrowed to.
 
 /** How often the list is re-read, in step with the Quotes badge, so a new request shows up without a reload. */
 export const LIST_POLL_MS=BADGE_POLL_MS;
@@ -32,44 +36,52 @@ export const LIST_POLL_MS=BADGE_POLL_MS;
 /** The Needs attention view and its order, or null for the status filter. */
 export type AttentionView={attention:true;sort:AttentionSort}|null;
 
-/** The All reps scope's filters (task D2): a rep, a team label, or neither. */
-export type RepFilters={rep:string|null;team:string|null};
+/** The All reps scope's filters (task D2): a rep (or several, "a,b"), a team label, or neither; and the Team dashboard's window (task D3). */
+export type RepFilters={rep:string|null;team:string|null;from?:string|null;to?:string|null};
+
+function setFilters(params:URLSearchParams,filters:RepFilters|null){
+  if(filters?.rep)params.set(REP_PARAM,filters.rep);
+  if(filters?.team)params.set(TEAM_PARAM,filters.team);
+  if(filters?.from&&filters.to){params.set(FROM_PARAM,filters.from);params.set(TO_PARAM,filters.to);}
+}
 
 /** The list page's own path and query for a status or the Needs attention view, with the All reps filters (the scope adds ?customer= and ?scope=all). */
 function listHref(status:QuoteStatus|null,view:AttentionView=null,filters:RepFilters|null=null){
   const params=new URLSearchParams();
   if(view){params.set(ATTENTION_PARAM,'1');if(view.sort==='oldest')params.set(SORT_PARAM,'oldest');}
   else if(status)params.set(STATUS_PARAM,status);
-  if(filters?.rep)params.set(REP_PARAM,filters.rep);
-  if(filters?.team)params.set(TEAM_PARAM,filters.team);
+  setFilters(params,filters);
   const query=params.toString();
   return query?`/rep/quotes?${query}`:'/rep/quotes';
 }
 
-/** GET /api/rep/quotes for the picked customer and status, or the Needs attention view; with `reps`, the manager's All reps scope and its filters. */
-export function quotesApiPath(customerId:string|null,status:QuoteStatus|null,view:AttentionView=null,reps:RepFilters|null=null){
+/**
+ * GET /api/rep/quotes for the picked customer and status, or the Needs attention view; with `reps`,
+ * the manager's All reps scope and its filters, and with `aging` one aging level (task D3).
+ */
+export function quotesApiPath(customerId:string|null,status:QuoteStatus|null,view:AttentionView=null,reps:RepFilters|null=null,aging:AgingLevel|null=null){
   const params=new URLSearchParams();
   if(customerId)params.set(SCOPE_PARAM,customerId);
   if(view){params.set(ATTENTION_PARAM,'1');if(view.sort==='oldest')params.set(SORT_PARAM,'oldest');}
+  else if(aging&&reps)params.set(AGING_PARAM,aging);
   else if(status)params.set(STATUS_PARAM,status);
   if(reps){
     params.set(REPS_PARAM,ALL_REPS);
-    if(reps.rep)params.set(REP_PARAM,reps.rep);
-    if(reps.team)params.set(TEAM_PARAM,reps.team);
+    setFilters(params,reps);
   }
   const query=params.toString();
   return query?`/api/rep/quotes?${query}`:'/api/rep/quotes';
 }
 
-async function loadQuotes(customerId:string|null,status:QuoteStatus|null,view:AttentionView,reps:RepFilters|null):Promise<RepQuoteList>{
-  const response=await fetch(quotesApiPath(customerId,status,view,reps),{cache:'no-store'});
+async function loadQuotes(customerId:string|null,status:QuoteStatus|null,view:AttentionView,reps:RepFilters|null,aging:AgingLevel|null):Promise<RepQuoteList>{
+  const response=await fetch(quotesApiPath(customerId,status,view,reps,aging),{cache:'no-store'});
   if(response.status===401||response.status===403){window.location.assign('/');throw new Error('Choose a demo workspace.');}
   if(!response.ok)throw new Error('Unable to refresh quotes.');
   return response.json();
 }
 
-/** The filters a list's links keep: the All reps scope's rep and team, or none. */
-const filtersOf=(list:RepQuoteList):RepFilters|null=>list.scope==='all'?{rep:list.rep_filter,team:list.team_filter}:null;
+/** The filters a list's links keep: the All reps scope's rep, team and window, or none. */
+const filtersOf=(list:RepQuoteList):RepFilters|null=>list.scope==='all'?{rep:list.rep_filter,team:list.team_filter,from:list.window?.from,to:list.window?.to}:null;
 
 /** The manager's row checkboxes (task D2). */
 interface Selection {picked:ReadonlySet<string>;toggle:(id:string)=>void;toggleAll:()=>void}
@@ -78,9 +90,10 @@ interface Selection {picked:ReadonlySet<string>;toggle:(id:string)=>void;toggleA
 export function QuotesList({initial}:{initial:RepQuoteList}){
   const {refreshBadges}=useRepPortal();
   const customerId=initial.customer?.id??null,status=initial.status,attention=initial.attention,sort=initial.sort;
-  const all=initial.scope==='all',repFilter=initial.rep_filter,teamFilter=initial.team_filter;
-  const load=useCallback(()=>loadQuotes(customerId,status,attention?{attention,sort}:null,all?{rep:repFilter,team:teamFilter}:null),
-    [customerId,status,attention,sort,all,repFilter,teamFilter]);
+  const all=initial.scope==='all',repFilter=initial.rep_filter,teamFilter=initial.team_filter,agingFilter=initial.aging_filter;
+  const from=initial.window?.from??null,to=initial.window?.to??null;
+  const load=useCallback(()=>loadQuotes(customerId,status,attention?{attention,sort}:null,all?{rep:repFilter,team:teamFilter,from,to}:null,agingFilter),
+    [customerId,status,attention,sort,all,repFilter,teamFilter,from,to,agingFilter]);
   const {data,error,refresh}=usePoll(load,LIST_POLL_MS);
   const list=data??initial;
   const label=list.customer?.name??'All customers';
@@ -142,12 +155,15 @@ function RepFilterBar({list}:{list:RepQuoteList}){
   const scope=useRepScope();
   const router=useRouter();
   const view:AttentionView=list.attention?{attention:true,sort:list.sort}:null;
-  const go=(filters:RepFilters)=>router.push(scope.href(listHref(list.status,view,filters),true));
+  const window={from:list.window?.from,to:list.window?.to};
+  const go=(filters:RepFilters)=>router.push(scope.href(listHref(list.status,view,{...window,...filters}),true));
+  const several=list.rep_filter?.includes(',')?list.rep_filter.split(',').length:0;
   return <div className={s.scopebar}>
     {list.manager&&<>
       <label className={s.scopeFilter}>Rep
         <select value={list.rep_filter??''} onChange={event=>go({rep:event.target.value||null,team:list.team_filter})}>
           <option value="">All reps</option>
+          {several>0&&<option value={list.rep_filter!}>{several} reps</option>}
           {list.manager.reps.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </label>
@@ -157,15 +173,36 @@ function RepFilterBar({list}:{list:RepQuoteList}){
           {list.manager.teams.map(team=><option key={team} value={team}>{team}</option>)}
         </select>
       </label>}
+      {list.window&&<span className={s.drillChip}>
+        <span>Created between <LocalDay at={list.window.from}/> and <LocalDay at={list.window.to} dayBefore/></span>
+        <Link href={scope.href(listHref(list.status,view,{rep:list.rep_filter,team:list.team_filter}),true)}>Show all dates</Link>
+      </span>}
+      {list.aging_filter&&<span className={s.drillChip}>
+        <span>Open quotes: {AGING_WORDS[list.aging_filter]}</span>
+        <Link href={scope.href(listHref(null,null,filtersOf(list)),true)}>Show every status</Link>
+      </span>}
     </>}
   </div>;
+}
+
+/** The open quotes an ?aging= level shows (task D3). */
+const AGING_WORDS:Record<AgingLevel,string>={ok:'on time',amber:'aging',red:'overdue'};
+
+/**
+ * A window edge as a day in the browser's time zone (decision 10). `dayBefore` shows the last day of
+ * a window ending at that local midnight. Filled in after mount, so the server's time zone never shows.
+ */
+function LocalDay({at,dayBefore=false}:{at:string;dayBefore?:boolean}){
+  const [text,setText]=useState('');
+  useEffect(()=>{setText(new Date(Date.parse(at)-(dayBefore?1:0)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}));},[at,dayBefore]);
+  return <time dateTime={at}>{text}</time>;
 }
 
 function StatusFilter({list}:{list:RepQuoteList}){
   const scope=useRepScope();
   const filters=filtersOf(list);
   const link=(status:QuoteStatus|null,text:string,count:number)=><Link key={status??'all'} className={s.filter} href={scope.href(listHref(status,null,filters))}
-    aria-current={!list.attention&&list.status===status?'page':undefined} data-empty={count===0||undefined}>{text}<span className={s.filterCount}>{count}</span></Link>;
+    aria-current={!list.attention&&!list.aging_filter&&list.status===status?'page':undefined} data-empty={count===0||undefined}>{text}<span className={s.filterCount}>{count}</span></Link>;
   return <nav className={s.filters} aria-label="Filter by status">
     {link(null,'All',list.counts.all)}
     <Link className={s.filter} href={scope.href(listHref(null,{attention:true,sort:'urgent'},filters))} aria-current={list.attention?'page':undefined}
@@ -192,7 +229,8 @@ export function StatusChip({status}:{status:QuoteStatus}){
 /** Whose quotes a caption names: "all your customers", or in All reps "all customers of every rep". */
 function captionWho(list:RepQuoteList){
   if(list.scope!=='all')return list.customer?list.customer.name:'all your customers';
-  const reps=list.rep_filter?list.manager?.reps.find(r=>r.id===list.rep_filter)?.name??'one rep':list.team_filter?`the ${list.team_filter} team`:'every rep';
+  const reps=list.rep_filter?.includes(',')?`${list.rep_filter.split(',').length} reps`
+    :list.rep_filter?list.manager?.reps.find(r=>r.id===list.rep_filter)?.name??'one rep':list.team_filter?`the ${list.team_filter} team`:'every rep';
   return `${list.customer?list.customer.name:'all customers'} of ${reps}`;
 }
 
@@ -202,7 +240,7 @@ function QuotesTable({list,selection}:{list:RepQuoteList;selection:Selection|nul
   const showRep=list.scope==='all';
   const caption=list.attention
     ?`Quotes needing attention for ${who}, ${list.sort==='oldest'?'oldest first':'overdue first, then the largest totals'}`
-    :`${list.status?`${REP_STATUS[list.status].label} quotes`:'Quotes'} for ${who}, newest request first`;
+    :`${list.aging_filter?`Open ${AGING_WORDS[list.aging_filter]} quotes`:list.status?`${REP_STATUS[list.status].label} quotes`:'Quotes'} for ${who}, newest request first`;
   const everyPicked=!!selection&&list.rows.length>0&&list.rows.every(r=>selection.picked.has(r.id));
   return <table className={s.table} role="table" data-pick={selection?'':undefined}>
     <caption className={s.srOnly}>{caption}</caption>
@@ -276,6 +314,10 @@ function EmptyQuotes({list}:{list:RepQuoteList}){
     action={href:'/rep/quotes',label:'Show all your quotes'};
   }else if(list.attention&&list.counts.all>0){
     ({heading,body}=EMPTY_ATTENTION);
+    action={href:scope.href(listHref(null,null,filtersOf(list))),label:'Show every status'};
+  }else if(list.aging_filter&&list.counts.all>0){
+    heading=`No open ${AGING_WORDS[list.aging_filter]} quotes`;
+    body='None of these quotes is open at that aging level any more.';
     action={href:scope.href(listHref(null,null,filtersOf(list))),label:'Show every status'};
   }else if(list.status&&list.counts.all>0){
     ({heading,body}=EMPTY_STATUS[list.status]);

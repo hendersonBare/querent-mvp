@@ -19,19 +19,25 @@ export const ALL_REPS='all';
 /** The All reps list's rep and team filters (?rep=<id>, ?team=<label>). */
 export const REP_PARAM='rep';
 export const TEAM_PARAM='team';
+/** The Team dashboard's drill-down window in All reps (?from=&to=, ISO instants, task D3). */
+export const FROM_PARAM='from';
+export const TO_PARAM='to';
 /** ?scope=all, and nothing else, is the All reps scope. */
 export const isAllReps=(value:string|null|undefined)=>value===ALL_REPS;
 
-/** The portal's sections, in nav order (spec §4). */
+/** The portal's sections, in nav order (spec §4). Team is the manager's alone (v3 spec §6, task D3). */
 export const REP_SECTIONS=[
   {id:'quotes',label:'Quotes',href:'/rep/quotes'},
   {id:'customers',label:'Customers',href:'/rep/customers'},
   {id:'orders',label:'Orders',href:'/rep/orders'},
   {id:'items',label:'Items',href:'/rep/items'},
   {id:'analytics',label:'Analytics',href:'/rep/analytics'},
+  {id:'team',label:'Team',href:'/rep/team',managerOnly:true},
   {id:'settings',label:'Settings',href:'/rep/settings'},
 ] as const;
 export type RepSection=typeof REP_SECTIONS[number];
+/** The sections a rep's nav shows: Team only for the manager. */
+export const sectionsFor=(manager:boolean)=>REP_SECTIONS.filter(s=>manager||!('managerOnly' in s));
 export const HOME_SECTION=REP_SECTIONS[0];
 
 /** The section a path belongs to: /rep/quotes and /rep/quotes/Q-24817 are both Quotes. */

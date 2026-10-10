@@ -9,14 +9,15 @@ import {usePoll} from '@/lib/use-poll';
 import type {RepBadges} from '@/server/rep/badges';
 import {ATTENTION_PARAM,overdueLabel} from './quotes/labels';
 import {RepPortalContext,useRepPortal,useRepScope,type RepIdentity,type RepPortalValue} from './context';
-import {ALL_CUSTOMERS,ALL_REPS,HOME_SECTION,REPS_PARAM,REP_SECTIONS,SCOPE_PARAM,isAllReps,sectionFor} from './scope';
+import {ALL_CUSTOMERS,ALL_REPS,HOME_SECTION,REPS_PARAM,SCOPE_PARAM,isAllReps,sectionFor,sectionsFor} from './scope';
 import s from './RepShell.module.css';
 
 // The rep portal frame (spec §4, docs/design/screens/03): the app bar (Querent, Herrick, the
 // section nav with the Quotes unread badge, search, the red Needs attention badge, bell, BG), then
 // the "Viewing" customer picker. The Needs attention badge (v3 spec §3, task A2) counts the rep's
 // red quotes only and sits beside the unread badge, which stays (OA-8). In the manager's All reps
-// scope (?scope=all, task D2) it counts every rep's red quotes, like the list (OA-52).
+// scope (?scope=all, task D2) it counts every rep's red quotes, like the list (OA-52). The manager's
+// nav also has Team (v3 spec §6, task D3).
 
 /** How often the nav badges are re-read, so a customer's new request shows up without a reload. */
 export const BADGE_POLL_MS=5000;
@@ -57,7 +58,7 @@ export function RepShell({rep,org,customers,initialBadges,className,children}:Re
 }
 
 function RepHeader(){
-  const {org,badges}=useRepPortal();
+  const {org,badges,rep}=useRepPortal();
   const scope=useRepScope();
   const pathname=usePathname();
   const active=sectionFor(pathname);
@@ -73,7 +74,7 @@ function RepHeader(){
     <div className={s.appbar}>
       <div className={s.brand}><span className={s.mark} aria-hidden="true">Q</span>Querent<span className={s.org}>{org}</span></div>
       <nav ref={navRef} className={s.nav} aria-label="Rep portal">
-        {REP_SECTIONS.map(section=><Link key={section.id} className={s.navLink} href={scope.href(section.href)} aria-current={active?.id===section.id?'page':undefined}>
+        {sectionsFor(!!rep.manager).map(section=><Link key={section.id} className={s.navLink} href={scope.href(section.href)} aria-current={active?.id===section.id?'page':undefined}>
           {section.label}
           {section.id==='quotes'&&unread>0&&<span className={s.count}>{unread}<span className={s.srOnly}> unread</span></span>}
         </Link>)}

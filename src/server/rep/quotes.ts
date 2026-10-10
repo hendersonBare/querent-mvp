@@ -2,9 +2,10 @@ import 'server-only';
 import {QUOTE_STATUSES,type CustomerListItem,type Quote,type QuoteListRow,type QuoteStatus} from '@/domain';
 import {formatMargin,margin} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
-import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingThresholds} from '@/server/quotes';
+import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingLevel,type AgingThresholds} from '@/server/quotes';
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
 import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamReps,touchQuoteByRep} from '@/server/repository';
+import {isoInstant} from '@/server/team/query';
 
 // The rep's Quotes list (spec §4, task 3.2): status, customer, requested date, total, margin and
 // the unread dot, filtered by status and by the "Viewing" picker. Rep-only: it carries margin,
@@ -24,6 +25,10 @@ import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamR
 // quotes, each row naming its rep, filtered by rep or team label, with the Needs attention view over
 // the same quotes (OA-52). Quotes now move between reps (./reassign), so a quote's rep is its
 // current owner, not always the customer's assigned rep. A rep's list is still their own quotes.
+//
+// The Team dashboard drills into All reps (v3 spec §6 Team; decision 23; task D3), so the scope also
+// takes its window (?from=&to=: quotes created in [from, to), two ISO instants), an aging level for
+// the open quotes (?aging=ok|amber|red, a view like Needs attention) and several reps (?rep=a,b).
 
 const clock=()=>new Date().toISOString();
 
@@ -31,6 +36,10 @@ const clock=()=>new Date().toISOString();
 export type AttentionSort='urgent'|'oldest';
 /** A ?sort= value: oldest, or the default (urgent) for anything else. */
 export const parseAttentionSort=(value:string|null|undefined):AttentionSort=>value==='oldest'?'oldest':'urgent';
+
+const AGING_LEVELS:readonly AgingLevel[]=['ok','amber','red'];
+/** An ?aging= value (the Team dashboard's open ok / amber / red counts, task D3), or null for anything else. */
+export const parseAgingLevel=(value:string|null|undefined):AgingLevel|null=>(AGING_LEVELS as readonly string[]).includes(value??'')?value as AgingLevel:null;
 
 /** A ?status= value, or null (every status) for anything that isn't one of the five statuses. */
 export function parseStatus(value:string|null|undefined):QuoteStatus|null{
@@ -103,8 +112,12 @@ export interface RepQuoteList {
   unread:number;
   rows:RepQuoteRow[];
   scope:QuotesScope;
-  /** The All reps scope's rep and team filters as applied (null: every rep, every team). */
+  /** The All reps scope's rep and team filters as applied (null: every rep, every team). Several reps read "mara,nora" (task D3). */
   rep_filter:string|null;team_filter:string|null;
+  /** The Team dashboard's window as applied (All reps only): quotes created in [from, to). */
+  window:{from:string;to:string}|null;
+  /** The open quotes at this aging level only (All reps only, task D3); it replaces the status filter. */
+  aging_filter:AgingLevel|null;
   /** For the manager (the scope switch, filters and Reassign); null for a rep. */
   manager:ManagerListOptions|null;
 }
@@ -118,8 +131,12 @@ export interface RepQuoteListOptions {
   sort?:AttentionSort;
   /** The signed-in rep is the manager (repAccess). */
   manager?:boolean;
-  /** The All reps scope with its filters (?scope=all&rep=&team=): the manager only, ignored for a rep. Unknown values read as every rep or team. */
-  allReps?:{rep?:string|null;team?:string|null}|null;
+  /**
+   * The All reps scope with its filters (?scope=all&rep=&team=): the manager only, ignored for a rep.
+   * Unknown values read as every rep or team. The Team dashboard's drill-down adds rep=a,b, the window
+   * (from, to) and an aging level (task D3); a malformed one is ignored.
+   */
+  allReps?:{rep?:string|null;team?:string|null;from?:string|null;to?:string|null;aging?:string|null}|null;
   /** For tests. */
   now?:string;
   /** Freight's distance provider for draft totals; haversine by default. */
@@ -178,19 +195,27 @@ export async function repQuoteList(repId:string,{customerId=null,status=null,att
   const accounts=new Map(everyone.map(c=>[c.id,c.account_number]));
   const options=manager?managerListOptions():null;
   const all=!!options&&!!allReps;
-  const repFilter=all&&options.reps.some(r=>r.id===allReps.rep)?allReps.rep!:null;
-  const teamFilter=all&&options.teams.includes(allReps.team??'')?allReps.team!:null;
-  const filter=all?{repId:repFilter,repIds:teamFilter?options.reps.filter(r=>r.team===teamFilter).map(r=>r.id):undefined}:{repId};
-  const scoped=withAging(quotes({...filter,customerId:customer?.id??null}),now);
+  const asked=all?(allReps.rep??'').split(','):[];
+  const pickedReps=all?options.reps.filter(r=>asked.includes(r.id)).map(r=>r.id):[];
+  const teamIds=all&&options.teams.includes(allReps.team??'')?options.reps.filter(r=>r.team===allReps.team).map(r=>r.id):undefined;
+  const repFilter=pickedReps.length?pickedReps.join(','):null;
+  const teamFilter=teamIds?allReps!.team!:null;
+  const repIds=pickedReps.length>1?pickedReps.filter(id=>!teamIds||teamIds.includes(id)):teamIds;
+  const filter=all?{repId:pickedReps.length===1?pickedReps[0]:null,repIds}:{repId};
+  const from=all?isoInstant(allReps.from??null):null,to=all?isoInstant(allReps.to??null):null;
+  const window=from&&to&&from<to?{from,to}:null;
+  const agingFilter=all&&!attention?parseAgingLevel(allReps.aging):null;
+  const scoped=withAging(quotes({...filter,customerId:customer?.id??null}),now).filter(row=>!window||(row.created_at>=window.from&&row.created_at<window.to));
   const counts=emptyCounts();
   for(const row of scoped){counts[row.status]++;counts.all++;}
-  const shown=attention?scoped.filter(row=>needsAttention(row.aging)):status?scoped.filter(row=>row.status===status):scoped;
+  const shown=attention?scoped.filter(row=>needsAttention(row.aging)):agingFilter?scoped.filter(row=>row.aging?.level===agingFilter)
+    :status?scoped.filter(row=>row.status===status):scoped;
   let rows:RepQuoteRow[]=[];
   for(const row of shown)rows.push(await toRow(row,accounts.get(row.customer_id)??null,repId,provider));
   if(attention)rows=attentionOrder(rows,sort);
-  return {as_of:now,customer,other_rep:!all&&!!customer&&customer.rep_id!==repId,status:attention?null:status,attention,sort:attention?sort:'urgent',
+  return {as_of:now,customer,other_rep:!all&&!!customer&&customer.rep_id!==repId,status:attention||agingFilter?null:status,attention,sort:attention?sort:'urgent',
     attention_count:scoped.filter(row=>needsAttention(row.aging)).length,counts,unread:scoped.filter(row=>row.unread_for_rep&&row.rep_id===repId).length,rows,
-    scope:all?'all':'mine',rep_filter:repFilter,team_filter:teamFilter,manager:options};
+    scope:all?'all':'mine',rep_filter:repFilter,team_filter:teamFilter,window,aging_filter:agingFilter,manager:options};
 }
 
 /**

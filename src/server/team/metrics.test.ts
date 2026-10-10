@@ -1,14 +1,14 @@
 import {describe,expect,it} from 'vitest';
 import type {TeamQuoteFact,TeamStatusEvent} from '@/domain';
 import {AGING_DEFAULTS} from '@/server/quotes';
-import {UNTOUCHED_REASONS,teamMetricRows,type TeamRep} from './metrics';
+import {UNTOUCHED_REASONS,teamMetricRows,type MetricsRep} from './metrics';
 
 // The Team metrics (v3 spec §7, §7.3; decisions 24, 25; OA-13, OA-15; task D3) on a fixed fixture:
 // every metric per rep and in the totals row, null denominators, declined and expired kept apart,
 // the status timeline (open visits counted to now, an unswept expiry ending at its expiry instant).
 
 const NOW='2026-10-10T12:00:00.000Z';
-const REPS:TeamRep[]=[{id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},{id:'eli',name:'Eli Porter',team:'Outside Sales',active:true}];
+const REPS:MetricsRep[]=[{id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},{id:'eli',name:'Eli Porter',team:'Outside Sales',active:true}];
 
 const base:Omit<TeamQuoteFact,'id'|'quote_number'|'rep_id'|'status'|'created_at'>={sent_at:null,responded_at:null,valid_until:null,fulfillment:'will_call',
   last_rep_touch_at:null,customer_viewed_at:null,decline_reason:null,decline_note:null,declined_at:null,sent_total:null,draft_total:null,

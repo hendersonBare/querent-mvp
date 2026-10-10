@@ -48,7 +48,7 @@ export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,cus
     manager?:ManagerListOptions|null;reps?:RepQuoteList['scope'];rep_filter?:string|null;team_filter?:string|null}={}):RepQuoteList{
   const aged=scope.filter(r=>r.aging&&r.aging.level!=='ok');
   return {as_of:AS_OF,customer,other_rep,status:attention?null:status,attention,sort,attention_count:aged.length,counts:counts(scope),unread:scope.filter(r=>r.unread).length,
-    rows:attention?aged:status?scope.filter(r=>r.status===status):scope,scope:reps,rep_filter,team_filter,manager};
+    rows:attention?aged:status?scope.filter(r=>r.status===status):scope,scope:reps,rep_filter,team_filter,window:null,aging_filter:null,manager};
 }
 
 /** The manager's rep and team options (task D2): Nora is inactive, so she filters but can't be a reassignment target. */

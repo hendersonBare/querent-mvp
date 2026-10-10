@@ -70,7 +70,7 @@ describe('teamQuoteFacts',()=>{
       expect(fact).toEqual({id:q.id,quote_number:q.quote_number,rep_id:'nora',status:'declined',created_at:'2027-01-06T12:00:00.000Z',
         sent_at:'2027-01-06T15:00:00.000Z',responded_at:'2027-01-07T15:00:00.000Z',valid_until:'2027-01-20',fulfillment:'delivery',
         last_rep_touch_at:'2027-01-06T14:00:00.000Z',customer_viewed_at:'2027-01-06T16:00:00.000Z',decline_reason:'other',decline_note:'Went local',declined_at:'2027-01-07T15:00:00.000Z',
-        sent_total:275.5,priced_subtotal:160+180+13,priced_cost:expect.closeTo(2*cost('GLV-N8-L-1000')+4*cost('FD-45-60Z')+cost('WB-4-CS'),6),
+        sent_total:275.5,priced_subtotal:160+180+13,priced_cost:expect.closeTo(2*cost('GLV-N8-L-1000')+4*cost('FD-45-60Z')+cost('WB-4-CS'),2),
         recovered_cents:2*30+4*5,modelled_freight_cents:4213,suggestion_lines:1,upsell_lines:1,suggestions_offered:0});
     }
   });

@@ -3,7 +3,7 @@ import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {TeamQuoteFact} from '@/domain';
 import {AGING_DEFAULTS} from '@/server/quotes';
-import {teamMetricRows,type TeamRep} from '@/server/team/metrics';
+import {teamMetricRows,type MetricsRep} from '@/server/team/metrics';
 import type {TeamMetrics} from '@/server/team/service';
 
 // The Team dashboard (v3 spec §6 Team, §7; decisions 23–25; task D3) against canned API answers:
@@ -13,7 +13,7 @@ import type {TeamMetrics} from '@/server/team/service';
 vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;children?:ReactNode})=><a href={href} {...rest}>{children}</a>}));
 const {TeamDashboard}=await import('./TeamDashboard');
 
-const REPS:TeamRep[]=[
+const REPS:MetricsRep[]=[
   {id:'brandi',name:'Brandi Gallegos',team:'Inside Sales',active:true},
   {id:'eli',name:'Eli Porter',team:'Outside Sales',active:true},
   {id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},
