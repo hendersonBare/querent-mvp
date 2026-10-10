@@ -30,6 +30,8 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const body=init?.body?JSON.parse(String(init.body)):undefined;
   if(url==='/api/rep/badges')return Response.json({quotes:server.unread});
   if(url==='/api/rep/quotes/q-24817/read'&&method==='POST'){server.unread=0;return Response.json({id:'q-24817',quote_number:'Q-24817',unread:false});}
+  // "View full chat" (B1): the first page of the chat, for the count.
+  if(url==='/api/rep/quotes/q-24817/messages')return Response.json({total:5,messages:[{id:'m-1',role:'customer',kind:'text',content:'Do you have the bolts?',created_at:'2026-09-23T16:12:00.000Z'}],next_before:null});
   if(server.status)return Response.json({detail:'Q-24817 was sent to the customer. It can\'t be edited unless they ask for changes.',code:'illegal_transition'},{status:server.status});
   const line=/^\/api\/rep\/quotes\/q-24817\/lines\/([^/]+)$/.exec(url);
   if(line&&method==='PATCH'){
@@ -113,6 +115,25 @@ describe('header and panels',()=>{
     ]);
     fireEvent.click(within(checks).getByRole('button',{name:'Review Nitrile disposable gloves'}));
     expect(screen.getByRole('button',{name:'Why this price? Nitrile disposable gloves'})).toHaveAttribute('aria-expanded','true');
+  });
+
+  it('keeps the compact request box and adds "View full chat" with the message count (B1; more in chat-drawer/)',async()=>{
+    renderPage();
+    const box=screen.getByText('Customer request').closest('details')!;
+    expect(box).not.toHaveAttribute('open');
+    expect(within(box).queryByRole('button')).toBeNull();
+    const view=await screen.findByRole('button',{name:'View full chat, 5 messages'});
+    fireEvent.click(view);
+    expect(within(screen.getByRole('dialog',{name:'Full chat'})).getByText('Do you have the bolts?')).toBeInTheDocument();
+    fireEvent.keyDown(document,{key:'Escape'});
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('has no "View full chat" for a request that didn’t come from chat',()=>{
+    renderPage(sampleDetail({quote:{conversation_id:null}}));
+    expect(screen.getByText('Customer request')).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:/View full chat/})).toBeNull();
+    expect(calls('GET',/\/messages/)).toHaveLength(0);
   });
 
   it('marks the quote read once it is on screen, and the Quotes badge clears',async()=>{

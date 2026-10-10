@@ -2,10 +2,12 @@ import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {QUOTE_READY_KIND,type ChatMessage,type Conversation,type MessageRole,type QuoteNotice} from '@/domain';
 import type {Category,ChatTurn} from '@/lib/contracts';
-import {all,nowIso,one,run} from './sql';
+import {all,nowIso,one,run,scalar} from './sql';
 
 // Customer chat: conversations, messages and the query log behind analytics. Reads are scoped
-// to the customer, so one customer can never load another's conversation.
+// to the customer, so one customer can never load another's conversation. The rep's transcript
+// reads (conversationMessagePage, conversationMessageCount; B1) take a conversation id alone: the
+// rep service checks the quote is the rep's first, and the customer barrel doesn't export them.
 
 const CONVERSATION='SELECT id,customer_id,contact_id,started_at FROM conversations';
 
@@ -32,6 +34,33 @@ const toMessage=(row:MessageRow):ChatMessage=>({...row,payload:row.payload===nul
 export function conversationMessages(customerId:string,conversationId:string){
   return all<MessageRow>(`${MESSAGE} JOIN conversations c ON c.id=m.conversation_id WHERE m.conversation_id=? AND c.customer_id=? ORDER BY m.created_at,m.rowid`,conversationId,customerId).map(toMessage);
 }
+
+/** One message as the rep's chat drawer shows it (B1, spec §9): never the payload, which can carry anything. */
+export interface TranscriptMessage {id:string;role:MessageRole;kind:string;content:string;created_at:string}
+export interface TranscriptPage {
+  /** Oldest first within the page. */
+  messages:TranscriptMessage[];
+  /** The cursor for the next (older) page, the oldest message's id here; null when there are no older messages. */
+  next_before:string|null;
+}
+/** The drawer loads 50 messages at a time (decision 26). */
+export const TRANSCRIPT_PAGE=50;
+
+/**
+ * One page of a conversation for the rep (B1): the newest `limit` messages older than the `before`
+ * message, or the newest page without a cursor, oldest first. Order is created_at, then the order
+ * they were written (rowid), as in conversationMessages; the cursor is a message id, so it stays put
+ * when newer messages arrive. A cursor that isn't a message of this conversation answers an empty page.
+ */
+export function conversationMessagePage(conversationId:string,{before=null,limit=TRANSCRIPT_PAGE}:{before?:string|null;limit?:number}={}):TranscriptPage{
+  const rows=all<TranscriptMessage>(`SELECT m.id,m.role,m.kind,m.content,m.created_at FROM messages m LEFT JOIN messages c ON c.id=? AND c.conversation_id=m.conversation_id
+    WHERE m.conversation_id=? AND (? IS NULL OR m.created_at<c.created_at OR (m.created_at=c.created_at AND m.rowid<c.rowid))
+    ORDER BY m.created_at DESC,m.rowid DESC LIMIT ?`,before,conversationId,before,limit+1);
+  const page=rows.slice(0,limit).reverse();
+  return {messages:page,next_before:rows.length>limit?page[0].id:null};
+}
+/** How many messages a conversation has (0 for an unknown one). */
+export const conversationMessageCount=(conversationId:string)=>scalar<number>('SELECT count(*) FROM messages WHERE conversation_id=?',conversationId)??0;
 
 /**
  * Appends a message to one of the customer's conversations; payload is stored as JSON (e.g. the
