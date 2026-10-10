@@ -17,7 +17,7 @@ export async function POST(request:NextRequest){
   if(refusal)return refusal;
   const body=await request.json().catch(()=>undefined);
   try{
-    const result=requestQuote(session,body);
+    const result=await requestQuote(session,body);
     return NextResponse.json(result,{status:result.replayed?200:201,headers:NO_STORE});
   }catch(error){
     if(error instanceof QuoteRequestError)return NextResponse.json({detail:error.message},{status:error.status,headers:NO_STORE});

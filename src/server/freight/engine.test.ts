@@ -1,7 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 import type {DeliveryRates} from '@/domain';
 import type {DistanceProvider,Place} from './distance';
-import {CALL_FOR_FREIGHT,computeFreight,priceDelivery,resolveFreight,type FreightInput,type FreightQuote} from './engine';
+import {CALL_FOR_FREIGHT,FREE_DELIVERY_PRICING_EXPLANATION,computeFreight,freightWithMiles,priceDelivery,resolveFreight,type FreightInput,type FreightQuote} from './engine';
 
 // Spec §5.3 seed rates.
 const RATES:DeliveryRates={base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25};
@@ -171,6 +171,43 @@ describe('priceDelivery (the rules once miles are known)',()=>{
     expect(priceDelivery({origin:'SLC',miles:15,subtotal:1500,rates:RATES})).toMatchObject({rule:'free_threshold',amount:0});
     expect(priceDelivery({origin:'SLC',miles:2,subtotal:500,rates:RATES})).toMatchObject({rule:'min_charge',amount:35});
     expect(priceDelivery({origin:'Ogden',miles:90,subtotal:500,rates:RATES})).toMatchObject({rule:'beyond_radius',amount:CALL_FOR_FREIGHT});
+  });
+});
+
+describe('free delivery pricing (spec §4.1, decision 27, OA-7)',()=>{
+  const on={freeDeliveryPricing:true};
+  it('prices a delivery inside the radius at $0.00 under its own rule, keeping the miles',async()=>{
+    expect(FREE_DELIVERY_PRICING_EXPLANATION).toBe('Free delivery pricing: freight is recovered in item prices.');
+    expect(await at(15,on)).toEqual({rule:'free_delivery_pricing',amount:0,miles:15,formula:null,explanation:'Free delivery pricing: freight is recovered in item prices.'});
+    expect(await at(75,on)).toMatchObject({rule:'free_delivery_pricing',amount:0,miles:75});
+  });
+
+  it('ignores the free threshold and the minimum charge (they stay stored)',async()=>{
+    for(const subtotal of [0,1,1499.99,1500,4200.5])expect(await at(15,{...on,subtotal})).toMatchObject({rule:'free_delivery_pricing',amount:0});
+    expect(await at(2,on)).toMatchObject({rule:'free_delivery_pricing',amount:0,miles:2});
+  });
+
+  it('still calls for freight beyond the radius, with no ship-to, or with no distance',async()=>{
+    expect(await at(75.1,on)).toMatchObject({rule:'beyond_radius',amount:CALL_FOR_FREIGHT,miles:75.1});
+    expect(await computeFreight(delivery({...on,shipTo:null}))).toMatchObject({rule:'no_ship_to',amount:CALL_FOR_FREIGHT});
+    expect(await at(Number.NaN,on)).toMatchObject({rule:'no_distance',amount:CALL_FOR_FREIGHT});
+  });
+
+  it('keeps will call at $0 under its own rule',async()=>{
+    expect(await at(15,{...on,willCall:true})).toMatchObject({rule:'will_call',amount:0});
+  });
+
+  it('changes nothing when off (the default)',async()=>{
+    for(const miles of [2,15,75,75.1])expect(await at(miles,{freeDeliveryPricing:false})).toEqual(await at(miles));
+    expect(priceDelivery({origin:'SLC',miles:15,subtotal:500,rates:RATES,freeDeliveryPricing:false})).toEqual(priceDelivery({origin:'SLC',miles:15,subtotal:500,rates:RATES}));
+  });
+
+  it('applies through priceDelivery and freightWithMiles for callers that already have the miles',()=>{
+    expect(priceDelivery({origin:'SLC',miles:15,subtotal:500,rates:RATES,freeDeliveryPricing:true})).toMatchObject({rule:'free_delivery_pricing',amount:0});
+    expect(freightWithMiles(delivery(on),15)).toMatchObject({rule:'free_delivery_pricing',amount:0,miles:15});
+    expect(freightWithMiles(delivery(),15)).toMatchObject({rule:'distance',amount:62.5});
+    expect(freightWithMiles(delivery(),null)).toMatchObject({rule:'no_distance'});
+    expect(freightWithMiles(delivery({willCall:true}),null)).toMatchObject({rule:'will_call'});
   });
 });
 

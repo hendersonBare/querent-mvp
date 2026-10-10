@@ -1,7 +1,7 @@
 import {formatAmount,formatDay,formatUnitPrice,type PdfQuote} from '@/server/pdf/model';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {shortName,type DetailLine,type QuoteFigures} from '@/server/rep/quote-math';
-import {cents} from '@/server/quotes/snapshot';
+import {cents,customerUnitPrice} from '@/server/quotes/snapshot';
 
 // Copy quote summary (task 4.3, spec §4, the mockup's summaryText): the quote as plain text for
 // an email or a text message, in the mockup's shape:
@@ -20,7 +20,7 @@ import {cents} from '@/server/quotes/snapshot';
 // like the other exports: the draft while the rep can edit it (numbered as the revision a send
 // would store, and marked as a draft like the PDF's stamp and the CSV's filename, so an unsent
 // revision can't pass for the one the customer holds), else the latest sent revision (which a
-// sent quote's lines are).
+// sent quote's lines are). Prices are what the customer pays: unit price + freight recovery (spec §4.5).
 
 /** What the summary says. */
 export type SummaryQuote=Pick<PdfQuote,'quote_number'|'revision'|'draft'|'customer'|'contact'|'valid_until'|'terms'|'fulfillment'|'branch'|'ship_to'|'lines'|'subtotal'|'freight'|'total'>;
@@ -39,7 +39,7 @@ export function summaryQuoteOf(detail:Pick<QuoteDetail,'quote'|'valid_until'|'ed
     valid_until:detail.valid_until,terms,fulfillment:quote.fulfillment,branch:quote.branch_code,
     ship_to:quote.fulfillment==='delivery'?quote.ship_to_address:null,
     lines:lines.map(l=>{
-      const price=l.unit_price!==null&&Number.isFinite(l.unit_price)?l.unit_price:null;
+      const price=l.unit_price!==null&&Number.isFinite(l.unit_price)?customerUnitPrice(l.unit_price,l.freight_recovery):null;
       return {sku:l.sku,description:l.description,pack:l.pack,qty:l.qty,unit_price:price,total:price===null?null:cents(l.qty*price)};
     }),
     subtotal:figures.items,freight:figures.freight.amount,total:figures.total,

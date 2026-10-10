@@ -32,9 +32,10 @@ const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent|upsells-writ
 const CUSTOMER_MODULE='src/server/repository/customer';
 /**
  * Server modules that read cost, margin or floors. LLM code may not import them, and customer routes only CUSTOMER_INTAKE.
- * The freight cost model and pool count too: they produce the modelled delivery cost and the recovery rate, which stay internal (spec §4.6).
+ * The freight cost model and pool count too: they produce the modelled delivery cost and the recovery rate, which stay internal (spec §4.6),
+ * and so does the recovery allocation, which weighs lines by their margin (C2).
  */
-const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake','src/server/customer-response','src/server/freight/cost-model','src/server/freight/pool'];
+const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake','src/server/customer-response','src/server/freight/cost-model','src/server/freight/pool','src/server/freight/recovery'];
 /**
  * The one cost reader a customer route may import (rule 5, task 2.3): Request quote drafts a priced
  * quote, so it needs the pricing engine. It takes only customer-supplied fields and returns only

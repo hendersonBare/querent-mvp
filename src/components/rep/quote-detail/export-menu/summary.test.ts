@@ -83,6 +83,15 @@ describe('quoteSummaryText',()=>{
     expect(text).toContain('Items $1,005.00 · Freight $0.00 · Total $1,005.00 before tax');
   });
 
+  it('prices each line at the customer-facing price (unit price + freight recovery), with nothing about the recovery (spec §4.5)',()=>{
+    const lines=[{...SAMPLE_LINES[0],freight_recovery:240},...SAMPLE_LINES.slice(1)];
+    const detail=sampleDetail({lines});
+    const text=summaryOf(detail);
+    expect(text).toContain('10 x HCS-12-13-2G8 Hex cap screw 1/2-13 x 2 in (Box of 50) @ $33.90 = $339.00');
+    expect(text).toContain('Items $1,146.40 · Freight $0.00 · Total $1,146.40 before tax');
+    expect(text).not.toMatch(/recover|2\.40|31\.50/i);
+  });
+
   it('copies only customer fields from the detail: nothing else rides along',()=>{
     const q=summaryQuoteOf(sampleDetail(),SAMPLE_LINES,figuresOf(sampleDetail()));
     expect(Object.keys(q).sort()).toEqual(['branch','contact','customer','draft','freight','fulfillment','lines','quote_number','revision','ship_to','subtotal','terms','total','valid_until']);

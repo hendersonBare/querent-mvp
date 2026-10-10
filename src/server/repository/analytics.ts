@@ -1,6 +1,7 @@
 import 'server-only';
 import type {QuoteFact,QuoteLineFact,RequestedItem,SentLineFact} from '@/domain';
 import {categories,type Analytics,type Category} from '@/lib/contracts';
+import {fromCents,roundDollars} from '@/lib/money';
 import {aggregateAccess} from './access';
 import {customerIds} from './accounts';
 import {all,bool,list} from './sql';
@@ -64,15 +65,20 @@ export function quoteLineFacts(scope:CustomerScope){
 /**
  * Internal: the lines of each quote's last sent revision (the snapshot the customer saw), with
  * each line's cost and the floor for (quote rep x category): margin vs floor. A quote the rep is
- * editing after a change request still reads as sent until it is sent again.
+ * editing after a change request still reads as sent until it is sent again. The snapshot holds the
+ * customer-facing price (unit price + freight recovery, spec §4.5); margin stays on the price before
+ * recovery (OA-10), so the recovery of the quote line the cost comes from (the same match) is taken
+ * off, as the internal worksheet does. The snapshot itself carries no recovery field.
  */
-export function sentLineFacts(scope:CustomerScope){
-  return all<SentLineFact>(`SELECT q.id quote_id,v.revision,i.id item_id,i.sku,i.category_id,json_extract(l.value,'$.qty') qty,json_extract(l.value,'$.unit_price') unit_price,
-      coalesce((SELECT d.unit_cost FROM quote_lines d WHERE d.quote_id=q.id AND d.item_id=i.id ORDER BY d.line_no LIMIT 1),i.cost) unit_cost,f.margin_floor
+export function sentLineFacts(scope:CustomerScope):SentLineFact[]{
+  const rows=all<SentLineFact&{freight_recovery:number|null}>(`SELECT q.id quote_id,v.revision,i.id item_id,i.sku,i.category_id,json_extract(l.value,'$.qty') qty,json_extract(l.value,'$.unit_price') unit_price,
+      coalesce((SELECT d.unit_cost FROM quote_lines d WHERE d.quote_id=q.id AND d.item_id=i.id ORDER BY d.line_no LIMIT 1),i.cost) unit_cost,f.margin_floor,
+      (SELECT d.freight_recovery FROM quote_lines d WHERE d.quote_id=q.id AND d.item_id=i.id ORDER BY d.line_no LIMIT 1) freight_recovery
     FROM quotes q JOIN quote_revisions v ON v.quote_id=q.id AND v.revision=(SELECT max(r.revision) FROM quote_revisions r WHERE r.quote_id=q.id)
     JOIN json_each(v.snapshot,'$.lines') l JOIN items i ON i.sku=json_extract(l.value,'$.sku')
     LEFT JOIN rep_category_floors f ON f.rep_id=q.rep_id AND f.category_id=i.category_id
     WHERE q.customer_id IN (SELECT value FROM json_each(?)) ORDER BY q.requested_at,q.quote_number,l.key`,bindScope(scope));
+  return rows.map(({freight_recovery:recovery,...row})=>recovery?{...row,unit_price:roundDollars(row.unit_price-fromCents(recovery))}:row);
 }
 
 /** Items on the most quotes (then the most qty). */
