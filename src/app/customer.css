@@ -871,6 +871,9 @@
   .ip-suggestion {
     gap: 8px 12px;
   }
+  .ip-suggestion .ip-item {
+    grid-area: auto;
+  }
   .ip-add {
     align-self: start;
   }
