@@ -86,7 +86,7 @@ afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail=detailOf(server)){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
-    initialBadges={{quotes:1}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:1,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const settle=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
 /** The panel labelled `label`, opened (a closed panel renders only its summary). */

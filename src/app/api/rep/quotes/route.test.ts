@@ -43,3 +43,14 @@ it('asks for a workspace without a session, and refuses the customer persona',as
   expect(customer.headers.get('cache-control')).toMatch(/no-store/);
   expect(await customer.json()).toEqual({detail:'Supplier access required.'});
 });
+
+it('serves the Needs attention view with ?attention=1, and its oldest-first toggle with &sort=oldest (task A2)',async()=>{
+  const urgent=await (await get('?attention=1')).json();
+  expect(urgent).toMatchObject({attention:true,sort:'urgent',status:null,attention_count:3});
+  expect(urgent.rows.map((r:{quote_number:string})=>r.quote_number)).toEqual(['Q-24790','Q-24817','Q-24789']);
+  expect(urgent.rows[0].aging).toMatchObject({level:'red',reason:expect.stringMatching(/^Changes requested /)});
+  const oldest=await (await get('?attention=1&sort=oldest&customer=wasatch')).json();
+  expect(oldest).toMatchObject({attention:true,sort:'oldest',customer:{id:'wasatch'}});
+  expect(oldest.rows.map((r:{quote_number:string})=>r.quote_number)).toEqual(['Q-24817','Q-24789','Q-24790']);
+  expect((await (await get('?attention=yes')).json()).attention).toBe(false);
+});

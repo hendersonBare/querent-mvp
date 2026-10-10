@@ -70,7 +70,7 @@ afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
-    initialBadges={{quotes:0}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:0,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const section=()=>screen.getByRole('group',{name:'Suggested by Querent'}) as HTMLDetailsElement;
 const chipTitles=()=>within(section()).queryAllByRole('listitem').map(li=>li.querySelector('p')!.textContent);

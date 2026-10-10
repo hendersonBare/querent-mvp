@@ -55,4 +55,19 @@ describe('GET customer/quotes/:id',()=>{
     for(const query of ['?rev=0','?rev=draft','?rev=-1','?rev=1.5','?rev='])
       expect((await get('q-24817',{query})).status,query).toBe(400);
   });
+
+  it('stamps customer_viewed_at when Dana opens a sent revision, and not for a draft or someone else’s quote (v3 spec §3, task A2)',async()=>{
+    const {createQuote,quoteTouchClocks}=await import('@/server/repository');
+    const before=Date.now();
+    await get('q-24817');
+    const viewed=quoteTouchClocks('q-24817')!.customer_viewed_at;
+    expect(viewed).not.toBeNull();
+    expect(Date.parse(viewed!)).toBeGreaterThanOrEqual(before-1000);
+    const draft=createQuote({customerId:'wasatch',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G8',qty:1,unitPrice:40}]});
+    expect((await get(draft.id)).json.shown).toBeNull();
+    expect(quoteTouchClocks(draft.id)!.customer_viewed_at).toBeNull();
+    await get(theirs.id);
+    expect(quoteTouchClocks(theirs.id)!.customer_viewed_at).toBeNull();
+    expect(quoteTouchClocks('q-24817')!.last_rep_touch_at).toBeNull();
+  });
 });
