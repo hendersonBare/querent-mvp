@@ -53,6 +53,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   orders:()=>customer.orders('wasatch'),
   orderStatus:()=>customer.orderStatus('wasatch'),
   purchasedItems:()=>customer.purchasedItems('wasatch'),
+  coPurchases:()=>customer.coPurchases('wasatch','CW-45-045-T1'),
   customerPrices:()=>customer.customerPrices('wasatch',ALL_ITEMS(),ON),
   customerQuote:()=>customer.customerQuote('wasatch','Q-24816'),
   customerQuoteRevision:()=>customer.customerQuoteRevision('wasatch','Q-24816'),
