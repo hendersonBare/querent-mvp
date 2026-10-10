@@ -11,7 +11,8 @@
 | C2 | [#42](https://github.com/hendersonBare/querent-mvp/pull/42) | merged (1 fix round) |
 | A2 | [#43](https://github.com/hendersonBare/querent-mvp/pull/43) | merged |
 | D1 | [#44](https://github.com/hendersonBare/querent-mvp/pull/44) | merged |
-| C3 | pending | in progress |
+| C3 | [#47](https://github.com/hendersonBare/querent-mvp/pull/47) | merged (1 fix round) |
+| F1 | pending | in progress |
 | D2 | [#45](https://github.com/hendersonBare/querent-mvp/pull/45) | merged |
 | D3 | [#46](https://github.com/hendersonBare/querent-mvp/pull/46) | merged |
 | E1 | [#41](https://github.com/hendersonBare/querent-mvp/pull/41) | merged |
