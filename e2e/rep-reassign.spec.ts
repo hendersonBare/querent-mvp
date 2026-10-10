@@ -82,8 +82,12 @@ test("Brandi opens Mara's quote read-only, reassigns it to herself, and can edit
   await price.fill("84");
   await price.press("Tab");
   await expect(page.getByRole("status").filter({ hasText: "All changes saved" })).toBeVisible();
-  await page.getByRole("button", { name: /Activity/ }).click();
-  await expect(page.getByText(`Brandi Gallegos reassigned ${fixture.other_rep} from Mara Jensen to Brandi Gallegos`)).toBeVisible();
+  const activity = page.getByRole("group", { name: "Activity" });
+  await activity.locator("summary").click();
+  const entries = activity.getByRole("list", { name: "Activity, newest first" }).getByRole("listitem");
+  // Newest first: her price change, then the move.
+  await expect(entries.nth(0)).toContainText("Brandi changed Nitrile disposable gloves");
+  await expect(entries.nth(1)).toContainText(`Brandi Gallegos reassigned ${fixture.other_rep} from Mara Jensen to Brandi Gallegos`);
   await screenshot(page, testInfo, "reassigned-to-brandi");
 
   // My quotes lists it now.

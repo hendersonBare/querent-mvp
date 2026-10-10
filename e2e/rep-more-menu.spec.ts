@@ -1,9 +1,9 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 
-// The quote detail's ⋯ menu (task 3.5; spec §4, §5.4; docs/design/screens/06 without "Reassign
-// to another rep"): Duplicate quote makes a new ready_for_review quote and opens it (keeping
-// ?customer=), Reset sample quote restores Q-24817 to its seed state, and Open customer in ERP
-// is disabled with the tooltip "Available after ERP integration".
+// The quote detail's ⋯ menu (task 3.5; spec §4, §5.4; docs/design/screens/06): Duplicate quote
+// makes a new ready_for_review quote and opens it (keeping ?customer=), Reset sample quote restores
+// Q-24817 to its seed state, and Open customer in ERP is disabled with the tooltip "Available after
+// ERP integration". "Reassign to another rep" is the manager's (Brandi, task D2; e2e/rep-reassign.spec.ts).
 //
 // Before each test the database is reset to the seed pinned to the mockup's day
 // (POST /api/test/reset), and POST /api/test/rep-quotes adds a sent, a changes_requested, an
@@ -87,12 +87,12 @@ async function inViewport(page: Page, locator: Locator) {
   expect(box.x + box.width).toBeLessThanOrEqual(width);
 }
 
-test("screen 06 at 1440px: Duplicate, Open customer in ERP (disabled, with its tooltip) and Reset sample; no Reassign", async ({ page }, testInfo) => {
+test("screen 06 at 1440px: Duplicate, Reassign (the manager's), Open customer in ERP (disabled, with its tooltip) and Reset sample", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openQuote(page);
   const menu = await openMenu(page);
-  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Open customer in ERP", "Reset sample quote"]);
-  await expect(menu.getByText(/Reassign/)).toHaveCount(0);
+  // Brandi is the manager, so she has the mockup's "Reassign to another rep" (task D2).
+  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Reassign to another rep", "Open customer in ERP", "Reset sample quote"]);
   await expect(menu.getByRole("separator")).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Duplicate quote" })).toBeFocused();
   await screenshot(page, testInfo, "more-menu-1440");
@@ -119,7 +119,7 @@ test("screen 06 at 1440px: Duplicate, Open customer in ERP (disabled, with its t
 
   // Keyboard: the arrow keys reach it, and focus shows the tooltip.
   await page.mouse.move(0, 0);
-  await menu.getByRole("menuitem", { name: "Duplicate quote" }).focus();
+  await menu.getByRole("menuitem", { name: "Reassign to another rep" }).focus();
   await page.keyboard.press("ArrowDown");
   await expect(erp).toBeFocused();
   await expect(tooltip).toBeVisible();
@@ -148,7 +148,7 @@ test("Duplicate creates a new ready_for_review quote from the latest draft, open
   await expect(price(page, "HCS-12-13-2G8")).toHaveValue("33.00");
   await expect(page.getByRole("rowheader")).toHaveText(SEEDED_LINES.map(([sku]) => new RegExp(sku)));
   // Only the sample can be reset.
-  await expect((await openMenu(page)).getByRole("menuitem")).toHaveText(["Duplicate quote", "Open customer in ERP"]);
+  await expect((await openMenu(page)).getByRole("menuitem")).toHaveText(["Duplicate quote", "Reassign to another rep", "Open customer in ERP"]);
   await page.keyboard.press("Escape");
 
   // The rep made it, so the badge doesn't move, and it is in their Quotes list.
@@ -261,7 +261,7 @@ test("phone (390px): the open menu fits the screen, and a tap on Open customer i
   await page.setViewportSize({ width: 390, height: 844 });
   await openQuote(page);
   const menu = await openMenu(page);
-  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Open customer in ERP", "Reset sample quote"]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Reassign to another rep", "Open customer in ERP", "Reset sample quote"]);
   await inViewport(page, menu);
   await noSidewaysScroll(page);
   await screenshot(page, testInfo, "more-menu-390");

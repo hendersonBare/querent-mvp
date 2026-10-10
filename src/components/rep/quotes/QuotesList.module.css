@@ -642,6 +642,10 @@
   white-space: nowrap;
   color: var(--rep-ink-2);
 }
+/* Room for the unread dot between the checkbox and the number. */
+.table[data-pick] .number {
+  padding-left: 24px;
+}
 
 @media (max-width: 640px) {
   .scopebar {
@@ -664,7 +668,10 @@
       "margin margin";
   }
   .table[data-pick] .quote > tr:first-child {
-    padding-left: 44px;
+    padding-left: 54px;
+  }
+  .table[data-pick] .number {
+    padding-left: 0;
   }
   .table .quote .pick {
     position: absolute;

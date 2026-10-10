@@ -6,7 +6,7 @@ import {CUSTOMERS,MANAGER_OPTIONS,SAMPLE,quoteList,quoteRow} from './test-fixtur
 
 // The manager's Quotes list (v3 spec §6 Quotes list; decisions 21, 22; task D2): a "My quotes / All
 // reps" switch, a Rep column with rep and team filters in All reps, row checkboxes and a
-// "Reassign…" bulk action that moves the ticked quotes to an active rep. A rep gets none of it.
+// "Reassign…" bulk action (All reps) that moves the ticked quotes to an active rep. A rep gets none of it.
 
 const nav=vi.hoisted(()=>({query:'',push:vi.fn(),replace:vi.fn()}));
 vi.mock('next/navigation',()=>({
@@ -65,9 +65,10 @@ describe('the manager',()=>{
     expect(within(scope).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
       ['My quotes','/rep/quotes?customer=wasatch'],['All reps','/rep/quotes?customer=wasatch&scope=all']]);
     expect(within(scope).getByRole('link',{current:'page'})).toHaveTextContent('My quotes');
-    // My quotes: no Rep column, no rep or team filter.
-    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Select','Quote','Customer','Requested','Status','Total','Margin']);
+    // My quotes: as a rep sees it, with no Rep column, filters or checkboxes (those are All reps').
+    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Quote','Customer','Requested','Status','Total','Margin']);
     expect(screen.queryByRole('combobox',{name:'Rep'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
   it('in All reps shows the Rep column and the rep and team filters, and keeps the scope in the status links',()=>{

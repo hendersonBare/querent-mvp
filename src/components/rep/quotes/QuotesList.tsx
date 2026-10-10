@@ -23,7 +23,7 @@ import s from './QuotesList.module.css';
 // Aging quotes carry an Aging or Overdue marker, and the Needs attention filter (?attention=1)
 // lists only those, most urgent first or oldest first (v3 spec §3, §6; task A2).
 // The manager (v3 spec §6; decisions 21, 22; task D2) also gets a "My quotes / All reps" switch
-// (?scope=all), a Rep column with rep and team filters (?rep=, ?team=) in All reps, and row
+// (?scope=all), and in All reps a Rep column with rep and team filters (?rep=, ?team=) and row
 // checkboxes with a "Reassign…" bulk action.
 
 /** How often the list is re-read, in step with the Quotes badge, so a new request shows up without a reload. */
@@ -92,14 +92,16 @@ export function QuotesList({initial}:{initial:RepQuoteList}){
   useEffect(()=>{setPicked(current=>{const kept=new Set([...current].filter(id=>shown.includes(id)));return kept.size===current.size?current:kept;});},[shown]);
   const toggle=useCallback((id:string)=>setPicked(current=>{const next=new Set(current);if(!next.delete(id))next.add(id);return next;}),[]);
   const toggleAll=useCallback(()=>setPicked(current=>current.size===shown.length?new Set():new Set(shown)),[shown]);
-  const selection=useMemo<Selection|null>(()=>list.manager?{picked,toggle,toggleAll}:null,[list.manager,picked,toggle,toggleAll]);
+  // Ticking and bulk Reassign live in All reps, where every quote shows its rep; My quotes stays as a rep sees it.
+  const selection=useMemo<Selection|null>(()=>list.manager&&list.scope==='all'?{picked,toggle,toggleAll}:null,[list.manager,list.scope,picked,toggle,toggleAll]);
   function done(result:ReassignResult){
     setReassigning(false);setPicked(new Set());setNotice(reassignedLabel(result));
     void refresh();refreshBadges();
   }
   return <>
-    <RepPageHeader title="Quotes" description={<>Viewing {label}{list.unread>0&&<> · {unreadLabel(list.unread)}</>}</>}/>
-    {list.manager&&<ScopeBar list={list}/>}
+    <RepPageHeader title="Quotes" description={<>Viewing {label}{list.unread>0&&<> · {unreadLabel(list.unread)}</>}</>}
+      actions={list.manager&&<ScopeSwitch all={list.scope==='all'}/>}/>
+    {list.manager&&list.scope==='all'&&<RepFilterBar list={list}/>}
     {list.counts.all>0&&<StatusFilter list={list}/>}
     {list.attention&&list.rows.length>0&&<SortToggle list={list}/>}
     {error&&<p className={s.problem} role="status">{error} Trying again in a few seconds.</p>}
@@ -126,19 +128,23 @@ function ManagerReassign({list,picked,onClose,onDone}:{list:RepQuoteList;picked:
     currentRep={owners.size===1?[...owners][0]:null} onClose={onClose} onDone={onDone}/>;
 }
 
-/** The manager's "My quotes / All reps" switch, and in All reps the rep and team filters (task D2). */
-function ScopeBar({list}:{list:RepQuoteList}){
+/** The manager's "My quotes / All reps" switch, beside the page title (task D2). */
+function ScopeSwitch({all}:{all:boolean}){
+  const scope=useRepScope();
+  return <nav className={s.scopeSwitch} aria-label="Whose quotes">
+    <Link href={scope.href('/rep/quotes',false)} aria-current={all?undefined:'page'}>My quotes</Link>
+    <Link href={scope.href('/rep/quotes',true)} aria-current={all?'page':undefined}>All reps</Link>
+  </nav>;
+}
+
+/** All reps' rep and team filters (task D2): each choice is a new URL, keeping the status filter. */
+function RepFilterBar({list}:{list:RepQuoteList}){
   const scope=useRepScope();
   const router=useRouter();
-  const all=list.scope==='all';
   const view:AttentionView=list.attention?{attention:true,sort:list.sort}:null;
   const go=(filters:RepFilters)=>router.push(scope.href(listHref(list.status,view,filters),true));
   return <div className={s.scopebar}>
-    <nav className={s.scopeSwitch} aria-label="Whose quotes">
-      <Link href={scope.href('/rep/quotes',false)} aria-current={all?undefined:'page'}>My quotes</Link>
-      <Link href={scope.href('/rep/quotes',true)} aria-current={all?'page':undefined}>All reps</Link>
-    </nav>
-    {all&&list.manager&&<>
+    {list.manager&&<>
       <label className={s.scopeFilter}>Rep
         <select value={list.rep_filter??''} onChange={event=>go({rep:event.target.value||null,team:list.team_filter})}>
           <option value="">All reps</option>
