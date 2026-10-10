@@ -116,7 +116,7 @@ test("customers: the picker narrows the list and switches the customer page", as
   await section(page, "Customers").click();
   // Wait for the page before picking: the picker keeps whatever page is current (router.replace).
   await expect(page).toHaveURL(/\/rep\/customers$/);
-  await expect(bodyRows(page)).toHaveCount(4);
+  await expect(bodyRows(page)).toHaveCount(6);
   await viewing(page).selectOption("great-basin");
   await expect(page).toHaveURL(/\/rep\/customers\?customer=great-basin$/);
   await expect(bodyRows(page)).toHaveCount(1);
