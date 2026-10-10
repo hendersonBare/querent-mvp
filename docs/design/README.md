@@ -1,7 +1,6 @@
 # Design reference
 
-The visual source of truth for Querent v2 ("Query to Quote"). The full plan and task list live in Notion:
-**Querent HQ → Querent v2: Query to Quote**.
+The visual source of truth for Querent v2 ("Query to Quote"). The spec, plan and task list live in `docs/plans/`.
 
 | File | What it is |
 |---|---|
@@ -28,7 +27,7 @@ The build follows the mockup except where the spec decided otherwise. Verifiers:
 - Each line has a collapsed **"Why this price?"** row with Querent's explanation, including "+$X GP vs customer price". The quote shows "Querent found +$Y GP".
 - A small **"?"** sits beside each line's price-basis dropdown. Hovering, focusing or tapping it shows why Querent suggests that price: the deciding fact, every other fact it checked (contract, last paid, broken case, scarcity, the list ceiling), the GP over customer price, and that price's margin against the rep's floor. The mockup has no such button.
 - The **credit bar** is Querent green for the open balance, with a **grey segment** for this quote that updates live. Over the limit, the end turns red with "Over limit by $X" (a warning only).
-- **Freight is priced by distance** from the selected branch (see Notion spec §Freight), shows the miles and the formula, and can be overridden with a reason.
+- **Freight is priced by distance** from the selected branch (see `docs/plans/spec.md`), shows the miles and the formula, and can be overridden with a reason.
 - ⋯ menu: **Duplicate quote**, **Reset sample quote**, and **Open customer in ERP (disabled, tooltip "Available after ERP integration")**. **No "Reassign to another rep."**
 - Send dialog: **Querent chat is the only channel** (Email and Text are not built). Attach PDF is on by default. "Send quote" opens a second **centered Confirm send** dialog: a **red Cancel** and a **Querent-green Send**, positioned away from the first button. Sending is **blocked** when the quote is unfinished: no lines, a zero qty or missing price, unresolved "call for freight", or delivery with no ship-to.
 - No manager-approval step. No email of the accepted quote to customer service; acceptance ends the MVP.

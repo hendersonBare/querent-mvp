@@ -4,7 +4,7 @@ Querent is a fictional demo of **Query to Quote** for an industrial distributor.
 
 It is one Next.js 16 application (App Router, React 19, TypeScript) backed by a local SQLite file. It needs no database server, accounts, containers, or migrations. All companies, people, and records are fictional.
 
-The spec, design decisions, and task history live in Notion: **Querent HQ → Querent v2: Query to Quote** (<https://app.notion.com/p/3e7afa1db504810fbbddc37175014ead>). The visual reference is [`docs/design/`](docs/design/README.md).
+The spec, decisions, tasks, and build status live in [`docs/plans/`](docs/plans/): `spec.md`, `decision-log.md`, `plan.md`, and `status.md`. The visual reference is [`docs/design/`](docs/design/README.md).
 
 ## Personas and demo data
 
@@ -234,7 +234,7 @@ Railway's free credit is enough to experiment with, but whether it runs continuo
 
 ## Security and known limitations
 
-This is a demo, not a product. Never put real customer, financial, or personal data into it. The Notion page **Querent MVP → Security & Limitations** has the same list.
+This is a demo, not a product. Never put real customer, financial, or personal data into it.
 
 ### Security model
 
@@ -261,4 +261,4 @@ Also by design:
 
 ## Working on this repo
 
-Work is planned and tracked in Notion (link above). To build or resume, run the `/querent-task-loop` skill. The implementer and verifier agents are in `.claude/agents/`, and the verification checklist is `/querent-verify`. This is Next.js 16: read `node_modules/next/dist/docs/` before changing framework code (see `AGENTS.md`).
+Work is planned in `docs/plans/plan.md` and tracked in `docs/plans/status.md`. To build or resume, run the `/querent-task-loop` skill: it claims each task as a worktree and branch `task/<task-id>-<slug>` and merges only when every test gate passes and the verifier approves. The implementer and verifier agents are in `.claude/agents/`, and the verification checklist is `/querent-verify`. This is Next.js 16: read `node_modules/next/dist/docs/` before changing framework code (see `AGENTS.md`).
