@@ -39,3 +39,5 @@ Choices the decision log does not settle, made by the unattended build. Each has
 | OA-33 | `001_baseline.sql` also writes `meta.schema_version='4'` so pre-T1 code can still open a post-T1 database after a revert. | Keeps the revert path in the T1 rollback plan working. |
 | OA-34 | Settings > Data sources shows "Schema migration <latest id>" instead of the schema version number. | `SCHEMA_VERSION` no longer exists (decision 8). |
 | OA-35 | `cents` in `snapshot.ts` stays as an alias of the shared helper to avoid touching ~10 callers. | Minimal diff; one implementation. |
+| OA-36 | The rep chat transcript read is `conversationMessagePage` (not an overload of the customer-scoped `conversationMessages`), and a customer calling the rep messages route gets 403 like every rep route (another rep gets 404). | Avoids widening the customer-safe module; matches existing `repRoute` behaviour. |
+| OA-37 | The "N messages" count comes from the first transcript page loaded with the quote; the View full chat button is hidden when the quote has no conversation. | Keeps the quote detail payload unchanged. |
