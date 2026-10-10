@@ -34,10 +34,10 @@ const sentQuote=async(sentAt=SEND,input:Partial<NewQuote>={})=>(await sendQuote(
 describe('seeded history: lost quotes are stored as expired (task 0.2)',()=>{
   // Runs first, before other tests add quotes.
   const NOW=`${SEED_DATE}T18:00:00.000Z`;
-  it('counts 17 won and 7 lost Wasatch quotes plus the open sample: 71%, as the Customer panel does',()=>{
+  it('counts 17 won and 7 lost Wasatch quotes plus the open sample and three aging quotes (task A2): 71%, as the Customer panel does',()=>{
     expect(SEED_DATE).toBe('2026-09-23');
     const rate=winRate(quotes({customerId:'wasatch'}),NOW);
-    expect(rate).toMatchObject({won:17,lost:7,open:1});
+    expect(rate).toMatchObject({won:17,lost:7,open:4});
     expect(Math.round(rate.rate!*100)).toBe(71);
     expect(customerStats('wasatch')).toMatchObject({quotes_accepted:17,quotes_lost:7,win_rate:rate.rate});
   });
@@ -216,7 +216,8 @@ describe('customer response: sent --> changes_requested --> sent (rev 2) --> acc
     const q=requestChanges('wasatch','Q-24817',{revision:1,note:'  Can you do 20 boxes of the bolts?  ',now:REQUEST});
     expect(q).toMatchObject({status:'changes_requested',revision:1,change_request_note:'Can you do 20 boxes of the bolts?',responded_at:REQUEST,unread_for_rep:true,unread_for_customer:false});
     expect(lastActivity(SAMPLE)).toMatchObject({actor:'customer',actor_id:'dana',kind:'changes_requested',at:REQUEST,message:'Dana requested changes to Q-24817 rev 1: "Can you do 20 boxes of the bolts?"'});
-    expect(quotes({statuses:['changes_requested']}).map(r=>[r.quote_number,r.change_request_note])).toEqual([['Q-24817','Can you do 20 boxes of the bolts?']]);
+    expect(quotes({statuses:['changes_requested']}).map(r=>[r.quote_number,r.change_request_note])).toEqual([
+      ['Q-24790','Can you hold the anchors for pickup at Ogden instead?'],['Q-24817','Can you do 20 boxes of the bolts?']]); // Q-24790: the seed's aging quote (task A2)
   });
 
   it('allows no customer action while changes are requested',()=>{

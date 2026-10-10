@@ -8,7 +8,9 @@ import {repBadges} from './badges';
 import {openRepQuote,parseStatus,repQuote,repQuoteList} from './quotes';
 
 // The rep's Quotes list (task 3.2, spec §4) against the seed pinned to the mockup's day: 24
-// historical Wasatch quotes (17 accepted, 7 expired) plus the sample Q-24817, all Brandi's.
+// historical Wasatch quotes (17 accepted, 7 expired), the sample Q-24817 and the three open aging
+// quotes (task A2: Q-24789 and Q-24791 sent, Q-24790 changes requested; dated from the reset time,
+// so they are the newest requests), all Brandi's.
 useSeededDatabase();
 
 const NOW='2026-09-23T18:00:00.000Z';
@@ -19,19 +21,20 @@ const request=(input:Partial<NewQuote>={})=>createQuote({customerId:'wasatch',co
   lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5,priceBasis:'last_paid'}],...input});
 
 describe('repQuoteList: the seeded queue',()=>{
-  it("lists the rep's quotes newest request first, the sample quote on top",async()=>{
+  it("lists the rep's quotes newest request first, the sample quote next after the aging quotes",async()=>{
     const list=await repQuoteList('brandi',{now:NOW});
-    expect(list.rows).toHaveLength(25);
-    expect(list.rows[0]).toMatchObject({quote_number:'Q-24817',revision:0,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
+    expect(list.rows).toHaveLength(28);
+    expect(list.rows.slice(0,4).map(r=>r.quote_number)).toEqual(['Q-24791','Q-24790','Q-24789','Q-24817']);
+    expect(list.rows[3]).toMatchObject({quote_number:'Q-24817',revision:0,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
       status:'ready_for_review',requested_at:'2026-09-23T16:14:00.000Z',sent_at:null,unread:true,is_sample:true,line_count:4,change_request:null});
     const requested=list.rows.map(r=>r.requested_at);
     expect(requested).toEqual([...requested].sort().reverse());
     expect(list).toMatchObject({customer:null,other_rep:false,status:null,unread:1,as_of:NOW});
-    expect(list.counts).toEqual({all:25,ready_for_review:1,sent:0,changes_requested:0,accepted:17,expired:7,declined:0});
+    expect(list.counts).toEqual({all:28,ready_for_review:1,sent:2,changes_requested:1,accepted:17,expired:7,declined:0});
   });
 
   it("totals a draft live, as Approve & send would: Q-24817 is $1,122.40 will call at 32.2%, with the gloves under Brandi's 30% PPE floor",async()=>{
-    const [sample]=(await repQuoteList('brandi',{now:NOW})).rows;
+    const sample=(await repQuoteList('brandi',{now:NOW})).rows.find(r=>r.quote_number==='Q-24817')!;
     expect(sample).toMatchObject({total:1122.4,total_basis:'draft',freight_pending:false,margin_label:'32.2%',below_floor_count:1});
     expect(sample.margin).toBeCloseTo(361.4/1122.4,10);
   });
@@ -53,15 +56,15 @@ describe('repQuoteList: the seeded queue',()=>{
     expect(accepted.rows).toHaveLength(17);
     expect(accepted.rows.every(r=>r.status==='accepted')).toBe(true);
     expect(accepted.status).toBe('accepted');
-    expect(accepted.counts.all).toBe(25);
-    expect((await repQuoteList('brandi',{now:NOW,status:'changes_requested'})).rows).toEqual([]);
+    expect(accepted.counts.all).toBe(28);
+    expect((await repQuoteList('brandi',{now:NOW,status:'changes_requested'})).rows.map(r=>r.quote_number)).toEqual(['Q-24790']);
   });
 });
 
 describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
   it('follows the picked customer',async()=>{
     const wasatch=await repQuoteList('brandi',{now:NOW,customerId:'wasatch'});
-    expect(wasatch.rows).toHaveLength(25);
+    expect(wasatch.rows).toHaveLength(28);
     expect(wasatch.customer).toMatchObject({id:'wasatch',name:'Wasatch Mechanical Contractors',rep_id:'brandi'});
     expect(wasatch.other_rep).toBe(false);
   });
@@ -76,7 +79,7 @@ describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
   it("reads an unknown customer as All customers, like the picker",async()=>{
     const list=await repQuoteList('brandi',{now:NOW,customerId:'nobody'});
     expect(list.customer).toBeNull();
-    expect(list.rows).toHaveLength(25);
+    expect(list.rows).toHaveLength(28);
   });
 
   it("shows only the signed-in rep's quotes: another rep's customer reads as theirs, not an empty queue",async()=>{
@@ -85,7 +88,7 @@ describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
       expect(other.rep_id).toBe('mara');
       const all=await repQuoteList('brandi',{now:NOW});
       expect(all.rows.map(r=>r.quote_number)).not.toContain(other.quote_number);
-      expect(all.counts.all).toBe(25);
+      expect(all.counts.all).toBe(28);
       const canyon=await repQuoteList('brandi',{now:NOW,customerId:'canyon-ridge'});
       expect(canyon).toMatchObject({rows:[],other_rep:true,customer:{name:'Canyon Ridge Builders',rep_name:'Mara Jensen'}});
       const mara=await repQuoteList('mara',{now:NOW});
@@ -107,8 +110,8 @@ describe('repQuoteList: statuses the rep acts on',()=>{
     const row=list.rows.find(r=>r.id===q.id)!;
     expect(row).toMatchObject({status:'changes_requested',revision:1,unread:true,total:315,total_basis:'draft',
       change_request:{note:'Make it 12 boxes and deliver Friday.',by:'Dana Ortiz',at:LATER}});
-    expect(list.counts.changes_requested).toBe(1);
-    expect((await repQuoteList('brandi',{now:LATER,status:'changes_requested'})).rows.map(r=>r.id)).toEqual([q.id]);
+    expect(list.counts.changes_requested).toBe(2);
+    expect((await repQuoteList('brandi',{now:LATER,status:'changes_requested'})).rows.map(r=>r.id)).toEqual(['q-24790',q.id]);
   });
 
   it('shows an overdue sent quote as expired: the lazy expiry is stored before listing',async()=>{
@@ -119,7 +122,8 @@ describe('repQuoteList: statuses the rep acts on',()=>{
     const expired=await repQuoteList('brandi',{now:afterExpiry});
     expect(expired.rows.find(r=>r.id===sent.id)).toMatchObject({status:'expired',total:315});
     expect(quote(sent.id)!.status).toBe('expired');
-    expect(expired.counts.sent).toBe(0);
+    // Only the seed's two aging quotes are still sent: they were sent days before the reset time, valid 14 days.
+    expect(expired.counts.sent).toBe(2);
   });
 
   it('totals the items only while a draft is still call for freight',async()=>{

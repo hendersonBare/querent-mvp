@@ -8,7 +8,9 @@ import {analyticsScope,repAnalytics} from './service';
 // Every Analytics metric against the seed (spec §4, task 6.2). useSeededDatabase pins
 // QUERENT_SEED_DATE to 2026-09-23, the mockup's day. The seed's facts (src/server/db/seed/history.ts):
 // 24 Wasatch quotes sent by Brandi over a year (17 accepted, 7 expired) plus the sample Q-24817
-// awaiting her review; 40 Wasatch chat questions. Great Basin (Brandi's), Canyon Ridge (Mara's)
+// awaiting her review; three open aging quotes (seed/aging.ts, task A2: two sent, one with changes
+// requested, each first sent 93 minutes after the request and dated from the reset time, so after
+// NOW and outside the weekly window); 40 Wasatch chat questions. Great Basin (Brandi's), Canyon Ridge (Mara's)
 // and Uinta (Nora's) are placeholders with no data.
 useSeededDatabase();
 
@@ -27,14 +29,14 @@ describe('scope: the signed-in rep\'s customers, narrowed by the picker',()=>{
 });
 
 describe('the five stat cards on the seed',()=>{
-  it('median time from request to sent: 92.5 minutes over the 24 sent quotes',()=>{
-    // First sends (history.ts sendMinutes), sorted: ... 85, 90 | 95, 95 ...: the two middle values average 92.5.
-    expect(brandi().turnaround).toEqual({median_minutes:92.5,quotes:24,fastest_minutes:35,slowest_minutes:260});
+  it('median time from request to sent: 93 minutes over the 27 sent quotes',()=>{
+    // First sends (history.ts sendMinutes), sorted: ... 85, 90 | 95, 95 ... averaged 92.5; the three aging quotes' 93 sit in the middle.
+    expect(brandi().turnaround).toEqual({median_minutes:93,quotes:27,fastest_minutes:35,slowest_minutes:260});
     expect(brandi('wasatch').turnaround).toEqual(brandi().turnaround);
   });
 
-  it('win rate: 17 of 24 decided, 71%, with the sample open (task 1.5 carry-forward)',()=>{
-    expect(brandi().win_rate).toEqual({rate:17/24,won:17,lost:7,open:1});
+  it('win rate: 17 of 24 decided, 71%, with the sample and the three aging quotes open (task 1.5 carry-forward)',()=>{
+    expect(brandi().win_rate).toEqual({rate:17/24,won:17,lost:7,open:4});
     expect(Math.round(brandi().win_rate.rate!*100)).toBe(71);
   });
 
@@ -42,13 +44,14 @@ describe('the five stat cards on the seed',()=>{
     const {quoted}=brandi();
     const sent=quotes({customerId:'wasatch'}).filter(q=>q.sent_total!==null);
     const cents=(rows:typeof sent)=>Math.round(rows.reduce((sum,q)=>sum+q.sent_total!*100,0));
-    expect(quoted).toEqual({quoted:9045.35,accepted:7008.05,quoted_count:24,accepted_count:17,share:7008.05/9045.35});
+    // The history's $9,045.35 plus the aging quotes' $360.80, $1,164.00 and $96.00.
+    expect(quoted).toEqual({quoted:10666.15,accepted:7008.05,quoted_count:27,accepted_count:17,share:7008.05/10666.15});
     expect(quoted.quoted*100).toBe(cents(sent));
     expect(quoted.accepted*100).toBe(cents(sent.filter(q=>q.status==='accepted')));
   });
 
-  it('hours saved: 20 minutes x 24 quotes sent = 8 hours',()=>{
-    expect(brandi().hours_saved).toEqual({hours:8,minutes:480,quotes_sent:24,minutes_per_quote:20});
+  it('hours saved: 20 minutes x 27 quotes sent = 9 hours',()=>{
+    expect(brandi().hours_saved).toEqual({hours:9,minutes:540,quotes_sent:27,minutes_per_quote:20});
   });
 
   it('extra GP Querent found: $10.20 on the two accepted quotes where Brandi kept a raised last-paid price',()=>{
@@ -69,11 +72,11 @@ describe('the trends on the seed',()=>{
     expect([sum('quotes'),sum('won'),sum('lost'),sum('open')]).toEqual([15,10,4,1]);
   });
 
-  it('average margin vs floor: revenue-weighted over the 24 sent quotes, against Brandi\'s floors',()=>{
+  it('average margin vs floor: revenue-weighted over the 27 sent quotes, against Brandi\'s floors',()=>{
     const {margin}=brandi();
-    expect(margin.overall).toMatchObject({lines:56,revenue:8309.6,below_floor:3});
-    expect(margin.overall.margin).toBeCloseTo(0.338,3);
-    expect(margin.overall.floor).toBeCloseTo(0.2397,4);
+    expect(margin.overall).toMatchObject({lines:61,revenue:9930.4,below_floor:3});
+    expect(margin.overall.margin).toBeCloseTo(0.3397,4);
+    expect(margin.overall.floor).toBeCloseTo(0.2332,4);
     expect(margin.categories.map(c=>[c.name,c.floor])).toEqual([
       ['Fasteners',0.2],['Abrasives & Cutting',0.25],['Safety & PPE',0.3],['Material Handling & Tie-downs',0.2],['Tools',0.18],['Janitorial/MRO',0.2],
     ]);
@@ -82,11 +85,11 @@ describe('the trends on the seed',()=>{
     // Tools: drill bits 2 x $58.95 + $58.95, sockets 2 x $72.50, blades 2 x $17.80, paint marker $23.10.
     expect(margin.categories.find(c=>c.category_id==='tools')).toMatchObject({lines:6,revenue:380.55,below_floor:0});
     // The sample Q-24817 isn't sent, so its gloves line (26.6%) isn't here yet.
-    expect(margin.categories.reduce((sum,c)=>sum+c.lines,0)).toBe(56);
+    expect(margin.categories.reduce((sum,c)=>sum+c.lines,0)).toBe(61);
   });
 
-  it('top requested items: bolts and Type 1 wheels on 6 quotes each',()=>{
-    expect(brandi().top_items.map(i=>[i.sku,i.quote_count])).toEqual([['HCS-12-13-2G8',6],['CW-45-045-T1',6],['HN-12-13-G8',5],['FD-45-60Z',4],['FW-12-G8',4]]);
+  it('top requested items: bolts on 7 quotes (one of them the aging Q-24790), Type 1 wheels on 6',()=>{
+    expect(brandi().top_items.map(i=>[i.sku,i.quote_count])).toEqual([['HCS-12-13-2G8',7],['CW-45-045-T1',6],['HN-12-13-G8',5],['FD-45-60Z',4],['FW-12-G8',4]]);
   });
 
   it('questions answered without a rep: all 40, 3 of them "we don\'t carry that"',()=>{
@@ -142,9 +145,9 @@ describe('live changes (these write to the database, so they run last)',()=>{
     const after=brandi(null,'2026-09-24T18:00:00.000Z');
     expect(after.extra_gp).toEqual({amount:21.7,lines:4,quotes:3,accepted_quotes:18});
     expect(Math.round(after.extra_gp.amount*100)).toBe(1020+Math.round(querentFoundGp(sample.lines)*100));
-    expect(after.win_rate).toEqual({rate:18/25,won:18,lost:7,open:0});
-    expect(after.hours_saved.quotes_sent).toBe(25);
-    expect(after.turnaround).toMatchObject({quotes:25,median_minutes:90,fastest_minutes:35});
+    expect(after.win_rate).toEqual({rate:18/25,won:18,lost:7,open:3});
+    expect(after.hours_saved.quotes_sent).toBe(28);
+    expect(after.turnaround).toMatchObject({quotes:28,median_minutes:93,fastest_minutes:35});
     expect(after.weekly.at(-1)).toEqual({week_start:'2026-09-21',quotes:1,won:1,lost:0,open:0});
     expect(after.margin.categories.find(c=>c.category_id==='safety')).toMatchObject({lines:14,below_floor:4});
   });
@@ -165,10 +168,10 @@ describe('live changes (these write to the database, so they run last)',()=>{
   it('stores the expiry of an overdue sent quote before counting it as lost',async()=>{
     const copy=duplicateQuote('Q-24816',{repId:'brandi',now:'2026-09-24T18:00:00.000Z'});
     await sendQuote(copy.id,{repId:'brandi',now:'2026-09-24T19:00:00.000Z'}); // valid until Oct 8
-    // Open: this copy, and the reworked copy of Q-24806 from the test above (changes requested, so it never expires).
-    expect(brandi(null,'2026-10-08T23:00:00.000Z').win_rate).toMatchObject({won:18,lost:7,open:2});
+    // Open: this copy, the reworked copy of Q-24806 from the test above (changes requested, so it never expires) and the three aging quotes.
+    expect(brandi(null,'2026-10-08T23:00:00.000Z').win_rate).toMatchObject({won:18,lost:7,open:5});
     expect(quote(copy.id)!.status).toBe('sent');
-    expect(brandi(null,'2026-10-09T00:00:00.000Z').win_rate).toEqual({rate:18/26,won:18,lost:8,open:1});
+    expect(brandi(null,'2026-10-09T00:00:00.000Z').win_rate).toEqual({rate:18/26,won:18,lost:8,open:4});
     expect(quote(copy.id)!.status).toBe('expired');
   });
 });

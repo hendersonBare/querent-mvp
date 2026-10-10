@@ -36,7 +36,9 @@ describe('customerQuoteList',()=>{
     const {customerQuoteList}=await import('./sidebar');
     const list=customerQuoteList('wasatch',NOW);
     expect(list.length).toBeGreaterThan(20);
-    expect(list[0]).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',total:null,sent_at:null});
+    // The seed's aging quotes (task A2) are dated from the reset time, so they are the newest; the sample comes next.
+    expect(list.slice(0,4).map(q=>q.quote_number)).toEqual(['Q-24791','Q-24790','Q-24789','Q-24817']);
+    expect(list[3]).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',total:null,sent_at:null});
     const requested=list.map(q=>q.requested_at);
     expect(requested).toEqual([...requested].sort().reverse());
     expect(list.filter(q=>q.status!=='ready_for_review').every(q=>typeof q.total==='number'&&q.total>0)).toBe(true);

@@ -16,7 +16,7 @@ it("returns the signed-in rep's analytics for All customers, never cached",async
   const body=await response.json();
   expect(body.scope).toEqual({customer:null,customer_ids:['great-basin','wasatch'],other_rep:false});
   expect(body.win_rate).toMatchObject({won:17,lost:7});
-  expect(body.hours_saved).toMatchObject({hours:8,quotes_sent:24});
+  expect(body.hours_saved).toMatchObject({hours:9,quotes_sent:27}); // 24 history quotes and the 3 aging ones (task A2)
   expect(body.weekly).toHaveLength(26);
   expect(body.queries.total_queries).toBe(40);
 });

@@ -4,6 +4,8 @@ import {migrate} from './migrate';
 import {ERP_SOURCED_TABLES} from './schema';
 import {seedDatabase,seedSampleQuote} from './seed';
 import {addDays} from './seed/dates';
+import {AGED_QUOTES} from './seed/aging';
+import {aging} from '../quotes/aging';
 
 // Seed invariants (task 0.2). Every date in the seed is an offset from the anchor
 // (the day Dana sent the Q-24817 request), so run the checks at the mockup's date
@@ -173,7 +175,8 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
   });
 
   it('has past quotes won and lost at about a 71% win rate, each won quote linked to its order',()=>{
-    const past=all<{id:string;status:string}>("SELECT id,status FROM quotes WHERE is_sample=0");
+    // The aging quotes (task A2, tested below) are open, not past.
+    const past=all<{id:string;status:string}>(`SELECT id,status FROM quotes WHERE is_sample=0 AND id NOT IN (${AGED_QUOTES.map(q=>`'q-${q.number}'`).join(',')})`);
     expect(past.every(q=>['accepted','expired'].includes(q.status))).toBe(true);
     const won=past.filter(q=>q.status==='accepted').length;
     expect(Math.round(won/past.length*100)).toBe(71);
@@ -268,3 +271,39 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
     expect(ERP_SOURCED_TABLES).toEqual(expect.arrayContaining(['items','branch_stock','customer_prices','contracts','contract_lines','customers','orders','order_lines']));
   });
 });
+
+// The open aging quotes (v3 spec §3, decision 39, OA-20; task A2): relative to the reset time, not the anchor.
+describe('aging quotes',()=>{
+  const NOW='2026-10-10T12:00:00.000Z';
+  let d:Database.Database;
+  beforeAll(()=>{d=new Database(':memory:');migrate(d);seedDatabase(d,{anchor:MOCKUP_ANCHOR,now:NOW});});
+  afterAll(()=>d.close());
+  type Row={id:string;quote_number:string;status:'sent'|'changes_requested';customer_id:string;rep_id:string;created_at:string;requested_at:string;sent_at:string;responded_at:string|null;
+    valid_until:string;revision:number;unread_for_rep:number;change_request_note:string|null};
+  const rows=()=>d.prepare(`SELECT * FROM quotes WHERE id IN (${AGED_QUOTES.map(()=>'?').join(',')}) ORDER BY quote_number`).all(...AGED_QUOTES.map(q=>`q-${q.number}`)) as Row[];
+  const hoursBefore=(iso:string)=>(Date.parse(NOW)-Date.parse(iso))/3_600_000;
+
+  it('seeds an Aging sent quote, an Overdue change request and a fresh sent quote for Brandi’s Wasatch, read, dated from the reset time',()=>{
+    const [amber,red,fine]=rows();
+    expect([amber,red,fine].map(q=>[q.quote_number,q.status,q.customer_id,q.rep_id,q.revision,q.unread_for_rep])).toEqual([
+      ['Q-24789','sent','wasatch','brandi',1,0],['Q-24790','changes_requested','wasatch','brandi',1,0],['Q-24791','sent','wasatch','brandi',1,0]]);
+    expect([hoursBefore(amber.sent_at),hoursBefore(red.responded_at!),hoursBefore(fine.sent_at)]).toEqual([100,30,20]);
+    expect(rows().map(q=>aging(q,NOW)?.level)).toEqual(['amber','red','ok']);
+    expect(red.change_request_note).toBeTruthy();
+    for(const q of rows()){
+      // The first send came 93 minutes after the request, the history's median, so the Analytics median holds.
+      expect((Date.parse(q.sent_at)-Date.parse(q.requested_at))/60_000,q.id).toBe(93);
+      expect(q.valid_until,q.id).toBe(addDays(q.sent_at.slice(0,10),14));
+      const revision=d.prepare('SELECT total,snapshot FROM quote_revisions WHERE quote_id=?').get(q.id) as {total:number;snapshot:string};
+      const lines=d.prepare('SELECT round(sum(qty*unit_price),2) FROM quote_lines WHERE quote_id=?').pluck().get(q.id);
+      expect(revision.total,q.id).toBe(lines);
+      expect(JSON.parse(revision.snapshot)).toMatchObject({quote_number:q.quote_number,revision:1,total:lines,fulfillment:'will_call'});
+    }
+  });
+
+  it('keeps Q-24817 the highest number, so the next request is still Q-24818',()=>{
+    expect(d.prepare('SELECT max(quote_number) FROM quotes').pluck().get()).toBe('Q-24817');
+    expect(Math.max(...AGED_QUOTES.map(q=>q.number))).toBeLessThan(24793);
+  });
+});
+
