@@ -9,26 +9,28 @@ export const STATUS_PARAM='status';
 
 /**
  * The rep's status chips. ready_for_review reads "Draft ready" as in the mockup's quote header
- * (docs/design/screens/03); the other four use the spec §3 words. `tone` picks the chip colour.
+ * (docs/design/screens/03); the others use the spec §3 words (declined: v3 spec §6). `tone` picks the chip colour.
  */
-export const REP_STATUS:Readonly<Record<QuoteStatus,{label:string;tone:'draft'|'changes'|'sent'|'accepted'|'expired'}>>={
+export const REP_STATUS:Readonly<Record<QuoteStatus,{label:string;tone:'draft'|'changes'|'sent'|'accepted'|'expired'|'declined'}>>={
   ready_for_review:{label:'Draft ready',tone:'draft'},
   changes_requested:{label:'Changes requested',tone:'changes'},
   sent:{label:'Sent',tone:'sent'},
   accepted:{label:'Accepted',tone:'accepted'},
   expired:{label:'Expired',tone:'expired'},
+  declined:{label:'Declined',tone:'declined'},
 };
 
 /** The status filter, in the order the rep works: what needs them first. */
-export const STATUS_FILTERS:readonly QuoteStatus[]=['ready_for_review','changes_requested','sent','accepted','expired'];
+export const STATUS_FILTERS:readonly QuoteStatus[]=['ready_for_review','changes_requested','sent','accepted','expired','declined'];
 
 /** What an empty status filter says: what's missing, and what would put a quote there. */
 export const EMPTY_STATUS:Readonly<Record<QuoteStatus,{heading:string;body:string}>>={
   ready_for_review:{heading:'No drafts waiting for review',body:'When a customer presses Request quote in Querent chat, the draft lands here for you to price and send.'},
   changes_requested:{heading:'No change requests',body:'When a customer asks for changes to a quote you sent, it shows here with their note.'},
-  sent:{heading:'No quotes waiting on the customer',body:'Quotes you send stay here until the customer accepts, asks for changes, or the quote expires.'},
+  sent:{heading:'No quotes waiting on the customer',body:'Quotes you send stay here until the customer accepts, asks for changes, declines, or the quote expires.'},
   accepted:{heading:'No accepted quotes',body:'Quotes your customers accept show here.'},
   expired:{heading:'No expired quotes',body:'Sent quotes that pass their valid-until date without an answer show here.'},
+  declined:{heading:'No declined quotes',body:'When a customer declines a quote you sent, it shows here with their reason.'},
 };
 
 const usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});

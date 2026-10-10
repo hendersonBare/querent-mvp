@@ -46,9 +46,10 @@ export function deliveryAddress(customerId:string):string|null{
 /** Internal: last order and quote win rate for the rep's Customer panel. */
 export function customerStats(customerId:string):CustomerStats{
   const last=one<{order_number:string;order_date:string;total:number}>('SELECT order_number,order_date,total FROM orders WHERE customer_id=? ORDER BY order_date DESC,order_number DESC LIMIT 1',customerId);
-  const counts=one<{accepted:number|null;expired:number|null}>("SELECT sum(status='accepted') accepted,sum(status='expired') expired FROM quotes WHERE customer_id=?",customerId);
-  const accepted=counts?.accepted??0,expired=counts?.expired??0;
-  return {customer_id:customerId,last_order:last??null,quotes_accepted:accepted,quotes_expired:expired,win_rate:accepted+expired?accepted/(accepted+expired):null};
+  // Lost = expired or declined (A1), as quoteOutcome counts them.
+  const counts=one<{accepted:number|null;lost:number|null}>("SELECT sum(status='accepted') accepted,sum(status IN ('expired','declined')) lost FROM quotes WHERE customer_id=?",customerId);
+  const accepted=counts?.accepted??0,lost=counts?.lost??0;
+  return {customer_id:customerId,last_order:last??null,quotes_accepted:accepted,quotes_lost:lost,win_rate:accepted+lost?accepted/(accepted+lost):null};
 }
 
 const CONTACT='SELECT id,customer_id,name,title,phone,email,is_primary FROM contacts';

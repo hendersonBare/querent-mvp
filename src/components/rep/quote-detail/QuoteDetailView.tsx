@@ -2,7 +2,7 @@
 import {useCallback,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {ChevronRight} from 'lucide-react';
-import {fulfillmentTimeLabel} from '@/server/quotes';
+import {DECLINE_REASON_LABELS,fulfillmentTimeLabel} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
 import {useRepScope} from '../context';
@@ -125,6 +125,13 @@ function StatusBanner({detail}:{detail:QuoteDetail}){
       const answer=[quote.customer_po&&`PO ${quote.customer_po}`,
         quote.fulfillment_time&&`${quote.fulfillment==='delivery'?'delivery':'pickup'} ${fulfillmentTimeLabel(quote.fulfillment_time)} ${quote.fulfillment==='delivery'?'from':'at'} ${quote.branch_code}`].filter(Boolean).join(', ');
       return <p className={s.banner} data-tone="accepted"><strong>{who} accepted rev {quote.revision}{quote.responded_at&&` on ${day(quote.responded_at,as_of)}`}{answer&&` with ${answer}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;
+    }
+    case 'declined':{
+      // The customer's Decline (task A1): the reason, and the Other note, which only the rep sees.
+      const why=quote.decline_reason?`: ${DECLINE_REASON_LABELS[quote.decline_reason]}.`:' without giving a reason.';
+      const at=quote.declined_at??quote.responded_at;
+      return <p className={s.banner} data-tone="declined"><strong>{who} declined rev {quote.revision}{at&&` on ${day(at,as_of)}`}{why}</strong>
+        {quote.decline_note&&<> <q>{quote.decline_note}</q></>} It can’t be edited. Duplicate it to quote again.</p>;
     }
     case 'expired':
       return <p className={s.banner}><strong>Expired{quote.valid_until&&`: it was valid until ${day(quote.valid_until,as_of)}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;

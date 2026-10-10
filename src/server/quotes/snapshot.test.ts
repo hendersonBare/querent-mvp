@@ -10,7 +10,7 @@ const QUOTE:Quote={id:'q-1',quote_number:'Q-1',customer_id:'wasatch',customer_na
   rep_id:'brandi',rep_name:'Brandi Gallegos',status:'ready_for_review',revision:0,conversation_id:null,request_text:null,requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',
   updated_at:'2026-09-23T16:15:00.000Z',sent_at:null,responded_at:null,fulfillment:'delivery',branch_id:'slc',branch_code:'SLC',requested_date:'2026-09-24',fulfillment_time:null,
   ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,valid_days:14,expires_on:null,valid_until:null,
-  customer_po:'7781',customer_note:'Prices include cutting to length.',change_request_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,
+  customer_po:'7781',customer_note:'Prices include cutting to length.',change_request_note:null,declined_at:null,decline_reason:null,decline_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,
   lines:[line(1,10,31.5,{sku:'HCS-12-13-2G8',description:'Hex cap screw',pack:'Box of 50'}),line(2,3,0.1),line(3,7,12.345)]};
 
 describe('buildSnapshot',()=>{

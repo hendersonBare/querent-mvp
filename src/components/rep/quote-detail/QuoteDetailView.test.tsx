@@ -410,6 +410,25 @@ describe('read-only quotes',()=>{
     expect(screen.getByText('Dana accepted rev 2 on Sep 25 with PO 7781, pickup Tue Sep 29, 10:00 AM at SLC.')).toBeInTheDocument();
   });
 
+  it('a declined quote is read-only and names the reason (task A1)',()=>{
+    renderPage(sampleDetail({editable:false,quote:{status:'declined',revision:1,sent_at:'2026-09-23T17:00:00.000Z',responded_at:'2026-09-24T15:00:00.000Z',
+      declined_at:'2026-09-24T15:00:00.000Z',decline_reason:'price_too_high',valid_until:'2026-10-07'},valid_until:'2026-10-07'}));
+    expect(screen.getByText('Declined',{selector:'[data-tone]'})).toBeInTheDocument();
+    expect(screen.getByText('Dana declined rev 1 on Sep 24: Price too high.')).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Approve & send'})).toBeDisabled();
+  });
+
+  it('a declined quote shows the Other note, and says when no reason was given',()=>{
+    const declined=(extra:object)=>sampleDetail({editable:false,quote:{status:'declined',revision:1,sent_at:'2026-09-23T17:00:00.000Z',responded_at:'2026-09-24T15:00:00.000Z',
+      declined_at:'2026-09-24T15:00:00.000Z',valid_until:'2026-10-07',...extra},valid_until:'2026-10-07'});
+    const {unmount}=renderPage(declined({decline_reason:'other',decline_note:'Went with a local shop'}));
+    expect(screen.getByText(/Dana declined rev 1 on Sep 24: Other\./)).toBeInTheDocument();
+    expect(screen.getByText('Went with a local shop',{selector:'q'})).toBeInTheDocument();
+    unmount();
+    renderPage(declined({decline_reason:null}));
+    expect(screen.getByText('Dana declined rev 1 on Sep 24 without giving a reason.')).toBeInTheDocument();
+  });
+
   it('a changes_requested quote is editable and shows the customer’s note',()=>{
     renderPage(sampleDetail({quote:{status:'changes_requested',revision:1,responded_at:'2026-09-24T15:00:00.000Z',change_request_note:'Make the gloves 6 cases.'}}));
     expect(screen.getByText('Make the gloves 6 cases.')).toBeInTheDocument();

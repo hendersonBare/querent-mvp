@@ -35,4 +35,5 @@ export const STATUS_CHIPS:Readonly<Record<QuoteStatus,{label:string;tone:'waitin
   accepted:{label:STATUS_LABELS.accepted,tone:'done'},
   changes_requested:{label:STATUS_LABELS.changes_requested,tone:'changes'},
   expired:{label:STATUS_LABELS.expired,tone:'closed'},
+  declined:{label:STATUS_LABELS.declined,tone:'closed'},
 };

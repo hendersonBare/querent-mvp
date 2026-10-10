@@ -1,22 +1,25 @@
 'use client';
 import {useEffect,useId,useRef,useState,type FormEvent} from 'react';
 import {Lock} from 'lucide-react';
-import type {CustomerQuotePreview} from '@/domain';
+import type {CustomerQuotePreview,DeclineReason} from '@/domain';
 import {
-  checkFulfillmentTime,cleanNote,cleanPo,earliestDay,fulfillmentTimeLabel,latestDay,NOTE_MAX,noteProblem,PO_MAX,poProblem,slotLabel,slotsOn,TIME_SLOTS,
+  checkFulfillmentTime,cleanDeclineNote,cleanNote,cleanPo,declineNoteProblem,earliestDay,fulfillmentTimeLabel,latestDay,NOTE_MAX,noteProblem,PO_MAX,poProblem,slotLabel,slotsOn,TIME_SLOTS,
 } from '@/server/quotes';
 import {emitQuotesChanged} from '../quotes-changed';
-import {acceptQuestion,actionNote,canRespond,changesQuestion,fulfillmentWord,lockedSummary,placeText,repFirstName} from './copy';
+import {acceptQuestion,actionNote,canRespond,changesQuestion,declineQuestion,fulfillmentWord,lockedSummary,placeText,repFirstName} from './copy';
 import {ConfirmResponse,type ConfirmFact} from './ConfirmResponse';
-import {newResponseKey,postResponse,ResponseRefused,type AcceptBody,type ChangesBody} from './respond';
+import {DeclineDialog} from './DeclineDialog';
+import {newResponseKey,postResponse,ResponseRefused,type AcceptBody,type ChangesBody,type DeclineBody} from './respond';
 
-// The preview modal's action bar (spec §3, §5.4; task 5.2): Accept and Request changes, enabled only
-// on the latest revision the rep sent while it waits for an answer and hasn't expired.
+// The preview modal's action bar (spec §3, §5.4; task 5.2): Decline (A1), Request changes and Accept,
+// enabled only on the latest revision the rep sent while it waits for an answer and hasn't expired.
 //
 //   Accept          -> a form: pickup or delivery day and time, and the PO. Branch and pickup or
 //                      delivery show as the rep approved them, locked (changing them needs Request
 //                      changes). The date field starts at the earliest day with a slot left.
 //   Request changes -> a form: the note, required.
+//   Decline         -> straight to the centered Decline dialog (./DeclineDialog): an optional reason,
+//                      and for Other an optional note for the rep; its Decline button answers.
 //
 // Each form's button opens the centered Confirm dialog (./ConfirmResponse), whose Send answers.
 // One answer per click: Send runs once at a time, and each attempt carries an Idempotency-Key that a
@@ -34,7 +37,9 @@ const capitalized=(text:string)=>text.charAt(0).toUpperCase()+text.slice(1);
 
 type Pending=
   |{kind:'accept';body:AcceptBody;at:string;po:string}
-  |{kind:'changes';body:ChangesBody;note:string};
+  |{kind:'changes';body:ChangesBody;note:string}
+  |{kind:'decline';body:DeclineBody};
+const WHAT:Record<Pending['kind'],string>={accept:'acceptance',changes:'change request',decline:'decline'};
 
 export interface ResponseBarProps {
   preview:CustomerQuotePreview|null;
@@ -56,9 +61,13 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
   const [note,setNote]=useState('');
   const [formProblem,setFormProblem]=useState<string|null>(null);
   const [barProblem,setBarProblem]=useState<string|null>(null);
-  const [pending,setPending]=useState<Pending|null>(null);
+  const [pending,setPending]=useState<Exclude<Pending,{kind:'decline'}>|null>(null);
   const [busy,setBusy]=useState(false);
   const [confirmProblem,setConfirmProblem]=useState<string|null>(null);
+  /** The Decline dialog: open, the reason picked (none at first) and the Other note. */
+  const [declining,setDeclining]=useState(false);
+  const [reason,setReason]=useState<DeclineReason|null>(null);
+  const [declineNote,setDeclineNote]=useState('');
   const running=useRef(false);
   /** The key of an answer that got no reply: trying again reuses it, so the server can't take it twice. */
   const unanswered=useRef<string|null>(null);
@@ -72,6 +81,8 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
     else if(step==='idle'&&previous.current!=='idle')(previous.current==='accept'?acceptButton:changesButton).current?.focus();
     previous.current=step;
   },[step]);
+  // After a decline (the bar never left idle): the note that says it was declined.
+  useEffect(()=>{if(!declining&&step==='idle'&&focusNote.current){focusNote.current=false;noteRef.current?.focus();}},[declining,step]);
 
   const shown=preview?.shown??null;
   const open=!!preview&&canRespond(preview,now);
@@ -80,6 +91,7 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
 
   // A form whose quote can no longer be answered (it expired while open, or a reload moved it on) closes.
   useEffect(()=>{if(!open&&step!=='idle')onStep('idle');},[open,step,onStep]);
+  useEffect(()=>{if(!open&&declining&&!busy)setDeclining(false);},[open,declining,busy]);
 
   function start(next:'accept'|'changes'){
     setFormProblem(null);setBarProblem(null);
@@ -109,15 +121,32 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
     setPending({kind:'changes',body:{revision:shown.revision,note:cleaned},note:cleaned});
   }
 
-  async function send(){
+  function startDecline(){
+    setBarProblem(null);setConfirmProblem(null);setReason(null);setDeclineNote('');
+    setDeclining(true);
+  }
+  function cancelDecline(){
+    if(busy)return;
+    setDeclining(false);setConfirmProblem(null);
+  }
+  function decline(){
+    if(!shown)return;
+    const note=reason==='other'?cleanDeclineNote(declineNote):'',problem=declineNoteProblem(note);
+    if(problem){setConfirmProblem(problem);return;}
+    void send({kind:'decline',body:{revision:shown.revision,reason,...(note?{note}:{})}});
+  }
+
+  async function send(pending:Pending|null){
     if(running.current||!preview||!pending)return;
     running.current=true;
     setBusy(true);setConfirmProblem(null);
     const key=unanswered.current??=newResponseKey();
     try{
-      const answer=pending.kind==='accept'?await postResponse(preview.id,'accept',pending.body,key):await postResponse(preview.id,'request-changes',pending.body,key);
+      const answer=pending.kind==='accept'?await postResponse(preview.id,'accept',pending.body,key)
+        :pending.kind==='changes'?await postResponse(preview.id,'request-changes',pending.body,key)
+        :await postResponse(preview.id,'decline',pending.body,key);
       unanswered.current=null;
-      setPending(null);setNote('');
+      setPending(null);setNote('');setDeclining(false);
       focusNote.current=true;
       onAnswered(answer.quote);
       onStep('idle');
@@ -127,9 +156,11 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
         // Any answer, even a refusal, means the next attempt is a new one: a new key.
         unanswered.current=null;
         setPending(null);
-        if(caught.status===400)setFormProblem(caught.message);
-        else{setBarProblem(caught.message);onStep('idle');onStale();}
-      }else setConfirmProblem(`No answer from the server, so your ${pending.kind==='accept'?'acceptance':'change request'} may not have gone through. Press Send again: it won’t be sent twice.`);
+        // A refused decline note stays in its dialog; a refused form input goes back to the form.
+        if(caught.status===400&&pending.kind==='decline')setConfirmProblem(caught.message);
+        else if(caught.status===400)setFormProblem(caught.message);
+        else{setDeclining(false);setBarProblem(caught.message);onStep('idle');onStale();}
+      }else setConfirmProblem(`No answer from the server, so your ${WHAT[pending.kind]} may not have gone through. Press ${pending.kind==='decline'?'Decline':'Send'} again: it won’t be sent twice.`);
     }finally{
       running.current=false;
       setBusy(false);
@@ -152,16 +183,19 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
             {barProblem&&<p className="qp-problem" role="alert">{barProblem}</p>}
           </div>
           <div className="qp-buttons">
+            <button type="button" className="ip-secondary qp-decline" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={startDecline}>Decline</button>
             <button type="button" ref={changesButton} className="ip-secondary" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={()=>start('changes')}>Request changes</button>
             <button type="button" ref={acceptButton} className="ip-primary" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={()=>start('accept')}>Accept</button>
           </div>
         </>}
     </footer>
-    {confirm&&<ConfirmResponse {...confirm} busy={busy} error={confirmProblem} onCancel={()=>{if(!busy){setPending(null);setConfirmProblem(null);}}} onSend={()=>void send()}/>}
+    {confirm&&<ConfirmResponse {...confirm} busy={busy} error={confirmProblem} onCancel={()=>{if(!busy){setPending(null);setConfirmProblem(null);}}} onSend={()=>void send(pending)}/>}
+    {declining&&preview&&<DeclineDialog question={declineQuestion(preview)} rep={rep} reason={reason} note={declineNote} busy={busy} error={confirmProblem}
+      onReason={value=>{setReason(value);setConfirmProblem(null);}} onNote={setDeclineNote} onCancel={cancelDecline} onDecline={decline}/>}
   </>;
 }
 
-function confirmOf(pending:Pending,preview:CustomerQuotePreview,shown:NonNullable<CustomerQuotePreview['shown']>,rep:string){
+function confirmOf(pending:Exclude<Pending,{kind:'decline'}>,preview:CustomerQuotePreview,shown:NonNullable<CustomerQuotePreview['shown']>,rep:string){
   const quote={label:'Quote',value:`${preview.quote_number} rev ${shown.revision}`};
   const to={label:'To',value:preview.rep?.name??rep};
   if(pending.kind==='changes')return {title:'Confirm change request',question:changesQuestion(preview),

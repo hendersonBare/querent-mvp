@@ -257,6 +257,10 @@
   color: var(--rep-muted);
   box-shadow: inset 0 0 0 1px var(--rep-line);
 }
+.chip[data-tone="declined"] {
+  background: var(--rep-bad-soft);
+  color: var(--rep-bad);
+}
 .tag {
   display: inline-block;
   margin-left: 6px;

@@ -33,7 +33,7 @@ export function StatCards({data}:{data:RepAnalytics}){
     </StatCard>
 
     <StatCard label="Win rate" topic="win rate" value={formatPercent(w.rate)}
-      info={<>Accepted quotes divided by decided quotes{decided?<>: {w.won} of {decided}</>:null}. A quote is decided when the customer accepts it or it expires unanswered, and a sent quote past its valid-until date counts as lost. {w.open?<>{plural(w.open,'quote')} still waiting on you or the customer {w.open===1?'doesn’t':'don’t'} count yet.</>:null}</>}>
+      info={<>Accepted quotes divided by decided quotes{decided?<>: {w.won} of {decided}</>:null}. A quote is decided when the customer accepts or declines it, or it expires unanswered, and a sent quote past its valid-until date counts as lost. {w.open?<>{plural(w.open,'quote')} still waiting on you or the customer {w.open===1?'doesn’t':'don’t'} count yet.</>:null}</>}>
       <p className={s.kpiContext}>{decided?`${w.won} won, ${w.lost} lost${w.open?`, ${w.open} open`:''}`:w.open?`${plural(w.open,'quote')} open, none decided yet`:'No quotes decided yet'}</p>
     </StatCard>
 

@@ -21,7 +21,7 @@ export interface PanelCustomer {
   last_order:{order_number:string;order_date:string;total:number}|null;
   /**
    * winRate() (task 1.5) over the customer's quotes requested in the last WIN_RATE_MONTHS: accepted
-   * = won, expired (or sent past valid_until) = lost. The mockup's "71% over 12 months".
+   * = won, expired (or sent past valid_until) or declined = lost. The mockup's "71% over 12 months".
    */
   win_rate:{rate:number|null;won:number;lost:number;open:number};
 }

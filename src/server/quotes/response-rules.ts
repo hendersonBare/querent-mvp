@@ -1,7 +1,7 @@
-import type {Fulfillment} from '@/domain';
+import type {DeclineReason,Fulfillment} from '@/domain';
 import {sanitizeChatText} from './announce';
 
-// What the customer sends with Accept and Request changes (spec §3, task 5.2). Pure and
+// What the customer sends with Accept, Request changes (spec §3, task 5.2) and Decline (v3 §2.1). Pure and
 // client-safe: the preview modal's forms and the customer response service use the same rules, so
 // the form offers only what the server takes.
 //
@@ -144,3 +144,19 @@ export function noteProblem(note:string){
   if(note.length>NOTE_MAX)return `Keep the note to ${NOTE_MAX.toLocaleString('en-US')} characters.`;
   return null;
 }
+
+// ---- Decline (v3 spec §2.1, decision 14) ----
+
+/** The Other note's limit. */
+export const DECLINE_NOTE_MAX=250;
+
+/** Each reason as the customer's dialog, the rep's header and Activity word it. */
+export const DECLINE_REASON_LABELS:Readonly<Record<DeclineReason,string>>={
+  price_too_high:'Price too high',found_other_source:'Found other source',need_sooner:'Need it sooner than quoted',wrong_items:'Wrong items or quantity',other:'Other',
+};
+
+/** The Other note as stored: plain text, trimmed, control and invisible characters removed (OA-28; see sanitizeChatText). */
+export const cleanDeclineNote=(value:unknown)=>sanitizeChatText(value);
+
+/** What's wrong with a cleaned Other note, or null. It is optional. */
+export const declineNoteProblem=(note:string)=>note.length>DECLINE_NOTE_MAX?`Keep the note to ${DECLINE_NOTE_MAX} characters.`:null;

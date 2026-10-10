@@ -27,7 +27,7 @@ export const CHANGES=quoteRow({id:'q-24818',quote_number:'Q-24818',revision:1,st
 export const OLD=quoteRow({id:'q-24793',quote_number:'Q-24793',requested_at:'2025-09-28T15:20:00.000Z',sent_at:'2025-09-28T16:55:00.000Z',total:525.2});
 
 const counts=(rows:RepQuoteRow[]):QuoteStatusCounts=>{
-  const c:QuoteStatusCounts={all:0,ready_for_review:0,sent:0,changes_requested:0,accepted:0,expired:0};
+  const c:QuoteStatusCounts={all:0,ready_for_review:0,sent:0,changes_requested:0,accepted:0,expired:0,declined:0};
   for(const r of rows){c[r.status]++;c.all++;}
   return c;
 };

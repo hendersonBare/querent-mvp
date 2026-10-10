@@ -10,10 +10,12 @@ import {assignedRep,customerQuote,customerQuoteRevision} from '@/server/reposito
 
 const contact=(rep:Rep|null|undefined)=>rep?{name:rep.name,phone:rep.phone,email:rep.email}:null;
 
-/** The customer's answer to the latest revision (task 5.2), while the quote is accepted or changes are requested. */
+/** The customer's answer to the latest revision (task 5.2), while the quote is accepted, changes are requested or it is declined (A1). */
 function responseOf(q:CustomerQuoteView):CustomerQuoteResponse|null{
   if(q.status==='accepted')return {kind:'accepted',revision:q.revision,fulfillment_time:q.fulfillment_time,customer_po:q.customer_po};
   if(q.status==='changes_requested')return {kind:'changes_requested',revision:q.revision,note:q.change_request_note??''};
+  // Only that they declined: the reason and the Other note are the rep's (v3 spec §2.1).
+  if(q.status==='declined')return {kind:'declined',revision:q.revision};
   return null;
 }
 

@@ -27,7 +27,7 @@ describe('repQuoteList: the seeded queue',()=>{
     const requested=list.rows.map(r=>r.requested_at);
     expect(requested).toEqual([...requested].sort().reverse());
     expect(list).toMatchObject({customer:null,other_rep:false,status:null,unread:1,as_of:NOW});
-    expect(list.counts).toEqual({all:25,ready_for_review:1,sent:0,changes_requested:0,accepted:17,expired:7});
+    expect(list.counts).toEqual({all:25,ready_for_review:1,sent:0,changes_requested:0,accepted:17,expired:7,declined:0});
   });
 
   it("totals a draft live, as Approve & send would: Q-24817 is $1,122.40 will call at 32.2%, with the gloves under Brandi's 30% PPE floor",async()=>{
@@ -70,7 +70,7 @@ describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
     const greatBasin=await repQuoteList('brandi',{now:NOW,customerId:'great-basin'});
     expect(greatBasin.rows).toEqual([]);
     expect(greatBasin).toMatchObject({other_rep:false,unread:0,customer:{name:'Great Basin Fabrication',account_number:'GBF-2207'}});
-    expect(greatBasin.counts).toEqual({all:0,ready_for_review:0,sent:0,changes_requested:0,accepted:0,expired:0});
+    expect(greatBasin.counts).toEqual({all:0,ready_for_review:0,sent:0,changes_requested:0,accepted:0,expired:0,declined:0});
   });
 
   it("reads an unknown customer as All customers, like the picker",async()=>{

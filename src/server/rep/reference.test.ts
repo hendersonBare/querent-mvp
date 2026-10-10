@@ -154,3 +154,17 @@ describe('customerDetail stores lazy expiry first (statuses match the Quotes lis
     expect([view.quotes_won,view.quotes_decided]).toEqual([17,25]);
   });
 });
+
+describe('declined quotes (task A1; last: it adds a quote to the shared database)',()=>{
+  it('counts a declined quote as decided and lost in the win rate (task A1)',async()=>{
+    const {declineQuote,duplicateQuote}=await import('@/server/quotes/service');
+    const before=customerDetail('wasatch',{now:NOW})!;
+    const copy=duplicateQuote('Q-24817',{repId:'brandi',now:'2026-09-22T15:00:00.000Z'});
+    await sendQuote(copy.id,{repId:'brandi',now:'2026-09-22T16:00:00.000Z'});
+    declineQuote('wasatch',copy.id,{revision:1,reason:null,now:'2026-09-23T15:00:00.000Z'});
+    const view=customerDetail('wasatch',{now:NOW})!;
+    expect([view.quotes_won,view.quotes_decided]).toEqual([before.quotes_won,before.quotes_decided+1]);
+    expect(view.win_rate).toBeCloseTo(before.quotes_won/(before.quotes_decided+1));
+    expect(view.quotes.recent.find(q=>q.id===copy.id)).toMatchObject({quote_number:copy.quote_number,status:'declined'});
+  });
+});

@@ -5,8 +5,11 @@ import type {Fulfillment} from './orders';
 // pricing notes. Customers only ever see CustomerQuoteSummary / CustomerQuoteView, which are
 // built from the frozen revision the rep sent.
 
-export const QUOTE_STATUSES=['ready_for_review','sent','accepted','changes_requested','expired'] as const;
+export const QUOTE_STATUSES=['ready_for_review','sent','accepted','changes_requested','expired','declined'] as const;
 export type QuoteStatus=typeof QUOTE_STATUSES[number];
+/** Why the customer declined (v3 spec §2.1, decision 14). There is no "no response": a decline with no reason stores null. */
+export const DECLINE_REASONS=['price_too_high','found_other_source','need_sooner','wrong_items','other'] as const;
+export type DeclineReason=typeof DECLINE_REASONS[number];
 export const PRICE_BASES=['contract','customer','list','last_paid','custom'] as const;
 export type PriceBasis=typeof PRICE_BASES[number];
 /** Who added a line: Querent's match, the rep, a rep-taken upsell chip, or the customer from the pop-up's suggestions (task E1). */
@@ -33,6 +36,8 @@ export interface QuoteHeader {
   customer_po:string|null;
   /** customer_note is printed on the quote; change_request_note is the customer's Request changes note. */
   customer_note:string|null;change_request_note:string|null;
+  /** The customer's Decline (v3 spec §2.1): when, why (null: no reason given) and the Other note. Rep-only: never in a customer-safe type. */
+  declined_at:string|null;decline_reason:DeclineReason|null;decline_note:string|null;
   unread_for_rep:boolean;unread_for_customer:boolean;is_sample:boolean;duplicated_from:string|null;
 }
 
@@ -136,7 +141,7 @@ export interface CustomerQuotePreview {
     fulfillment:Fulfillment;branch:string;ship_to:string|null;customer_po:string|null}|null;
   /** The rep who owns the quote, to name in the modal's notes. */
   rep:Pick<Rep,'name'|'phone'|'email'>|null;
-  /** What the customer answered on the latest revision (task 5.2), while the quote is accepted or changes are requested. */
+  /** What the customer answered on the latest revision (task 5.2), while the quote is accepted, changes are requested or it is declined (A1). */
   response:CustomerQuoteResponse|null;
 }
 
@@ -145,7 +150,9 @@ export type CustomerQuoteResponse=
   |{kind:'accepted';revision:number;
     /** The pickup or delivery time they chose (an ISO instant), and their PO. */
     fulfillment_time:string|null;customer_po:string|null}
-  |{kind:'changes_requested';revision:number;note:string};
+  |{kind:'changes_requested';revision:number;note:string}
+  /** The reason and note are the rep's only (v3 spec §2.1), so a decline says no more than this. */
+  |{kind:'declined';revision:number};
 
 // Write inputs. Unit cost is never an input: the repository copies it from the item when a line is written.
 
@@ -176,6 +183,7 @@ export interface QuoteFulfillmentPatch {fulfillment?:Fulfillment;branchId?:strin
 export interface QuoteTransition {
   from:QuoteStatus;to:QuoteStatus;at?:string;revision?:number;sentAt?:string|null;respondedAt?:string|null;validUntil?:string|null;
   fulfillmentTime?:string|null;customerPo?:string|null;changeRequestNote?:string|null;unreadForRep?:boolean;unreadForCustomer?:boolean;
+  declinedAt?:string|null;declineReason?:DeclineReason|null;declineNote?:string|null;
 }
 
 export interface NewQuoteRevision {revision:number;sentBy:string;message?:string|null;attachPdf?:boolean;total:number;snapshot:QuoteSnapshot;sentAt?:string}
