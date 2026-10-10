@@ -5,11 +5,12 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 //   - Brandi is the manager: she edits an aging threshold (the Quotes list follows it) and a team
 //     label, and can mark a rep inactive only once that rep's customers are reassigned. An inactive
 //     rep's session is refused.
-// Mara has no chooser button yet (F1, OA-18), so her session is the demo cookie set directly.
+// Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
 // beforeAll/afterAll reset the database to the seed pinned to the mockup's day (POST /api/test/reset;
 // the server needs QUERENT_E2E_RESET=1, which playwright.config.ts sets for the server it starts).
-// Seed: Brandi has Wasatch and Great Basin, Mara has Canyon Ridge, Nora has Uinta, Eli has none.
+// Seed: Brandi has Wasatch and Great Basin, Mara has Canyon Ridge, Nora has Uinta, Eli has Utah Valley
+// Electric and Weber Basin Fabricators (the demo book, task F1).
 // Q-24789 was sent 100 hours before the reset, so it is Aging (amber) under the 72 h / 168 h defaults.
 
 const SEED_DATE = "2026-09-23";

@@ -42,7 +42,9 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
     "Canyon Ridge Builders",
     "Great Basin Fabrication",
     "Uinta Facility Services",
+    "Utah Valley Electric",
     "Wasatch Mechanical Contractors",
+    "Weber Basin Fabricators",
   ]);
   await viewing.selectOption("wasatch");
 

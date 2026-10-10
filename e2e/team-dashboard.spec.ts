@@ -6,36 +6,31 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 //     the Other text, drills from a count into the All reps Quotes list, and exports the CSV.
 //   - On a phone the leaderboard scrolls inside its own box; the page never scrolls sideways.
 //   - Mara (a rep) has no Team section: /rep/team sends her to her Quotes and the API answers 403.
-// Mara has no chooser button yet (F1, OA-18), so her session is the demo cookie set directly.
+// Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day (POST /api/test/reset; the
-// server needs QUERENT_E2E_RESET=1), then POST /api/test/team-quotes adds quotes for Mara and Nora
-// made in the last few days through the real services: sends, declines (one with an Other note),
-// drafts, and one of Mara's moved to Eli.
+// server needs QUERENT_E2E_RESET=1). The seed's demo book (task F1, src/server/db/seed/demo.ts) is
+// dated from the reset time, so the last 30 days always hold Mara's 13 quotes and Eli's 20 (two of
+// them moved from Mara): sends, accepted deliveries, declines with every reason (Mara's Other with a
+// note), expired quotes and fresh, aging and overdue drafts.
 
 const SEED_DATE = "2026-09-23";
 const COOKIE = "querent-persona";
-type Fixture = { declined_other: string; declined_price: string; other_note: string; moved: string };
-let fixture: Fixture;
+const OTHER_NOTE = "The general contractor is supplying the anchors on this job.";
 
 test.describe.configure({ mode: "serial" });
 
-async function resetDemo(request: APIRequest, testInfo: TestInfo, withQuotes: boolean) {
+async function resetDemo(request: APIRequest, testInfo: TestInfo) {
   const api = await request.newContext({ baseURL: testInfo.project.use.baseURL });
   try {
     const response = await api.post("/api/test/reset", { data: { seed_date: SEED_DATE } });
     expect(response.status(), "POST /api/test/reset failed: start the server with QUERENT_E2E_RESET=1").toBe(200);
-    if (withQuotes) {
-      const added = await api.post("/api/test/team-quotes");
-      expect(added.status()).toBe(200);
-      fixture = await added.json();
-    }
   } finally {
     await api.dispose();
   }
 }
-test.beforeAll(async ({ playwright }, testInfo) => resetDemo(playwright.request, testInfo, true));
-test.afterAll(async ({ playwright }, testInfo) => resetDemo(playwright.request, testInfo, false));
+test.beforeAll(async ({ playwright }, testInfo) => resetDemo(playwright.request, testInfo));
+test.afterAll(async ({ playwright }, testInfo) => resetDemo(playwright.request, testInfo));
 
 async function signInAsBrandi(page: Page) {
   await page.goto("/");
@@ -62,13 +57,13 @@ test("Brandi compares two reps, reads the decline reasons, drills into the quote
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
   await expect(repRow(page, "Total")).toBeVisible();
 
-  // Compare Mara and Nora: untick Brandi and Eli.
+  // Compare Mara and Eli: untick Brandi and Nora.
   await page.getByRole("checkbox", { name: "Brandi Gallegos" }).uncheck();
-  await page.getByRole("checkbox", { name: "Eli Porter" }).uncheck();
-  await expect(leaderboard(page).getByRole("rowheader")).toHaveText(["Mara Jensen", "Nora Chen", "Total"]);
-  await expect(repRow(page, "Mara Jensen").getByRole("cell", { name: "2 created" })).toBeVisible();
-  await expect(repRow(page, "Nora Chen").getByRole("cell", { name: "2 created" })).toBeVisible();
-  await expect(repRow(page, "Total").getByRole("cell", { name: "4 created" })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Nora Chen" }).uncheck();
+  await expect(leaderboard(page).getByRole("rowheader")).toHaveText(["Eli Porter", "Mara Jensen", "Total"]);
+  await expect(repRow(page, "Mara Jensen").getByRole("cell", { name: "13 created" })).toBeVisible();
+  await expect(repRow(page, "Eli Porter").getByRole("cell", { name: "20 created" })).toBeVisible();
+  await expect(repRow(page, "Total").getByRole("cell", { name: "33 created" })).toBeVisible();
   await screenshot(page, testInfo, "compare-two-reps");
 
   // Decline reasons, with the Other text in the customer's words.
@@ -76,8 +71,10 @@ test("Brandi compares two reps, reads the decline reasons, drills into the quote
   await expect(declines.getByRole("row", { name: /Price too high 1/ })).toBeVisible();
   await expect(declines.getByRole("row", { name: /Other 1/ })).toBeVisible();
   const notes = declines.getByRole("list", { name: "Other reasons in their words" });
-  await expect(notes).toContainText(fixture.other_note);
-  await expect(notes.getByRole("link", { name: fixture.declined_other })).toBeVisible();
+  await expect(notes).toContainText(OTHER_NOTE);
+  const otherQuote = (await notes.getByRole("link").first().textContent())!.trim();
+  expect(otherQuote).toMatch(/^Q-\d+$/);
+  await expect(notes).toContainText(`${otherQuote}, Mara Jensen`);
   await expect(page.getByRole("table", { name: /Why quotes went untouched/ })).toBeVisible();
   await screenshot(page, testInfo, "decline-reasons");
 
@@ -85,15 +82,15 @@ test("Brandi compares two reps, reads the decline reasons, drills into the quote
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Export CSV" }).click()]);
   expect(download.suggestedFilename()).toBe("team-metrics.csv");
   const lines = readFileSync((await download.path())!, "utf8").replace(/^﻿/, "").trim().split("\r\n");
-  expect(lines.map((l) => l.split(",")[0])).toEqual(["Rep", "Mara Jensen", "Nora Chen", "Total"]);
+  expect(lines.map((l) => l.split(",")[0])).toEqual(["Rep", "Eli Porter", "Mara Jensen", "Total"]);
   expect(lines[0]).toContain("Quote-to-order rate (%)");
 
   // Drill into Mara's declined count: the All reps Quotes list, filtered to those quotes.
-  await repRow(page, "Mara Jensen").getByRole("link", { name: "1 declined" }).click();
+  await repRow(page, "Mara Jensen").getByRole("link", { name: "3 declined" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?scope=all&rep=mara&from=.+&to=.+&status=declined$/);
   const rows = page.getByRole("table").getByRole("rowheader");
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText(fixture.declined_other);
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByRole("table").getByRole("link", { name: otherQuote, exact: true })).toBeVisible();
   await expect(page.getByText(/Created between/)).toBeVisible();
   await screenshot(page, testInfo, "drill-down");
 });

@@ -50,14 +50,17 @@ test("customers: every account with its rep, and a detail page with account, rep
   await section(page, "Customers").click();
   await expect(page).toHaveURL(/\/rep\/customers$/);
   await expect(title(page)).toHaveText("Customers");
-  await expect(page.getByText("Viewing All customers · 4 customers")).toBeVisible();
-  await expect(bodyRows(page)).toHaveCount(4);
+  await expect(page.getByText("Viewing All customers · 6 customers")).toBeVisible();
+  await expect(bodyRows(page)).toHaveCount(6);
   await expect(row(page, /Wasatch Mechanical Contractors/)).toContainText("Brandi Gallegos");
   await expect(row(page, /Wasatch Mechanical Contractors/)).toContainText("Net 30");
   await expect(row(page, /Wasatch Mechanical Contractors/)).toContainText("Sep 9, 2026");
   // Other reps' customers are listed with their rep (task 3.2 decides whose quotes Brandi sees).
   await expect(row(page, /Canyon Ridge Builders/)).toContainText("Mara Jensen");
   await expect(row(page, /Uinta Facility Services/)).toContainText("Nora Chen");
+  // Mara's and Eli's books (task F1): terms and quotes, no orders yet.
+  await expect(row(page, /Utah Valley Electric/)).toContainText("Eli Porter");
+  await expect(row(page, /Weber Basin Fabricators/)).toContainText("Net 45");
   // Placeholders: a name, account number and rep only.
   await expect(row(page, /Great Basin Fabrication/)).toContainText("Not on file");
   await expect(row(page, /Great Basin Fabrication/)).toContainText("No orders yet");

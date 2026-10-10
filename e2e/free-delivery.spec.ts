@@ -6,8 +6,9 @@ import { extractText, getDocumentProxy } from "unpdf";
 //   - Dana asks for a delivery over the $1,500 free-delivery threshold.
 //   - Brandi (the manager) opens Settings > Pricing & delivery: the toggle is locked until she views
 //     the impact preview (quotes affected, the change per category); she turns it on and sees the
-//     ramp (step 1 of 3) and the pool panel (starting rate, eligible quotes, cap, 90-day cost).
-//   - Dana's draft reprices on Brandi's next open: the "Freight recovery 1.0%" chip and the line's
+//     ramp (step 1 of 3) and the pool panel (the computed pool rate next to the starting rate, eligible
+//     quotes, cap, 90-day cost).
+//   - Dana's draft reprices on Brandi's next open: the "Freight recovery 0.5%" chip and the line's
 //     "Freight recovery +$…" in "Why this price?". Brandi sends it; Dana's PDF says Freight $0.00
 //     and nothing about recovery, and her quote API carries no recovery field.
 // Mara's session is the demo cookie set directly, as in rep-roles.spec.ts.
@@ -15,6 +16,8 @@ import { extractText, getDocumentProxy } from "unpdf";
 // beforeAll/afterAll reset the database to the seed pinned to the mockup's day (POST /api/test/reset;
 // the server needs QUERENT_E2E_RESET=1, which playwright.config.ts sets for the server it starts).
 // No fuel price API is called: the server runs without OILPRICEAPI_KEY and uses the seeded UT price.
+// The seed's 22 eligible pilot quotes (task F1, src/server/db/seed/demo.ts) put the computed pool rate
+// in force: 1.6% (157 bp) instead of the 3.0% starting rate, so step 1 of 3 is 0.5% (52 bp).
 
 const SEED_DATE = "2026-09-23";
 const COOKIE = "querent-persona";
@@ -119,7 +122,7 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   await expect(brandi.getByRole("heading", { name: "Delivery rates" })).toBeVisible();
   // The pool panel and the fuel price before enabling: the starting rate, and the seeded UT price.
   const pool = card(brandi, "Recovery pool");
-  await expect(pool).toContainText("Starting rate 3.0%");
+  await expect(pool).toContainText("Pool rate 1.6% from 22 eligible quotes (starting rate 3.0%)");
   await expect(pool).toContainText("Rate cap8.0%");
   await expect(pool).toContainText("Rate in forceOff");
   await expect(card(brandi, "Delivery cost model")).toContainText("UT gasoline$3.40/gal, seeded price");
@@ -130,7 +133,7 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   const table = free.getByRole("table", { name: "Average line price change by category" });
   await expect(table).toBeVisible();
   await expect(free).toContainText(/[1-9]\d* of \d+ delivery quotes from the last 90 days would carry freight recovery\./);
-  await expect(table.getByRole("row").first()).toHaveText("CategoryLinesAt step 1 (1.0%)At full rate (3.0%)");
+  await expect(table.getByRole("row").first()).toHaveText("CategoryLinesAt step 1 (0.5%)At full rate (1.6%)");
   await expect(table.getByRole("row").filter({ hasText: "Fasteners" })).toHaveText(/Fasteners\d+\+\d+\.\d\d%\+\d+\.\d\d%/);
 
   await expect(toggle(brandi)).toBeEnabled();
@@ -141,9 +144,9 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   await expect(ramp.getByRole("row")).toHaveCount(4);
   await expect(ramp.getByRole("row").nth(1)).toContainText("Step 1 of 3");
   await expect(ramp.getByRole("row").nth(1)).toContainText("Now");
-  await expect(ramp.getByRole("row").nth(1)).toContainText("1.0%");
-  await expect(ramp.getByRole("row").nth(3)).toContainText("3.0%");
-  await expect(pool).toContainText("Rate in force1.0%, ramp step 1 of 3");
+  await expect(ramp.getByRole("row").nth(1)).toContainText("0.5%");
+  await expect(ramp.getByRole("row").nth(3)).toContainText("1.6%");
+  await expect(pool).toContainText("Rate in force0.5%, ramp step 1 of 3");
   await expect(pool).toContainText(/eligible quotes/);
   await expect(pool).toContainText(/Modelled delivery cost, last 90 days\$[\d,]+\.\d\d/);
   await expect(pool).toContainText(/Recovered in prices, last 90 days\$[\d,]+\.\d\d/);
@@ -163,10 +166,10 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
 
 test("the delivery draft reprices on Brandi's open: the recovery chip and the line's recovery", async ({}, testInfo) => {
   await brandi.goto(`/rep/quotes/${quoteNumber}`);
-  await expect(brandi.getByText("Freight recovery 1.0%", { exact: true })).toBeVisible();
+  await expect(brandi.getByText("Freight recovery 0.5%", { exact: true })).toBeVisible();
   const why = brandi.getByRole("button", { name: /^Why this price\? Hex cap screw 1\/2-13 x 2 in/ });
   await why.click();
-  await expect(brandi.getByText(/^Freight recovery \+\$\d+\.\d\d \(rate 1\.0%, ramp step 1 of 3\)$/)).toBeVisible();
+  await expect(brandi.getByText(/^Freight recovery \+\$\d+\.\d\d \(rate 0\.5%, ramp step 1 of 3\)$/)).toBeVisible();
   await screenshot(brandi, testInfo, "quote-recovery");
 });
 
