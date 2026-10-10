@@ -30,8 +30,11 @@ const DB_IMPORTERS=[...SQL_HOME,'scripts/'];
 /** LLM code: the chat pipeline, anything under these folders (upsells-writer: Claude's chip wording, task 3.6), and any file that imports the Anthropic SDK. */
 const LLM_FILES=/^src\/server\/(pipeline\.ts$|(chat|llm|tools|agent|upsells-writer)\/)/;
 const CUSTOMER_MODULE='src/server/repository/customer';
-/** Server modules that read cost, margin or floors. LLM code may not import them, and customer routes only CUSTOMER_INTAKE. */
-const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake','src/server/customer-response'];
+/**
+ * Server modules that read cost, margin or floors. LLM code may not import them, and customer routes only CUSTOMER_INTAKE.
+ * The freight cost model and pool count too: they produce the modelled delivery cost and the recovery rate, which stay internal (spec §4.6).
+ */
+const COST_READERS=['src/server/pricing','src/server/floors','src/server/upsells','src/server/quotes/service','src/server/intake','src/server/customer-response','src/server/freight/cost-model','src/server/freight/pool'];
 /**
  * The one cost reader a customer route may import (rule 5, task 2.3): Request quote drafts a priced
  * quote, so it needs the pricing engine. It takes only customer-supplied fields and returns only

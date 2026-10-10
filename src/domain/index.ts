@@ -4,6 +4,7 @@ export * from './accounts';
 export * from './analytics';
 export * from './catalog';
 export * from './chat';
+export * from './freight';
 export * from './orders';
 export * from './pricing';
 export * from './quotes';

@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
-import {deliveryRates,floorFor,pricingSettings,repFloors,setScarcityUplift,updateOwnFloor} from './settings';
-import {useSeededDatabase} from './test-db';
+import {deliveryRates,floorFor,freeDeliverySettings,freightCostSettings,freightRateSettings,pricingSettings,repFloors,setScarcityUplift,updateOwnFloor} from './settings';
+import {setSettingFixture,useSeededDatabase} from './test-db';
 
 useSeededDatabase();
 
@@ -46,5 +46,37 @@ describe('margin floors (rep x category)',()=>{
     expect(()=>updateOwnFloor('brandi','fasteners',-0.01)).toThrow(RangeError);
     expect(()=>updateOwnFloor('brandi','fasteners',Number.NaN)).toThrow(RangeError);
     expect(floorFor('brandi','fasteners')).toBe(0.22);
+  });
+});
+
+describe('free delivery pricing and freight settings (spec §1.3, OA-4)',()=>{
+  it('fall back to the code defaults when no key is stored',()=>{
+    expect(freeDeliverySettings()).toEqual({enabled:false,enabledAt:null});
+    expect(freightCostSettings()).toEqual({mpg:10,fuelType:'gasoline',wearCentsPerMile:20,depreciationCentsPerMile:15,driverCentsPerHour:2500,avgSpeedMph:35,stopMinutes:0,fuelManualCents:null});
+    expect(freightRateSettings()).toEqual({startingRateBp:300,rateCapBp:800,lineCapBp:800,rampSteps:3,rampDays:90});
+  });
+
+  it('read stored values',async()=>{
+    const stored:[string,string][]=[['free_delivery_pricing','true'],['free_delivery_enabled_at','2026-09-01T15:00:00.000Z'],
+      ['freight_vehicle_mpg','12.5'],['freight_fuel_type','diesel'],['freight_wear_cents_per_mile','22'],['freight_depreciation_cents_per_mile','16.5'],['freight_driver_cents_per_hour','2800'],
+      ['freight_avg_speed_mph','40'],['freight_stop_minutes','15'],['freight_fuel_manual_cents','415'],
+      ['freight_starting_rate_bp','350'],['freight_rate_cap_bp','1000'],['freight_line_cap_bp','600'],['freight_ramp_steps','4'],['freight_ramp_days','120']];
+    for(const [key,value] of stored)await setSettingFixture(key,value);
+    expect(freeDeliverySettings()).toEqual({enabled:true,enabledAt:'2026-09-01T15:00:00.000Z'});
+    expect(freightCostSettings()).toEqual({mpg:12.5,fuelType:'diesel',wearCentsPerMile:22,depreciationCentsPerMile:16.5,driverCentsPerHour:2800,avgSpeedMph:40,stopMinutes:15,fuelManualCents:415});
+    expect(freightRateSettings()).toEqual({startingRateBp:350,rateCapBp:1000,lineCapBp:600,rampSteps:4,rampDays:120});
+    expect(pricingSettings()).toEqual({scarcity_uplift_enabled:false});
+  });
+
+  it('treat a manual fuel price of 0 as set (it wins), and fall back to the default on an unreadable value',async()=>{
+    await setSettingFixture('freight_fuel_manual_cents','0');
+    expect(freightCostSettings().fuelManualCents).toBe(0);
+    await setSettingFixture('freight_fuel_manual_cents','');
+    await setSettingFixture('freight_vehicle_mpg','ten');
+    await setSettingFixture('freight_fuel_type','kerosene');
+    await setSettingFixture('free_delivery_pricing','yes');
+    await setSettingFixture('free_delivery_enabled_at',null);
+    expect(freightCostSettings()).toMatchObject({fuelManualCents:null,mpg:10,fuelType:'gasoline'});
+    expect(freeDeliverySettings()).toEqual({enabled:false,enabledAt:null});
   });
 });
