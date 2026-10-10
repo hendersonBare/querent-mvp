@@ -175,6 +175,14 @@ describe('free delivery pricing on',()=>{
     expect(detail.freight.computed.rule).toBe('free_threshold');
   });
 
+  it('carries no recovery while the toggle is on but was never enabled (no enable time: no 0 bp freeze)',async()=>{
+    await setSettingFixture('free_delivery_pricing','true');
+    const q=await draft();
+    const detail=await open(q.id);
+    expect(await frozen(q.id)).toMatchObject({rate:null,step:null,steps:null,recovery:[0,0]});
+    expect(detail.send_check).toMatchObject({subtotal:1791,total:1791});
+  });
+
   it('does not touch updated_at when it reprices (a send in flight is not a conflict)',async()=>{
     await freeDelivery();
     const q=await draft();
@@ -203,6 +211,17 @@ describe('sent quotes and the customer',()=>{
     const pdf=repo.customerQuoteRevision('wasatch',q.id)!;
     for(const payload of [view,pdf,repo.customerQuotes('wasatch')])expect(keys(payload).filter(k=>RECOVERY.test(k))).toEqual([]);
     expect(JSON.stringify(view)).not.toMatch(/"unit_price":31\.5\b/);
+  });
+
+  it('keeps Analytics margin vs floor on the price before recovery (OA-10), though the snapshot holds the customer price',async()=>{
+    const {service,repo}=await load();
+    await freeDelivery();
+    const q=await draft();
+    await open(q.id);
+    await service.sendQuote(q.id,{repId:'brandi',now:SEND});
+    const facts=repo.sentLineFacts('wasatch').filter(f=>f.quote_id===q.id);
+    expect(facts.map(f=>[f.sku,f.unit_price,f.unit_cost])).toEqual([['HCS-12-13-2G8',31.5,21.4],['CW-45-045-T1',36,24.1]]);
+    expect(repo.quoteRevision(q.id,1)!.snapshot.lines[0]).not.toHaveProperty('freight_recovery');
   });
 
   it('never reprices a sent quote: the toggle changing leaves its lines and snapshot as sent',async()=>{

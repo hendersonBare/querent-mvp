@@ -50,6 +50,21 @@ describe('allocateRecovery',()=>{
     expect(allocate(5000,[line(1,1,2000,1000),line(2,1,18000,17000)])).toEqual([{line_no:1,freight_recovery:160},{line_no:2,freight_recovery:1440}]);
   });
 
+  it('rounds the target to the nearest cent, not down',()=>{
+    // 300 bp of 1,050¢ = 31.5¢ -> 32¢ (floor would give 31); 1 bp of 16,000¢ = 1.6¢ -> 2¢ (floor 1).
+    expect(allocate(300,[line(1,1,1050,0)])).toEqual([{line_no:1,freight_recovery:32}]);
+    expect(allocate(1,[line(1,1,16000,0)])).toEqual([{line_no:1,freight_recovery:2}]);
+    // 1 bp of 14,000¢ = 1.4¢ -> 1¢.
+    expect(allocate(1,[line(1,1,14000,0)])).toEqual([{line_no:1,freight_recovery:1}]);
+  });
+
+  it('floors a fractional per-line cap, and the floored cap binds',()=>{
+    // 5,000 bp of 1,999¢ = 999.5 -> 1,000¢ target; cap 800 bp of 1,999¢ = 159.92¢ -> 159¢ (rounding would give 160).
+    expect(allocate(5000,[line(1,1,1999,0)])).toEqual([{line_no:1,freight_recovery:159}]);
+    // 2 units at 1,999¢: share 1,999¢ -> 999.5 -> 1,000¢ a unit, capped at 159¢.
+    expect(allocate(5000,[line(1,2,1999,0)])).toEqual([{line_no:1,freight_recovery:159}]);
+  });
+
   it('gives the rounding remainder to the highest-margin line, and a tie to the lowest line_no (OA-24)',()=>{
     // goods 3,010,000¢ at 1 bp = 301¢; margins 500,000 / 500,000 / 510,000: floors 99 + 99 + 101 = 299, remainder 2¢ to line 6.
     expect(allocate(1,[line(5,1,1_000_000,500_000),line(4,1,1_000_000,500_000),line(6,1,1_010_000,500_000)])).toEqual([

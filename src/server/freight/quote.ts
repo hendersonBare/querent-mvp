@@ -16,8 +16,8 @@ import {allocateRecovery,carriesRecovery} from './recovery';
 //
 // Free delivery pricing on a quote (spec §4.4, §4.5; decisions 31–35). applyQuoteRecovery decides
 // and stores a draft's frozen state from the quote as it stands:
-//   - it carries recovery (carriesRecovery: toggle on, delivery, no override, goods at or over the
-//     free threshold, not call for freight) or not;
+//   - it carries recovery (carriesRecovery: toggle on with an enable time, delivery, no override,
+//     goods at or over the free threshold, not call for freight) or not;
 //   - carrying, it keeps its frozen rate, or freezes the rate in force now (cachedPoolRate, the
 //     starting rate, the cap and the ramp step) when it has none: at creation, when the toggle was
 //     turned on since, or when an override is cleared (OA-22). Not carrying, the rate is cleared
@@ -125,7 +125,9 @@ export function applyQuoteRecovery(q:Quote,miles:number|null,{now,remodel=false}
   const rates=deliveryRates(),input=freightInputOf(q,rates);
   const computed=freightWithMiles(input,miles);
   const callForFreight=computed.amount===CALL_FOR_FREIGHT;
-  const carries=carriesRecovery({enabled:input.freeDeliveryPricing===true,fulfillment:q.fulfillment,overridden:q.freight_override!==null,subtotal:input.subtotal,
+  // On but never enabled (no enable time, so ramp step 0): nothing to freeze, so no recovery rather than a 0 bp rate.
+  const enabled=input.freeDeliveryPricing===true&&freeDeliverySettings().enabledAt!==null;
+  const carries=carriesRecovery({enabled,fulfillment:q.fulfillment,overridden:q.freight_override!==null,subtotal:input.subtotal,
     freeThreshold:rates.free_threshold,callForFreight});
   const rate=!carries?{rateBp:null,step:null,steps:null}
     :q.freight_rate_bp===null?rateInForceNow(now):{rateBp:q.freight_rate_bp,step:q.freight_ramp_step,steps:q.freight_ramp_steps};
