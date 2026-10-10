@@ -9,7 +9,7 @@ import {
 } from '@/server/repository';
 import {detailLines,pricingDay,quoteDetailOf,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
 import {MAX_PRICE,MAX_QTY,applyPatch,shortName,withBasis,type DetailLine,type LinePatch} from './quote-math';
-import {repQuote} from './quotes';
+import {repQuote,touchRepQuote} from './quotes';
 
 // The rep's edits to a quote draft (spec §4, §5.4; task 3.3): change a line's qty, price basis
 // or price, add an item, remove a line and put it back (Undo). The detail page autosaves every
@@ -19,7 +19,8 @@ import {repQuote} from './quotes';
 //     sent, accepted and expired are read-only; changes_requested is editable, spec §5.4), since
 //     the repository itself doesn't check status;
 //   - validates what the rep typed server-side (a price is at least $0 and in whole cents);
-//   - writes the line and an Activity entry in one transaction, then returns the fresh detail.
+//   - writes the line and an Activity entry in one transaction, then returns the fresh detail;
+//   - touches the quote (last_rep_touch_at, v3 spec §3) in that transaction, so a refused edit doesn't.
 // Prices come only from here and the pricing engine: the customer's routes never set one.
 
 const clock=()=>new Date().toISOString();
@@ -32,12 +33,16 @@ const NOT_EDITABLE:Partial<Record<QuoteStatus,(n:string)=>string>>={
   declined:n=>`${n} was declined, so it can't be edited. Duplicate it to quote again.`,
 };
 
-/** The rep's quote, if its status allows edits right now; throws not_found or illegal_transition (409). */
+/**
+ * The rep's quote, if its status allows edits right now; throws not_found or illegal_transition (409).
+ * Every edit path starts here, so this is where the rep's edit touches the quote (last_rep_touch_at).
+ */
 export function editableQuote(repId:string,quoteIdOrNumber:string,now:string):Quote{
   const q=repQuote(repId,quoteIdOrNumber);
   if(!q)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
   const status=effectiveStatus(q,now);
   if(!canEditDraft(status))throw new QuoteActionError('illegal_transition',(NOT_EDITABLE[status]??(n=>`${n} can't be edited.`))(q.quote_number));
+  touchRepQuote(q,now);
   return q;
 }
 

@@ -2,9 +2,9 @@ import 'server-only';
 import {QUOTE_STATUSES,type CustomerListItem,type QuoteListRow,type QuoteStatus} from '@/domain';
 import {formatMargin,margin} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
-import {canEditDraft,effectiveStatus} from '@/server/quotes';
+import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingThresholds} from '@/server/quotes';
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
-import {customers,markQuoteRead,quote,quoteByNumber,quotes} from '@/server/repository';
+import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,touchQuoteByRep} from '@/server/repository';
 
 // The rep's Quotes list (spec §4, task 3.2): status, customer, requested date, total, margin and
 // the unread dot, filtered by status and by the "Viewing" picker. Rep-only: it carries margin,
@@ -15,8 +15,17 @@ import {customers,markQuoteRead,quote,quoteByNumber,quotes} from '@/server/repos
 // never reassigned (spec §4, §5.2). The picker lists every customer, so picking another rep's
 // customer shows no quotes and says whose customer it is (other_rep). This is task 3.2's default,
 // flagged for review: the spec doesn't say whether a rep sees colleagues' quotes.
+//
+// Aging (v3 spec §3, task A2): every row carries its aging, and the Needs attention view
+// (?attention=1) shows the amber and red open quotes, red first, then the largest quoted total,
+// or oldest clock first with ?sort=oldest. Other filters keep newest request first (OA-9).
 
 const clock=()=>new Date().toISOString();
+
+/** How the Needs attention view is sorted: red, then amber, then quoted total (urgent), or oldest clock first. */
+export type AttentionSort='urgent'|'oldest';
+/** A ?sort= value: oldest, or the default (urgent) for anything else. */
+export const parseAttentionSort=(value:string|null|undefined):AttentionSort=>value==='oldest'?'oldest':'urgent';
 
 /** A ?status= value, or null (every status) for anything that isn't one of the five statuses. */
 export function parseStatus(value:string|null|undefined):QuoteStatus|null{
@@ -51,6 +60,10 @@ export interface RepQuoteRow {
   is_sample:boolean;line_count:number;
   /** The customer's Request changes note, on a changes_requested quote only. */
   change_request:{note:string;by:string|null;at:string|null}|null;
+  /** How long the quote has waited (v3 spec §3), or null for a final status. */
+  aging:Aging|null;
+  /** What the Needs attention sort ranks by: the last sent revision's total, else the live draft total. */
+  quoted_total:number|null;
 }
 
 export type QuoteStatusCounts=Record<QuoteStatus,number>&{all:number};
@@ -62,8 +75,14 @@ export interface RepQuoteList {
   customer:CustomerListItem|null;
   /** The picked customer is assigned to another rep, so their quotes aren't in this rep's list. */
   other_rep:boolean;
-  /** The status filter applied to `rows`, or null for every status. */
+  /** The status filter applied to `rows`, or null for every status (always null in the Needs attention view). */
   status:QuoteStatus|null;
+  /** `rows` are the Needs attention view: the amber and red open quotes. */
+  attention:boolean;
+  /** The Needs attention view's order (urgent outside it). */
+  sort:AttentionSort;
+  /** Amber and red open quotes for the picked customer: the Needs attention filter's count. */
+  attention_count:number;
   /** The rep's quotes for the picked customer, per status, before the status filter. */
   counts:QuoteStatusCounts;
   /** Unread quotes for the picked customer, before the status filter. */
@@ -75,6 +94,9 @@ export interface RepQuoteListOptions {
   /** The "Viewing" picker (?customer=). An unknown id reads as All customers, as the picker does. */
   customerId?:string|null;
   status?:QuoteStatus|null;
+  /** The Needs attention view (?attention=1); it replaces the status filter. */
+  attention?:boolean;
+  sort?:AttentionSort;
   /** For tests. */
   now?:string;
   /** Freight's distance provider for draft totals; haversine by default. */
@@ -83,36 +105,65 @@ export interface RepQuoteListOptions {
 
 const emptyCounts=():QuoteStatusCounts=>({all:0,...Object.fromEntries(QUOTE_STATUSES.map(s=>[s,0])) as Record<QuoteStatus,number>});
 
-async function toRow(row:QuoteListRow&{status:QuoteStatus},accountNumber:string|null,provider:DistanceProvider|undefined):Promise<RepQuoteRow>{
+type ScopedRow=QuoteListRow&{status:QuoteStatus;aging:Aging|null};
+
+async function toRow(row:ScopedRow,accountNumber:string|null,provider:DistanceProvider|undefined):Promise<RepQuoteRow>{
   const fraction=margin(row.subtotal,row.cost_total);
   const base={id:row.id,quote_number:row.quote_number,revision:row.revision,customer_id:row.customer_id,customer_name:row.customer_name,account_number:accountNumber,
     status:row.status,requested_at:row.requested_at,sent_at:row.sent_at,valid_until:row.valid_until,margin:fraction,margin_label:formatMargin(fraction),
-    unread:row.unread_for_rep,is_sample:row.is_sample,line_count:row.line_count};
-  if(!canEditDraft(row.status))return {...base,total:row.sent_total,total_basis:'sent',freight_pending:false,below_floor_count:0,change_request:null};
+    unread:row.unread_for_rep,is_sample:row.is_sample,line_count:row.line_count,aging:row.aging};
+  if(!canEditDraft(row.status))return {...base,total:row.sent_total,total_basis:'sent',freight_pending:false,below_floor_count:0,change_request:null,quoted_total:row.sent_total};
   // The draft the rep is working on: the same total and floor count the send dialog shows.
   const check=await sendCheck(row.id,{provider});
   const full=row.status==='changes_requested'?quote(row.id):undefined;
-  return {...base,total:check.total??check.subtotal,total_basis:'draft',freight_pending:check.total===null,below_floor_count:check.below_floor_count,
-    change_request:full?{note:row.change_request_note??'',by:full.contact_name,at:full.responded_at}:null};
+  const total=check.total??check.subtotal;
+  return {...base,total,total_basis:'draft',freight_pending:check.total===null,below_floor_count:check.below_floor_count,
+    change_request:full?{note:row.change_request_note??'',by:full.contact_name,at:full.responded_at}:null,quoted_total:row.sent_total??total};
 }
+
+const RANK={red:0,amber:1,ok:2} as const;
+/**
+ * The Needs attention order (decision 18): red before amber, then the largest quoted total (none
+ * last); or, for `oldest`, the earliest clock start first. Ties keep the incoming (newest request) order.
+ */
+export function attentionOrder(rows:readonly RepQuoteRow[],sort:AttentionSort):RepQuoteRow[]{
+  const since=(r:RepQuoteRow)=>r.aging?Date.parse(r.aging.since):Infinity;
+  const level=(r:RepQuoteRow)=>r.aging?RANK[r.aging.level]:3;
+  return [...rows].sort(sort==='oldest'?(a,b)=>since(a)-since(b)
+    :(a,b)=>level(a)-level(b)||(b.quoted_total??-Infinity)-(a.quoted_total??-Infinity));
+}
+
+/** Each quote's aging at `now` under the supplier's thresholds (v3 spec §3). */
+const withAging=<T extends QuoteListRow>(rows:T[],now:string,thresholds:AgingThresholds=agingThresholds())=>
+  rows.map(row=>({...row,status:effectiveStatus(row,now),aging:aging(row,now,thresholds)}));
 
 /**
  * The signed-in rep's Quotes list, newest request first. Expiry is lazy (task 1.5), so this
  * stores the expiry of every sent quote past valid_until first, and every row is read through
  * effectiveStatus as well.
  */
-export async function repQuoteList(repId:string,{customerId=null,status=null,now=clock(),provider}:RepQuoteListOptions={}):Promise<RepQuoteList>{
+export async function repQuoteList(repId:string,{customerId=null,status=null,attention=false,sort='urgent',now=clock(),provider}:RepQuoteListOptions={}):Promise<RepQuoteList>{
   expireOverdueQuotes({now});
   const everyone=customers();
   const customer=customerId?everyone.find(c=>c.id===customerId)??null:null;
   const accounts=new Map(everyone.map(c=>[c.id,c.account_number]));
-  const scoped=quotes({repId,customerId:customer?.id??null}).map(row=>({...row,status:effectiveStatus(row,now)}));
+  const scoped=withAging(quotes({repId,customerId:customer?.id??null}),now);
   const counts=emptyCounts();
   for(const row of scoped){counts[row.status]++;counts.all++;}
-  const shown=status?scoped.filter(row=>row.status===status):scoped;
-  const rows=[];
+  const shown=attention?scoped.filter(row=>needsAttention(row.aging)):status?scoped.filter(row=>row.status===status):scoped;
+  let rows:RepQuoteRow[]=[];
   for(const row of shown)rows.push(await toRow(row,accounts.get(row.customer_id)??null,provider));
-  return {as_of:now,customer,other_rep:!!customer&&customer.rep_id!==repId,status,counts,unread:scoped.filter(row=>row.unread_for_rep).length,rows};
+  if(attention)rows=attentionOrder(rows,sort);
+  return {as_of:now,customer,other_rep:!!customer&&customer.rep_id!==repId,status:attention?null:status,attention,sort:attention?sort:'urgent',
+    attention_count:scoped.filter(row=>needsAttention(row.aging)).length,counts,unread:scoped.filter(row=>row.unread_for_rep).length,rows};
+}
+
+/**
+ * The header badge's count (v3 spec §3, decision 18): the rep's red open quotes, all customers. The
+ * caller stores lazy expiry first (repBadges does).
+ */
+export function redQuoteCount(repId:string,now:string){
+  return withAging(quotes({repId,statuses:['ready_for_review','changes_requested','sent']}),now).filter(row=>row.aging?.level==='red').length;
 }
 
 /** One of the rep's quotes, by id or number (Q-24817). Another rep's quote reads as not found, as in the list. */
@@ -120,6 +171,13 @@ export function repQuote(repId:string,quoteIdOrNumber:string){
   const q=quote(quoteIdOrNumber)??quoteByNumber(quoteIdOrNumber);
   return q&&q.rep_id===repId?q:undefined;
 }
+
+/**
+ * The owning rep opened or edited the quote (v3 spec §3, decision 25): stamps last_rep_touch_at, not
+ * updated_at. Pass a quote already checked as the rep's (repQuote, editableQuote): a manager's
+ * read-only open of another rep's quote must not touch it.
+ */
+export function touchRepQuote(q:{id:string},at=clock()){touchQuoteByRep(q.id,at);}
 
 /**
  * The rep opened the quote: clears its unread flag (and so the Quotes badge). Returns undefined,

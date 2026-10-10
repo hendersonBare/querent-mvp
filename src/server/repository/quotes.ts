@@ -46,7 +46,7 @@ export interface QuoteFilter {customerId?:string|null;repId?:string|null;statuse
 /** The rep's Quotes list, newest request first. */
 export function quotes({customerId=null,repId=null,statuses}:QuoteFilter={}):QuoteListRow[]{
   const rows=all<Omit<QuoteListRow,'margin'|'unread_for_rep'|'is_sample'>&{unread_for_rep:number;is_sample:number}>(`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,q.rep_id,r.name rep_name,
-      q.status,q.revision,q.requested_at,q.updated_at,q.sent_at,q.valid_until,q.fulfillment,q.change_request_note,q.unread_for_rep,q.is_sample,
+      q.status,q.revision,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.valid_until,q.fulfillment,q.change_request_note,q.unread_for_rep,q.is_sample,
       (SELECT count(*) FROM quote_lines l WHERE l.quote_id=q.id) line_count,
       (SELECT coalesce(sum(l.qty*l.unit_price),0) FROM quote_lines l WHERE l.quote_id=q.id AND l.unit_price IS NOT NULL) subtotal,
       (SELECT coalesce(sum(l.qty*l.unit_cost),0) FROM quote_lines l WHERE l.quote_id=q.id AND l.unit_price IS NOT NULL) cost_total,
@@ -216,6 +216,19 @@ export function markQuoteRead(quoteId:string,reader:'rep'|'customer'){
   return run(`UPDATE quotes SET ${reader==='rep'?'unread_for_rep':'unread_for_customer'}=0 WHERE id=?`,quoteId).changes===1;
 }
 
+// ---- Touch and view clocks (v3 spec §3, decision 25: "why quotes went untouched", D3) ----
+// Like reading, neither changes updated_at: a look is not an edit.
+
+/** The owning rep opened the quote detail or edited the quote (rep/quotes touchRepQuote decides who counts). */
+export function touchQuoteByRep(quoteId:string,at=nowIso()){
+  return run('UPDATE quotes SET last_rep_touch_at=? WHERE id=?',at,quoteId).changes===1;
+}
+
+/** When the owning rep last touched the quote and the customer last viewed a sent revision; undefined for an unknown quote. */
+export function quoteTouchClocks(quoteId:string){
+  return one<{last_rep_touch_at:string|null;customer_viewed_at:string|null}>('SELECT last_rep_touch_at,customer_viewed_at FROM quotes WHERE id=?',quoteId);
+}
+
 // ---- Revisions, activity and notes ----
 
 type RevisionRow=Omit<QuoteRevision,'attach_pdf'|'snapshot'>&{attach_pdf:number;snapshot:string};
@@ -289,6 +302,16 @@ export function customerQuote(customerId:string,quoteIdOrNumber:string):Customer
   const last=one<RevisionRow>(`${REVISION} WHERE quote_id=? ORDER BY revision DESC LIMIT 1`,row.id);
   const sent=last?{revision:last.revision,sent_at:last.sent_at,message:last.message,attach_pdf:bool(last.attach_pdf),snapshot:customerSnapshot(JSON.parse(last.snapshot) as QuoteSnapshot)}:null;
   return {...toSummary(row),fulfillment_time:row.fulfillment_time,customer_po:row.customer_po,change_request_note:row.change_request_note,sent};
+}
+
+/**
+ * Customer-safe: the customer opened the PDF preview of a sent revision of one of their quotes (by id
+ * or number): stamps customer_viewed_at and clears their unread flag, leaving updated_at alone.
+ * False, changing nothing, for a quote never sent, another customer's quote or an unknown one.
+ */
+export function markCustomerViewed(customerId:string,quoteIdOrNumber:string,at=nowIso()){
+  return run('UPDATE quotes SET customer_viewed_at=?,unread_for_customer=0 WHERE customer_id=? AND (id=? OR upper(quote_number)=upper(?)) AND revision>0',
+    at,customerId,quoteIdOrNumber,quoteIdOrNumber).changes===1;
 }
 
 /**

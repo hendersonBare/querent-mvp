@@ -10,4 +10,4 @@ export {branches,catalogItem,catalogItems,productCategories,stockForItems} from 
 export {addMessage,appendLog,conversation,conversationMessages,createConversation,history,quoteNotices} from './chat';
 export {coPurchases,order,orderHistory,orders,orderStatus,purchasedItems} from './orders';
 export {customerPrices} from './pricing';
-export {customerQuote,customerQuoteRevision,customerQuotes} from './quotes';
+export {customerQuote,customerQuoteRevision,customerQuotes,markCustomerViewed} from './quotes';

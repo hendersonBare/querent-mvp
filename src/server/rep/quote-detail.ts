@@ -3,12 +3,12 @@ import type {DeliveryRates,Quote} from '@/domain';
 import {resolveFloor,type FloorRow} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
 import type {QuoteFreight} from '@/server/freight/engine';
-import {canEditDraft,effectiveStatus,validUntilOnSend} from '@/server/quotes';
+import {aging,canEditDraft,effectiveStatus,validUntilOnSend,type Aging} from '@/server/quotes';
 import {sendCheck,type SendCheck} from '@/server/quotes/service';
-import {contact,deliveryRates,pricingSettings,priceSources,repFloors,stockForItems} from '@/server/repository';
+import {agingThresholds,contact,deliveryRates,pricingSettings,priceSources,repFloors,stockForItems} from '@/server/repository';
 import type {DetailLine} from './quote-math';
 import {quotePanels,type QuotePanels} from './quote-panels';
-import {repQuote} from './quotes';
+import {repQuote,touchRepQuote} from './quotes';
 
 // The rep's quote detail (spec §4, task 3.3): GET /api/rep/quotes/<id> and the /rep/quotes/<id>
 // page. Rep-only: it carries cost, margin, floors and every price fact, so only the supplier
@@ -39,6 +39,8 @@ export interface QuoteDetail {
   send_check:Pick<SendCheck,'can_send'|'status_problem'|'blockers'|'below_floor_count'|'subtotal'|'total'|'revision'>;
   /** The side panels (task 3.4): customer and credit, branches, internal notes, Activity. */
   panels:QuotePanels;
+  /** How long the quote has waited (v3 spec §3): the header's Aging / Overdue marker. Null once final. */
+  aging:Aging|null;
 }
 
 export interface QuoteDetailOptions {now?:string;provider?:DistanceProvider}
@@ -73,11 +75,16 @@ export async function quoteDetailOf(q:Quote,{now=clock(),provider}:QuoteDetailOp
     freight:check.freight,delivery_rates:deliveryRates(),
     send_check:{can_send:check.can_send,status_problem:check.status_problem,blockers:check.blockers,below_floor_count:check.below_floor_count,
       subtotal:check.subtotal,total:check.total,revision:check.revision},
-    panels:quotePanels(q,now)};
+    panels:quotePanels(q,now),aging:aging(q,now,agingThresholds())};
 }
 
-/** One of the rep's quotes, by id or number, with everything the detail page needs; undefined if it isn't theirs. */
-export async function repQuoteDetail(repId:string,quoteIdOrNumber:string,options:QuoteDetailOptions={}):Promise<QuoteDetail|undefined>{
+/**
+ * One of the rep's quotes, by id or number, with everything the detail page needs; undefined if it
+ * isn't theirs. `touch` is the rep opening it (GET /api/rep/quotes/<id> and the page): it stamps
+ * last_rep_touch_at (v3 spec §3, decision 25).
+ */
+export async function repQuoteDetail(repId:string,quoteIdOrNumber:string,{touch=false,...options}:QuoteDetailOptions&{touch?:boolean}={}):Promise<QuoteDetail|undefined>{
   const q=repQuote(repId,quoteIdOrNumber);
+  if(q&&touch)touchRepQuote(q,options.now);
   return q&&quoteDetailOf(q,options);
 }

@@ -6,6 +6,11 @@ import type {RepQuoteRow} from '@/server/rep/quotes';
 
 /** The Quotes list's status filter lives in ?status= (the picker's customer in ?customer=). */
 export const STATUS_PARAM='status';
+/** The Needs attention filter (v3 spec §3, task A2): ?attention=1, sorted oldest first with ?sort=oldest. */
+export const ATTENTION_PARAM='attention';
+export const SORT_PARAM='sort';
+/** ?attention=1 and nothing else turns the Needs attention view on. */
+export const isAttention=(value:string|null|undefined)=>value==='1';
 
 /**
  * The rep's status chips. ready_for_review reads "Draft ready" as in the mockup's quote header
@@ -56,6 +61,13 @@ export function totalNote(row:Pick<RepQuoteRow,'total_basis'|'freight_pending'>)
 
 /** "1 line below floor", "3 lines below floor", or null. */
 export const belowFloorNote=(count:number)=>count>0?`${count} ${count===1?'line':'lines'} below floor`:null;
+
+/** What the Needs attention view says when nothing is amber or red. */
+export const EMPTY_ATTENTION={heading:'Nothing needs attention',
+  body:'A quote shows here when it waits too long: a draft or a change request for 4 hours (Aging) or 24 hours (Overdue), a sent quote for 3 or 7 days, or one about to expire.'};
+
+/** "1 overdue quote", "2 overdue quotes". */
+export const overdueLabel=(count:number)=>`${count} overdue ${count===1?'quote':'quotes'}`;
 
 /** "1 unread quote", "2 unread quotes". */
 export const unreadLabel=(count:number)=>`${count} unread ${count===1?'quote':'quotes'}`;

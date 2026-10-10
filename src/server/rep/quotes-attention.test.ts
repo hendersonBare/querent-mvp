@@ -10,7 +10,8 @@ import {attentionOrder,parseAttentionSort,repQuoteList,type RepQuoteRow} from '.
 // 20 h ago (fine), and the sample Q-24817, requested on the pinned seed day weeks ago (Overdue).
 useSeededDatabase();
 
-const now=()=>new Date().toISOString();
+/** A minute after the real clock: the seed is written on first use, so its reset time is a moment after the test starts. */
+const now=()=>new Date(Date.now()+60_000).toISOString();
 const numbers=(rows:RepQuoteRow[])=>rows.map(r=>r.quote_number);
 
 describe('rows carry their aging',()=>{

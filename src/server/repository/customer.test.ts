@@ -63,6 +63,7 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   customerQuote:()=>customer.customerQuote('wasatch','Q-24816'),
   customerQuoteRevision:()=>customer.customerQuoteRevision('wasatch','Q-24816'),
   customerQuotes:()=>customer.customerQuotes('wasatch'),
+  markCustomerViewed:()=>customer.markCustomerViewed('wasatch','Q-24816'),
 };
 const RETURNS_NOTHING=new Set(['isCategory']);
 

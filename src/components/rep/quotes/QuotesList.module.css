@@ -49,6 +49,50 @@
   background: rgb(255 255 255 / 0.16);
   color: var(--rep-bg);
 }
+/* The Needs attention filter (task A2): its count turns red while anything needs attention. */
+.filter[data-attention]:not([data-empty]) .filterCount {
+  background: var(--rep-bad-soft);
+  color: var(--rep-bad);
+}
+.filter[data-attention][aria-current="page"] .filterCount {
+  background: var(--rep-bad);
+  color: #fff;
+}
+
+/* ---- Needs attention sort toggle: a small segmented pair under the filter ---- */
+.sortbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 12px;
+  font-size: 12.5px;
+  color: var(--rep-muted);
+}
+.sortbar nav {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background: var(--rep-surface);
+}
+.sortbar a {
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-weight: 500;
+  color: var(--rep-ink-2);
+  white-space: nowrap;
+}
+.sortbar a:hover {
+  background: var(--rep-surface-2);
+  text-decoration: none;
+}
+.sortbar a[aria-current="page"] {
+  background: var(--rep-surface-2);
+  color: var(--rep-ink);
+  box-shadow: inset 0 0 0 1px var(--rep-line);
+}
 
 .problem {
   margin-bottom: 10px;
@@ -256,6 +300,34 @@
   color: var(--rep-bad);
 }
 
+/* ---- Aging marker (task A2, decision 18): icon + word + colour; amber "Aging", red "Overdue" ---- */
+.statusStack {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 6px;
+}
+.aging {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px 3px 6px;
+  border-radius: 999px;
+  font: 600 11px/1 var(--rep-body);
+  white-space: nowrap;
+  cursor: help;
+}
+.aging[data-level="amber"] {
+  background: var(--rep-warn-soft);
+  color: var(--rep-warn);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rep-warn) 35%, transparent);
+}
+.aging[data-level="red"] {
+  background: var(--rep-bad-soft);
+  color: var(--rep-bad);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rep-bad) 40%, transparent);
+}
+
 /* ---- changes_requested: an amber rule down the left and the customer's note under the row ---- */
 .quote[data-status="changes_requested"] {
   background: color-mix(in srgb, var(--rep-warn-soft) 55%, var(--rep-surface));
@@ -359,6 +431,9 @@
   .status {
     grid-area: status;
     justify-self: end;
+  }
+  .statusStack {
+    justify-content: flex-end;
   }
   .customer {
     grid-area: customer;

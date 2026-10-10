@@ -6,7 +6,7 @@ import {QUOTE_MESSAGE_MAX,QuoteActionError} from '@/server/quotes';
 import {sendQuote} from '@/server/quotes/service';
 import {IdempotencyStore} from './idempotency';
 import {quoteDetailOf,type QuoteDetail} from './quote-detail';
-import {repQuote} from './quotes';
+import {repQuote,touchRepQuote} from './quotes';
 
 // Approve & send from the rep portal (spec §4, §5.4; task 3.7): POST /api/rep/quotes/<id>/send,
 // after the send dialog and its Confirm send. The work is task 1.5's sendQuote (the revision
@@ -17,7 +17,8 @@ import {repQuote} from './quotes';
 //     which sendQuote holds the send to (conflict if the quote changed after the rep looked);
 //   - one send per click: the Idempotency-Key replays a send instead of repeating it, even while
 //     the first is still pricing freight; without a key, sendQuote's status guard refuses a
-//     second send (409).
+//     second send (409);
+//   - the send touches the quote for its rep (last_rep_touch_at, v3 spec §3).
 
 const clock=()=>new Date().toISOString();
 
@@ -73,6 +74,7 @@ export async function sendRepQuote(repId:string,quoteIdOrNumber:string,body:unkn
     const at=now??clock();
     const {quote,message}=await sendQuote(q.id,{repId:q.rep_id,message:input.message??null,attachPdf:input.attach_pdf??true,
       expected:{revision:input.revision,total:input.total},now:at,provider});
+    touchRepQuote(q,at);
     const posted=message.payload as QuoteReadyPayload;
     return {detail:await quoteDetailOf(quote,{now:at,provider}),
       sent:{quote_id:posted.quote_id,quote_number:posted.quote_number,revision:posted.revision,total:posted.total,valid_until:posted.valid_until,attach_pdf:posted.attach_pdf,
