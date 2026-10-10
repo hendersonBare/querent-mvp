@@ -5,7 +5,7 @@ import {COST_MODEL_DEFAULTS,modelledDeliveryCost} from '../../freight/cost-model
 import {haversineRoadMiles} from '../../freight/distance';
 import {CALL_FOR_FREIGHT,priceDelivery} from '../../freight/engine';
 import {POOL_DEFAULTS} from '../../freight/pool';
-import {allocateRecovery} from '../../freight/recovery';
+import {allocateRecovery,carriesRecovery} from '../../freight/recovery';
 import {validUntilFor} from '../../quotes/lifecycle';
 import {DECLINE_REASON_LABELS} from '../../quotes/response-rules';
 import {customerUnitPrice,letterheadOf,repContactOf} from '../../quotes/snapshot';
@@ -209,9 +209,12 @@ function seedOne(insert:Insert,q:DemoQuote,number:number,ago:(hours:number)=>str
   // Freight, the modelled cost and recovery, as the app freezes them at creation (spec §4.1–4.5).
   const delivery=q.fulfillment==='delivery';
   const miles=delivery?demoRoadMiles(customer):null;
-  const carries=delivery&&q.at>=PILOT_ENDS&&toCents(subtotal)>=toCents(DELIVERY_RATES.free_threshold);
-  const freight=miles===null?{amount:0,miles:null}:priceDelivery({origin:branch.code,miles,subtotal,rates:DELIVERY_RATES,freeDeliveryPricing:carries});
-  if(freight.amount===CALL_FOR_FREIGHT)throw new Error(`${quoteNumber}: ${customer.name} is beyond the delivery radius.`);
+  const priced=(freeDeliveryPricing:boolean)=>miles===null?{amount:0,miles:null}:priceDelivery({origin:branch.code,miles,subtotal,rates:DELIVERY_RATES,freeDeliveryPricing});
+  // The app's own rule (freight/recovery carriesRecovery), with the pilot as the toggle and no rep override.
+  const carries=carriesRecovery({enabled:q.at>=PILOT_ENDS,fulfillment:q.fulfillment,overridden:false,subtotal,freeThreshold:DELIVERY_RATES.free_threshold,
+    callForFreight:priced(false).amount===CALL_FOR_FREIGHT});
+  const freight=priced(carries);
+  if(typeof freight.amount!=='number')throw new Error(`${quoteNumber}: ${customer.name} is beyond the delivery radius.`);
   const recovery=carries?allocateRecovery({rateBp:PILOT_RATE_BP,lineCapBp:POOL_DEFAULTS.lineCapBp,
     lines:lines.map(l=>({line_no:l.line_no,qty:l.qty,unitPriceCents:toCents(l.price),unitCostCents:toCents(l.item.cost),basis:'customer' as const}))}):[];
   const recoveryOf=(lineNo:number)=>recovery.find(r=>r.line_no===lineNo)?.freight_recovery??0;
