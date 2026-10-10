@@ -5,16 +5,16 @@ import {join} from 'node:path';
 import {afterEach,beforeEach,describe,expect,it} from 'vitest';
 import {migrate,migrationsDir,readMigrations} from './migrate';
 
-// 008_original_rep (v3 spec §1.2 "original_rep" row, §8; decision 21; task D2): quotes gain
+// 007_original_rep (v3 spec §1.2 "original_rep" row, §8; decision 21; task D2): quotes gain
 // original_rep_id, the quote's first owner, kept when a manager reassigns the quote (quotes.rep_id
 // is the current owner). Added column only, backfilled from rep_id; it references reps.
 
-const TARGET='008_original_rep';
+const TARGET='007_original_rep';
 const BEFORE=readMigrations().filter(m=>m.id<TARGET).map(m=>`${m.id}.sql`);
 let dir='';
 let database:Database.Database;
 beforeEach(()=>{
-  dir=mkdtempSync(join(tmpdir(),'querent-008-'));
+  dir=mkdtempSync(join(tmpdir(),'querent-007-'));
   for(const name of BEFORE)copyFileSync(join(migrationsDir(),name),join(dir,name));
   database=new Database(':memory:');
   database.pragma('foreign_keys = ON');
@@ -37,7 +37,7 @@ function seedQuotes(){
     VALUES(?,?,'wasatch',?,'ready_for_review','2026-09-04T00:00:00.000Z','2026-09-04T00:00:00.000Z','2026-09-04T00:00:00.000Z','will_call','slc')`,id,id.toUpperCase(),rep);
 }
 
-describe('migration 008_original_rep',()=>{
+describe('migration 007_original_rep',()=>{
   it('adds original_rep_id and backfills it from rep_id for every existing quote',()=>{
     seedQuotes();
     expect(toTarget()).toEqual([TARGET]);
