@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {addMessage,appendLog,conversation,conversationMessages,createConversation,history,latestConversation,quoteNotices} from './chat';
+import {TRANSCRIPT_PAGE,addMessage,appendLog,conversation,conversationMessageCount,conversationMessagePage,conversationMessages,createConversation,history,latestConversation,quoteNotices} from './chat';
 import {useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -136,5 +136,66 @@ describe('quote notices (task 5.1): the quote_ready messages Approve & send post
 
   it('is not part of history(): notices have no query-log row',()=>{
     expect(history('wasatch','conv-notice-a')).toEqual([]);
+  });
+});
+
+describe('the rep\'s chat transcript (B1, spec §9): pages of 50, newest page first, oldest-first within a page',()=>{
+  const page=conversationMessagePage;
+  // 120 messages, two per second: each pair shares created_at, and ids sort opposite to the order they
+  // were written, so only created_at plus insertion order puts them right. Page 1 is t-071..t-120.
+  const label=(i:number)=>`t-${String(i).padStart(3,'0')}`;
+  const ids=(p:{messages:{id:string}[]})=>p.messages.map(m=>m.id);
+  const range=(from:number,to:number)=>Array.from({length:to-from+1},(_,k)=>label(from+k));
+  const store=new Map<string,string>();
+  const build=()=>{
+    createConversation({id:'conv-long',customerId:'wasatch',at:'2026-09-25T09:00:00.000Z'});
+    for(let i=1;i<=120;i++){
+      // The stored id sorts in reverse; the label is what the test reads back.
+      const id=`m-${String(1000-i).padStart(4,'0')}`;store.set(id,label(i));
+      addMessage('wasatch','conv-long',{id,role:i%2?'customer':'assistant',content:`Message ${i}`,at:new Date(Date.parse('2026-09-25T09:00:00.000Z')+Math.floor(i/2)*1000).toISOString()});
+    }
+  };
+  const read=(p:{messages:{id:string}[];next_before:string|null})=>({ids:p.messages.map(m=>store.get(m.id)),next:p.next_before&&store.get(p.next_before)});
+
+  it('returns the sample chat as one page, oldest first, with only id, role, kind, content and created_at',()=>{
+    const first=page('conv-q-24817');
+    expect(first.next_before).toBeNull();
+    expect(ids(first)).toEqual(['conv-q-24817-1','conv-q-24817-2','conv-q-24817-3','conv-q-24817-4','conv-q-24817-5']);
+    expect(first.messages[0]).toEqual({id:'conv-q-24817-1',role:'customer',kind:'text',content:expect.stringMatching(/^Do you have the 1\/2 in grade 8 hex bolts/),created_at:'2026-09-23T16:12:00.000Z'});
+    for(const m of first.messages)expect(Object.keys(m).sort()).toEqual(['content','created_at','id','kind','role']);
+    expect(conversationMessageCount('conv-q-24817')).toBe(5);
+  });
+
+  it('pages 50 at a time with a stable before cursor, and ends with next_before null',()=>{
+    build();
+    expect(TRANSCRIPT_PAGE).toBe(50);
+    expect(conversationMessageCount('conv-long')).toBe(120);
+    const p1=read(page('conv-long'));
+    expect(p1).toEqual({ids:range(71,120),next:'t-071'});
+    const p2=page('conv-long',{before:page('conv-long').next_before});
+    expect(read(p2)).toEqual({ids:range(21,70),next:'t-021'});
+    const p3=page('conv-long',{before:p2.next_before});
+    expect(read(p3)).toEqual({ids:range(1,20),next:null});
+    // Oldest first within a page, by time.
+    const times=page('conv-long').messages.map(m=>m.created_at);
+    expect([...times].sort()).toEqual(times);
+  });
+
+  it('takes a smaller limit, and a cursor works the same after newer messages arrive',()=>{
+    const p=page('conv-long',{limit:3});
+    expect(read(p)).toEqual({ids:['t-118','t-119','t-120'],next:'t-118'});
+    addMessage('wasatch','conv-long',{id:'m-new',role:'customer',content:'Newer',at:'2026-09-25T10:00:00.000Z'});store.set('m-new','t-121');
+    expect(conversationMessageCount('conv-long')).toBe(121);
+    expect(read(page('conv-long',{before:p.next_before,limit:3}))).toEqual({ids:['t-115','t-116','t-117'],next:'t-115'});
+  });
+
+  it('answers an empty page for an empty or unknown conversation, or a cursor from another conversation',()=>{
+    createConversation({id:'conv-empty',customerId:'wasatch',at:'2026-09-25T09:00:00.000Z'});
+    expect(page('conv-empty')).toEqual({messages:[],next_before:null});
+    expect(conversationMessageCount('conv-empty')).toBe(0);
+    expect(page('no-such-conversation')).toEqual({messages:[],next_before:null});
+    expect(conversationMessageCount('no-such-conversation')).toBe(0);
+    expect(page('conv-q-24817',{before:'m-0900'})).toEqual({messages:[],next_before:null});
+    expect(page('conv-long',{before:'no-such-message'})).toEqual({messages:[],next_before:null});
   });
 });

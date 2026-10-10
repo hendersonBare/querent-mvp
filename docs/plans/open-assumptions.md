@@ -36,3 +36,6 @@ Choices the decision log does not settle, made by the unattended build. Each has
 | OA-30 | D3 is blocked by C1 (freight recovered metric) and E1 (suggestion acceptance) as well as D2. | Its metrics read columns those slices add. |
 | OA-31 | A merged task's branch is deleted after merge, so the claim check also skips tasks `status.md` lists as merged. | Build instructions require deleting merged branches; decision 2 relies on names, so status.md fills the gap. |
 | OA-32 | Remote branches cannot be deleted from this cloud session (the git proxy answers 403 on branch deletion), so merged `task/*` branches stay on GitHub; worktrees and local branches are removed, and `status.md` marks the task merged so the claim check skips it. | The build instructions require removal; this is the closest possible without changing repository settings. |
+| OA-33 | `001_baseline.sql` also writes `meta.schema_version='4'` so pre-T1 code can still open a post-T1 database after a revert. | Keeps the revert path in the T1 rollback plan working. |
+| OA-34 | Settings > Data sources shows "Schema migration <latest id>" instead of the schema version number. | `SCHEMA_VERSION` no longer exists (decision 8). |
+| OA-35 | `cents` in `snapshot.ts` stays as an alias of the shared helper to avoid touching ~10 callers. | Minimal diff; one implementation. |
