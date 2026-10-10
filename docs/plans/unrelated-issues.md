@@ -14,3 +14,4 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | Playwright runs | The agent proxy logs blocked requests to `www.google.com:443` (likely a font/asset fetch); tests unaffected. |
 | `src/server/freight/quote.ts` (`deliveryMiles`) | Rebuilds the ship-to address string that the repository also builds; the two could drift. |
 | Send / draft PDF / quote list | Do not reprice a draft; if the toggle flips while a rep has a draft open, Send uses the recovery shown at last open (by design, OA-48). |
+| `src/server/rep/quote-upsells.ts:128` | Taking a stale upsell chip (refused 409) still stamps `last_rep_touch_at`; negligible because opening the page already touched it. |
