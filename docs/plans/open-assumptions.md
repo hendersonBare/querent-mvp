@@ -41,3 +41,7 @@ Choices the decision log does not settle, made by the unattended build. Each has
 | OA-35 | `cents` in `snapshot.ts` stays as an alias of the shared helper to avoid touching ~10 callers. | Minimal diff; one implementation. |
 | OA-36 | The rep chat transcript read is `conversationMessagePage` (not an overload of the customer-scoped `conversationMessages`), and a customer calling the rep messages route gets 403 like every rep route (another rep gets 404). | Avoids widening the customer-safe module; matches existing `repRoute` behaviour. |
 | OA-37 | The "N messages" count comes from the first transcript page loaded with the quote; the View full chat button is hidden when the quote has no conversation. | Keeps the quote detail payload unchanged. |
+| OA-38 | The pool cache also stores `freight_pool_computed_on` (UTC day); the pool rate is rounded to whole bp before caching and again after the ramp (can differ by 1 bp from a single rounding). | The cached key is in whole bp; spec examples are unaffected. Flag for the product owner. |
+| OA-39 | The ramp counts whole elapsed 24-hour periods since enable; never enabled = step 0 (no recovery). | Simple and deterministic. |
+| OA-40 | The 90-day pool window is inclusive at both ends; a line with no price basis counts as non-contract goods. | Simplest reading of "trailing 90 days" and "contract lines exempt". |
+| OA-41 | Cost-model and pool functions throw on invalid inputs; settings are validated on save (C3). | Fail loudly rather than silently price wrong. |
