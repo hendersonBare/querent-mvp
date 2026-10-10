@@ -50,7 +50,11 @@ describe('GET/PUT /api/rep/settings/freight',()=>{
   it('refuses to enable before the preview (409 preview_required), then enables after it',async()=>{
     expect(await call('','PUT',{body:{enabled:true}})).toMatchObject({status:409,json:{code:'preview_required'}});
     const preview=await call('/preview','GET');
-    expect(preview).toMatchObject({status:200,cache:expect.stringMatching(/no-store/),json:{step1Bp:100,fullBp:300,steps:3,windowDays:90}});
+    // The seed's 22 eligible pilot quotes (task F1) put the computed pool rate in force, not the 3.0% starting rate.
+    const {pool}=(await call('','GET')).json;
+    expect(pool).toMatchObject({usingPool:true,startingBp:300});
+    expect(pool.baseBp).not.toBe(300);
+    expect(preview).toMatchObject({status:200,cache:expect.stringMatching(/no-store/),json:{step1Bp:Math.round(pool.baseBp/3),fullBp:pool.baseBp,steps:3,windowDays:90}});
     expect(typeof preview.json.affected).toBe('number');
     expect(Array.isArray(preview.json.categories)).toBe(true);
     const on=await call('','PUT',{body:{enabled:true}});

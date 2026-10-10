@@ -36,11 +36,15 @@ describe('repSettings: the page snapshot',()=>{
     expect(settings.rep_id).toBe('brandi');
     expect(settings.reps.map(r=>r.name)).toEqual(['Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);
     expect(settings.assignments.map(a=>[a.name,a.account_number,a.rep_name,a.placeholder])).toEqual([
-      ['Canyon Ridge Builders','CRB-3318','Mara Jensen',true],
+      ['Canyon Ridge Builders','CRB-3318','Mara Jensen',false],
       ['Great Basin Fabrication','GBF-2207','Brandi Gallegos',true],
       ['Uinta Facility Services','UFS-4051','Nora Chen',true],
+      ['Utah Valley Electric','UVE-5126','Eli Porter',false],
       ['Wasatch Mechanical Contractors','WAS-1142','Brandi Gallegos',false],
+      ['Weber Basin Fabricators','WBF-6074','Eli Porter',false],
     ]);
+    // Brandi covered three of Mara's Canyon Ridge quotes; Mara moved two others to Eli (the demo book, task F1).
+    expect(settings.assignments.find(a=>a.id==='canyon-ridge')!.quotes).toEqual(expect.arrayContaining([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:3},{rep_id:'eli',rep_name:'Eli Porter',count:2},{rep_id:'mara',rep_name:'Mara Jensen',count:18}]));
     expect(settings.assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]); // with the 3 aging quotes (task A2)
     expect(settings.assignments.find(a=>a.id==='great-basin')!.quotes).toEqual([]);
   });
@@ -69,7 +73,7 @@ describe('repSettings: the page snapshot',()=>{
     const settings=repSettings('brandi');
     expect(settings.pricing).toEqual({scarcity_uplift_enabled:false});
     expect(settings.delivery).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25});
-    expect(settings.sources.database).toMatchObject({seed_date:'2026-09-23',records:{customers:4}});
+    expect(settings.sources.database).toMatchObject({seed_date:'2026-09-23',records:{customers:6}});
     expect(settings.sources.erp.last_updated).toEqual(expect.any(String));
     expect(settings.sources.erp.events[0]).toMatchObject({message:'ERP connection refreshed'});
     expect(dataSources()).toEqual(settings.sources);

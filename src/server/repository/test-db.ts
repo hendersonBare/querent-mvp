@@ -42,6 +42,28 @@ export async function setQuoteFreightFixture(quoteId:string,values:Partial<Recor
   if(db().prepare(`UPDATE quotes SET ${columns.map(c=>`${c}=?`).join(',')} WHERE id=?`).run(...columns.map(c=>values[c]),quoteId).changes!==1)throw new Error(`No quote ${quoteId}`);
 }
 
+/**
+ * Tests only: takes the demo seed's free delivery pilot quotes (task F1, src/server/db/seed/demo.ts)
+ * out of the pool, so pool tests start from an empty window whatever the day: no quote keeps a frozen
+ * rate and no line keeps recovery. Their modelled cost stays.
+ */
+export async function clearSeededPool(){
+  const {db}=await import('../db');
+  db().prepare('UPDATE quotes SET freight_rate_bp=NULL,freight_ramp_step=NULL,freight_ramp_steps=NULL WHERE freight_rate_bp IS NOT NULL').run();
+  db().prepare('UPDATE quote_lines SET freight_recovery=0 WHERE freight_recovery<>0').run();
+}
+
+/**
+ * Tests only: deletes the demo seed's book of quotes (task F1, src/server/db/seed/demo.ts) with their
+ * lines, revisions and activity, for tests that count every quote in a fixed window: the book is
+ * dated from the real clock, so on some days it would fall inside that window.
+ */
+export async function clearDemoBook(){
+  const {db}=await import('../db');
+  const {DEMO_QUOTES,FIRST_DEMO_NUMBER}=await import('../db/seed/demo');
+  db().prepare('DELETE FROM quotes WHERE id IN (SELECT value FROM json_each(?))').run(JSON.stringify(DEMO_QUOTES.map((_,i)=>`q-${FIRST_DEMO_NUMBER+i}`)));
+}
+
 /** Tests only: stores a settings key (null removes it), for keys whose setter belongs to a later slice (C3). */
 export async function setSettingFixture(key:string,value:string|null){
   const {db}=await import('../db');

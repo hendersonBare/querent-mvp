@@ -11,12 +11,14 @@ describe('supplier and customers',()=>{
     expect(supplier()).toMatchObject({id:'herrick',name:'Herrick Industrial Supply',phone:'(801) 555-0100'});
   });
 
-  it('lists Wasatch and the placeholder customers by name, each with its one rep',()=>{
+  it('lists Wasatch, the placeholder customers and the demo book (task F1) by name, each with its one rep',()=>{
     expect(customers()).toEqual([
       {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen'},
       {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos'},
       {id:'uinta-facility',name:'Uinta Facility Services',account_number:'UFS-4051',rep_id:'nora',rep_name:'Nora Chen'},
+      {id:'utah-valley-electric',name:'Utah Valley Electric',account_number:'UVE-5126',rep_id:'eli',rep_name:'Eli Porter'},
       {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos'},
+      {id:'weber-basin',name:'Weber Basin Fabricators',account_number:'WBF-6074',rep_id:'eli',rep_name:'Eli Porter'},
     ]);
     expect(customerIds()).toEqual(customers().map(c=>c.id));
   });
@@ -92,11 +94,14 @@ describe('reps and assignments',()=>{
 describe('customer directory (rep Customers list, task 3.8)',()=>{
   it('lists every customer by name with its rep, terms, balance and activity counts',()=>{
     expect(customerDirectory()).toEqual([
-      {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
+      // The demo book (task F1): quotes, no orders (accepted quotes make none yet, R-1).
+      {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:'Net 30',credit_limit:40000,open_balance:9650,order_count:0,last_order_date:null,quote_count:23},
       {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
       {id:'uinta-facility',name:'Uinta Facility Services',account_number:'UFS-4051',rep_id:'nora',rep_name:'Nora Chen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
+      {id:'utah-valley-electric',name:'Utah Valley Electric',account_number:'UVE-5126',rep_id:'eli',rep_name:'Eli Porter',terms:'Net 30',credit_limit:30000,open_balance:4210,order_count:0,last_order_date:null,quote_count:12},
       // 24 quotes of history plus the sample Q-24817; 23 orders (17 won quotes and 6 direct orders).
       {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:'Net 30',credit_limit:50000,open_balance:18420,order_count:23,last_order_date:'2026-09-09',quote_count:28}, // 28: with the 3 aging quotes (task A2)
+      {id:'weber-basin',name:'Weber Basin Fabricators',account_number:'WBF-6074',rep_id:'eli',rep_name:'Eli Porter',terms:'Net 45',credit_limit:25000,open_balance:2875,order_count:0,last_order_date:null,quote_count:12},
     ]);
     expect(customerDirectory().map(({id,name,account_number,rep_id,rep_name})=>({id,name,account_number,rep_id,rep_name}))).toEqual(customers());
   });

@@ -124,7 +124,7 @@ describe('stock at the quote\'s branch',()=>{
 
 describe('a customer with no history',()=>{
   it('gets only the catalog rules, priced at list (placeholder customers have no price level)',()=>{
-    const q=createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',at:AT,
+    const q=createQuote({customerId:'uinta-facility',fulfillment:'will_call',branchId:'slc',at:AT,
       lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:null},{itemId:'CW-45-045-T1',qty:6,unitPrice:null},{itemId:'GLV-N8-L-1000',qty:4,unitPrice:null}]});
     // The unpriced wheel line is measured at Querent's price for 6 (list $46.00): 2 more earn 2 x 21.90.
     expect(chips(quoteUpsells(q.id,{on:ON})!)).toEqual([

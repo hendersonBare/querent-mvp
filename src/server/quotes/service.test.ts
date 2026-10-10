@@ -216,7 +216,7 @@ describe('customer response: sent --> changes_requested --> sent (rev 2) --> acc
     const q=requestChanges('wasatch','Q-24817',{revision:1,note:'  Can you do 20 boxes of the bolts?  ',now:REQUEST});
     expect(q).toMatchObject({status:'changes_requested',revision:1,change_request_note:'Can you do 20 boxes of the bolts?',responded_at:REQUEST,unread_for_rep:true,unread_for_customer:false});
     expect(lastActivity(SAMPLE)).toMatchObject({actor:'customer',actor_id:'dana',kind:'changes_requested',at:REQUEST,message:'Dana requested changes to Q-24817 rev 1: "Can you do 20 boxes of the bolts?"'});
-    expect(quotes({statuses:['changes_requested']}).map(r=>[r.quote_number,r.change_request_note])).toEqual([
+    expect(quotes({statuses:['changes_requested'],customerId:'wasatch'}).map(r=>[r.quote_number,r.change_request_note])).toEqual([
       ['Q-24790','Can you hold the anchors for pickup at Ogden instead?'],['Q-24817','Can you do 20 boxes of the bolts?']]); // Q-24790: the seed's aging quote (task A2)
   });
 

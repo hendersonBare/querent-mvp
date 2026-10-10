@@ -1,13 +1,13 @@
 import type Database from 'better-sqlite3';
 import {INFO_CATEGORIES} from '../schema';
-import {BRANCHES,BRANDI_FLOORS,CONTRACTS,DANA,DEFAULT_FLOOR,DELIVERY_RATES,DEPARTMENTS,PLACEHOLDER_CUSTOMERS,PRICE_LEVEL,REPS,SETTINGS,SUPPLIER,WASATCH,WASATCH_REP} from './accounts';
+import {BRANCHES,BRANDI_FLOORS,CONTRACTS,DANA,DEFAULT_FLOOR,DELIVERY_RATES,DEMO_CUSTOMERS,DEPARTMENTS,PLACEHOLDER_CUSTOMERS,PRICE_LEVEL,REPS,SETTINGS,SUPPLIER,WASATCH,WASATCH_REP} from './accounts';
 import {CATALOG,CATEGORIES,INBOUND} from './catalog';
 import {addDays} from './dates';
 import {erp,type Insert} from './insert';
 
 export interface SeedContext{insert:Insert;anchor:string;syncedAt:string}
 
-/** Supplier, settings, branches, catalog, stock, prices, contracts, customers, reps, floors, departments, rates, access. */
+/** Supplier, settings, branches, catalog, stock, prices, contracts, customers (Wasatch, placeholders, Mara's and Eli's books), reps, floors, departments, rates, access. */
 export function seedReference({insert,anchor,syncedAt}:SeedContext){
   const sync=(externalId:string)=>erp(externalId,syncedAt);
   insert('suppliers',SUPPLIER);
@@ -35,6 +35,11 @@ export function seedReference({insert,anchor,syncedAt}:SeedContext){
     insert('customers',{id:p.id,account_number:p.account_number,name:p.name,...sync(p.account_number)});
     insert('customer_rep',{customer_id:p.id,rep_id:p.rep});
   }
+  for(const {rep,branch:_branch,contact,...c} of DEMO_CUSTOMERS){
+    insert('customers',{...c,tax_status:'taxable',tax_state:'UT',price_level_id:PRICE_LEVEL.id,main_phone:null,ship_to_state:'UT',past_due_balance:0,...sync(c.account_number)});
+    insert('contacts',{...contact,customer_id:c.id,phone:null,email:null,is_primary:1,...sync(`${c.account_number}:${contact.id}`)});
+    insert('customer_rep',{customer_id:c.id,rep_id:rep});
+  }
   for(const c of CONTRACTS){
     insert('contracts',{id:c.id,customer_id:WASATCH.id,contract_number:c.contract_number,name:c.name,starts_on:addDays(anchor,c.starts),ends_on:addDays(anchor,c.ends),...sync(c.contract_number)});
     for(const [sku,price] of c.lines)insert('contract_lines',{id:`${c.id}:${sku}`,contract_id:c.id,item_id:sku,unit_price:price,...sync(`${c.contract_number}:${sku}`)});
@@ -43,7 +48,7 @@ export function seedReference({insert,anchor,syncedAt}:SeedContext){
   for(const r of REPS)for(const c of CATEGORIES)insert('rep_category_floors',{rep_id:r.id,category_id:c.id,margin_floor:(r.id==='brandi'?BRANDI_FLOORS[c.id]:undefined)??DEFAULT_FLOOR,updated_at:syncedAt});
   DEPARTMENTS.forEach((d,i)=>insert('departments',{...d,sort_order:i+1}));
   insert('delivery_rates',DELIVERY_RATES);
-  for(const id of [WASATCH.id,...PLACEHOLDER_CUSTOMERS.map(p=>p.id)])for(const category of INFO_CATEGORIES)insert('access',{customer_id:id,category,enabled:1});
+  for(const id of [WASATCH.id,...PLACEHOLDER_CUSTOMERS.map(p=>p.id),...DEMO_CUSTOMERS.map(c=>c.id)])for(const category of INFO_CATEGORIES)insert('access',{customer_id:id,category,enabled:1});
 }
 
 /**

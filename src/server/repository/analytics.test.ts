@@ -60,7 +60,9 @@ describe('quote analytics facts',()=>{
       valid_until:'2026-09-21',revisions:1,sent_total:655.25});
     expect(facts.find(f=>f.quote_number==='Q-24817')).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',is_sample:true,first_sent_at:null,valid_until:null,revisions:0,sent_total:null});
     expect(facts.filter(f=>f.status==='accepted')).toHaveLength(17);
-    expect(quoteFacts(null)).toHaveLength(28);
+    // All customers: Wasatch's and the demo book's 47 (task F1).
+    expect(quoteFacts(null)).toHaveLength(75);
+    expect(quoteFacts(null).filter(f=>f.customer_id==='wasatch')).toEqual(facts);
     expect(quoteFacts(['great-basin','wasatch'])).toEqual(facts);
     expect(quoteFacts('great-basin')).toEqual([]);
     expect(quoteFacts([])).toEqual([]);

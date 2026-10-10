@@ -131,7 +131,7 @@ describe('placeholder and other reps\' customers',()=>{
   });
 
   it('shows zeros for a rep whose customers have no data',()=>{
-    expect(repAnalytics('mara',{now:NOW})).toMatchObject({scope:{customer_ids:['canyon-ridge']},...empty});
+    expect(repAnalytics('nora',{now:NOW})).toMatchObject({scope:{customer_ids:['uinta-facility']},...empty});
   });
 });
 

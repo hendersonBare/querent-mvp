@@ -33,7 +33,9 @@ describe('original_rep_id',()=>{
     const q=await marasQuote();
     expect(q).toMatchObject({rep_id:'mara',original_rep_id:'mara'});
     expect(repo.quote('q-24817')).toMatchObject({rep_id:'brandi',original_rep_id:'brandi'});
-    expect(repo.quotes().every(row=>repo.quote(row.id)!.original_rep_id===row.rep_id)).toBe(true);
+    // Every seeded quote is still its first rep's, except the demo book's moves (task F1): three of Mara's to Brandi, two to Eli.
+    const moved=repo.quotes().filter(row=>repo.quote(row.id)!.original_rep_id!==row.rep_id).map(row=>[repo.quote(row.id)!.original_rep_id,row.rep_id].join('>'));
+    expect(moved.sort()).toEqual(['mara>brandi','mara>brandi','mara>brandi','mara>eli','mara>eli']);
   });
 });
 

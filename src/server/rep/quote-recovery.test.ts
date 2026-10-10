@@ -1,7 +1,7 @@
 // @vitest-environment node
-import {afterEach,describe,expect,it} from 'vitest';
+import {afterEach,beforeAll,describe,expect,it} from 'vitest';
 import type {NewQuote} from '@/domain';
-import {setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
+import {clearSeededPool,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 
 // Free delivery pricing on a quote (spec §4.1, §4.5, §4.6; decisions 27, 32–36; OA-3, OA-7, OA-22):
 // the rate frozen into a draft, margin-weighted recovery on its lines, reallocation on edits, the
@@ -9,6 +9,8 @@ import {setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 // and the customer seeing only the final unit price. The toggle is off by default; these tests flip
 // it with setSettingFixture (its manager control arrives in C3).
 useSeededDatabase();
+// The demo seed's pilot quotes (task F1) are dated from the real clock: out of the pool, so the starting rate is the one in force at this file's fixed times.
+beforeAll(clearSeededPool);
 
 const NOW='2026-09-25T18:00:00.000Z',LATER='2026-09-25T19:00:00.000Z',SEND='2026-09-25T20:00:00.000Z';
 const DAY=86_400_000;

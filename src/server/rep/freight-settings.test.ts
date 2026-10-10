@@ -1,7 +1,7 @@
 // @vitest-environment node
-import {describe,expect,it} from 'vitest';
+import {beforeAll,describe,expect,it} from 'vitest';
 import type {NewQuoteLine} from '@/domain';
-import {setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
+import {clearSeededPool,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 
 // The manager's free delivery pricing controls on Settings > Pricing & delivery (v3 spec §1.3,
 // §4.3, §4.4, §4.6, §4.7, §5; decisions 28–31, 35, 36; OA-11): what GET shows (toggle, inputs, the
@@ -9,6 +9,8 @@ import {setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 // preview), and the preview itself. The clock is passed in; seeded quotes are long out of the
 // 90-day windows at NOW, so only this file's quotes count.
 useSeededDatabase();
+// The demo seed's pilot quotes (task F1) are dated from the real clock: out of the pool, so the starting rate is the one in force at this file's fixed times.
+beforeAll(clearSeededPool);
 
 const NOW='2027-06-01T18:00:00.000Z';
 const HOUR=3_600_000,DAY=24*HOUR;

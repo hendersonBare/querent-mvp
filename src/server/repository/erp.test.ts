@@ -26,7 +26,7 @@ describe('demo database (Settings > Data sources)',()=>{
     const {readMigrations}=await import('../db/migrate');
     const info=demoDatabase();
     expect(info).toMatchObject({seed_date:'2026-09-23',schema_migration:readMigrations().at(-1)!.id});
-    expect(info.records).toMatchObject({customers:4,items:expect.any(Number),orders:expect.any(Number),quotes:expect.any(Number)});
+    expect(info.records).toMatchObject({customers:6,items:expect.any(Number),orders:expect.any(Number),quotes:expect.any(Number)});
     expect(info.records.items).toBeGreaterThanOrEqual(50);
     expect(info.records.orders).toBeGreaterThan(0);
     expect(info.records.quotes).toBeGreaterThan(0);

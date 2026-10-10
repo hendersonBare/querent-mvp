@@ -133,12 +133,17 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
     expect(value('SELECT count(*) FROM contracts WHERE ends_on<?',anchor)).toBe(1);
   });
 
-  it('keeps orders, quotes, prices, contracts, contacts, chats and logs to Wasatch only',()=>{
-    for(const sql of ['SELECT DISTINCT customer_id FROM orders','SELECT DISTINCT customer_id FROM quotes','SELECT DISTINCT customer_id FROM contracts','SELECT DISTINCT customer_id FROM contacts','SELECT DISTINCT customer_id FROM conversations','SELECT DISTINCT customer_id FROM query_logs','SELECT id FROM customers WHERE price_level_id IS NOT NULL'])expect(column(sql),sql).toEqual(['wasatch']);
+  it('keeps orders, contracts, chat logs and pricing history to Wasatch; quotes, buyers and chats to Wasatch and the demo book (task F1)',()=>{
+    for(const sql of ['SELECT DISTINCT customer_id FROM orders','SELECT DISTINCT customer_id FROM contracts','SELECT DISTINCT customer_id FROM query_logs'])expect(column(sql),sql).toEqual(['wasatch']);
+    for(const sql of ['SELECT DISTINCT customer_id FROM quotes','SELECT DISTINCT customer_id FROM contacts','SELECT id FROM customers WHERE price_level_id IS NOT NULL'])
+      expect(column(`${sql} ORDER BY 1`),sql).toEqual(['canyon-ridge','utah-valley-electric','wasatch','weber-basin']);
+    expect(column('SELECT DISTINCT customer_id FROM conversations ORDER BY 1')).toEqual(['canyon-ridge','utah-valley-electric','wasatch','weber-basin']);
+    // The demo book's buyers have a name and a title, no phone or email.
+    expect(value("SELECT count(*) FROM contacts WHERE customer_id<>'wasatch' AND (phone IS NOT NULL OR email IS NOT NULL)")).toBe(0);
   });
 
   it('has 2-3 placeholder customers with only a name, account number and assigned rep',()=>{
-    const placeholders=all<Record<string,unknown>>("SELECT * FROM customers WHERE id<>'wasatch'");
+    const placeholders=all<Record<string,unknown>>("SELECT * FROM customers WHERE id IN ('great-basin','uinta-facility')");
     expect(placeholders.length).toBeGreaterThanOrEqual(2);expect(placeholders.length).toBeLessThanOrEqual(3);
     for(const p of placeholders){
       expect(p.name).toBeTruthy();expect(p.account_number).toBeTruthy();
@@ -146,6 +151,18 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
       expect(value('SELECT rep_id FROM customer_rep WHERE customer_id=?',p.id)).toBeTruthy();
     }
     expect(column('SELECT name FROM customers')).not.toContain('Bonneville Grading Co.');
+    for(const id of ['great-basin','uinta-facility'])expect(value('SELECT count(*) FROM quotes WHERE customer_id=?',id),id).toBe(0);
+  });
+
+  it('gives Mara and Eli customers with a ship-to inside the delivery radius, a price level and one buyer (task F1)',()=>{
+    const book=all<{id:string;rep_id:string;ship_to_lat:number;ship_to_lng:number;terms:string;price_level_id:string}>("SELECT c.*,r.rep_id FROM customers c JOIN customer_rep r ON r.customer_id=c.id WHERE c.id IN ('canyon-ridge','utah-valley-electric','weber-basin') ORDER BY c.id");
+    expect(book.map(c=>[c.id,c.rep_id])).toEqual([['canyon-ridge','mara'],['utah-valley-electric','eli'],['weber-basin','eli']]);
+    const branches=all<{lat:number;lng:number}>('SELECT lat,lng FROM branches');
+    for(const c of book){
+      expect(c.terms,c.id).toBeTruthy();expect(c.price_level_id,c.id).toBeTruthy();
+      expect(Math.min(...branches.map(b=>milesBetween(b,{lat:c.ship_to_lat,lng:c.ship_to_lng}))),c.id).toBeLessThan(30);
+      expect(value('SELECT count(*) FROM contacts WHERE customer_id=?',c.id),c.id).toBe(1);
+    }
   });
 
   it('has 12 months of Wasatch orders; the last order is 14 days before the anchor',()=>{
@@ -175,8 +192,8 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
   });
 
   it('has past quotes won and lost at about a 71% win rate, each won quote linked to its order',()=>{
-    // The aging quotes (task A2, tested below) are open, not past.
-    const past=all<{id:string;status:string}>(`SELECT id,status FROM quotes WHERE is_sample=0 AND id NOT IN (${AGED_QUOTES.map(q=>`'q-${q.number}'`).join(',')})`);
+    // The aging quotes (task A2, tested below) are open, not past; the demo book (task F1, demo-seed.test.ts) is Mara's and Eli's.
+    const past=all<{id:string;status:string}>(`SELECT id,status FROM quotes WHERE customer_id='wasatch' AND is_sample=0 AND id NOT IN (${AGED_QUOTES.map(q=>`'q-${q.number}'`).join(',')})`);
     expect(past.every(q=>['accepted','expired'].includes(q.status))).toBe(true);
     const won=past.filter(q=>q.status==='accepted').length;
     expect(Math.round(won/past.length*100)).toBe(71);
@@ -185,11 +202,12 @@ describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{
       expect(value<number>('SELECT count(*) FROM quote_lines WHERE quote_id=?',q.id),q.id).toBeGreaterThan(0);
       expect(value<number>('SELECT count(*) FROM quote_revisions WHERE quote_id=?',q.id),q.id).toBe(1);
     }
-    expect(value("SELECT count(*) FROM quotes WHERE status='expired' AND valid_until>=?",anchor)).toBe(0);
+    expect(value("SELECT count(*) FROM quotes WHERE customer_id='wasatch' AND status='expired' AND valid_until>=?",anchor)).toBe(0);
   });
 
-  it('assigns every quote to the customer\'s assigned rep',()=>{
-    expect(value('SELECT count(*) FROM quotes q JOIN customer_rep cr ON cr.customer_id=q.customer_id WHERE q.rep_id<>cr.rep_id')).toBe(0);
+  it('assigns every quote to the customer\'s assigned rep, unless Brandi has since reassigned it (task F1)',()=>{
+    expect(value('SELECT count(*) FROM quotes q JOIN customer_rep cr ON cr.customer_id=q.customer_id WHERE q.original_rep_id<>cr.rep_id')).toBe(0);
+    expect(value("SELECT count(*) FROM quotes q JOIN customer_rep cr ON cr.customer_id=q.customer_id WHERE q.rep_id<>cr.rep_id AND NOT EXISTS (SELECT 1 FROM quote_activity a WHERE a.quote_id=q.id AND a.kind='reassigned')")).toBe(0);
   });
 
   it('has Brandi plus three other reps, one rep per customer, and Wasatch assigned to Brandi',()=>{

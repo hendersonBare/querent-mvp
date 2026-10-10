@@ -46,4 +46,6 @@ export interface QuoteRequestInput {conversation_id:string;fulfillment:Fulfillme
  */
 export interface QuoteRequestResult {quote:{id:string;quote_number:string;status:QuoteStatus};turn:ChatTurn;replayed:boolean}
 export interface API {get<T>(path:string):Promise<T>;send<T>(path:string,method:'POST'|'PUT',body:unknown):Promise<T>}
-export interface Persona {id:'supplier'|'customer';label:string;description:string}
+export interface Persona {id:'supplier'|'mara'|'eli'|'customer';label:string;description:string}
+/** A rep persona the workspace chooser offers next to Brandi (GET /api/session/personas, task F1): active reps only, no contact details. */
+export interface RepPersona {id:Persona['id'];name:string;role:'rep'|'manager';team:string|null}

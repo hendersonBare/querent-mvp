@@ -11,7 +11,7 @@ describe('the seeded team',()=>{
   it('lists every rep by name with role, team label, active flag and customer count',()=>{
     expect(teamReps()).toEqual([
       {id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',role:'manager',team:'Inside Sales',active:true,customer_count:2},
-      {id:'eli',name:'Eli Porter',initials:'EP',title:'Outside Sales',role:'rep',team:'Outside Sales',active:true,customer_count:0},
+      {id:'eli',name:'Eli Porter',initials:'EP',title:'Outside Sales',role:'rep',team:'Outside Sales',active:true,customer_count:2},
       {id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales',role:'rep',team:'Inside Sales',active:true,customer_count:1},
       {id:'nora',name:'Nora Chen',initials:'NC',title:'Account Manager',role:'rep',team:'Outside Sales',active:true,customer_count:1},
     ]);

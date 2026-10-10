@@ -35,8 +35,11 @@ describe('reading quotes',()=>{
   });
 
   it('lists quotes newest first with subtotal, cost and margin of priced lines',()=>{
-    const list=quotes().slice(3); // the seed's three aging quotes (task A2) come first: they are dated from the reset time
-    expect(quotes()).toHaveLength(28);
+    // Wasatch's: the seed's three aging quotes (task A2) come first, dated from the reset time. All
+    // customers adds the demo book's 47 (task F1), also dated from the reset time.
+    const list=quotes({customerId:'wasatch'}).slice(3);
+    expect(quotes({customerId:'wasatch'})).toHaveLength(28);
+    expect(quotes()).toHaveLength(75);
     expect(list.map(q=>q.quote_number).slice(0,2)).toEqual(['Q-24817','Q-24816']);
     expect(list[0]).toMatchObject({status:'ready_for_review',line_count:4,subtotal:1122.4,cost_total:761,sent_total:null,unread_for_rep:true,is_sample:true,customer_name:'Wasatch Mechanical Contractors',rep_name:'Brandi Gallegos'});
     expect(list[0].margin).toBeCloseTo(361.4/1122.4,10);
@@ -44,17 +47,19 @@ describe('reading quotes',()=>{
   });
 
   it('filters the list by status, customer and rep',()=>{
-    expect(quotes({statuses:['accepted']})).toHaveLength(17);
-    expect(quotes({statuses:['expired','ready_for_review']})).toHaveLength(8);
+    expect(quotes({statuses:['accepted'],customerId:'wasatch'})).toHaveLength(17);
+    expect(quotes({statuses:['expired','ready_for_review'],customerId:'wasatch'})).toHaveLength(8);
     expect(quotes({customerId:'wasatch',repId:'brandi'})).toHaveLength(28);
     expect(quotes({customerId:'great-basin'})).toEqual([]);
-    expect(quotes({repId:'mara'})).toEqual([]);
+    expect(quotes({repId:'nora'})).toEqual([]);
+    expect(quotes({repId:'brandi',customerId:'canyon-ridge'}).map(q=>q.status)).toEqual(['accepted','accepted','accepted']);
     expect(quotes({statuses:[]})).toEqual([]);
   });
 
   it('counts quotes unread by the rep',()=>{
     expect(unreadQuoteCount('brandi')).toBe(1);
-    expect(unreadQuoteCount('mara')).toBe(0);
+    expect(unreadQuoteCount('nora')).toBe(0);
+    expect(unreadQuoteCount('mara')).toBe(1);
   });
 });
 
@@ -271,7 +276,7 @@ describe('customer-safe quote reads',()=>{
     expect(list.find(q=>q.quote_number==='Q-24817')).toEqual({id:'q-24817',quote_number:'Q-24817',status:'ready_for_review',revision:0,requested_at:'2026-09-23T16:14:00.000Z',sent_at:null,valid_until:null,total:null,unread:false});
     expect(list.find(q=>q.quote_number==='Q-24816')).toMatchObject({status:'accepted',revision:1,total:655.25});
     expect(customerQuotes('great-basin').map(q=>q.quote_number)).toEqual(['Q-24819']);
-    expect(customerQuotes('canyon-ridge')).toEqual([]);
+    expect(customerQuotes('uinta-facility')).toEqual([]);
   });
 
   it('shows one quote with its last sent revision, only to its own customer',()=>{

@@ -8,6 +8,8 @@ import {all,nowIso,one,run,scalar} from './sql';
 // to the customer, so one customer can never load another's conversation. The rep's transcript
 // reads (conversationMessagePage, conversationMessageCount; B1) take a conversation id alone: the
 // rep service checks the quote is the rep's first, and the customer barrel doesn't export them.
+// TODO(R-5): chat transcripts (messages) and query_logs keep the customer's words as typed; add a PII
+// removal layer before they are stored or shown to reps.
 
 const CONVERSATION='SELECT id,customer_id,contact_id,started_at FROM conversations';
 
@@ -65,6 +67,7 @@ export const conversationMessageCount=(conversationId:string)=>scalar<number>('S
 /**
  * Appends a message to one of the customer's conversations; payload is stored as JSON (e.g. the
  * item pop-up's lines). Returns undefined, writing nothing, if the conversation isn't this customer's.
+ * TODO(R-5): the content is stored as the customer typed it, PII included.
  */
 export function addMessage(customerId:string,conversationId:string,{id=randomUUID(),role,kind='text',content,payload=null,at=nowIso()}:{id?:string;role:MessageRole;kind?:string;content:string;payload?:unknown;at?:string}){
   if(!conversation(customerId,conversationId))return undefined;
@@ -104,6 +107,7 @@ export interface QueryLogEntry {customerId:string;conversationId:string;question
 /**
  * Logs one chat question and answer (feeds history and analytics) in one of the customer's
  * conversations. Returns false, writing nothing, if the conversation isn't this customer's.
+ * TODO(R-5): the question and answer are logged as typed, PII included.
  */
 export function appendLog(entry:QueryLogEntry){
   if(!conversation(entry.customerId,entry.conversationId))return false;

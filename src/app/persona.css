@@ -40,3 +40,10 @@
   line-height: 1.35;
 }
 .workspace-switch{display:inline-flex;align-items:center;gap:7px;padding:8px 10px;border-radius:8px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap}.workspace-switch:hover{background:var(--pale);color:var(--teal)}
+/* Herrick rep personas (v3 decision 39; task F1): two compact choices under Brandi's, side by side, stacked on a phone. */
+.persona-reps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:-2px 0 4px 26px}
+.persona-reps-label{grid-column:1/-1;margin:0;color:var(--muted);font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.persona-choice.persona-rep{margin:0;padding:11px 12px;gap:10px;border-radius:12px}
+.persona-choice.persona-rep svg:first-child{width:20px;height:20px;flex:none}
+.persona-choice.persona-rep strong{font-size:.9rem}
+@media (max-width:520px){.persona-reps{grid-template-columns:1fr;margin-left:12px}}
