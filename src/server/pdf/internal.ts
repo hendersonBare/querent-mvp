@@ -51,10 +51,11 @@ export function basisFor(price:number|null,stored:Pick<QuoteLine,'unit_price'|'p
 
 /**
  * The internal worksheet of one of `repId`'s quotes: rev n, the latest sent (rev null), or the
- * draft. Another rep's quote is not found (repPdfSource), so no rep sees a colleague's cost.
+ * draft. Another rep's quote is not found (repPdfSource), so no rep sees a colleague's cost; the
+ * manager (`manager`) reads any rep's (task D2).
  */
-export async function internalWorksheet(repId:string,quoteIdOrNumber:string,rev:PdfRevision,{now=new Date().toISOString()}:{now?:string}={}):Promise<InternalPdf>{
-  const loaded=await repPdfSource(repId,quoteIdOrNumber,rev,now);
+export async function internalWorksheet(repId:string,quoteIdOrNumber:string,rev:PdfRevision,{now=new Date().toISOString(),manager=false}:{now?:string;manager?:boolean}={}):Promise<InternalPdf>{
+  const loaded=await repPdfSource(repId,quoteIdOrNumber,rev,now,{manager});
   if(!loaded.ok)return loaded;
   const {quote:q,source,freight}=loaded;
 

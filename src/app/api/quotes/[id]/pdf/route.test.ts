@@ -12,7 +12,7 @@ useSeededDatabase();
 //   unreviewed prices, so it is 404, exactly like an unknown id or another customer's quote.
 // - Brandi (rep): any sent revision, or rev=draft to preview the unsent draft (task 3.7).
 
-type Persona='customer'|'supplier';
+type Persona='customer'|'supplier'|'eli';
 let GET:typeof import('./route').GET;
 let otherCustomersQuote='';
 /** Quotes of Canyon Ridge, Mara's customer: one she sent, one still a draft. */
@@ -237,18 +237,21 @@ describe('the rep (Brandi)',()=>{
   });
 });
 
-describe('another rep\'s quote (Mara\'s): not found for Brandi in either variant, as in her Quotes list (task 3.2)',()=>{
+describe('another rep\'s quote (Mara\'s): not found for another rep (Eli) in either variant, as in his Quotes list (task 3.2); the manager reads it (task D2)',()=>{
   it('is the same 404 as an unknown quote for the customer quote and the internal worksheet, sent or draft, by number or id',async()=>{
     const {repQuote}=await import('@/server/rep/quotes');
-    expect(repQuote('brandi',marasSentQuote)).toBeUndefined();
+    expect(repQuote('eli',marasSentQuote)).toBeUndefined();
     const sentId=`q-${marasSentQuote.slice(2)}`;
     for(const [id,query] of [
       [marasSentQuote,''],[marasSentQuote,'?variant=customer&rev=1'],[sentId,'?rev=1'],[marasDraft,'?rev=draft'],[marasDraft,'?variant=customer&rev=draft'],
       [marasSentQuote,'?variant=internal'],[marasSentQuote,'?variant=internal&rev=1'],[sentId,'?variant=internal&rev=1'],[marasDraft,'?variant=internal&rev=draft'],[marasDraft,'?variant=internal'],
     ]){
-      const response=await call(id,query,'supplier');
+      const response=await call(id,query,'eli');
       expect(response.status,`${id}${query}`).toBe(404);
       expect(await detail(response)).toBe('Quote not found.');
+      // Brandi is the manager: she reads any rep's quote, read-only (task D2).
+      // (The draft has no sent revision, so without rev=draft it is 404 for her too.)
+      expect((await call(id,query,'supplier')).status,`manager ${id}${query}`).toBe(id===marasDraft&&!query.includes('rev=draft')?404:200);
     }
   });
 });

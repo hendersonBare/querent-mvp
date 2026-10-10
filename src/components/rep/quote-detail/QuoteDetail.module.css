@@ -1275,3 +1275,15 @@
     gap: 5px 20px;
   }
 }
+
+/* The manager on another rep's quote (task D2): the read-only banner, with Reassign at its end. */
+.banner[data-tone="readonly"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  background: var(--rep-accent-soft);
+  border-color: color-mix(in srgb, var(--rep-accent) 35%, transparent);
+  color: var(--rep-ink);
+}

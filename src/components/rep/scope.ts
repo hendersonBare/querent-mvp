@@ -10,6 +10,18 @@
 export const SCOPE_PARAM='customer';
 export const ALL_CUSTOMERS='all';
 
+// The manager's All reps scope (v3 spec §6 Quotes list; decision 22; task D2) lives in ?scope=all
+// and travels with every portal link like the picked customer, so the quote pages and the header's
+// Needs attention badge keep it (OA-52). Only the manager's links carry it; a rep's never do.
+/** ?scope=all: every rep's quotes (the manager only). */
+export const REPS_PARAM='scope';
+export const ALL_REPS='all';
+/** The All reps list's rep and team filters (?rep=<id>, ?team=<label>). */
+export const REP_PARAM='rep';
+export const TEAM_PARAM='team';
+/** ?scope=all, and nothing else, is the All reps scope. */
+export const isAllReps=(value:string|null|undefined)=>value===ALL_REPS;
+
 /** The portal's sections, in nav order (spec §4). */
 export const REP_SECTIONS=[
   {id:'quotes',label:'Quotes',href:'/rep/quotes'},
@@ -35,12 +47,16 @@ export function scopeFrom(params:{get(name:string):string|null},known?:readonly 
   return !known||known.some(c=>c.id===id)?id:null;
 }
 
-/** `path` with the picked customer set (or removed for All customers), keeping its other params. */
-export function scopedHref(path:string,customerId:string|null){
+/**
+ * `path` with the picked customer set (or removed for All customers), keeping its other params.
+ * `allReps` sets (true) or removes (false) the manager's ?scope=all; undefined leaves `path`'s own.
+ */
+export function scopedHref(path:string,customerId:string|null,allReps?:boolean){
   const at=path.indexOf('?');
   const base=at<0?path:path.slice(0,at);
   const params=new URLSearchParams(at<0?'':path.slice(at+1));
   if(customerId)params.set(SCOPE_PARAM,customerId);else params.delete(SCOPE_PARAM);
+  if(allReps===true)params.set(REPS_PARAM,ALL_REPS);else if(allReps===false)params.delete(REPS_PARAM);
   const query=params.toString();
   return query?`${base}?${query}`:base;
 }

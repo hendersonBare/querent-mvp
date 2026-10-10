@@ -41,3 +41,12 @@ describe('sectionFor',()=>{
     expect(sectionFor('/rep')).toBeUndefined();
   });
 });
+
+describe('scopedHref: the manager\'s All reps scope (task D2)',()=>{
+  it('sets, removes or leaves ?scope=all after the picked customer',()=>{
+    expect(scopedHref('/rep/quotes','wasatch',true)).toBe('/rep/quotes?customer=wasatch&scope=all');
+    expect(scopedHref('/rep/quotes?status=sent',null,true)).toBe('/rep/quotes?status=sent&scope=all');
+    expect(scopedHref('/rep/quotes?scope=all&status=sent',null,false)).toBe('/rep/quotes?status=sent');
+    expect(scopedHref('/rep/quotes?scope=all',null)).toBe('/rep/quotes?scope=all');
+  });
+});

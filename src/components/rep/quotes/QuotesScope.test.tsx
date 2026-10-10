@@ -74,7 +74,7 @@ describe('the manager',()=>{
     renderList(quoteList({scope:[MARAS,NORAS,SAMPLE],manager:MANAGER_OPTIONS,reps:'all'}),{query:'scope=all'});
     expect(within(screen.getByRole('navigation',{name:'Whose quotes'})).getByRole('link',{current:'page'})).toHaveTextContent('All reps');
     expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Select','Quote','Customer','Rep','Requested','Status','Total','Margin']);
-    expect(within(quoteBlock('Q-30001')).getAllByRole('cell')[1]).toHaveTextContent('Mara Jensen');
+    expect(within(quoteBlock('Q-30001')).getAllByRole('cell')[2]).toHaveTextContent('Mara Jensen');
     expect(within(table()).getByText(/^Quotes for all customers of every rep, newest request first$/)).toBeInTheDocument();
     const rep=screen.getByRole('combobox',{name:'Rep'});
     expect(within(rep).getAllByRole('option').map(o=>o.textContent)).toEqual(['All reps','Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);

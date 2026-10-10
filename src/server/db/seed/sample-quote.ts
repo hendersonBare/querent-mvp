@@ -3,7 +3,7 @@ import type {ContractPrice,LastPaid,PriceSources} from '@/domain';
 import {priceLine} from '../../pricing';
 import {DANA,REPS,WASATCH,WASATCH_REP} from './accounts';
 import {addMinutes,addMonths,at,nextWeekday} from './dates';
-import {inserter} from './insert';
+import {backfillOriginalReps,inserter} from './insert';
 
 // Sample quote Q-24817: Dana's request from the mockup, drafted by Querent and waiting
 // for Brandi's review. seedSampleQuote() also backs "Reset sample quote": it deletes
@@ -81,5 +81,6 @@ export function seedSampleQuote(database:Database.Database,anchor:string){
       [draftedAt,'querent',null,'drafted',`Draft quote built and sent to ${rep.name.split(' ')[0]} for review`],
     ];
     for(const [when,actor,actorId,kind,message] of activity)insert('quote_activity',{quote_id:id,at:when,actor,actor_id:actorId,kind,message});
+    backfillOriginalReps(database);
   })();
 }

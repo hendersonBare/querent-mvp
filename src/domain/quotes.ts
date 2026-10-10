@@ -20,6 +20,8 @@ export type ValidDays=7|14|30;
 
 export interface QuoteHeader {
   id:string;quote_number:string;customer_id:string;customer_name:string;account_number:string;contact_id:string|null;contact_name:string|null;rep_id:string;rep_name:string;
+  /** The rep the quote was created for (v3 spec §8, task D2): rep_id is the current owner, which a manager can reassign. */
+  original_rep_id:string|null;
   status:QuoteStatus;
   /** The last sent revision (0 = never sent). */
   revision:number;

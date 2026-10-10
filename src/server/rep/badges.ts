@@ -16,7 +16,8 @@ import {redQuoteCount} from './quotes';
 //
 // Beside it (OA-8), the red "Needs attention" badge counts the rep's red quotes only (v3 spec §3,
 // decision 18), across all their customers like the unread badge. Amber quotes show only in the
-// Quotes list's Needs attention filter.
+// Quotes list's Needs attention filter. In the manager's All reps scope (?scope=all, OA-52, task D2)
+// it counts every rep's red quotes; the unread badge stays her own (it is each owner's flag).
 
 export interface RepBadges {
   /** The rep's unread quotes. */
@@ -27,9 +28,10 @@ export interface RepBadges {
 
 /**
  * The badge counts for one rep. Expiry is lazy (task 1.5), so this stores the expiry of every
- * sent quote past valid_until first; counts then read effective statuses. `now` is for tests.
+ * sent quote past valid_until first; counts then read effective statuses. `allReps`: the manager's
+ * All reps scope, where the red count covers every rep (the caller checks she is the manager). `now` is for tests.
  */
-export function repBadges(repId:string,{now=new Date().toISOString()}:{now?:string}={}):RepBadges{
+export function repBadges(repId:string,{now=new Date().toISOString(),allReps=false}:{now?:string;allReps?:boolean}={}):RepBadges{
   expireOverdueQuotes({now});
-  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(repId,now)};
+  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(allReps?null:repId,now)};
 }

@@ -67,7 +67,7 @@ test("Brandi opens Mara's quote read-only, reassigns it to herself, and can edit
   const banner = page.getByRole("region", { name: "Read only" });
   await expect(banner).toHaveText(/Read only: Mara Jensen’s quote\. Reassign it to edit\./);
   for (const name of ["Save draft", "Approve & send"]) await expect(page.getByRole("button", { name })).toBeDisabled();
-  await expect(page.getByRole("textbox", { name: /^Unit price for/ })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Unit price for GLV-N8-L-1000" })).toBeDisabled();
   await screenshot(page, testInfo, "read-only");
 
   await banner.getByRole("button", { name: "Reassign…" }).click();

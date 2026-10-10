@@ -9,11 +9,12 @@ import {sendCheck,type SendCheck} from '@/server/quotes/service';
 import {agingThresholds,contact,deliveryRates,pricingSettings,priceSources,quote as loadQuote,repFloors,stockForItems} from '@/server/repository';
 import type {DetailLine} from './quote-math';
 import {quotePanels,type QuotePanels} from './quote-panels';
-import {repQuote,touchRepQuote} from './quotes';
+import {readableQuote,touchRepQuote} from './quotes';
 
 // The rep's quote detail (spec §4, task 3.3): GET /api/rep/quotes/<id> and the /rep/quotes/<id>
 // page. Rep-only: it carries cost, margin, floors and every price fact, so only the supplier
-// persona gets it (another rep's quote reads as not found, as in the Quotes list).
+// persona gets it (another rep's quote reads as not found, as in the Quotes list). The manager may
+// read any rep's quote, read-only (v3 spec §8, task D2).
 //
 // Each line ships with its pricing facts (priceSources, stock, the scarcity setting, the rep's
 // floor for its category, the pricing day), so the page can re-run the pricing engine and the
@@ -46,6 +47,11 @@ export interface QuoteDetail {
   panels:QuotePanels;
   /** How long the quote has waited (v3 spec §3): the header's Aging / Overdue marker. Null once final. */
   aging:Aging|null;
+  /**
+   * The manager reading another rep's quote (v3 spec §6, §8; task D2): whose it is, for the banner
+   * "Read only: Mara Jensen’s quote. Reassign it to edit." Nothing is editable then. Null for the owner.
+   */
+  read_only:{rep_id:string;rep_name:string}|null;
 }
 
 export interface QuoteDetailOptions {now?:string;provider?:DistanceProvider}
@@ -68,19 +74,22 @@ export function detailLines(q:Quote,now:string):DetailLine[]{
   });
 }
 
-/** The detail for a quote already loaded and checked as the rep's. */
-export async function quoteDetailOf(q:Quote,{now=clock(),provider}:QuoteDetailOptions={}):Promise<QuoteDetail>{
+/**
+ * The detail for a quote already loaded and checked as the rep's, or (`readOnly`) as one the
+ * manager may read: then nothing is editable and `read_only` names its rep. Reads only.
+ */
+export async function quoteDetailOf(q:Quote,{now=clock(),provider,readOnly=false}:QuoteDetailOptions&{readOnly?:boolean}={}):Promise<QuoteDetail>{
   const status=effectiveStatus(q,now);
   const check=await sendCheck(q.id,{provider,now});
   const {lines:_lines,...header}=q;
   const quote:QuoteDetail['quote']={...header,status,contact_title:q.contact_id?contact(q.contact_id)?.title??null:null};
-  const editable=canEditDraft(status);
-  return {as_of:now,quote,valid_until:editable||!q.valid_until?validUntilOnSend(q,now):q.valid_until,editable,lines:detailLines(q,now),
+  const draft=canEditDraft(status);
+  return {as_of:now,quote,valid_until:draft||!q.valid_until?validUntilOnSend(q,now):q.valid_until,editable:draft&&!readOnly,lines:detailLines(q,now),
     floors:repFloors(q.rep_id).map(({rep_id,category_id,margin_floor})=>({rep_id,category_id,margin_floor})),
     freight:check.freight,delivery_rates:deliveryRates(),
     send_check:{can_send:check.can_send,status_problem:check.status_problem,blockers:check.blockers,below_floor_count:check.below_floor_count,
       subtotal:check.subtotal,total:check.total,revision:check.revision},
-    panels:quotePanels(q,now),aging:aging(q,now,agingThresholds())};
+    panels:quotePanels(q,now),aging:aging(q,now,agingThresholds()),read_only:readOnly?{rep_id:q.rep_id,rep_name:q.rep_name}:null};
 }
 
 /**
@@ -97,9 +106,15 @@ export async function repricedDetail(quoteId:string,{remodel=false,...options}:Q
  * One of the rep's quotes, by id or number, with everything the detail page needs; undefined if it
  * isn't theirs. `touch` is the rep opening it (GET /api/rep/quotes/<id> and the page): it stamps
  * last_rep_touch_at (v3 spec §3, decision 25), never updated_at.
+ *
+ * `manager`: the signed-in rep is the manager, who may also read any other rep's quote (task D2).
+ * That read is read-only (`read_only`, nothing editable), and it neither touches the quote nor
+ * reprices its draft: only the owner's open does (spec §3, §4.5).
  */
-export async function repQuoteDetail(repId:string,quoteIdOrNumber:string,{touch=false,...options}:QuoteDetailOptions&{touch?:boolean}={}):Promise<QuoteDetail|undefined>{
-  const q=repQuote(repId,quoteIdOrNumber);
-  if(q&&touch)touchRepQuote(q,options.now);
-  return q&&repricedDetail(q.id,options);
+export async function repQuoteDetail(repId:string,quoteIdOrNumber:string,{touch=false,manager=false,...options}:QuoteDetailOptions&{touch?:boolean;manager?:boolean}={}):Promise<QuoteDetail|undefined>{
+  const found=readableQuote(repId,quoteIdOrNumber,{manager});
+  if(!found)return undefined;
+  if(found.readOnly)return quoteDetailOf(found.quote,{...options,readOnly:true});
+  if(touch)touchRepQuote(found.quote,options.now);
+  return repricedDetail(found.quote.id,options);
 }

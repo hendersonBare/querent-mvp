@@ -85,12 +85,13 @@ describe('every write route refuses the manager on another rep’s quote (not fo
 });
 
 describe('the manager reads any quote, read-only',()=>{
-  const get=async(path:string,module:()=>Promise<Record<string,unknown>>,persona:string)=>call({method:'GET',path,module},persona,{id:marasDraft.id});
+  const get=async(path:string,module:()=>Promise<Record<string,unknown>>,persona:string,id=marasDraft.id)=>call({method:'GET',path,module},persona,{id});
 
   it('GET the detail: read_only names the owner, nothing is editable, and the read neither touches nor marks it read',async()=>{
-    const {quote,quoteTouchClocks}=await import('@/server/repository');
-    const {id,quote_number}=marasDraft;
-    const response=await get(`/api/rep/quotes/${quote_number}`,()=>import('./route'),'supplier');
+    const {createQuote,quote,quoteTouchClocks}=await import('@/server/repository');
+    // A fresh one: Mara's edits above touched the shared draft.
+    const {id,quote_number}=createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'GLV-N8-L-1000',qty:2,unitPrice:82,priceBasis:'custom'}]});
+    const response=await get(`/api/rep/quotes/${quote_number}`,()=>import('./route'),'supplier',quote_number);
     expect(response.status).toBe(200);
     const body=await response.json();
     expect(body).toMatchObject({editable:false,read_only:{rep_id:'mara',rep_name:'Mara Jensen'},quote:{quote_number,rep_id:'mara',status:'ready_for_review'}});
@@ -99,8 +100,8 @@ describe('the manager reads any quote, read-only',()=>{
     expect(quoteTouchClocks(id)!.last_rep_touch_at).toBeNull();
     expect(quote(id)!.unread_for_rep).toBe(true);
     // Another rep: not found. The owner: editable, not read-only, and touched.
-    expect((await get(`/api/rep/quotes/${id}`,()=>import('./route'),'eli')).status).toBe(404);
-    const own=await (await get(`/api/rep/quotes/${id}`,()=>import('./route'),'mara')).json();
+    expect((await get(`/api/rep/quotes/${id}`,()=>import('./route'),'eli',id)).status).toBe(404);
+    const own=await (await get(`/api/rep/quotes/${id}`,()=>import('./route'),'mara',id)).json();
     expect(own).toMatchObject({editable:true,read_only:null});
     expect(quoteTouchClocks(id)!.last_rep_touch_at).not.toBeNull();
   });

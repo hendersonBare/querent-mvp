@@ -3,7 +3,7 @@ import {seedAgingQuotes} from './aging';
 import {seedChatLogs} from './chat';
 import {at} from './dates';
 import {seedHistory} from './history';
-import {inserter} from './insert';
+import {backfillOriginalReps,inserter} from './insert';
 import {seedReference,seedRepRoles} from './reference';
 import {seedSampleQuote} from './sample-quote';
 
@@ -27,6 +27,7 @@ export function seedDatabase(database:Database.Database,{anchor,now=new Date().t
     seedChatLogs(context);
     seedSampleQuote(database,anchor);
     seedAgingQuotes(context,now);
+    backfillOriginalReps(database);
     context.insert('meta',{key:'seed_anchor',value:anchor});
     context.insert('sync_events',{timestamp:new Date().toISOString(),message:'ERP connection refreshed'});
   })();

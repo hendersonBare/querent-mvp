@@ -59,7 +59,7 @@ export function SettingsSection({initial}:{initial:RepSettings}){
     <nav ref={tabsRef} className={s.tabs} aria-label="Settings sections">
       {settingsTabs(manager!==null).map(t=><Link key={t.id} href={scope.href(`/rep/settings?tab=${t.id}`)} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
     </nav>
-    {tab==='assignments'&&<RepAssignments rows={settings.assignments} reps={settings.reps} repId={settings.rep_id} onChange={update('assignments')}/>}
+    {tab==='assignments'&&<RepAssignments rows={settings.assignments} reps={settings.reps} repId={settings.rep_id} manager={manager!==null} onChange={update('assignments')}/>}
     {tab==='reps'&&manager&&<TeamReps repId={settings.rep_id}
       // Customer counts follow Rep assignments as it changes on this page; deactivating a rep takes them out of its dropdown.
       reps={manager.reps.map(r=>({...r,customer_count:settings.assignments.filter(a=>a.rep_id===r.id).length}))}

@@ -6,9 +6,12 @@ import {FloorPermissionError,setMyFloor} from '@/server/floors/service';
 import {checkDeliveryRates} from '@/server/freight/rates';
 import type {AgingThresholds} from '@/server/quotes/aging';
 import {
-  agingThresholds,aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,isCategory,pricingSettings,quotes,repFloors,reps,setAccess,
+  agingThresholds,aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,inTransaction,isCategory,pricingSettings,quotes,repFloors,reps,setAccess,
   setAssignedRep,setDeliveryRates,setScarcityUplift,teamReps,type DemoDatabase,
 } from '@/server/repository';
+import {effectiveStatus} from '@/server/quotes/lifecycle';
+import {expireOverdueQuotes} from '@/server/quotes/service';
+import {moveQuotes,type ReassignResult} from './reassign';
 
 // Settings (spec §4, task 6.1) for the signed-in rep: Rep assignments, Customer access, My margin
 // floors, Pricing (scarcity uplift), Delivery rates and Data sources. This module
@@ -16,17 +19,19 @@ import {
 // under /api/rep/settings serve it to the supplier persona only (./http, repRoute).
 //
 // Who may change what (the demo has one supplier login, Brandi):
-// - Rep assignments, Customer access, the scarcity uplift and the delivery rates: any rep session.
+// - Rep assignments: the manager only (decision 21, OA-55; task D2). A rep sees them read-only.
+// - Customer access, the scarcity uplift and the delivery rates: any rep session.
 //   The spec doesn't say who may; this is the smallest reversible default, flagged for review.
 // - Margin floors: each rep edits only their own (spec §5.2), through setMyFloor, which refuses
 //   anyone else's before writing. Other reps' floors are read-only here.
 // - Reps (team label, active) and Aging thresholds: the manager only (v3 spec §6, decisions 16, 20,
 //   21; task D1). They come in `manager`, null for a rep, and save through managerRoute (./team).
 // An inactive rep can't be given a customer (they must have none, decision 21).
-// Reassigning a customer never moves its quotes: a quote keeps the rep it was requested for
-// (spec §4, §5.2), so the old rep's Quotes list and badge keep them, and their floor warnings keep
-// using the old rep's floors. Quotes requested afterwards, the customer's rep card (sidebar,
-// clarification) and chat's "call your rep" all follow the new assignment, since they read it live.
+// Reassigning a customer leaves its quotes with their rep (spec §4, §5.2), so the old rep's Quotes
+// list and badge keep them, unless the manager ticks "Also move this customer's open quotes"
+// (decision 21, task D2): then its open quotes move too, through the Quotes list's reassignment
+// (./reassign), each with an activity row. Quotes requested afterwards, the customer's rep card
+// (sidebar, clarification) and chat's "call your rep" all follow the new assignment, since they read it live.
 
 /**
  * A write the request can't make: 400 (bad input), 403 (not yours), 404 (no such customer, rep or
@@ -133,19 +138,34 @@ export function repSettings(repId:string,{customerId=null,manager=false}:{custom
   };
 }
 
+/** The statuses "Also move this customer's open quotes" moves: a sent quote only while it hasn't expired (effectiveStatus). */
+const OPEN_STATUSES=['ready_for_review','changes_requested','sent'] as const;
+
 /**
- * Rep assignments: PUT {customer_id, rep_id}. Sets the customer's one rep; its existing quotes
- * stay with the rep they were requested for. Returns every row, updated.
+ * Rep assignments: PUT {customer_id, rep_id, moveOpenQuotes?}, the manager only (the route checks;
+ * `managerId` is who logs the moves). Sets the customer's one rep; its existing quotes stay with
+ * their rep, unless moveOpenQuotes is true: then its open quotes (ready_for_review,
+ * changes_requested, sent and not past valid_until) move to the new rep in the same transaction
+ * (moveQuotes: activity rows, quotes it already has skipped). Returns every row, updated, and what
+ * moved (null without the checkbox).
  */
-export function assignRep(input:unknown):{assignments:AssignmentRow[]}{
+export function assignRep(managerId:string,input:unknown,{now=new Date().toISOString()}:{now?:string}={}):{assignments:AssignmentRow[];moved:ReassignResult|null}{
   const request=body(input,'Choose a customer and a rep.');
   const customerId=text(request.customer_id),repId=text(request.rep_id);
   if(!customerId||!repId)throw new SettingsError('Choose a customer and a rep.');
+  const move=request.moveOpenQuotes??false;
+  if(typeof move!=='boolean')throw new SettingsError('Tick “Also move this customer’s open quotes” or leave it clear.');
   if(!customerIds().includes(customerId))throw new SettingsError('Customer not found.',404);
   const rep=teamReps().find(r=>r.id===repId);
   if(!rep)throw new SettingsError('Rep not found.',404);
-  if(!rep.active||!setAssignedRep(customerId,repId))throw new SettingsError(`${rep.name} is inactive. Choose an active rep.`);
-  return {assignments:assignmentRows()};
+  if(move)expireOverdueQuotes({now});
+  const moved=inTransaction(()=>{
+    if(!rep.active||!setAssignedRep(customerId,repId))throw new SettingsError(`${rep.name} is inactive. Choose an active rep.`);
+    if(!move)return null;
+    const open=quotes({customerId,statuses:OPEN_STATUSES}).filter(q=>(OPEN_STATUSES as readonly string[]).includes(effectiveStatus(q,now)));
+    return moveQuotes(managerId,open.map(q=>q.id),{id:rep.id,name:rep.name},{now});
+  });
+  return {assignments:assignmentRows(),moved};
 }
 
 /**

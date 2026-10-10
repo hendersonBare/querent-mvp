@@ -55,10 +55,11 @@ describe('the manager on another rep’s quote',()=>{
     // Reading stays open: Export and the chat.
     expect(screen.getByRole('button',{name:'Export'})).toBeEnabled();
     expect(await screen.findByRole('button',{name:'View full chat, 5 messages'})).toBeEnabled();
-    // No Add item, no editable line fields, no remove buttons, no note box; the terms fields are disabled.
+    // No Add item, every line field disabled (as on a sent quote), no remove buttons, no note box.
     expect(screen.queryByRole('combobox',{name:/Add item/})).toBeNull();
-    expect(screen.queryByRole('textbox',{name:/^Unit price for/})).toBeNull();
-    expect(screen.queryByRole('spinbutton')).toBeNull();
+    const prices=screen.getAllByRole('textbox',{name:/^Unit price for/});
+    expect(prices).toHaveLength(4);
+    for(const field of [...prices,...screen.getAllByRole('textbox',{name:/^(Quantity|Qty|Margin) for/i})])expect(field).toBeDisabled();
     expect(screen.queryByRole('button',{name:/^Remove /})).toBeNull();
     expect(screen.queryByRole('button',{name:'Add note'})).toBeNull();
     // ⋯: Duplicate is the owner's; Reassign is offered.

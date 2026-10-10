@@ -1,4 +1,5 @@
 import type {QuoteStatus} from '@/domain';
+import type {ReassignResult} from '@/server/rep/reassign';
 import type {RepQuoteRow} from '@/server/rep/quotes';
 
 // Words and formats for the rep's Quotes list (task 3.2). Pure, so the list, the quote page and
@@ -71,3 +72,10 @@ export const overdueLabel=(count:number)=>`${count} overdue ${count===1?'quote':
 
 /** "1 unread quote", "2 unread quotes". */
 export const unreadLabel=(count:number)=>`${count} unread ${count===1?'quote':'quotes'}`;
+
+const quotesCount=(count:number)=>`${count} ${count===1?'quote':'quotes'}`;
+/** What a reassignment did (task D2): "Reassigned 2 quotes to Eli Porter.", and any the rep already had. */
+export function reassignedLabel({to,moved,skipped}:Pick<ReassignResult,'to'|'moved'|'skipped'>){
+  const already=skipped.length?` ${quotesCount(skipped.length)} ${skipped.length===1?'was':'were'} already ${to.name}’s.`:'';
+  return moved.length?`Reassigned ${quotesCount(moved.length)} to ${to.name}.${already}`:`Nothing moved.${already}`;
+}

@@ -24,7 +24,7 @@ export default async function RepLayout({children}:{children:ReactNode}){
   const access=repAccess(user);
   if(!user||!access.ok)redirect('/');
   const me=rep(access.repId);
-  const identity={id:access.repId,name:me?.name??user.user_name,initials:me?.initials||initials(user.user_name),title:me?.title??'Rep'};
+  const identity={id:access.repId,name:me?.name??user.user_name,initials:me?.initials||initials(user.user_name),title:me?.title??'Rep',manager:access.manager};
   return <RepShell rep={identity} org={user.name} customers={customers()} initialBadges={repBadges(access.repId)}
     className={[archivo.variable,plexSans.variable,plexMono.variable].join(' ')}>{children}</RepShell>;
 }

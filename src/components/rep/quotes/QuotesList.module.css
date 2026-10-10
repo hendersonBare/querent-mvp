@@ -515,3 +515,166 @@
   align-items: center;
   gap: 8px 12px;
 }
+
+/* ---- The manager (task D2): "My quotes / All reps", the rep and team filters, the bulk bar ---- */
+.scopebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 12px;
+}
+.scopeSwitch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rep-line);
+  border-radius: 8px;
+  background: var(--rep-surface);
+}
+.scopeSwitch a {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--rep-ink-2);
+  white-space: nowrap;
+}
+.scopeSwitch a:hover {
+  background: var(--rep-surface-2);
+  text-decoration: none;
+}
+.scopeSwitch a[aria-current="page"] {
+  background: var(--rep-accent);
+  color: var(--rep-accent-ink);
+}
+.scopeFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 10.5px/1.2 var(--rep-body);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rep-muted);
+}
+.scopeFilter select {
+  max-width: 200px;
+  padding: 6px 28px 6px 9px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background-color: var(--rep-surface);
+  color: var(--rep-ink);
+  font: 500 13px/1.3 var(--rep-body);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.notice:empty {
+  display: none;
+}
+.notice {
+  margin-bottom: 10px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: var(--rep-ok-soft);
+  color: var(--rep-ok);
+  font-size: 13px;
+  font-weight: 500;
+}
+.bulk {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 9px;
+  background: var(--rep-ink);
+  color: var(--rep-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
+}
+.bulkCount {
+  margin-right: auto;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.bulkGo,
+.bulkClear {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 13px;
+  font: 600 13px/1.2 var(--rep-body);
+  cursor: pointer;
+}
+.bulkGo {
+  background: var(--rep-accent);
+  color: var(--rep-accent-ink);
+}
+.bulkClear {
+  background: transparent;
+  color: var(--rep-bg);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3);
+}
+.bulkGo:hover,
+.bulkClear:hover {
+  filter: brightness(1.1);
+}
+/* The checkbox column: above the quote link, which stretches over the row. */
+.table .pick {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  padding-right: 0;
+}
+.table thead .pick {
+  padding-left: 18px;
+}
+.pick input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--rep-accent);
+  cursor: pointer;
+}
+.rep {
+  white-space: nowrap;
+  color: var(--rep-ink-2);
+}
+
+@media (max-width: 640px) {
+  .scopebar {
+    align-items: stretch;
+  }
+  .scopeFilter {
+    flex: 1 1 140px;
+  }
+  .scopeFilter select {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+  }
+  .quote > tr:first-child {
+    grid-template-areas:
+      "number status"
+      "customer customer"
+      "rep rep"
+      "date total"
+      "margin margin";
+  }
+  .table[data-pick] .quote > tr:first-child {
+    padding-left: 44px;
+  }
+  .table .quote .pick {
+    position: absolute;
+    top: 13px;
+    left: 14px;
+    width: auto;
+  }
+  .rep {
+    grid-area: rep;
+    margin-top: 4px;
+    font-size: 12.5px;
+  }
+}
