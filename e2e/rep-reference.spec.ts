@@ -81,10 +81,12 @@ test("customers: every account with its rep, and a detail page with account, rep
   await expect(orders.locator("tbody tr")).toHaveCount(5);
   await expect(orders.locator("tbody tr").first()).toContainText("SO-51223");
   const quotes = panel(page, "Recent quotes");
-  await expect(quotes.locator("tbody tr").first()).toContainText("Q-24817");
-  await expect(quotes.locator("tbody tr").first()).toContainText("Draft ready");
+  // The seed's three aging quotes (task A2) are dated from the reset time, so they come before the sample.
+  await expect(quotes.locator("tbody tr").first()).toContainText("Q-24791");
+  await expect(quotes.locator("tbody tr").nth(3)).toContainText("Q-24817");
+  await expect(quotes.locator("tbody tr").nth(3)).toContainText("Draft ready");
   await expect(quotes.getByRole("link", { name: "Q-24817" })).toHaveAttribute("href", "/rep/quotes/Q-24817");
-  await expect(quotes.getByRole("link", { name: "View all 25 quotes" })).toHaveAttribute("href", "/rep/quotes?customer=wasatch");
+  await expect(quotes.getByRole("link", { name: "View all 28 quotes" })).toHaveAttribute("href", "/rep/quotes?customer=wasatch");
   await noCostOrMargin(page);
   await attachScreenshot(page, testInfo, "customer-wasatch-desktop");
 

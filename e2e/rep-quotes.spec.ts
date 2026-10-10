@@ -8,6 +8,10 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 // a changes_requested quote (unread), a sent one, one sent 20 days ago (overdue, so Expired) and a
 // quote for Mara's customer Canyon Ridge. Both hooks exist only when the server runs with
 // QUERENT_E2E_RESET=1 (playwright.config.ts sets it for the server it starts).
+//
+// The seed also has three open aging quotes dated from the reset time (task A2, e2e/rep-aging.spec.ts):
+// Q-24789 and Q-24791 sent, Q-24790 changes requested. They are read, so the unread counts hold, and
+// the sample Q-24817, weeks old on the server's clock, carries the Overdue marker.
 
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
@@ -62,7 +66,7 @@ test("table: each quote with its number and revision, customer, requested date, 
   const sample = quote(page, SAMPLE);
   await expect(sample.getByRole("rowheader")).toHaveText(/Unread: Q-24817\s*Not sent\s*Sample data/);
   await expect(sample.getByRole("cell")).toHaveText([
-    /Wasatch Mechanical Contractors\s*WAS-1142/, /Sep 23$/, "Draft ready", /\$1,122\.40\s*Draft/, /^32\.2%.*1 line below floor$/,
+    /Wasatch Mechanical Contractors\s*WAS-1142/, /Sep 23$/, /^Draft ready\s*Overdue/, /\$1,122\.40\s*Draft/, /^32\.2%.*1 line below floor$/,
   ]);
   // A sent quote's total is the revision the customer saw.
   await expect(quote(page, made.sent).getByRole("cell").nth(2)).toHaveText("Sent");
@@ -70,14 +74,15 @@ test("table: each quote with its number and revision, customer, requested date, 
   // Expiry is lazy: the quote sent 20 days ago (valid 14) lists as Expired, not Sent.
   await expect(quote(page, made.overdue).getByRole("cell").nth(2)).toHaveText("Expired");
   await expect(quote(page, "Q-24816").getByRole("cell").nth(2)).toHaveText("Accepted");
-  await expect(listed(page)).toHaveCount(28);
+  await expect(listed(page)).toHaveCount(31);
   await attachScreenshot(page, testInfo, "quotes-1440");
 });
 
 test("filter: by status, with counts, kept in ?status= next to the picked customer", async ({ page }) => {
   await signInAsBrandi(page);
   await expect(statusFilter(page).getByRole("link")).toHaveText([
-    /^All\s*28$/, /^Draft ready\s*1$/, /^Changes requested\s*1$/, /^Sent\s*1$/, /^Accepted\s*17$/, /^Expired\s*8$/, /^Declined\s*0$/,
+    // Needs attention: the sample, the seed's Q-24789 and Q-24790, and this fixture's change request (asked a day ago: red at 24 h).
+    /^All\s*31$/, /^Needs attention\s*4$/, /^Draft ready\s*1$/, /^Changes requested\s*2$/, /^Sent\s*3$/, /^Accepted\s*17$/, /^Expired\s*8$/, /^Declined\s*0$/,
   ]);
   await statusFilter(page).getByRole("link", { name: /^Expired/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?status=expired$/);
@@ -95,12 +100,12 @@ test("filter: by status, with counts, kept in ?status= next to the picked custom
   await expect(listed(page)).toHaveText([SAMPLE]);
   await statusFilter(page).getByRole("link", { name: /^All/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?customer=wasatch$/);
-  await expect(listed(page)).toHaveCount(28);
+  await expect(listed(page)).toHaveCount(31);
 
-  // A link straight to a filtered list opens filtered.
+  // A link straight to a filtered list opens filtered (newest request first: the seed's Q-24791, this fixture's, then Q-24789).
   await page.goto("/rep/quotes?status=sent&customer=wasatch");
   await expect(page.getByLabel("Viewing")).toHaveValue("wasatch");
-  await expect(listed(page)).toHaveText([made.sent]);
+  await expect(listed(page)).toHaveText(["Q-24791", made.sent, "Q-24789"]);
 });
 
 test("changes_requested: highlighted, with the customer's note under the row", async ({ page }) => {
@@ -108,7 +113,8 @@ test("changes_requested: highlighted, with the customer's note under the row", a
   const changes = quote(page, made.changes_requested);
   await expect(changes).toHaveAttribute("data-status", "changes_requested");
   await expect(changes.getByRole("rowheader")).toHaveText(/^Unread: /);
-  await expect(changes.getByRole("cell").nth(2)).toHaveText("Changes requested");
+  // Asked a day ago, so it is Overdue too (task A2: red at 24 h).
+  await expect(changes.getByRole("cell").nth(2)).toHaveText(/^Changes requested\s*Overdue/);
   await expect(changes.getByText(/^Dana Ortiz asked for changes · /)).toBeVisible();
   await expect(changes.getByText("Can you make the gloves 6 cases, and hold it for pickup at SLC instead?")).toBeVisible();
   // The highlight is the amber of the mockup's warning chips, on the row and its note alone.
@@ -117,13 +123,13 @@ test("changes_requested: highlighted, with the customer's note under the row", a
   await expect(quote(page, made.sent).getByText(/asked for changes/)).toHaveCount(0);
 
   await statusFilter(page).getByRole("link", { name: /^Changes requested/ }).click();
-  await expect(listed(page)).toHaveText([made.changes_requested]);
+  await expect(listed(page)).toHaveText(["Q-24790", made.changes_requested]);
 });
 
 test("picker: the list shows the signed-in rep's quotes, for the picked customer", async ({ page }) => {
   await signInAsBrandi(page);
   // Mara's customer's quote is never in Brandi's list.
-  await expect(listed(page)).toHaveCount(28);
+  await expect(listed(page)).toHaveCount(31);
   await expect(quote(page, made.other_rep)).toHaveCount(0);
 
   const viewing = page.getByLabel("Viewing");
@@ -134,7 +140,7 @@ test("picker: the list shows the signed-in rep's quotes, for the picked customer
   await page.getByRole("link", { name: "Show all your quotes" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await expect(viewing).toHaveValue("all");
-  await expect(listed(page)).toHaveCount(28);
+  await expect(listed(page)).toHaveCount(31);
 
   // Opening another rep's quote directly finds nothing either.
   await page.goto(`/rep/quotes/${made.other_rep}`);

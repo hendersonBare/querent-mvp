@@ -170,7 +170,8 @@ test("badge: Quotes shows the rep's unread count, whatever the picker shows", as
   // The seed has one quote unread for Brandi: the sample Q-24817 (ready_for_review).
   // Fetched from the page: the production session cookie is Secure, which the browser sends to
   // 127.0.0.1 over http but Playwright's own request client does not.
-  expect(await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()))).toEqual({ quotes: 1 });
+  // attention (task A2) counts her red quotes; e2e/rep-aging.spec.ts checks it.
+  expect(await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()))).toEqual({ quotes: 1, attention: expect.any(Number) });
   await expect(sectionLink(page, "Quotes")).toHaveAccessibleName("Quotes 1 unread");
   await expect(page.getByRole("link", { name: "Notifications: 1 unread quote" })).toBeVisible();
   await expect(page.getByText("Viewing All customers · 1 unread quote")).toBeVisible();
