@@ -18,3 +18,4 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | `src/app/api/session/route.ts` | `POST /api/session {"persona":"toString"}` returns 500 and `__proto__` sets an ignored cookie (`in` instead of `Object.hasOwn`); harmless. |
 | `src/app/api/query/[...path]/route.ts:14-15` | `/api/query/me` and `/api/query/erp/status` still answer an inactive rep (low-sensitivity data). |
 | `src/server/rep/team.ts`, `TeamReps.tsx` | `plural()` and the 40-char team label limit are duplicated client/server. |
+| Reset sample quote | Resetting Q-24817 after it was reassigned returns it to Brandi and drops its reassignment activity (delete + re-insert). Demo-only. |

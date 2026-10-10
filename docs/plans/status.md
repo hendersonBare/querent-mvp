@@ -12,5 +12,6 @@
 | A2 | [#43](https://github.com/hendersonBare/querent-mvp/pull/43) | merged |
 | D1 | [#44](https://github.com/hendersonBare/querent-mvp/pull/44) | merged |
 | C3 | pending | in progress |
-| D2 | pending | in progress |
+| D2 | [#45](https://github.com/hendersonBare/querent-mvp/pull/45) | merged |
+| D3 | pending | in progress |
 | E1 | [#41](https://github.com/hendersonBare/querent-mvp/pull/41) | merged |
