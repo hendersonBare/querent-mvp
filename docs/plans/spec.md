@@ -1,0 +1,396 @@
+# Querent v3 spec
+
+Derived from `docs/plans/decision-log.md` (final). Where this spec and the decision log disagree, the decision log wins. Choices the log does not settle are listed in `docs/plans/open-assumptions.md` (referenced here as **OA-n**). Task slices and their order are in `docs/plans/plan.md`.
+
+Conventions used below:
+- Money: new money math is integer cents through the shared helper `src/lib/money.ts` (T1). Existing REAL dollar columns stay REAL; new money columns are `INTEGER` cents with a `_cents` suffix, except `quote_lines.freight_recovery` (name fixed by the log, integer cents per unit, OA-6).
+- Rates: integer basis points (`_bp`, 1 bp = 0.01%), so 5.0% = 500 bp.
+- Times: ISO-8601 UTC strings in the database (`nowIso()`). The browser formats and buckets them in its own time zone.
+
+---
+
+## 1. Data model and migrations
+
+### 1.1 Migration system (T1)
+
+- Files: `src/server/db/migrations/NNN_<slug>.sql`, three-digit numbers, applied in numeric order.
+- Table: `schema_migrations(id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`, where `id` is the file stem (`001_baseline`).
+- Runner: `src/server/db/migrate.ts`, `migrate(database)`. On every `db()` open it reads the directory (path resolved from `process.cwd()` with `/* turbopackIgnore: true */`, like `databasePath()`), and applies every file whose id is not in `schema_migrations`, in numeric order (a set difference, not "greater than the max", so two lanes that merge out of order still both apply). Each file runs in its own `IMMEDIATE` transaction together with its `schema_migrations` insert. The runner turns `foreign_keys` OFF around the whole run (the pragma cannot change inside a transaction), runs `PRAGMA foreign_key_check` after each file and rolls that file back if it reports rows, then turns `foreign_keys` back ON.
+- Adoption: a database that has tables, has `meta.schema_version = 4`, and has no `schema_migrations` table is adopted: the runner creates `schema_migrations` and records `001_baseline` as applied without running it, then applies 002 and later. A database with any other `schema_version` and no `schema_migrations` refuses to open with the existing "incompatible … Run npm run db:reset." message.
+- `001_baseline.sql` is the current v4 DDL, expanded to literal SQL (the status, fulfillment, price-basis and category lists written out). A Vitest test proves that a database built from `001` has exactly the same `sqlite_master` (tables, columns, CHECKs, indexes) as one built from the pre-T1 `applySchema()`, captured once as a fixture string.
+- `SCHEMA_VERSION` goes away. `meta` stays for `seed_anchor`. `repository/erp.ts` reports the latest applied migration id instead of the schema version.
+- Seeding: a new, empty database is migrated, then seeded (unchanged). `reseedDatabase()` and `npm run db:reset` drop everything, run every migration, then seed. `db:reset` loads `.env.local` (T1) using Node's `process.loadEnvFile` when the file exists; shell variables still win.
+- No down migrations. Rollback = restore the volume backup taken before deploy (README deploy step).
+
+### 1.2 Planned migrations
+
+Numbers below are the expected order. Each slice takes the next free number on `main` when its PR opens and renumbers on rebase, so ids stay contiguous and a table rebuild always runs after every column it must copy (plan.md, "Rules for every task"):
+
+| File | Slice | Change |
+|---|---|---|
+| `001_baseline.sql` | T1 | v4 schema as-is |
+| `002_declined.sql` | A1 | Rebuild `quotes`: status CHECK adds `declined`; add `declined_at TEXT`, `decline_reason TEXT CHECK(decline_reason IN ('price_too_high','found_other_source','need_sooner','wrong_items','other'))`, `decline_note TEXT CHECK(decline_note IS NULL OR length(decline_note)<=250)` |
+| `003_quote_touch.sql` | A2 | `quotes.last_rep_touch_at TEXT`, `quotes.customer_viewed_at TEXT` |
+| `004_freight_recovery.sql` | C1 | `quote_lines.freight_recovery INTEGER NOT NULL DEFAULT 0` (cents per unit); `quotes.freight_rate_bp INTEGER` (rate in force frozen at creation, NULL = quote carries no recovery); `quotes.freight_ramp_step INTEGER`, `quotes.freight_ramp_steps INTEGER`; `quotes.modelled_freight_cents INTEGER` (modelled delivery cost frozen at creation, NULL for will call) |
+| `005_fuel_prices.sql` | C3 | `fuel_prices(state TEXT NOT NULL, fuel TEXT NOT NULL CHECK(fuel IN ('gasoline','diesel')), price_cents INTEGER NOT NULL CHECK(price_cents>=0), as_of TEXT NOT NULL, source TEXT NOT NULL CHECK(source IN ('api','seed')), fetched_on TEXT NOT NULL, PRIMARY KEY(state,fuel))` |
+| `006_roles.sql` | D1 | `reps.role TEXT NOT NULL DEFAULT 'rep' CHECK(role IN ('rep','manager'))`, `reps.team TEXT`, `reps.active INTEGER NOT NULL DEFAULT 1`; sets `brandi` to `manager` |
+| `007_original_rep.sql` | D2 | `quotes.original_rep_id TEXT REFERENCES reps(id)`, backfilled from `rep_id` |
+| `008_suggestion_lines.sql` | E1 | Rebuild `quote_lines` and `quote_removed_lines`: `added_by` CHECK adds `'suggestion'` |
+
+Rebuild migrations (002, 008) follow SQLite's 12-step recipe: create `<t>_new` with the new definition, `INSERT INTO <t>_new SELECT …` with explicit columns, `DROP TABLE <t>`, `ALTER TABLE <t>_new RENAME TO <t>`, recreate the table's indexes, and rely on the runner's `foreign_key_check`. Each has a Vitest test that builds a database at the previous migration, inserts rows that reference the rebuilt table (`quote_lines`, `quote_revisions`, `quote_activity`, `orders.quote_id`, `quotes.duplicated_from`), migrates, and asserts row counts, values and that foreign keys still resolve.
+
+### 1.3 Settings keys (all in `settings`, defaults in code)
+
+Read through typed repository getters that fall back to the code default when the key is absent. Code defaults live next to the logic that uses them.
+
+| Key | Default | Slice | Editable by |
+|---|---|---|---|
+| `aging_rfr_amber_h`, `aging_rfr_red_h` | 4, 24 | A2 | manager (D1) |
+| `aging_cr_amber_h`, `aging_cr_red_h` | 4, 24 | A2 | manager (D1) |
+| `aging_sent_amber_h`, `aging_sent_red_h` | 72, 168 | A2 | manager (D1) |
+| `free_delivery_pricing` | `false` | C3 | manager |
+| `free_delivery_enabled_at` | unset | C3 | set on enable |
+| `free_delivery_preview_viewed_at` | unset | C3 | set by viewing the preview |
+| `freight_vehicle_mpg` | 10 | C1 | manager (C3 UI) |
+| `freight_fuel_type` | `gasoline` | C1 | manager |
+| `freight_wear_cents_per_mile` | 20 | C1 | manager |
+| `freight_depreciation_cents_per_mile` | 15 | C1 | manager |
+| `freight_driver_cents_per_hour` | 2500 | C1 | manager |
+| `freight_avg_speed_mph` | 35 | C1 | manager |
+| `freight_stop_minutes` | 0 | C1 | manager |
+| `freight_fuel_manual_cents` | unset | C1 | manager (override, always wins) |
+| `freight_starting_rate_bp` | 300 | C1 | manager |
+| `freight_rate_cap_bp` | 800 | C1 | manager |
+| `freight_line_cap_bp` | 800 | C1 | manager |
+| `freight_ramp_steps`, `freight_ramp_days` | 3, 90 | C1 | manager |
+| `freight_pool_rate_bp`, `freight_pool_on`, `freight_pool_count` | computed | C1 | cache, recomputed once per UTC day |
+
+The cost-model defaults are placeholders for the demo (OA-4).
+
+---
+
+## 2. Status model and transitions
+
+Stored statuses: `ready_for_review | sent | accepted | changes_requested | expired | declined`. `declined` is the only new one.
+
+```
+ready_for_review  --send (rep)-------------> sent (rev n)
+changes_requested --send (rep)-------------> sent (rev n+1)
+sent              --accept (customer)------> accepted          (final)
+sent              --request_changes--------> changes_requested
+sent              --decline (customer)-----> declined          (final, new)
+sent              --expire (system)--------> expired           (final)
+```
+
+- `lifecycle.ts`: `QUOTE_EVENTS` adds `decline`; `TRANSITIONS.decline = {from:['sent'], to:'declined', actor:'customer'}`; `STATUS_LABELS.declined = 'Declined'`. `effectiveStatus` is unchanged (only `sent` can read as expired). `customerCanRespond` stays "effective status is sent", so Decline is available exactly when Accept is.
+- Win/loss helpers: `quoteOutcome` treats `declined` as `lost`. The Team metrics (section 7) keep declined and expired apart.
+- Final statuses (`accepted`, `expired`, `declined`) allow only Duplicate.
+
+### 2.1 Decline
+
+- Reasons (code → label): `price_too_high` "Price too high", `found_other_source` "Found other source", `need_sooner` "Need it sooner than quoted", `wrong_items` "Wrong items or quantity", `other` "Other". There is no "no response" option.
+- "Other" shows a plain-text field, max 250 characters (trimmed; control characters stripped). The note is stored only when the reason is `other`.
+- The dialog's confirm button reads **Decline** and records the decline with or without a reason. Cancel or the X closes with no change.
+- On decline, in one transaction: `status='declined'`, `declined_at=responded_at=now`, `decline_reason`, `decline_note`, `unread_for_rep=1`, a `quote_activity` row (`actor='customer'`, `kind='declined'`, message names the reason, and the note for Other). The customer's chip reads "Declined".
+- The reason and note are rep-only: never in the snapshot, the customer PDF, or any customer-safe type. `CustomerQuoteResponse` gains `{kind:'declined';revision:number}` with no reason.
+
+---
+
+## 3. Aging rules (A2)
+
+Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `aging(q, now, thresholds) → {level:'ok'|'amber'|'red', since:string, reason:string} | null`. `null` for final statuses.
+
+| Effective status | Clock starts | Amber after | Red after |
+|---|---|---|---|
+| `ready_for_review` | `created_at` | 4 h | 24 h |
+| `changes_requested` | `responded_at` | 4 h | 24 h |
+| `sent` | `sent_at` (latest send) | 72 h | 168 h |
+
+- Wall-clock hours. A level starts at the threshold instant (`now - start >= amber` is amber).
+- A `sent` quote is also amber from 00:00Z two days before its last valid day (`valid_until - 2 days`) and red from 00:00Z on `valid_until` (its last day). The worse of the two levels wins.
+- Worked example (`sent`, sent 2026-10-01T15:00Z, valid_until 2026-10-15): ok until 10-04T15:00Z; amber from 10-04T15:00Z (72 h); red from 10-08T15:00Z (168 h). A quote sent 10-10T09:00Z valid until 10-14: amber from 10-12T00:00Z (expiry rule), red from 10-14T00:00Z.
+- UI: amber shows a clock icon and the text "Aging", red shows an alert icon and "Overdue" (text label and icon besides colour). The tooltip gives the reason ("Sent 4 days ago", "Expires tomorrow").
+- Quotes list: a **Needs attention** filter shows amber and red open quotes. In that view the default sort is red first, then amber, then quoted total descending; a toggle switches to oldest clock first (OA-9). Other filters keep today's sort.
+- Header badge: a red "Needs attention" count in the rep header counts red quotes only, scoped like the list (own quotes; all reps for a manager in All-reps scope after D2). The existing unread badge stays (OA-8).
+- Touch and view clocks (used by Team, section 7.3):
+  - `last_rep_touch_at` is set to now when the owning rep opens the quote detail (`GET /api/rep/quotes/[id]` and the page load) or makes any edit (lines, terms, fulfillment, freight, notes, send). A manager's read-only open does not touch it.
+  - `customer_viewed_at` is set to now when the customer opens the PDF preview of a sent revision (the existing customer read path that clears `unread_for_customer`).
+
+---
+
+## 4. Freight and pricing
+
+### 4.1 Freight line
+
+- Free delivery pricing **off**: freight is exactly as today (`freight/engine.ts`, rules and rates unchanged).
+- Free delivery pricing **on**: a delivery quote within the radius gets rule `free_delivery_pricing`, amount $0.00, explanation "Free delivery pricing: freight is recovered in item prices." `free_threshold` and `min_charge` are ignored but kept. Beyond the radius, no ship-to and no distance still give "call for freight" (OA-7). Will call stays $0.00.
+- A rep's explicit freight override still wins (section 4.5).
+
+### 4.2 Modelled delivery cost (C1)
+
+Pure: `src/server/freight/cost-model.ts`, `modelledDeliveryCost(input) → {cents, components, roundTripMiles, driveHours}`.
+
+```
+miles        = DistanceProvider (haversine × road_factor), to 0.1 mi (existing)
+round_trip   = 2 × miles
+drive_hours  = round_trip ÷ avg_speed_mph
+fuel         = round_trip ÷ mpg × fuel_price
+wear         = round_trip × wear_per_mile
+depreciation = round_trip × depreciation_per_mile
+driver       = (drive_hours + stop_minutes ÷ 60) × driver_per_hour
+cost_cents   = roundCents(fuel + wear + depreciation + driver)   (components in unrounded cents, one rounding at the end)
+```
+
+Worked example (Wasatch ship-to, SLC branch, defaults, gasoline $3.40/gal): straight line 12.0 mi × 1.25 = 15.0 mi; round trip 30.0 mi; drive time 30 ÷ 35 = 0.857142… h.
+- fuel = 30 ÷ 10 × 340¢ = 1020¢
+- wear = 30 × 20¢ = 600¢
+- depreciation = 30 × 15¢ = 450¢
+- driver = 0.857142… × 2500¢ = 2142.857…¢
+- total = 4212.857…¢ → **4213¢ = $42.13**. With a 15-minute stop: driver = (0.857142… + 0.25) × 2500 = 2767.857…¢, total 4837.857… → **$48.38**.
+
+The quote freezes `modelled_freight_cents` at creation for delivery quotes (NULL for will call or call-for-freight).
+
+### 4.3 Fuel price (C3)
+
+- Gasoline: `OilPriceAPI` at `https://api.oilpriceapi.com/v1`, header `Authorization: Token <OILPRICEAPI_KEY>` (not Bearer), code `GASOLINE_RETAIL_STATE_<ST>_USD` for the delivering branch's `state`. Client: `src/server/freight/fuel-price.ts` behind a `FuelPriceSource` interface; the real HTTP source is constructed only when the key is set, and tests inject a fake. The key is read server-side only, never logged, never serialised, never sent to the client.
+- At most one fetch per state per UTC day: the `fuel_prices` row's `fetched_on` is compared with today before fetching. A fetch happens lazily when a price is needed (quote creation, Pricing & Delivery load). No scheduler.
+- On fetch failure (or no key), use the last stored price. If its `as_of` is more than 14 days old, Pricing & Delivery shows a "Fuel price is N days old" warning. If no price was ever stored, a manual price is required: the warning reads "No fuel price. Enter one by hand." and the fuel component is 0.
+- `freight_fuel_manual_cents`, when set, always wins.
+- Diesel (`freight_fuel_type='diesel'`) never calls the API: it uses the manual price, or $0 when none exists. `TODO(R-9)`.
+- A visible warning shows on Pricing & Delivery whenever the fuel price in use is missing or zero.
+- The seed stores a gasoline price for UT (`source='seed'`, 340¢, `as_of` = seed date) so the offline demo and CI never need the API.
+
+### 4.4 Recovery rate: percentage pool (C1)
+
+```
+eligible quote = status accepted
+               AND fulfillment = delivery
+               AND freight_rate_bp IS NOT NULL       (it carried recovery: free delivery was on, no override, not under threshold)
+               AND responded_at within the trailing 90 days
+pool_rate      = Σ modelled_freight_cents ÷ Σ goods_cents            (over eligible quotes)
+goods_cents    = Σ over the quote's non-contract priced lines of unit_price × qty   (engine/rep price before the freight uplift)
+base_rate      = count ≥ 20 ? pool_rate : freight_starting_rate_bp
+capped_rate    = min(base_rate, freight_rate_cap_bp)
+rate_in_force  = round(capped_rate × ramp_step ÷ ramp_steps)          (bp)
+```
+
+- Recomputed at most once per UTC day, lazily, cached in `freight_pool_*` settings.
+- One pool per deployment.
+- Ramp: on enable, `free_delivery_enabled_at` is recorded. `ramp_step = min(steps, floor(days_since_enabled ÷ (ramp_days ÷ steps)) + 1)`. Defaults: 3 steps over 90 days, so step 1 on days 0–29, step 2 on days 30–59, step 3 from day 60.
+- Frozen at creation: `freight_rate_bp = rate_in_force`, `freight_ramp_step`, `freight_ramp_steps`.
+- Worked example: 24 eligible quotes, Σ modelled cost 101,040¢, Σ goods 2,526,000¢ → pool 4.0% (400 bp). Cap 800 bp → 400 bp. Day 35 after enable (step 2 of 3) → rate in force = round(400 × 2 ÷ 3) = **267 bp (2.67%)**. With 12 eligible quotes the starting rate 300 bp applies instead → step 2 → **200 bp**. A computed pool of 9.5% is capped at 800 bp.
+
+### 4.5 Allocation within a quote (C2)
+
+Pure: `src/server/freight/recovery.ts`, `allocateRecovery({rateBp, lines, lineCapBp}) → per-line {freight_recovery (cents per unit)}`.
+
+A quote carries recovery only when **all** hold: free delivery pricing is on, fulfillment is delivery, no freight override, goods value is at or above `free_threshold` (quotes under it carry none, OA-3), and freight is not call-for-freight.
+
+```
+eligible line  = price_basis != 'contract' AND unit_price not null AND qty > 0
+goods_cents    = Σ eligible unit_price_cents × qty
+target_cents   = roundCents(rate_bp × goods_cents ÷ 10000)
+margin_i       = (unit_price_cents - unit_cost_cents) × qty           (eligible lines with margin_i > 0 only)
+share_i        = floor(target × margin_i ÷ Σ margin)
+remainder      = target - Σ share_i  → added to the highest-margin line (ties: lowest line_no)
+per_unit_i     = roundCents(share_i ÷ qty_i)                          (OA-6)
+cap_i          = floor(unit_price_cents × line_cap_bp ÷ 10000)
+freight_recovery_i = min(per_unit_i, cap_i)                           (excess is dropped, not redistributed, OA-5)
+```
+
+If every eligible line has zero or negative margin, no line gets recovery. Contract lines, zero-margin lines and negative-margin lines get 0.
+
+Worked example (decision log): bolts qty 1 at $20.00 (cost $19.00), drill qty 1 at $180.00 (cost $150.00), target $10.00 (1000¢).
+- margins: bolts 100¢, drill 3000¢, Σ 3100¢
+- bolts share = floor(1000 × 100 ÷ 3100) = floor(32.26) = 32¢
+- drill share = floor(1000 × 3000 ÷ 3100) = floor(967.74) = 967¢
+- remainder = 1000 − 999 = 1¢ → drill (highest margin) → 968¢
+- result: **bolts +$0.32, drill +$9.68**. Caps: bolts 8% of 2000¢ = 160¢, drill 1440¢; neither binds.
+
+Same quote at qty 10 bolts at $2.00 (cost $1.90): line margin is still 100¢, share 32¢, per unit roundCents(3.2) = 3¢, so the bolts line recovers 30¢ and the customer sees $2.03 a box.
+
+Per-line cap example: a $5.00 item (cost $1.00, qty 1) as the only line with a 1000 bp rate on a $5 quote: target 50¢, cap 40¢ → +$0.40.
+
+- Customer-facing unit price = `unit_price + freight_recovery`. `unit_price` remains the engine or rep price (pre-recovery), so price bases, floors, the floor warning and suggestion logic are unchanged. Margin and GP figures stay computed from `unit_price`; recovery is reported separately (OA-10).
+- Totals: line total = (unit_price_cents + freight_recovery) × qty; quote total = Σ line totals + freight. The snapshot freezes the customer-facing unit price, so the customer PDF shows only the final unit price and "Freight $0.00".
+- A rep's explicit freight override sets every line's `freight_recovery` to 0, sets `freight_rate_bp` NULL (the quote leaves the pool), and logs in `quote_activity` as today. Clearing the override re-freezes the rate in force and reallocates.
+- Reallocation runs on every draft edit that changes prices, qty, lines, fulfillment or ship-to, using the quote's frozen rate.
+- Toggle change: a draft (`ready_for_review`, `changes_requested`) whose frozen state does not match the toggle reprices on its next open or edit (re-freeze the current rate in force, or clear it). Sent and final quotes stay frozen in their snapshots.
+
+### 4.6 Visibility
+
+- Rep "Why this price?" row: "Freight recovery +$2.40 (rate 5.0%, ramp step 2 of 3)" (per-unit amount, the quote's frozen rate and step).
+- Rep quote header: "Freight recovery 5.0%" chip when the quote carries recovery.
+- Customer and customer PDF: final unit price and "Freight $0.00" only. Nothing about recovery, rates or cost crosses the customer-safe boundary.
+- Pricing & Delivery (manager): pool rate (computed or starting, with the eligible count), cap, ramp step and its schedule, trailing 90-day modelled cost and recovered amount, cost-model inputs, fuel price and its age, the toggle and the impact preview.
+
+### 4.7 Impact preview and safeguards (C3)
+
+- `GET /api/rep/settings/freight/preview` computes, over delivery quotes created in the last 90 days that would carry recovery: the number of quotes affected, and per product category the average line price change in percent at the step-1 rate and at the full (step n) rate. It records `free_delivery_preview_viewed_at`.
+- Enabling (`PUT … {free_delivery_pricing:true}`) is refused with 409 `preview_required` unless the preview was viewed within the last 24 hours (OA-11).
+
+---
+
+## 5. API changes
+
+All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answers 403 for a non-manager. All customer routes keep the customer-safe boundary.
+
+| Route | Slice | Who | Behaviour |
+|---|---|---|---|
+| `POST /api/query/customer/quotes/[id]/decline` | A1 | customer | `{reason?:DeclineReason\|null, note?:string}`; Idempotency-Key replay like accept; 409 when not respondable |
+| `GET /api/rep/quotes?attention=1&sort=oldest` | A2 | rep | Needs-attention filter and sort; rows carry `aging` |
+| `GET /api/rep/badges` | A2 | rep | adds `attention` (red count) |
+| `GET /api/rep/quotes/[id]/messages?before=&limit=50` | B1 | owner rep, manager (after D2) | `{total, messages:[{id,role,kind,content,created_at}], next_before}` oldest-first pages of 50, newest page first |
+| `GET/PUT /api/rep/settings/freight` | C3 | manager | toggle, cost inputs, rates, caps, ramp; GET returns pool, fuel status, warnings |
+| `GET /api/rep/settings/freight/preview` | C3 | manager | impact preview (4.7) |
+| `GET/PUT /api/rep/settings/aging` | D1 | manager | thresholds in hours |
+| `GET /api/rep/team/reps`, `PUT /api/rep/team/reps/[id]` | D1 | manager | list reps; set `team`, `active` (deactivate refused 409 `has_customers` while the rep has customers) |
+| `POST /api/rep/quotes/reassign` | D2 | manager | `{quoteIds:string[], toRepId}` single or bulk; writes `quote_activity` (`kind='reassigned'`, actor manager, message "from A to B") per quote |
+| `PUT /api/rep/settings/assignments` | D2 | manager | adds `{moveOpenQuotes:boolean}` |
+| `GET /api/rep/quotes?scope=all&rep=<id>&team=<label>` | D2 | manager | All-reps scope with rep and team filters |
+| `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone |
+| `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
+| `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
+| line add with `added_by:'suggestion'` | E1 | customer | adding a suggestion to the cart at qty 1 |
+
+Rep write routes refuse a quote the caller does not own (existing "not found"), including managers: a manager reads any quote but edits only after reassigning it to themselves (D2).
+
+---
+
+## 6. UI changes by page
+
+### Customer workspace (`/`)
+- Quotes sidebar chip: "Declined" (A1).
+- PDF preview modal action bar: **Decline** next to Accept / Request changes, opening a centered dialog with the five reasons as radio buttons, a 250-character field for Other, red Cancel, and a **Decline** confirm button (A1).
+- Item pop-up: "Frequently bought together" below the cart, at least 2 suggestions when the pool allows, each with its reason and an "Add" button that adds qty 1 (E1).
+
+### Rep: Quotes list (`/rep/quotes`)
+- Aging marker (icon + "Aging"/"Overdue") per row; Needs attention filter with sort toggle (A2).
+- "Declined" filter and chip (A1).
+- Manager: scope switch "My quotes / All reps", Rep column, rep filter, team filter, row checkboxes and "Reassign…" bulk action (D2).
+
+### Rep: header (`RepShell`)
+- Red Needs-attention badge (A2). Team nav item for managers (D3).
+
+### Rep: Quote detail (`/rep/quotes/[id]`)
+- `RequestPanel`: "View full chat" button with "N messages", opening a side drawer: customer messages emphasised, assistant turns collapsed to one line each (expand on click), pages of 50 with "Load earlier" (B1).
+- Declined quotes show the reason and the Other note in the header and Activity (A1).
+- Aging marker in the header (A2).
+- "Why this price?" freight recovery line and header recovery chip (C2).
+- Manager viewing another rep's quote: read-only banner "Read only: Mara Jensen's quote. Reassign it to edit." with Reassign, and every edit control disabled (D2).
+
+### Rep: Settings (`/rep/settings`)
+- Pricing & delivery: free delivery pricing card (toggle, impact preview, ramp schedule), cost-model inputs, fuel price status and warnings, pool panel (C3, manager-only).
+- Aging thresholds card (D1, manager-only). Reps card: team label, active, deactivate blocked while customers are assigned (D1).
+- Rep assignments: "Also move this customer's open quotes" checkbox (D2).
+
+### Rep: Team (`/rep/team`, manager-only, D3)
+- Filters: rep multi-select, team label filter, presets 7 / 30 / 90 days and a custom range.
+- Leaderboard: one row per selected rep plus a totals row, columns per section 7.
+- Drill-down: any count or row links to `/rep/quotes?scope=all&…` filtered to those quotes; decline counts show reasons and Other text.
+- "Why quotes went untouched" table: counts per reason per rep.
+- Export CSV.
+
+### Workspace chooser
+- Rep personas: Brandi (manager), Mara (rep), Eli (rep) (F1; server personas in D1).
+
+---
+
+## 7. Team metrics (D3)
+
+Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and team label. Statuses use `effectiveStatus` at request time. Rates are `null` (shown "–") when the denominator is 0.
+
+| Metric | Definition |
+|---|---|
+| Created | count of cohort quotes |
+| Counts per status | per effective status; open quotes (`ready_for_review`, `sent`, `changes_requested`) split ok / amber / red |
+| Quote-to-order rate | accepted ÷ created. `TODO(R-1)`: stand-in until accepted quotes create orders |
+| Unaccepted rate | (declined + expired) ÷ created; open shown separately |
+| Decided win rate | accepted ÷ (accepted + declined + expired) |
+| Time to send | mean hours from `created_at` to the first `sent` activity, over cohort quotes ever sent |
+| Customer response time | mean hours from each send to the next customer response (`accepted`, `changes_requested`, `declined` activity) |
+| Time in each status | mean hours spent in `ready_for_review`, `sent`, `changes_requested` per visit, from the `quote_activity` timeline (open visits counted up to now) |
+| Total quoted value | Σ latest sent revision total (or the live draft total if never sent) |
+| Accepted value | Σ accepted quotes' latest revision total |
+| Average quoted margin | mean of the existing quote margin (spec §5.2 GP fields) over priced cohort quotes |
+| Freight recovered vs modelled cost | Σ (freight_recovery × qty) on accepted quotes vs Σ `modelled_freight_cents` on accepted delivery quotes |
+| Decline reasons | count per reason; Other notes listed |
+| Upsell suggestion acceptance | cohort quotes' lines with `added_by='suggestion'` ÷ pop-up suggestions offered for those quotes (count recorded on the pop-up). Rep-added "Suggested by Querent" lines (`added_by='upsell'`) are shown beside it as a count (OA-13) |
+
+### 7.3 Why quotes went untouched (inferred, never typed)
+
+Per rep, over cohort quotes:
+
+| Reason | Rule |
+|---|---|
+| Draft never opened | `ready_for_review`, aging amber or red, `last_rep_touch_at` NULL |
+| Draft opened but never sent | `ready_for_review`, aging amber or red, `last_rep_touch_at` set |
+| Changes requested but never revised | `changes_requested`, aging amber or red |
+| Sent but never opened | effective `sent`, aging amber or red, `customer_viewed_at` NULL or before `sent_at` |
+| Sent and opened but no reply | effective `sent`, aging amber or red, `customer_viewed_at` ≥ `sent_at` |
+| Expired with no response | effective `expired` |
+
+All queries are live SQL in `src/server/repository/team.ts`; no materialised tables. Aggregation that needs the aging thresholds runs in TS over repository rows.
+
+---
+
+## 8. Roles, reassignment and scope (D1, D2)
+
+- Roles `rep | manager` on `reps.role`. `Principal.role` stays `supplier_admin` for every supplier persona; a new `Principal.rep_role` (from the session persona, checked against `reps.role` in `managerRoute`) decides manager features (OA-12). Personas: `brandi` (manager), `mara` and `eli` (rep).
+- A manager sees all reps; a rep sees only their own quotes (unchanged).
+- Deactivation: refused while any customer has the rep in `customer_rep`. Inactive reps cannot be chosen as a reassignment target, do not appear in the workspace chooser, and stay in Team history.
+- Reassignment: `quotes.rep_id` becomes the new owner; `original_rep_id` keeps the first owner (set at creation, never changed). Open and closed quotes can both be moved. Each move writes `quote_activity` (`actor='rep'`, `actor_id`=manager, `kind='reassigned'`, "Brandi Gallegos reassigned Q-24817 from Mara Jensen to Eli Porter"). Reassigning a customer's rep (Settings) offers "Also move this customer's open quotes".
+- Hierarchies and named groups: `TODO(R-12)`.
+
+---
+
+## 9. Chat log drawer (B1)
+
+- Read via `quotes.conversation_id` from `messages` through a repository function `conversationMessages(conversationId, {before, limit:50})` plus `conversationMessageCount`.
+- Only the owning rep and managers (after D2) can read it; everyone else gets 404.
+- Rendering: customer messages emphasised (bold, left accent); assistant turns collapsed to one line (first line, ellipsis, click to expand); system/kind messages (item pop-up, quote ready) as one muted line. No AI summary.
+
+---
+
+## 10. Pop-up suggestions (E1)
+
+- Candidate pool (server, cost-free path in `src/server/customer/suggestions.ts`): items from the existing co-occurrence and fastener rules, in the catalog, in stock at the chosen branch, not already in the cart. The rules are reached through a new cost-free function so `boundary.test.ts` stays green (customer code may not import the priced upsell service).
+- Selection: live mode asks the LLM (customer-safe module only) to pick up to 3 from the pool and write a short reason in the chip style; scripted mode picks the first N deterministically with template reasons. The server drops any SKU not in the pool. If fewer than 2 candidates exist, show what exists.
+- Payload: `{item_id, sku, description, pack, reason}`, no prices or costs.
+- Add: qty 1, line `added_by='suggestion'` (migration 008). Offered suggestion count is recorded on the pop-up message payload so the Team acceptance rate has a denominator.
+
+---
+
+## 11. Secrets handling
+
+- One real env file, `.env.local` (git-ignored). Committed `.env.example` with placeholders for `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `DATABASE_PATH`, `OILPRICEAPI_KEY`, `QUERENT_SEED_DATE`, `QUERENT_SCRIPTED`, `QUERENT_E2E_RESET`, `PORT`, and a `TODO(R-2)` comment about user secrets. `.env.example` is removed from `.gitignore`. `JEV_API_KEY` is never added.
+- Keys are read server-side only, never logged, never returned by any route, never in tests. Tests use fakes and scripted LLM mode. A Vitest guard asserts `OILPRICEAPI_KEY` and `ANTHROPIC_API_KEY` appear only in the modules that read them and in `.env.example`.
+- No outbound messaging is built.
+
+---
+
+## 12. Test plan
+
+Each slice writes failing tests first, then implements.
+
+| Area | Tests |
+|---|---|
+| Money helper | `toCents`, `fromCents`, `roundCents` (half away from zero, float-noise safe: 1.005 → 101¢), equality with the three replaced helpers on a table of values |
+| Migrations | empty DB builds from 001…N; 001 matches the v4 fixture; v4 DB adoption; incompatible DB refused; failing migration rolls back and leaves `schema_migrations` unchanged; set-difference ordering; each rebuild keeps rows and FKs |
+| Lifecycle | decline transition legal only from `sent`; final; labels; `quoteOutcome` |
+| Decline API | reasons, Other length 250, no-reason decline, idempotency replay, 409 after expiry, customer response deep-scanned for cost and for the decline note |
+| Aging | every threshold boundary, the expiry rule, worse-level-wins, final statuses null, settings overrides |
+| Chat drawer | paging (50, `before` cursor), count, owner-only access, manager access after D2 |
+| Cost model | worked example (4213¢), stop time, zero fuel price, diesel manual/$0 |
+| Pool | eligibility filter, cold start (<20), cap, ramp steps at day 0/29/30/60/200, daily cache |
+| Allocation | decision-log example (+32¢/+968¢), qty > 1 rounding, all-zero margin, contract exempt, per-line cap, remainder tie, override drops recovery |
+| Freight line | free delivery on → $0 with radius rule kept; off → unchanged |
+| Fuel client | fake source; once per state per day; failure → last price; stale > 14 days warning; none → manual required; manual wins; key never in output or logs |
+| Impact preview | counts and per-category averages on fixture quotes; enable refused without preview |
+| Roles | manager-only routes 403 for reps; deactivate blocked with customers; personas |
+| Reassignment | single/bulk, activity rows, `original_rep_id`, customer move with checkbox, read-only enforcement on every write route |
+| Team metrics | each metric on a fixed fixture, null denominators, window boundaries, CSV |
+| Suggestions | pool filter (stock, cart, catalog), LLM output validated against pool, scripted determinism, payload has no price-like field, `added_by='suggestion'` |
+| Boundary | `boundary.test.ts` and `customer.test.ts` stay green; new customer exports added to the cost scan |
+| TODO registry | every `TODO(R-n)` in `src/` exists in `docs/todo-registry.md` |
+| Playwright | `e2e/decline.spec.ts` (A1), `e2e/rep-aging.spec.ts` (A2), `e2e/chat-drawer.spec.ts` (B1), `e2e/free-delivery.spec.ts` (C3), `e2e/rep-roles.spec.ts` (D1), `e2e/rep-reassign.spec.ts` (D2), `e2e/team-dashboard.spec.ts` (D3), `e2e/popup-suggestions.spec.ts` (E1), `e2e/demo-script.spec.ts` (F1); existing specs stay green |
