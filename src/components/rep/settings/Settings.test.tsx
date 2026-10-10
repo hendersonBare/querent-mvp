@@ -26,7 +26,7 @@ afterEach(()=>vi.unstubAllGlobals());
 
 describe('Rep assignments',()=>{
   const settings=settingsFixture();
-  const renderIt=(onChange=vi.fn())=>{render(<RepAssignments rows={settings.assignments} reps={settings.reps} repId="brandi" onChange={onChange}/>);return onChange;};
+  const renderIt=(onChange=vi.fn(),manager=true)=>{render(<RepAssignments rows={settings.assignments} reps={settings.reps} repId="brandi" manager={manager} onChange={onChange}/>);return onChange;};
 
   it('lists every customer, placeholders marked, with a rep dropdown and their quotes by rep',()=>{
     renderIt();
@@ -51,6 +51,30 @@ describe('Rep assignments',()=>{
     expect(sent()).toEqual([{url:'/api/rep/settings/assignments',body:{customer_id:'wasatch',rep_id:'mara'}}]);
     expect(screen.getByRole('status')).toHaveTextContent('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 25 existing quotes stay with Brandi Gallegos.');
     expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it('“Also move this customer’s open quotes” (task D2): the save moves them too, and the notice says how many',async()=>{
+    const moved=settings.assignments.map(a=>a.id==='wasatch'?{...a,rep_id:'mara',rep_name:'Mara Jensen',
+      quotes:[{rep_id:'brandi',rep_name:'Brandi Gallegos',count:21},{rep_id:'mara',rep_name:'Mara Jensen',count:4}]}:a);
+    replies=[{body:{assignments:moved,moved:{to:{id:'mara',name:'Mara Jensen'},skipped:[],moved:[1,2,3,4].map(n=>({id:`q-${n}`,quote_number:`Q-${n}`,from:{id:'brandi',name:'Brandi Gallegos'}}))}}}];
+    const onChange=renderIt();
+    const box=screen.getByRole('checkbox',{name:'Also move this customer’s open quotes'});
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'}),{target:{value:'mara'}});
+    await waitFor(()=>expect(onChange).toHaveBeenCalledWith(moved));
+    expect(sent()).toEqual([{url:'/api/rep/settings/assignments',body:{customer_id:'wasatch',rep_id:'mara',moveOpenQuotes:true}}]);
+    expect(screen.getByRole('status')).toHaveTextContent('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. 4 open quotes moved to Mara Jensen. Its 21 existing quotes stay with Brandi Gallegos.');
+  });
+
+  it('a rep sees the assignments read-only: names, no dropdowns, no checkbox, and who can change them (task D2)',()=>{
+    renderIt(vi.fn(),false);
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    const rows=within(screen.getByRole('table')).getAllByRole('row').slice(1);
+    expect(within(rows[3]).getAllByRole('cell')[0]).toHaveTextContent('Brandi Gallegos');
+    expect(within(rows[0]).getAllByRole('cell')[0]).toHaveTextContent('Mara Jensen');
+    expect(screen.getByText('Only a manager can change rep assignments.')).toBeInTheDocument();
   });
 
   it("shows the server's reason when a change isn't saved",async()=>{
