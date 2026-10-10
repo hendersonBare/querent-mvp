@@ -8,7 +8,7 @@ import {CustomerChat,quoteRequestedAfter} from './Chat';
 // The item pop-up in the customer chat (task 2.3): it opens when Querent's reply carries the
 // matched list, Request quote adds the confirmation, and the quotes sidebar reloads.
 
-const user:Principal={user_id:'u1',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
+const user:Principal={user_id:'u1',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 const PAYLOAD:ItemPopupPayload={fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10},{sku:'CW-45-045-T1',qty:6}]};
 const CONTEXT:ItemPopupContext={
   items:[

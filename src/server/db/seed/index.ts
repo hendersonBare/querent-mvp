@@ -4,7 +4,7 @@ import {seedChatLogs} from './chat';
 import {at} from './dates';
 import {seedHistory} from './history';
 import {inserter} from './insert';
-import {seedReference} from './reference';
+import {seedReference,seedRepRoles} from './reference';
 import {seedSampleQuote} from './sample-quote';
 
 export {seedSampleQuote,SAMPLE_QUOTE} from './sample-quote';
@@ -22,6 +22,7 @@ export function seedDatabase(database:Database.Database,{anchor,now=new Date().t
   const context={insert:inserter(database),anchor,syncedAt:at(anchor,0,'12:00')};
   database.transaction(()=>{
     seedReference(context);
+    seedRepRoles(database);
     seedHistory(context);
     seedChatLogs(context);
     seedSampleQuote(database,anchor);

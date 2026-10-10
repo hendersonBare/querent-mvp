@@ -2,37 +2,49 @@
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useSearchParams} from 'next/navigation';
+import type {TeamRep} from '@/domain';
 import type {RepSettings} from '@/server/rep/settings';
 import {useRepScope} from './context';
+import {AgingSettings} from './settings/AgingSettings';
 import {RepPageHeader,repPageStyles as s} from './RepPage';
 import {CustomerAccess} from './settings/CustomerAccess';
 import {DataSources} from './settings/DataSources';
 import {MarginFloors} from './settings/MarginFloors';
 import {PricingDelivery} from './settings/PricingDelivery';
 import {RepAssignments} from './settings/RepAssignments';
+import {TeamReps} from './settings/TeamReps';
 
 // Settings (spec §4, task 6.1), one tab per section in ?tab=: Rep assignments, Customer access
-// (follows the "Viewing" picker), My margin floors, Pricing & delivery, and Data sources. The page
-// renders it with the signed-in rep's settings; each tab saves through /api/rep/settings/* and
-// keeps what the server stored.
+// (follows the "Viewing" picker), My margin floors, Pricing & delivery, and Data sources. The manager
+// also gets Reps and Aging (v3 spec §6, task D1); a rep doesn't see those tabs, and their routes
+// answer 403. The page renders it with the signed-in rep's settings; each tab saves through its
+// route and keeps what the server stored.
 
 export const SETTINGS_TABS=[
-  {id:'assignments',label:'Rep assignments'},
-  {id:'access',label:'Customer access'},
-  {id:'floors',label:'Margin floors'},
-  {id:'pricing',label:'Pricing & delivery'},
-  {id:'sources',label:'Data sources'},
+  {id:'assignments',label:'Rep assignments',manager:false},
+  {id:'reps',label:'Reps',manager:true},
+  {id:'access',label:'Customer access',manager:false},
+  {id:'floors',label:'Margin floors',manager:false},
+  {id:'pricing',label:'Pricing & delivery',manager:false},
+  {id:'aging',label:'Aging',manager:true},
+  {id:'sources',label:'Data sources',manager:false},
 ] as const;
 export type SettingsTab=typeof SETTINGS_TABS[number]['id'];
 export const DEFAULT_SETTINGS_TAB:SettingsTab='assignments';
 
-/** The tab in ?tab=, or Rep assignments for anything else. */
-export const settingsTab=(value:string|null|undefined):SettingsTab=>SETTINGS_TABS.find(t=>t.id===value)?.id??DEFAULT_SETTINGS_TAB;
+/** The tabs the signed-in rep gets: the manager-only ones only for the manager. */
+export const settingsTabs=(manager:boolean)=>SETTINGS_TABS.filter(t=>manager||!t.manager);
+/** The tab in ?tab=, or Rep assignments for anything else (a manager-only tab, for a rep). */
+export const settingsTab=(value:string|null|undefined,manager=false):SettingsTab=>settingsTabs(manager).find(t=>t.id===value)?.id??DEFAULT_SETTINGS_TAB;
+
+/** The active reps as the assignment dropdown lists them, after the manager changes the Reps card. */
+const activeReps=(team:TeamRep[])=>team.filter(r=>r.active).map(({id,name,initials,title})=>({id,name,initials,title}));
 
 export function SettingsSection({initial}:{initial:RepSettings}){
   const scope=useRepScope();
-  const tab=settingsTab(useSearchParams().get('tab'));
   const [settings,setSettings]=useState(initial);
+  const manager=settings.manager;
+  const tab=settingsTab(useSearchParams().get('tab'),manager!==null);
   const update=<K extends keyof RepSettings>(key:K)=>(value:RepSettings[K])=>setSettings(current=>({...current,[key]:value}));
   const tabsRef=useRef<HTMLElement>(null);
   // On a phone the tabs are a scrolling strip: keep the current one in view, as the portal nav does.
@@ -45,12 +57,17 @@ export function SettingsSection({initial}:{initial:RepSettings}){
   return <>
     <RepPageHeader title="Settings" description={tab==='access'?`Viewing ${scope.label}`:'Herrick Industrial Supply'}/>
     <nav ref={tabsRef} className={s.tabs} aria-label="Settings sections">
-      {SETTINGS_TABS.map(t=><Link key={t.id} href={scope.href(`/rep/settings?tab=${t.id}`)} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
+      {settingsTabs(manager!==null).map(t=><Link key={t.id} href={scope.href(`/rep/settings?tab=${t.id}`)} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
     </nav>
     {tab==='assignments'&&<RepAssignments rows={settings.assignments} reps={settings.reps} repId={settings.rep_id} onChange={update('assignments')}/>}
+    {tab==='reps'&&manager&&<TeamReps repId={settings.rep_id}
+      // Customer counts follow Rep assignments as it changes on this page; deactivating a rep takes them out of its dropdown.
+      reps={manager.reps.map(r=>({...r,customer_count:settings.assignments.filter(a=>a.rep_id===r.id).length}))}
+      onChange={reps=>setSettings(current=>({...current,reps:activeReps(reps),manager:current.manager&&{...current.manager,reps}}))}/>}
     {tab==='access'&&<CustomerAccess access={settings.access} scopeLabel={scope.label} onChange={update('access')}/>}
     {tab==='floors'&&<MarginFloors mine={settings.floors.mine} others={settings.floors.others} onSaved={mine=>setSettings(current=>({...current,floors:{...current.floors,mine}}))}/>}
     {tab==='pricing'&&<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={update('pricing')} onDelivery={update('delivery')}/>}
+    {tab==='aging'&&manager&&<AgingSettings aging={manager.aging} onSaved={aging=>setSettings(current=>({...current,manager:current.manager&&{...current.manager,aging}}))}/>}
     {tab==='sources'&&<DataSources initial={settings.sources}/>}
   </>;
 }

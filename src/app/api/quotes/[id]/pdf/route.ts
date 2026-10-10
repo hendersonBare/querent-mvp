@@ -3,6 +3,7 @@ import {pdfError,pdfFileResponse,pdfResponse} from '@/server/pdf/http';
 import {internalWorksheet} from '@/server/pdf/internal';
 import {renderInternalWorksheetPdf} from '@/server/pdf/InternalWorksheetPdf';
 import {repCustomerPdf} from '@/server/pdf/rep';
+import {repAccess} from '@/server/rep/access';
 import {CUSTOMER_VARIANT,parsePdfQuery} from '@/server/pdf/request';
 import {principal} from '@/server/session';
 import {customerQuotePdf} from './customer';
@@ -32,12 +33,14 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
     if(!user.customer_id)return pdfError('Customer access required.',403);
     return customerQuotePdf(user.customer_id,id,query.rev);
   }
-  // The rep check of /api/rep/badges (task 3.1).
-  if(user.role!=='supplier_admin'||!user.rep_id)return pdfError('Supplier access required.',403);
+  // The rep check of /api/rep/badges (task 3.1): an active supplier rep (task D1).
+  const access=repAccess(user);
+  if(!access.ok)return pdfError(access.detail,access.status);
+  const repId=access.repId;
   if(query.variant==='internal'){
-    const worksheet=await internalWorksheet(user.rep_id,id,query.rev);
+    const worksheet=await internalWorksheet(repId,id,query.rev);
     return worksheet.ok?pdfFileResponse(await renderInternalWorksheetPdf(worksheet.model),worksheet.model.filename):pdfError(worksheet.detail,worksheet.status);
   }
-  const pdf=await repCustomerPdf(user.rep_id,id,query.rev);
+  const pdf=await repCustomerPdf(repId,id,query.rev);
   return pdf.ok?pdfResponse(pdf.model):pdfError(pdf.detail,pdf.status);
 }

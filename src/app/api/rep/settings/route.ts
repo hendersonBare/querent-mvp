@@ -6,10 +6,10 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 
 /**
  * GET /api/rep/settings?customer=<id>: everything Settings shows for the signed-in rep (spec §4,
- * task 6.1), with Customer access for the "Viewing" picker. Rep-only. The writes are the PUT
- * routes beside this one: assignments, access, floors, pricing.
+ * task 6.1), with Customer access for the "Viewing" picker. Rep-only; `manager` (the Reps and Aging
+ * cards) only for the manager (task D1). The writes are the PUT routes beside this one.
  */
-export const GET=repRoute((repId,request)=>{
+export const GET=repRoute((repId,request,_context,{manager})=>{
   ensureHeartbeat();
-  return repJson(repSettings(repId,{customerId:request.nextUrl.searchParams.get(SCOPE_PARAM)}));
+  return repJson(repSettings(repId,{customerId:request.nextUrl.searchParams.get(SCOPE_PARAM),manager}));
 });

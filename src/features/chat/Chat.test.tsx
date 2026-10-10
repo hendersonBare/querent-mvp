@@ -3,7 +3,7 @@ import {describe,it,expect,vi,beforeEach} from 'vitest';
 import {CustomerChat} from './Chat';
 import type {API,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
 import {sidebarRoutes} from '@/components/customer/test-fixtures';
-const user:Principal={user_id:'u1',role:'customer_user',customer_id:'c1',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
+const user:Principal={user_id:'u1',role:'customer_user',customer_id:'c1',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 function makeApi(get:API['get'],send:API['send']):API{return {get,send};}
 function emptyGet():API['get']{return vi.fn(async(path:string):Promise<any>=>{
  if(path in sidebarRoutes) return sidebarRoutes[path as keyof typeof sidebarRoutes];

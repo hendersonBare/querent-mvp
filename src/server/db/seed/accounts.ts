@@ -14,11 +14,13 @@ export const BRANCHES=[
 ] as const;
 export type BranchId=typeof BRANCHES[number]['id'];
 
+// role and team (v3 spec §8, decision 20; task D1): Brandi is the manager and keeps her own book; the
+// team label is a free-text filter.
 export const REPS=[
-  {id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},
-  {id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com'},
-  {id:'eli',name:'Eli Porter',initials:'EP',title:'Outside Sales',phone:'(801) 555-0103',email:'eli.porter@herrickindustrial.com'},
-  {id:'nora',name:'Nora Chen',initials:'NC',title:'Account Manager',phone:'(801) 555-0104',email:'nora.chen@herrickindustrial.com'},
+  {id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',role:'manager',team:'Inside Sales'},
+  {id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com',role:'rep',team:'Inside Sales'},
+  {id:'eli',name:'Eli Porter',initials:'EP',title:'Outside Sales',phone:'(801) 555-0103',email:'eli.porter@herrickindustrial.com',role:'rep',team:'Outside Sales'},
+  {id:'nora',name:'Nora Chen',initials:'NC',title:'Account Manager',phone:'(801) 555-0104',email:'nora.chen@herrickindustrial.com',role:'rep',team:'Outside Sales'},
 ];
 
 // Every rep x category floor is 20% (spec §5.2) except a few of Brandi's, so the red

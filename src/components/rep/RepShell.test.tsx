@@ -203,11 +203,32 @@ describe('sections follow the picker',()=>{
     at('/rep/settings','customer=great-basin');
     renderShell(<SettingsSection initial={settingsFixture('great-basin')}/>);
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Customer access','Margin floors','Pricing & delivery','Data sources']);
+    // Brandi is the manager: Reps and Aging are hers alone (task D1).
+    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Reps','Customer access','Margin floors','Pricing & delivery','Aging','Data sources']);
     expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
     expect(within(tabs).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources&customer=great-basin');
     expect(screen.getByRole('combobox',{name:'Rep for Great Basin Fabrication'})).toHaveValue('brandi');
     expect(screen.queryByText('Data browser')).not.toBeInTheDocument();
+  });
+
+  it('a rep (not the manager) gets no Reps or Aging tab, and ?tab=aging opens Rep assignments (task D1)',()=>{
+    at('/rep/settings','tab=aging');
+    renderShell(<SettingsSection initial={settingsFixture(null,{manager:false})}/>);
+    const tabs=screen.getByRole('navigation',{name:'Settings sections'});
+    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Customer access','Margin floors','Pricing & delivery','Data sources']);
+    expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
+    expect(screen.queryByRole('heading',{name:'Aging thresholds'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Reps'})).not.toBeInTheDocument();
+  });
+
+  it('the manager opens Aging and Reps from their tabs (task D1)',()=>{
+    at('/rep/settings','tab=aging');
+    const {unmount}=renderShell(<SettingsSection initial={settingsFixture()}/>);
+    expect(screen.getByRole('heading',{name:'Aging thresholds'})).toBeInTheDocument();
+    unmount();
+    at('/rep/settings','tab=reps');
+    renderShell(<SettingsSection initial={settingsFixture()}/>);
+    expect(screen.getByRole('heading',{name:'Reps'})).toBeInTheDocument();
   });
 
   it('Settings > Customer access is for the picked customer',()=>{

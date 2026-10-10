@@ -49,6 +49,17 @@ export async function setSettingFixture(key:string,value:string|null){
   else db().prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,value);
 }
 
+/**
+ * Tests only: sets a rep's stored role or active flag directly (v3 spec §8, task D1), bypassing the
+ * Settings checks, so guard tests can build an inactive manager or a role that disagrees with the persona.
+ */
+export async function setRepFixture(repId:string,values:{role?:string;active?:number}){
+  const columns=(['role','active'] as const).filter(c=>values[c]!==undefined);
+  if(!columns.length)throw new Error('Pass role or active.');
+  const {db}=await import('../db');
+  if(db().prepare(`UPDATE reps SET ${columns.map(c=>`${c}=?`).join(',')} WHERE id=?`).run(...columns.map(c=>values[c]),repId).changes!==1)throw new Error(`No rep ${repId}`);
+}
+
 export function useSeededDatabase(seedDate=SEED_DATE){
   let root='';
   beforeAll(()=>{

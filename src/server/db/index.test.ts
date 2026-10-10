@@ -40,6 +40,8 @@ it('adopts an existing v4 database on open and keeps its data (spec §1.1)',()=>
   expect(applied()).toEqual(allIds());
   expect(status()).toBe('sent');
   expect(db().prepare('SELECT count(*) FROM quotes').pluck().get()).toBe(quotes);
+  // 006_roles ran on the adopted data: Brandi is the manager, everyone else a rep (task D1).
+  expect(db().prepare("SELECT id FROM reps WHERE role='manager'").pluck().all()).toEqual(['brandi']);
 });
 
 it('refuses a database from an older schema and says to run db:reset',()=>{

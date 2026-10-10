@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {QuoteStatus} from '@/domain';
-import {AGING_DEFAULTS,AGING_LABELS,aging,needsAttention,type AgingThresholds} from './aging';
+import {AGING_DEFAULTS,AGING_LABELS,AGING_LIMITS,aging,checkAgingThresholds,needsAttention,type AgingThresholds} from './aging';
 
 // v3 spec §3 (decision 16, 18): aging is derived on read from the effective status and its clock.
 
@@ -150,5 +150,31 @@ describe('needsAttention',()=>{
     expect(needsAttention({level:'ok',since:START,reason:''})).toBe(false);
     expect(needsAttention({level:'amber',since:START,reason:''})).toBe(true);
     expect(needsAttention({level:'red',since:START,reason:''})).toBe(true);
+  });
+});
+
+describe('checkAgingThresholds: what a manager may save (decision 16, task D1)',()=>{
+  const ok={rfrAmberH:2,rfrRedH:12,crAmberH:6,crRedH:30,sentAmberH:48,sentRedH:120};
+
+  it('accepts six whole hours with amber before red, within 1 h to 90 days',()=>{
+    expect(AGING_LIMITS).toEqual({minH:1,maxH:2160});
+    expect(checkAgingThresholds(ok)).toEqual({thresholds:ok,problem:''});
+    expect(checkAgingThresholds(AGING_DEFAULTS).thresholds).toEqual(AGING_DEFAULTS);
+    expect(checkAgingThresholds({...ok,rfrAmberH:1,sentRedH:2160}).thresholds).toMatchObject({rfrAmberH:1,sentRedH:2160});
+    // Only the six keys come back.
+    expect(checkAgingThresholds({...ok,extra:1}).thresholds).toEqual(ok);
+  });
+
+  it('names the first problem: a missing or non-whole value, out of range, or amber not before red',()=>{
+    expect(checkAgingThresholds({...ok,crRedH:undefined})).toEqual({thresholds:null,problem:'Enter whole hours for Changes requested red.'});
+    expect(checkAgingThresholds({...ok,rfrAmberH:2.5}).problem).toBe('Enter whole hours for Ready for review amber.');
+    expect(checkAgingThresholds({...ok,rfrAmberH:'2'}).problem).toBe('Enter whole hours for Ready for review amber.');
+    expect(checkAgingThresholds({...ok,sentAmberH:Number.NaN}).problem).toBe('Enter whole hours for Sent amber.');
+    expect(checkAgingThresholds({...ok,rfrAmberH:0}).problem).toBe('Ready for review amber must be from 1 to 2160 hours.');
+    expect(checkAgingThresholds({...ok,sentRedH:2161}).problem).toBe('Sent red must be from 1 to 2160 hours.');
+    expect(checkAgingThresholds({...ok,crAmberH:30}).problem).toBe('Changes requested: amber must come before red.');
+    expect(checkAgingThresholds({...ok,sentAmberH:200}).problem).toBe('Sent: amber must come before red.');
+    expect(checkAgingThresholds(null)).toEqual({thresholds:null,problem:'Enter whole hours for Ready for review amber.'});
+    expect(checkAgingThresholds([]).thresholds).toBeNull();
   });
 });

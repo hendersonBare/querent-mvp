@@ -87,7 +87,8 @@ test("nav: the header matches mockup 03 and every section opens its own page", a
   await expect(page.getByRole("heading", { name: "Queries by category" })).toBeVisible();
   await sectionLink(page, "Settings").click();
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(tabs.getByRole("link")).toHaveText(["Rep assignments", "Customer access", "Margin floors", "Pricing & delivery", "Data sources"]);
+  // Brandi is the manager: Reps and Aging are hers alone (task D1).
+  await expect(tabs.getByRole("link")).toHaveText(["Rep assignments", "Reps", "Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"]);
   await tabs.getByRole("link", { name: "Customer access" }).click();
   await expect(page.getByRole("switch", { name: "Pricing" })).toBeVisible();
   await tabs.getByRole("link", { name: "Data sources" }).click();

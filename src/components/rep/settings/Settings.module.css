@@ -607,3 +607,67 @@
 .pill[data-tone="muted"]::before {
   display: none;
 }
+
+/* ---- Aging thresholds (manager, task D1): an hours field per status and level, saved together ---- */
+.hours {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.hours .field input {
+  width: 72px;
+}
+.hours .sub {
+  margin-top: 0;
+}
+.table + .rateActions {
+  padding-top: 12px;
+  border-top: 1px solid var(--rep-line-2);
+}
+
+/* ---- Reps (manager, task D1): team label field and the active switch with its state ---- */
+.teamForm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.teamForm input {
+  width: 160px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background: var(--rep-surface);
+  color: var(--rep-ink);
+  font: 500 13.5px/1.3 var(--rep-body);
+}
+.teamForm input:focus {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 1px;
+}
+.activeCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.activeCell .state {
+  text-align: left;
+  max-width: 24ch;
+}
+tr[data-inactive] .name {
+  color: var(--rep-muted);
+}
+@media (max-width: 640px) {
+  .stack .teamForm input {
+    width: 100%;
+    flex: 1 1 140px;
+  }
+  .stack .num {
+    text-align: left;
+  }
+  .stack .hours .cellWord {
+    min-width: 92px;
+  }
+}
