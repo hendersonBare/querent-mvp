@@ -24,7 +24,6 @@
       "SendMessage",
       "EnterWorktree",
       "ExitWorktree",
-      "mcp__Notion",
       "mcp__github",
       "mcp__Supabase",
       "mcp__Railway",

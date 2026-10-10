@@ -1,68 +1,56 @@
 ---
 name: querent-task-loop
-description: Orchestrate the Querent v2 ("Query to Quote") build from the Notion Tasks database. Resumes interrupted work first, claims Ready tasks, runs up to 3 implementer subagents in worktrees, sends each to a verifier, merges on PASS, and keeps Notion current. Use when starting or resuming Querent v2 work, or when the user says "continue the build", "pick up where we left off", or runs /querent-task-loop.
+description: Orchestrate the Querent v3 build from docs/plans/plan.md. Claims tasks by worktree and branch, runs up to 3 implementer subagents test-first, sends each PR to a verifier, merges only when every gate passes and the verifier approves, and keeps docs/plans/status.md current. Use when starting or resuming Querent work, or when the user says "continue the build", "pick up where we left off", or runs /querent-task-loop.
 ---
 
-# Querent v2 task loop (orchestrator)
+# Querent v3 task loop (orchestrator)
 
-You are the **orchestrator**. You schedule, spawn, merge, and keep Notion current. You do **not** write feature code yourself.
+You are the **orchestrator**. You schedule, claim, spawn, merge, and keep `docs/plans/status.md` current. You do **not** write feature code yourself.
 
 ## Sources of truth
 
 | What | Where |
 |---|---|
-| Spec, decisions, and protocol | Notion page **Querent v2: Query to Quote**: https://app.notion.com/p/3e7afa1db504810fbbddc37175014ead |
-| Task status (the TODO list) | Notion **Tasks** data source `collection://d430ff73-73c4-45cf-9ad4-e03bec6bd440` |
+| Tasks, dependencies, claim rule | `docs/plans/plan.md` (each task is a `## <task-id>: <title>` section) |
+| Task status (in flight, merged, blocked) | `docs/plans/status.md` |
+| Spec | `docs/plans/spec.md` |
+| Final decisions (win over everything) | `docs/plans/decision-log.md` |
 | Visual reference | `docs/design/` (read `docs/design/README.md` for intentional differences) |
-| Code | git, `main` plus `task/<id>-<slug>` branches |
+| Code | git, `main` plus `task/<task-id>-<slug>` branches |
 
-Use the Notion MCP tools (`notion-fetch`, `notion-query-data-sources`, `notion-update-page`, `notion-create-comment`). Their prefixes differ per machine, so load them with ToolSearch (`+notion query`, `+notion update`). Fetch the plan page once at the start of every session and treat it as the spec.
-
-## Identity
-
-Work out who you're running for: `git config user.name` gives Henderson Bare → `henderson`, Sam Greenblatt → `sam`, anyone else → first name, lowercased. *Claimed by* values look like `henderson/impl` or `henderson/verify`. Never touch a task claimed by the other human unless its claim is stale.
+Read `plan.md` and `status.md` at the start of every session.
 
 ## Loop
 
-1. **Sync.** Run `git fetch && git checkout main && git pull`. Query every task, sorted by *Order*.
-2. **Resume first.** Collect tasks with Status `Claimed`, `In progress`, `In review`, or `Verify failed` that are either claimed by you, or **stale**: *Claimed at* more than 4 hours ago, with no page edits since.
-   - For each one, read its page (TODO checklist, Handoff log, *Handoff notes*) and its branch, then continue it: re-spawn the implementer with the handoff context, or send it to the verifier if it's `In review`.
-3. **Pick new work.** A task is **Ready** when:
-   - its Status is `Ready`,
-   - its Type is not `Review`, since Review tasks belong to humans, and
-   - every ID in *Depends on* is `Done`.
+1. **Sync.** `git fetch --prune && git checkout main && git pull`.
+2. **Resume first.** A task `status.md` lists as in progress whose branch still exists, but that no agent of yours is running, is interrupted work: continue it on its existing branch and worktree. Read its commits and open PR, then re-spawn the implementer (no PR yet), the verifier (PR open, not yet verified), or a fix agent (verifier findings open).
+3. **Pick new work** in `plan.md` dependency-table order, until 3 agents are running. For each candidate:
+   - Run `git worktree list` and `git branch -a`. If any worktree or branch name contains the task ID, skip it: someone has it.
+   - Skip it if `status.md` lists it as merged (merged branches are deleted).
+   - It is claimable only when every task it is *Blocked by* is merged to `main`.
+4. **Claim** by creating its worktree and branch from the latest `main`: `git worktree add ../wt/<task-id> -b task/<task-id>-<slug> origin/main`, then `git push -u origin task/<task-id>-<slug>`. The slug is the task title in kebab case. Record it as in progress in `status.md`.
+5. **Spawn an implementer** with the Agent tool: `subagent_type: "implementer"`, `run_in_background: true`, working only in that worktree. The prompt holds the task ID, a pointer to its `plan.md` section, the branch, and the worktree path. Implementers work test-first: failing tests first, shown failing, then the code.
+6. **When an implementer reports back** with a PR open, spawn a **verifier** (`subagent_type: "verifier"`, background) with the task ID, the `plan.md` section, the branch, the worktree, and the PR number. If it stopped early, re-spawn it on the same branch with what it reported.
+7. **When a verifier reports back**, merge only when BOTH gates hold:
+   - the verifier's PR comment says **PASS**, and
+   - every test gate passed on the PR's head commit: `npm run typecheck`, `npm test`, `npm run build`, and the touched Playwright specs (plus CI, if it ran).
 
-   Pick in *Order* sequence until 3 implementers are running. **Phase 0 runs strictly one task at a time.**
-4. **Claim** each one before spawning: Status `Claimed`, *Claimed by* `<you>/impl`, *Claimed at* now (datetime), *Branch* `task/<id>-<slug>`.
-5. **Spawn implementers** with the Agent tool: `subagent_type: "implementer"`, `isolation: "worktree"`, `run_in_background: true`. The prompt must contain:
-   - the task ID, its Notion page URL, and the branch name
-   - the claimant string
-   - a pointer to the spec page
-   - for a resumed task, its latest handoff notes
-6. **When an implementer reports back:**
-   - If it finished (PR open, Status `In review`), spawn a **verifier** with `subagent_type: "verifier"`, background. Give it the task ID, page URL, PR number, and branch. Set *Claimed by* to `<you>/verify`.
-   - If it stopped early (blocked or out of budget), make sure the Handoff notes exist, then re-spawn the implementer on the next loop.
-7. **When a verifier reports back:**
-   - **PASS and CI green:**
-     1. Run `gh pr merge <n> --squash --delete-branch`.
-     2. Set Status `Done` and Verification `Pass`.
-     3. Pull `main`.
-     4. Tell the other running implementers to rebase on `main` before they finish.
-   - **FAIL:**
-     1. Set Status `Verify failed` and Verification `Fail`.
-     2. Spawn an implementer to fix it, with the verifier's findings.
-     3. After **2 failed rounds**, set `Blocked` and add a Notion comment tagging Henderson and Sam with the findings.
-8. **Repeat** until no task is Ready and nothing is running.
-9. **Stopping** (every build task is Done or Blocked, or you're low on budget):
-   - Make sure every in-flight task has Handoff notes and a pushed branch.
-   - Then post a short status summary: what's done, what's waiting on human review, what's blocked.
+   Then:
+   1. Squash-merge with `mcp__github__merge_pull_request` (`merge_method: "squash"`), or `gh pr merge <n> --squash` where `gh` works.
+   2. Pull `main`, record the task as merged (with its PR) in `status.md`, commit and push.
+   3. Remove the worktree and branch: `git worktree remove ../wt/<task-id>`, `git branch -D task/<task-id>-<slug>`, `git push origin --delete task/<task-id>-<slug>`.
+   4. Tell the other running implementers to rebase on `main` before they finish.
+
+   Otherwise spawn a **fix agent** (`subagent_type: "implementer"`) on the **same branch and worktree** with the verifier's findings and the failing gate output, then verify again. After **3 fix-and-validate rounds** that still fail, add the `blocked` label to the PR, record why in `status.md`, and leave it unmerged.
+8. **Repeat** until nothing is claimable and nothing is running.
+9. **Stopping** (everything merged or blocked, or you're low on budget): make sure every in-flight branch is pushed and `status.md` says where each task stands, then post a short summary: merged, in flight, blocked and why.
 
 ## Rules
 
-- **Never stop without handoff notes.** Token limits end sessions without warning, so keep Notion current as you go, not at the end.
-- **Heartbeat:** update *Claimed at* whenever a task changes state.
-- **Phase reviews don't block.** `N.R` review tasks are human checkpoints. Never claim them, and never wait on them. *Depends on* lists only build tasks. At each stop, list which reviews are ready for a human to look at.
+- **At most 3 agents at once** (implementers, fix agents and verifiers together).
+- **Never stop with work only on disk.** Sessions end without warning, so push branches and keep `status.md` current as you go.
+- **Nothing merges on one gate.** A failing test or a verifier FAIL keeps the PR unmerged.
 - **No deploys:** Railway deployment is manual. Never run it.
-- **Schema changes** reseed destructively (bump `SCHEMA_VERSION`). If two branches both bumped the schema, the later one resolves the conflict when it rebases.
-- **Conflicts:** tasks that edit the same screen are chained by *Depends on*. If they still conflict, the later task rebases.
+- **Migrations** take the next free number on `main` when the PR is opened; the later branch renumbers when it rebases.
+- **Conflicts:** tasks that edit the same files are chained by *Blocked by*. If they still conflict, the later task rebases.
 - Use the Monitor tool, or just wait for notifications, for background agents. Don't poll.
