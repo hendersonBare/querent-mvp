@@ -251,6 +251,10 @@
   color: var(--rep-muted);
   box-shadow: inset 0 0 0 1px var(--rep-line);
 }
+.chip[data-tone="declined"] {
+  background: var(--rep-bad-soft);
+  color: var(--rep-bad);
+}
 
 /* ---- changes_requested: an amber rule down the left and the customer's note under the row ---- */
 .quote[data-status="changes_requested"] {

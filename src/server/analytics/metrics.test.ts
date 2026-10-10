@@ -57,6 +57,10 @@ describe('win rate (task 1.5 carry-forward)',()=>{
     expect(winRateCard(quotes,NOW)).toEqual({rate:0.5,won:2,lost:2,open:3});
   });
 
+  it('counts a declined quote as decided and lost (task A1)',()=>{
+    expect(winRateCard([fact({status:'accepted'}),fact({status:'declined'}),fact({status:'expired'}),draft()],NOW)).toEqual({rate:1/3,won:1,lost:2,open:1});
+  });
+
   it('is null with nothing decided',()=>{
     expect(winRateCard([draft()],NOW)).toEqual({rate:null,won:0,lost:0,open:1});
     expect(winRateCard([],NOW)).toEqual({rate:null,won:0,lost:0,open:0});
@@ -132,6 +136,10 @@ describe('weekly quotes and wins',()=>{
       {week_start:'2026-09-14',quotes:0,won:0,lost:0,open:0},
       {week_start:'2026-09-21',quotes:2,won:1,lost:0,open:1},
     ]);
+  });
+
+  it('puts a declined quote in its week as lost (task A1)',()=>{
+    expect(weeklyTrend([fact({requested_at:'2026-09-22T10:00:00.000Z',status:'declined'})],NOW,1)).toEqual([{week_start:'2026-09-21',quotes:1,won:0,lost:1,open:0}]);
   });
 
   it('has empty weeks with no quotes',()=>{

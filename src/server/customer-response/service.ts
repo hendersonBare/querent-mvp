@@ -1,26 +1,28 @@
 import 'server-only';
 import {z} from 'zod';
-import type {CustomerQuotePreview} from '@/domain';
+import {DECLINE_REASONS,type CustomerQuotePreview} from '@/domain';
 import {customerQuotePreview} from '@/server/customer/quote-preview';
-import {checkFulfillmentTime,cleanNote,cleanPo,NOTE_MAX,noteProblem,PO_MAX,poProblem,QuoteActionError} from '@/server/quotes';
-import {acceptQuote,requestChanges} from '@/server/quotes/service';
+import {checkFulfillmentTime,cleanDeclineNote,cleanNote,cleanPo,DECLINE_NOTE_MAX,declineNoteProblem,NOTE_MAX,noteProblem,PO_MAX,poProblem,QuoteActionError} from '@/server/quotes';
+import {acceptQuote,declineQuote,requestChanges} from '@/server/quotes/service';
 import {IdempotencyStore} from '@/server/rep/idempotency';
 
 export {parseIdempotencyKey} from '@/server/rep/idempotency';
 
 // The customer's answer to a sent quote: the PDF preview modal's Accept and Request changes, after
-// their Confirm dialog (spec §3, §5.4; task 5.2). The transitions are task 1.5's acceptQuote and
-// requestChanges (status, the rep's unread badge, Activity); this layer is what a customer route
-// may call.
+// their Confirm dialog (spec §3, §5.4; task 5.2), and Decline after its reasons dialog (v3 spec §2.1,
+// task A1). The transitions are task 1.5's acceptQuote and requestChanges and A1's declineQuote
+// (status, the rep's unread badge, Activity); this layer is what a customer route may call.
 //
 // This is the SECOND module that reads cost which a customer route may call (boundary.test.ts names
 // it, next to the quote intake), because the quote service it calls loads the internal quote. So:
 //   - it takes only what the customer may send, for the session customer's own quote: the revision
-//     they saw, a pickup or delivery day and time and a PO (Accept), or a note (Request changes).
+//     they saw, a pickup or delivery day and time and a PO (Accept), a note (Request changes), or an
+//     optional reason and Other note (Decline).
 //     The body schema is strict, so branch, pickup or delivery, prices or anything else are
 //     refused: Accept can't change what the rep approved;
 //   - it answers with the customer-safe preview only (customerQuotePreview), never the Quote the
-//     quote service returns. Its tests and the routes' tests deep-scan every answer for cost.
+//     quote service returns. Its tests and the routes' tests deep-scan every answer for cost, and
+//     Decline's for the reason and note too: they are the rep's only (decision 14).
 //
 // On top of 1.5's checks it enforces what the service leaves to the caller: the time rules
 // (response-rules: a weekday slot at least an hour ahead, never in the past), the PO and note
@@ -56,6 +58,8 @@ const notFound=()=>new QuoteActionError('not_found','Quote not found.');
 const Revision=z.number().int().min(1).max(999_999);
 const AcceptBody=z.strictObject({revision:Revision,day:z.string().max(40),time:z.string().max(40),po:z.string().max(PO_MAX*10)});
 const ChangesBody=z.strictObject({revision:Revision,note:z.string().max(NOTE_MAX*10)});
+/** v3 spec §5: {reason?, note?}. The revision is optional so a bare decline works; the modal always sends it (A1 assumption). */
+const DeclineBody=z.strictObject({revision:Revision.optional(),reason:z.enum(DECLINE_REASONS).nullish(),note:z.string().max(DECLINE_NOTE_MAX*10).nullish()});
 /** Keys that would change what the rep approved. */
 const LOCKED=/branch|fulfil|pickup|deliver|ship|will_?call|address/i;
 
@@ -80,6 +84,7 @@ function assertOpen(p:CustomerQuotePreview,revision:number){
   if(p.status==='expired')
     throw new QuoteActionError('expired',`${n} expired: it was valid until ${p.shown?.valid_until?monthDay.format(new Date(`${p.shown.valid_until}T00:00:00.000Z`)):'its end date'}. Ask ${rep} for a new quote.`);
   if(p.status==='accepted')throw new QuoteActionError('illegal_transition',`You already accepted ${n}.`);
+  if(p.status==='declined')throw new QuoteActionError('illegal_transition',`You already declined ${n}.`);
   if(p.status==='changes_requested')throw new QuoteActionError('illegal_transition',`You already asked for changes to ${n}. ${capitalized(rep)} is revising it.`);
   if(p.status!=='sent'||!p.shown)throw new QuoteActionError('illegal_transition',`${n} hasn’t been sent to you yet.`);
   if(revision!==p.latest_revision)throw new QuoteActionError('conflict',`${n} rev ${revision} is out of date: rev ${p.latest_revision} is the latest. Review it first.`);
@@ -152,6 +157,42 @@ export function requestCustomerChanges(who:Responder,quoteIdOrNumber:string,body
     const note=cleanNote(input.note),problem=noteProblem(note);
     if(problem)throw invalid(problem);
     requestChanges(who.customerId,p.id,{revision:input.revision,note,now});
+    return ownQuote(who,p.id,now);
+  });
+  return {quote:value,replayed};
+}
+
+function parseDecline(body:unknown){
+  const result=DeclineBody.safeParse(body);
+  if(result.success)return result.data;
+  const issue=result.error.issues[0];
+  if(issue.code==='unrecognized_keys')throw invalid(`Decline takes the revision, a reason and a note only (not ${issue.keys.join(', ')}).`);
+  switch(issue.path[0]){
+    case 'revision':throw invalid('Decline needs the revision you are looking at. Reload the quote and try again.');
+    case 'reason':throw invalid('Choose one of the reasons, or none.');
+    case 'note':throw invalid(issue.code==='too_big'?`Keep the note to ${DECLINE_NOTE_MAX} characters.`:'The note must be text.');
+    default:throw invalid('Decline takes the revision, a reason and a note only.');
+  }
+}
+
+/**
+ * Decline (v3 spec §2.1, decisions 13 to 15): the customer's latest sent revision, final. `body` is
+ * {revision?, reason?, note?}: every field optional, since Decline records the decline with no
+ * reason chosen; the note counts only with reason 'other' (plain text, at most 250 characters). The
+ * answer is the customer-safe preview, whose response says only {kind:'declined', revision}: the
+ * reason and note are the rep's. Throws QuoteActionError as acceptCustomerQuote does.
+ */
+export function declineCustomerQuote(who:Responder,quoteIdOrNumber:string,body:unknown,{idempotencyKey=null,now=clock()}:CustomerResponseOptions={}):CustomerResponse{
+  const before=ownQuote(who,quoteIdOrNumber,now);
+  const input=parseDecline(body);
+  const {value,replayed}=answers.once(`${who.customerId}:${before.id}:decline`,idempotencyKey,()=>{
+    const p=ownQuote(who,before.id,now);
+    const revision=input.revision??p.latest_revision;
+    assertOpen(p,revision);
+    const reason=input.reason??null;
+    const note=reason==='other'?cleanDeclineNote(input.note):'',problem=declineNoteProblem(note);
+    if(problem)throw invalid(problem);
+    declineQuote(who.customerId,p.id,{revision,reason,note:note||null,now});
     return ownQuote(who,p.id,now);
   });
   return {quote:value,replayed};

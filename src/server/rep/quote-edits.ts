@@ -30,6 +30,7 @@ const NOT_EDITABLE:Partial<Record<QuoteStatus,(n:string)=>string>>={
   sent:n=>`${n} was sent to the customer. It can't be edited unless they ask for changes.`,
   accepted:n=>`${n} was accepted, so it can't be edited. Duplicate it to quote again.`,
   expired:n=>`${n} expired, so it can't be edited. Duplicate it to quote again.`,
+  declined:n=>`${n} was declined, so it can't be edited. Duplicate it to quote again.`,
 };
 
 /** The rep's quote, if its status allows edits right now; throws not_found or illegal_transition (409). */

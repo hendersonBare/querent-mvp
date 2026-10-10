@@ -153,7 +153,7 @@ describe('fromDraft (the rep\'s preview of an unsent draft)',()=>{
     rep_id:'brandi',rep_name:'Brandi Gallegos',status:'changes_requested',revision:1,conversation_id:null,request_text:'Need bolts',requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',
     updated_at:'2026-09-24T16:15:00.000Z',sent_at:'2026-09-23T17:00:00.000Z',responded_at:null,fulfillment:'delivery',branch_id:'slc',branch_code:'SLC',requested_date:null,fulfillment_time:null,
     ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null,valid_days:14,expires_on:null,valid_until:'2026-10-07',
-    customer_po:'7781',customer_note:'Call on arrival.',change_request_note:'Can you do 20 boxes?',unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,
+    customer_po:'7781',customer_note:'Call on arrival.',change_request_note:'Can you do 20 boxes?',declined_at:null,decline_reason:null,decline_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,
     lines:[line(1,20,31.5),line(2,3,null)]};
   const FREIGHT:QuoteFreight={computed:{rule:'distance',amount:62.5,miles:15,formula:'$25.00 + $2.50/mi × 15.0 mi = $62.50',explanation:'15.0 mi from SLC'},override:null,amount:62.5,source:'computed',unresolved:false};
   const NOW='2026-09-24T18:00:00.000Z';

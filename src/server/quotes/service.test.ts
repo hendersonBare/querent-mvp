@@ -39,7 +39,7 @@ describe('seeded history: lost quotes are stored as expired (task 0.2)',()=>{
     const rate=winRate(quotes({customerId:'wasatch'}),NOW);
     expect(rate).toMatchObject({won:17,lost:7,open:1});
     expect(Math.round(rate.rate!*100)).toBe(71);
-    expect(customerStats('wasatch')).toMatchObject({quotes_accepted:17,quotes_expired:7,win_rate:rate.rate});
+    expect(customerStats('wasatch')).toMatchObject({quotes_accepted:17,quotes_lost:7,win_rate:rate.rate});
   });
 
   it('refuses a customer action on a seeded lost quote as expired, writing nothing',()=>{

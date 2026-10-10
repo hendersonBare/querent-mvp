@@ -2,8 +2,8 @@ import type {CustomerQuotePreview,Fulfillment} from '@/domain';
 import {fulfillmentTimeLabel,isExpired} from '@/server/quotes';
 import {quoteDate} from '../quote-label';
 
-// The PDF preview modal's words (spec §3, tasks 5.1 and 5.2), per quote state, and what the Accept
-// and Request changes Confirm dialogs repeat. Pure, so each state's copy is tested without rendering.
+// The PDF preview modal's words (spec §3, tasks 5.1 and 5.2; Decline, A1), per quote state, and what
+// the Accept and Request changes Confirm dialogs and the Decline dialog repeat. Pure, so each state's copy is tested without rendering.
 
 const usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 
@@ -58,6 +58,7 @@ export function actionNote(p:CustomerQuotePreview,now:string){
     return `You accepted rev ${response.revision}${response.customer_po?` with PO ${response.customer_po}`:''}${when}.`;
   }
   if(p.status==='changes_requested')return `You asked for changes${response?` to rev ${response.revision}`:''}. ${capitalized(rep)} is revising the quote.`;
+  if(p.status==='declined')return `You declined${response?` rev ${response.revision}`:' this quote'}. Ask ${rep} for a new quote if you still need these items.`;
   return `Accept it with a ${fulfillmentWord(p.shown.fulfillment)} time and your PO, or ask ${rep} for changes.`;
 }
 
@@ -78,6 +79,11 @@ export function acceptQuestion(a:AcceptSummary){
 /** Request changes' Confirm line: "Send your change request for Q-24817 rev 1 to Brandi?". */
 export function changesQuestion(p:CustomerQuotePreview){
   return `Send your change request for ${p.quote_number} rev ${p.shown?.revision??p.latest_revision} to ${repFirstName(p)}?`;
+}
+
+/** The Decline dialog's line (v3 spec §2.1): "Decline Q-24817 rev 1? Telling Brandi why is optional." */
+export function declineQuestion(p:CustomerQuotePreview){
+  return `Decline ${p.quote_number} rev ${p.shown?.revision??p.latest_revision}? Telling ${repFirstName(p)} why is optional.`;
 }
 
 /** The body before the rep's first send, when there is no PDF yet. */

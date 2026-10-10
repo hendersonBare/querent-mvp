@@ -10,17 +10,19 @@ import {QuoteActionError} from './errors';
 //   sent              --request_changes (customer: note + Confirm)-->      changes_requested
 //   changes_requested --send (rep edits the draft, Approve & send)-->      sent (rev n+1)
 //   sent              --expire (system: now > valid_until)-->              expired
+//   sent              --decline (customer: reason optional + Decline)-->   declined (v3 spec §2)
 //
-// Every other status/event pair is illegal, including a double send (sent --send-->). Accepted
-// and expired are final; the rep can only Duplicate them. There is no rep-side "changes
+// Every other status/event pair is illegal, including a double send (sent --send-->). Accepted,
+// expired and declined are final (decision 13); the rep can only Duplicate them. There is no rep-side "changes
 // requested" state: the rep edits the draft directly while it is ready_for_review or
 // changes_requested.
 //
 // There is no "lost" status either: a quote the customer never accepted ends as `expired`, and
 // the seed stores its 7 lost historical quotes that way (task 0.2). quoteOutcome() and winRate()
-// therefore count expired as lost, and so does a sent quote already past valid_until.
+// therefore count expired as lost, and so does a sent quote already past valid_until. A declined
+// quote is lost too (v3 spec §2); the Team metrics keep declined and expired apart.
 
-export const QUOTE_EVENTS=['send','accept','request_changes','expire'] as const;
+export const QUOTE_EVENTS=['send','accept','request_changes','expire','decline'] as const;
 export type QuoteEvent=typeof QUOTE_EVENTS[number];
 
 export interface TransitionRule {from:readonly QuoteStatus[];to:QuoteStatus;actor:Extract<ActivityActor,'rep'|'customer'|'system'>}
@@ -30,14 +32,15 @@ export const TRANSITIONS:Readonly<Record<QuoteEvent,TransitionRule>>={
   accept:{from:['sent'],to:'accepted',actor:'customer'},
   request_changes:{from:['sent'],to:'changes_requested',actor:'customer'},
   expire:{from:['sent'],to:'expired',actor:'system'},
+  decline:{from:['sent'],to:'declined',actor:'customer'},
 };
 
 /** Status chip labels (spec §3). */
 export const STATUS_LABELS:Readonly<Record<QuoteStatus,string>>={
-  ready_for_review:'Awaiting rep',sent:'Sent',accepted:'Accepted',changes_requested:'Changes requested',expired:'Expired',
+  ready_for_review:'Awaiting rep',sent:'Sent',accepted:'Accepted',changes_requested:'Changes requested',expired:'Expired',declined:'Declined',
 };
 
-const VERBS:Record<QuoteEvent,string>={send:'send',accept:'accept',request_changes:'request changes to',expire:'expire'};
+const VERBS:Record<QuoteEvent,string>={send:'send',accept:'accept',request_changes:'request changes to',expire:'expire',decline:'decline'};
 
 /** The status `event` moves `from` to, or null when the move is illegal. */
 export function nextStatus(from:QuoteStatus,event:QuoteEvent):QuoteStatus|null{
@@ -134,17 +137,17 @@ type Expirable=Pick<QuoteHeader,'status'|'valid_until'>;
 /** The status to show now: a sent quote past valid_until reads as expired before the sweep stores it. */
 export const effectiveStatus=(q:Expirable,now:string):QuoteStatus=>q.status==='sent'&&isExpired(q.valid_until,now)?'expired':q.status;
 
-/** Whether the customer's Accept / Request changes bar is enabled (spec §3): the quote is sent and not expired. */
+/** Whether the customer's Accept / Request changes / Decline bar is enabled (spec §3): the quote is sent and not expired. */
 export const customerCanRespond=(q:Expirable,now:string)=>effectiveStatus(q,now)==='sent';
 
 // ---- Win/loss ----
 
 export type QuoteOutcome='won'|'lost'|'open';
 
-/** accepted = won; expired (the seed's lost quotes, and any sent quote past valid_until) = lost; anything still in play = open. */
+/** accepted = won; expired (the seed's lost quotes, and any sent quote past valid_until) or declined = lost; anything still in play = open. */
 export function quoteOutcome(q:Expirable,now:string):QuoteOutcome{
   const status=effectiveStatus(q,now);
-  return status==='accepted'?'won':status==='expired'?'lost':'open';
+  return status==='accepted'?'won':status==='expired'||status==='declined'?'lost':'open';
 }
 
 /** Quote win rate = won / (won + lost), or null when nothing is decided yet. Open quotes don't count. */

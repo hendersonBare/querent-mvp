@@ -65,6 +65,7 @@ describe('All customers',()=>{
     ]);
     const winRate=screen.getByRole('button',{name:'How win rate is calculated'});
     expect(winRate).toHaveAccessibleDescription(/Accepted quotes divided by decided quotes: 17 of 24\..*sent quote past its valid-until date counts as lost/);
+    expect(winRate).toHaveAccessibleDescription(/decided when the customer accepts or declines it, or it expires unanswered/);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     fireEvent.click(winRate);
     expect(screen.getByRole('tooltip')).toHaveTextContent('1 quote still waiting on you or the customer doesn’t count yet.');

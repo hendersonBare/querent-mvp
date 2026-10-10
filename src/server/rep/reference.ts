@@ -75,7 +75,7 @@ export interface CustomerDetail {
   /** open_balance / credit_limit, or null without a limit. */
   credit_used:number|null;
   contacts:Contact[];
-  /** accepted / (accepted + expired), after the expiry sweep; null with nothing decided. */
+  /** accepted / (accepted + lost: expired or declined), after the expiry sweep; null with nothing decided. */
   win_rate:number|null;quotes_won:number;quotes_decided:number;
   orders:{count:number;recent:OrderListRow[]};
   quotes:{count:number;recent:CustomerQuoteRow[]};
@@ -100,7 +100,7 @@ export function customerDetail(customerId:string,{now=clock()}:{now?:string}={})
     on_file:account.terms!==null||account.credit_limit!==null||account.open_balance!==null,
     credit_used:account.credit_limit?(account.open_balance??0)/account.credit_limit:null,
     contacts:contacts(customerId),
-    win_rate:stats.win_rate,quotes_won:stats.quotes_accepted,quotes_decided:stats.quotes_accepted+stats.quotes_expired,
+    win_rate:stats.win_rate,quotes_won:stats.quotes_accepted,quotes_decided:stats.quotes_accepted+stats.quotes_lost,
     orders:{count:orderRows.length,recent:orderRows.slice(0,RECENT)},
     quotes:{count:quoteRows.length,recent:quoteRows.slice(0,RECENT).map(q=>({id:q.id,quote_number:q.quote_number,revision:q.revision,status:effectiveStatus(q,now),
       requested_at:q.requested_at,sent_total:q.sent_total,rep_name:q.rep_name,line_count:q.line_count}))},
