@@ -10,7 +10,7 @@ import {CustomerChat} from './Chat';
 // "Quote … is ready" in the customer chat (spec §3, task 5.1): the messages Approve & send posted
 // show among the turns after a reload, and a new one shows up without one (the chat polls).
 
-const user:Principal={user_id:'u1',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
+const user:Principal={user_id:'u1',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 const CONVERSATION='conv-1';
 const turn=(t:Partial<ChatTurn>&Pick<ChatTurn,'id'|'question'|'answer'>):ChatTurn=>({categories:[],outcome:'answered',row_count:0,...t});
 const notice=(id:string,created_at:string,extra:Partial<QuoteNotice>={}):QuoteNotice=>({id,conversation_id:CONVERSATION,created_at,text:'Hi Dana, here it is.\nThanks, Brandi',

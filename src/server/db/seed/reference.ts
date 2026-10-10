@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import {INFO_CATEGORIES} from '../schema';
 import {BRANCHES,BRANDI_FLOORS,CONTRACTS,DANA,DEFAULT_FLOOR,DELIVERY_RATES,DEPARTMENTS,PLACEHOLDER_CUSTOMERS,PRICE_LEVEL,REPS,SETTINGS,SUPPLIER,WASATCH,WASATCH_REP} from './accounts';
 import {CATALOG,CATEGORIES,INBOUND} from './catalog';
@@ -25,7 +26,8 @@ export function seedReference({insert,anchor,syncedAt}:SeedContext){
   insert('price_levels',{...PRICE_LEVEL,...sync(PRICE_LEVEL.code)});
   for(const item of CATALOG)insert('customer_prices',{id:`${PRICE_LEVEL.id}:${item.sku}`,price_level_id:PRICE_LEVEL.id,item_id:item.sku,unit_price:item.customer,...sync(`${PRICE_LEVEL.code}:${item.sku}`)});
 
-  for(const r of REPS)insert('reps',{...r,...sync(`REP-${r.initials}`)});
+  // role and team are 006_roles columns, set by seedRepRoles once they exist.
+  for(const {role:_role,team:_team,...r} of REPS)insert('reps',{...r,...sync(`REP-${r.initials}`)});
   insert('customers',{...WASATCH,...sync(WASATCH.account_number)});
   insert('contacts',{...DANA,...sync(`${WASATCH.account_number}:${DANA.id}`)});
   insert('customer_rep',{customer_id:WASATCH.id,rep_id:WASATCH_REP});
@@ -42,4 +44,15 @@ export function seedReference({insert,anchor,syncedAt}:SeedContext){
   DEPARTMENTS.forEach((d,i)=>insert('departments',{...d,sort_order:i+1}));
   insert('delivery_rates',DELIVERY_RATES);
   for(const id of [WASATCH.id,...PLACEHOLDER_CUSTOMERS.map(p=>p.id)])for(const category of INFO_CATEGORIES)insert('access',{customer_id:id,category,enabled:1});
+}
+
+/**
+ * Each rep's role and team label (006_roles; v3 spec §8, decision 20; task D1): Brandi is the manager.
+ * A database built at the v4 schema (the adoption test's fixture) has no such columns yet: there
+ * 006's own UPDATE makes Brandi the manager when it runs.
+ */
+export function seedRepRoles(database:Database.Database){
+  if(!database.prepare("SELECT 1 FROM pragma_table_info('reps') WHERE name='role'").get())return;
+  const update=database.prepare('UPDATE reps SET role=?,team=? WHERE id=?');
+  for(const r of REPS)update.run(r.role,r.team,r.id);
 }

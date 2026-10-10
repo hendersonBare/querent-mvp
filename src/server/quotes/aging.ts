@@ -28,6 +28,36 @@ export interface AgingThresholds {rfrAmberH:number;rfrRedH:number;crAmberH:numbe
 /** Decision 16: 4 h / 24 h for drafts and change requests, 3 / 7 days for sent quotes. */
 export const AGING_DEFAULTS:Readonly<AgingThresholds>={rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:72,sentRedH:168};
 
+/** The three status clocks as Settings > Aging thresholds lists them (task D1), with each one's two settings. */
+export const AGING_ROWS=[
+  {label:'Ready for review',amber:'rfrAmberH',red:'rfrRedH'},
+  {label:'Changes requested',amber:'crAmberH',red:'crRedH'},
+  {label:'Sent',amber:'sentAmberH',red:'sentRedH'},
+] as const satisfies readonly {label:string;amber:keyof AgingThresholds;red:keyof AgingThresholds}[];
+
+/** What a manager may save, in whole hours: 1 hour to 90 days. */
+export const AGING_LIMITS={minH:1,maxH:2160} as const;
+
+/**
+ * Checks thresholds a manager is saving (decision 16, task D1): six whole hours from AGING_LIMITS,
+ * amber before red for each status. Returns only the six keys, or the first problem in plain words.
+ * Shared by Settings (as the manager types) and the PUT route.
+ */
+export function checkAgingThresholds(input:unknown):{thresholds:AgingThresholds;problem:''}|{thresholds:null;problem:string}{
+  const values=typeof input==='object'&&input!==null&&!Array.isArray(input)?input as Record<string,unknown>:{};
+  const thresholds={} as AgingThresholds;
+  for(const row of AGING_ROWS){
+    for(const level of ['amber','red'] as const){
+      const key=row[level],value=values[key],name=`${row.label} ${level}`;
+      if(typeof value!=='number'||!Number.isInteger(value))return {thresholds:null,problem:`Enter whole hours for ${name}.`};
+      if(value<AGING_LIMITS.minH||value>AGING_LIMITS.maxH)return {thresholds:null,problem:`${name} must be from ${AGING_LIMITS.minH} to ${AGING_LIMITS.maxH} hours.`};
+      thresholds[key]=value;
+    }
+    if(thresholds[row.amber]>=thresholds[row.red])return {thresholds:null,problem:`${row.label}: amber must come before red.`};
+  }
+  return {thresholds,problem:''};
+}
+
 export interface Aging {
   level:AgingLevel;
   /** When the status's clock started (created_at, responded_at or sent_at): "oldest first" sorts on it. */

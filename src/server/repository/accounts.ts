@@ -1,5 +1,5 @@
 import 'server-only';
-import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,Supplier} from '@/domain';
+import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,RepRole,RepStanding,Supplier,TeamRep} from '@/domain';
 import {all,bool,one,run} from './sql';
 
 const REP='SELECT id,name,initials,title,phone,email FROM reps';
@@ -60,17 +60,50 @@ export function contact(contactId:string){const row=one<Omit<Contact,'is_primary
 /** Static department contacts for the customer sidebar (spec §3). */
 export function departments(){return all<Department>('SELECT id,name,branch_id,phone,email,hours,sort_order FROM departments ORDER BY sort_order');}
 
-export function reps(){return all<Rep>(`${REP} ORDER BY name`);}
+/** Every rep by name; activeOnly leaves out inactive reps (the ones a customer can't be assigned to, task D1). */
+export function reps({activeOnly=false}:{activeOnly?:boolean}={}){return all<Rep>(`${REP}${activeOnly?' WHERE active=1':''} ORDER BY name`);}
 export function rep(repId:string){return one<Rep>(`${REP} WHERE id=?`,repId);}
 /** The customer's one assigned rep (customer_rep). A quote's rep is always this rep (spec §5.2). */
 export function assignedRep(customerId:string){return one<Rep>(`${REP} WHERE id=(SELECT rep_id FROM customer_rep WHERE customer_id=?)`,customerId);}
 
 /**
  * Assigns the customer's one rep (Settings > Rep assignments). Existing quotes keep their rep:
- * quotes are never reassigned (spec §4). Returns false if the customer or rep doesn't exist.
+ * quotes are never reassigned (spec §4). Returns false if the customer doesn't exist, or the rep
+ * doesn't exist or is inactive (an inactive rep has no customers, task D1).
  */
 export function setAssignedRep(customerId:string,repId:string){
-  if(!rep(repId)||!one('SELECT 1 FROM customers WHERE id=?',customerId))return false;
-  run('INSERT INTO customer_rep(customer_id,rep_id) VALUES(?,?) ON CONFLICT(customer_id) DO UPDATE SET rep_id=excluded.rep_id',customerId,repId);
-  return true;
+  if(!one('SELECT 1 FROM customers WHERE id=?',customerId))return false;
+  // The active check is in the statement itself, so a rep deactivated meanwhile can't gain a customer.
+  return run(`INSERT INTO customer_rep(customer_id,rep_id) SELECT ?,id FROM reps WHERE id=? AND active=1
+    ON CONFLICT(customer_id) DO UPDATE SET rep_id=excluded.rep_id`,customerId,repId).changes>0;
+}
+
+// ---- Roles, team labels and inactive reps (v3 spec §1.2 "006" row, §8; decisions 20, 21; task D1) ----
+
+/** The rep's stored role and active flag: every rep request checks it (src/server/rep/access.ts). Undefined for an unknown rep. */
+export function repStanding(repId:string):RepStanding|undefined{
+  const row=one<{role:RepRole;active:number}>('SELECT role,active FROM reps WHERE id=?',repId);
+  return row&&{role:row.role,active:bool(row.active)};
+}
+
+/** The manager's Reps card: every rep by name with role, team label, active flag and customer count. */
+export function teamReps():TeamRep[]{
+  return all<Omit<TeamRep,'active'>&{active:number}>(`SELECT r.id,r.name,r.initials,r.title,r.role,r.team,r.active,
+      (SELECT count(*) FROM customer_rep cr WHERE cr.rep_id=r.id) customer_count
+    FROM reps r ORDER BY r.name`).map(row=>({...row,active:bool(row.active)}));
+}
+
+/** Sets or clears (null) the rep's team label, already checked by the caller. False for an unknown rep. */
+export function setRepTeam(repId:string,team:string|null){return run('UPDATE reps SET team=? WHERE id=?',team,repId).changes>0;}
+
+/**
+ * Marks the rep active or inactive. Deactivation is refused while any customer has the rep in
+ * customer_rep (decision 21): checked in the same statement, so a customer assigned meanwhile still blocks it.
+ */
+export function setRepActive(repId:string,active:boolean):'ok'|'not_found'|'has_customers'{
+  if(!one('SELECT 1 FROM reps WHERE id=?',repId))return 'not_found';
+  const changed=active
+    ?run('UPDATE reps SET active=1 WHERE id=?',repId).changes
+    :run('UPDATE reps SET active=0 WHERE id=? AND NOT EXISTS(SELECT 1 FROM customer_rep WHERE rep_id=?)',repId,repId).changes;
+  return changed?'ok':'has_customers';
 }

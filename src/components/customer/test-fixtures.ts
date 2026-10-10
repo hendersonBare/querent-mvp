@@ -4,7 +4,7 @@ import type {API,Principal} from '@/lib/contracts';
 
 // Test data for the customer layout: Wasatch's contacts and quotes as the API returns them.
 
-export const dana:Principal={user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,contact_id:'dana'};
+export const dana:Principal={user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 
 export const contacts:CustomerContacts={
   supplier:'Herrick Industrial Supply',

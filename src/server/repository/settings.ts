@@ -3,7 +3,7 @@ import {FUEL_TYPES,type DeliveryRates,type FreeDeliverySettings,type FreightCost
 import {COST_MODEL_DEFAULTS} from '../freight/cost-model';
 import {AGING_DEFAULTS,type AgingThresholds} from '../quotes/aging';
 import {POOL_DEFAULTS} from '../freight/pool';
-import {all,nowIso,one,run,scalar} from './sql';
+import {all,inTransaction,nowIso,one,run,scalar} from './sql';
 
 /** Pricing settings (Settings > Pricing). Scarcity uplift is off by default (spec §5.1). */
 export function pricingSettings():PricingSettings{
@@ -68,18 +68,31 @@ export function freightRateSettings():FreightRateSettings{
   };
 }
 
+/** The aging_* keys behind each threshold (spec §1.3). */
+const AGING_KEYS:Readonly<Record<keyof AgingThresholds,string>>={
+  rfrAmberH:'aging_rfr_amber_h',rfrRedH:'aging_rfr_red_h',crAmberH:'aging_cr_amber_h',crRedH:'aging_cr_red_h',sentAmberH:'aging_sent_amber_h',sentRedH:'aging_sent_red_h',
+};
+
 /**
  * The aging thresholds in hours (v3 spec §1.3, §3; decision 16): the six aging_* keys, each falling
- * back to its code default when absent, unreadable, zero or negative. Managers edit them in D1.
+ * back to its code default when absent, unreadable, zero or negative. Managers edit them (setAgingThresholds, D1).
  */
 export function agingThresholds():AgingThresholds{
   const d=AGING_DEFAULTS;
   const hours=(key:string,fallback:number)=>{const value=numberSetting(key,fallback);return value>0?value:fallback;};
   return {
-    rfrAmberH:hours('aging_rfr_amber_h',d.rfrAmberH),rfrRedH:hours('aging_rfr_red_h',d.rfrRedH),
-    crAmberH:hours('aging_cr_amber_h',d.crAmberH),crRedH:hours('aging_cr_red_h',d.crRedH),
-    sentAmberH:hours('aging_sent_amber_h',d.sentAmberH),sentRedH:hours('aging_sent_red_h',d.sentRedH),
+    rfrAmberH:hours(AGING_KEYS.rfrAmberH,d.rfrAmberH),rfrRedH:hours(AGING_KEYS.rfrRedH,d.rfrRedH),
+    crAmberH:hours(AGING_KEYS.crAmberH,d.crAmberH),crRedH:hours(AGING_KEYS.crRedH,d.crRedH),
+    sentAmberH:hours(AGING_KEYS.sentAmberH,d.sentAmberH),sentRedH:hours(AGING_KEYS.sentRedH,d.sentRedH),
   };
+}
+
+/** Stores all six aging thresholds (already checked: checkAgingThresholds), in one transaction. Managers only (D1, the route checks). */
+export function setAgingThresholds(thresholds:AgingThresholds){
+  inTransaction(()=>{
+    for(const [field,key] of Object.entries(AGING_KEYS))run('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,String(thresholds[field as keyof AgingThresholds]));
+  });
+  return agingThresholds();
 }
 
 const FLOOR='SELECT f.rep_id,f.category_id,c.name category_name,f.margin_floor,f.updated_at FROM rep_category_floors f JOIN product_categories c ON c.id=f.category_id';

@@ -1,12 +1,13 @@
 import 'server-only';
-import type {CustomerListItem,DeliveryRates,PricingSettings,Rep,RepFloor} from '@/domain';
+import type {CustomerListItem,DeliveryRates,PricingSettings,Rep,RepFloor,TeamRep} from '@/domain';
 import type {AccessRule,ERPStatus} from '@/lib/contracts';
 import {formatMargin} from '@/server/floors';
 import {FloorPermissionError,setMyFloor} from '@/server/floors/service';
 import {checkDeliveryRates} from '@/server/freight/rates';
+import type {AgingThresholds} from '@/server/quotes/aging';
 import {
-  aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,isCategory,pricingSettings,quotes,repFloors,reps,setAccess,
-  setAssignedRep,setDeliveryRates,setScarcityUplift,type DemoDatabase,
+  agingThresholds,aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,isCategory,pricingSettings,quotes,repFloors,reps,setAccess,
+  setAssignedRep,setDeliveryRates,setScarcityUplift,teamReps,type DemoDatabase,
 } from '@/server/repository';
 
 // Settings (spec §4, task 6.1) for the signed-in rep: Rep assignments, Customer access, My margin
@@ -19,14 +20,20 @@ import {
 //   The spec doesn't say who may; this is the smallest reversible default, flagged for review.
 // - Margin floors: each rep edits only their own (spec §5.2), through setMyFloor, which refuses
 //   anyone else's before writing. Other reps' floors are read-only here.
+// - Reps (team label, active) and Aging thresholds: the manager only (v3 spec §6, decisions 16, 20,
+//   21; task D1). They come in `manager`, null for a rep, and save through managerRoute (./team).
+// An inactive rep can't be given a customer (they must have none, decision 21).
 // Reassigning a customer never moves its quotes: a quote keeps the rep it was requested for
 // (spec §4, §5.2), so the old rep's Quotes list and badge keep them, and their floor warnings keep
 // using the old rep's floors. Quotes requested afterwards, the customer's rep card (sidebar,
 // clarification) and chat's "call your rep" all follow the new assignment, since they read it live.
 
-/** A write the request can't make: 400 (bad input), 403 (not yours) or 404 (no such customer, rep or category). */
+/**
+ * A write the request can't make: 400 (bad input), 403 (not yours), 404 (no such customer, rep or
+ * category) or 409 (refused as things stand, with a `code`: has_customers, task D1).
+ */
 export class SettingsError extends Error{
-  constructor(message:string,readonly status:400|403|404=400){super(message);this.name='SettingsError';}
+  constructor(message:string,readonly status:400|403|404|409=400,readonly code?:string){super(message);this.name='SettingsError';}
 }
 
 export type SettingsRep=Pick<Rep,'id'|'name'|'initials'|'title'>;
@@ -48,9 +55,14 @@ export interface AccessSettings {customer_id:string|null;rules:AccessRule[]}
 
 export interface DataSources {database:DemoDatabase;erp:ERPStatus}
 
+/** What only the manager sees in Settings (task D1): the Reps card and the Aging thresholds card. */
+export interface ManagerSettings {reps:TeamRep[];aging:AgingThresholds}
+
 export interface RepSettings {
   rep_id:string;
-  /** Every rep, by name: the assignment dropdown's options. */
+  /** The Reps and Aging tabs' data for the manager; null for a rep, who doesn't get those tabs. */
+  manager:ManagerSettings|null;
+  /** Every active rep, by name: the assignment dropdown's options. */
   reps:SettingsRep[];
   assignments:AssignmentRow[];
   access:AccessSettings;
@@ -98,13 +110,17 @@ function accessFor(customerId:string|null):AccessSettings{
 /** Settings > Data sources: the demo database and the ERP connection's recent sync events. */
 export function dataSources():DataSources{return {database:demoDatabase(),erp:events(true)};}
 
-/** Everything Settings shows, for the signed-in rep and the "Viewing" picker. */
-export function repSettings(repId:string,{customerId=null}:{customerId?:string|null}={}):RepSettings{
+/** The manager's Reps and Aging thresholds cards (task D1). */
+export function managerSettings():ManagerSettings{return {reps:teamReps(),aging:agingThresholds()};}
+
+/** Everything Settings shows, for the signed-in rep (`manager`: they are the manager) and the "Viewing" picker. */
+export function repSettings(repId:string,{customerId=null,manager=false}:{customerId?:string|null;manager?:boolean}={}):RepSettings{
   const everyone=reps();
   const me=everyone.find(r=>r.id===repId);
   return {
     rep_id:repId,
-    reps:everyone.map(asRep),
+    manager:manager?managerSettings():null,
+    reps:reps({activeOnly:true}).map(asRep),
     assignments:assignmentRows(),
     access:accessFor(pickedCustomer(customerId)),
     floors:{
@@ -126,8 +142,9 @@ export function assignRep(input:unknown):{assignments:AssignmentRow[]}{
   const customerId=text(request.customer_id),repId=text(request.rep_id);
   if(!customerId||!repId)throw new SettingsError('Choose a customer and a rep.');
   if(!customerIds().includes(customerId))throw new SettingsError('Customer not found.',404);
-  if(!reps().some(r=>r.id===repId))throw new SettingsError('Rep not found.',404);
-  setAssignedRep(customerId,repId);
+  const rep=teamReps().find(r=>r.id===repId);
+  if(!rep)throw new SettingsError('Rep not found.',404);
+  if(!rep.active||!setAssignedRep(customerId,repId))throw new SettingsError(`${rep.name} is inactive. Choose an active rep.`);
   return {assignments:assignmentRows()};
 }
 

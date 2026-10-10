@@ -10,6 +10,7 @@ import {
   allOrders,branches,catalogItem,catalogItems,contacts,customerAccount,customerDirectory,customers,customerStats,itemSales,productCategories,quotes,stockForItems,
 } from '@/server/repository';
 import {COOKIE,principalFromCookie} from '@/server/session';
+import {repAccess} from './access';
 
 // The rep portal's reference views (spec §4 "Customers / Orders / Items: read-only list and detail
 // views", task 3.8). Each function gathers what one page shows from the repository. None of them
@@ -45,8 +46,7 @@ export function pickedCustomer(params:SearchParams):PickedCustomer{
  * name while the page redirects.
  */
 export async function detailTitle(section:string,name:()=>string|undefined):Promise<string>{
-  const user=principalFromCookie((await cookies()).get(COOKIE)?.value);
-  if(user?.role!=='supplier_admin'||!user.rep_id)return section;
+  if(!repAccess(principalFromCookie((await cookies()).get(COOKIE)?.value)).ok)return section;
   return name()??section;
 }
 

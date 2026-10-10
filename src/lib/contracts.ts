@@ -3,8 +3,12 @@ import type {ChatReplyKind,ClarifyPayload,Fulfillment,ItemPopupPayload,QuoteRequ
 export const categories = ['items_stock','pricing','orders_quotes','account'] as const;
 export type Category = typeof categories[number];
 export const labels: Record<Category,string> = {items_stock:'Items & stock',pricing:'Pricing',orders_quotes:'Orders & quotes',account:'Account'};
-/** Supplier personas are a rep (rep_id); customer personas are a contact at a customer. */
-export interface Principal {user_id:string;role:'supplier_admin'|'customer_user';customer_id:string|null;name:string;user_name:string;rep_id:string|null;contact_id:string|null}
+/**
+ * Supplier personas are a rep (rep_id); customer personas are a contact at a customer. Every supplier
+ * persona is supplier_admin; rep_role says whether it is the manager or a rep (null for a customer).
+ * Manager features also need reps.role to agree (managerRoute; v3 spec §8, OA-12).
+ */
+export interface Principal {user_id:string;role:'supplier_admin'|'customer_user';customer_id:string|null;name:string;user_name:string;rep_id:string|null;rep_role:'rep'|'manager'|null;contact_id:string|null}
 export interface AccessRule {category:Category;enabled:boolean|null;rep_id:string|null;mixed_rep:boolean;rep_name:string;phone:string|null;email:string|null}
 export interface Rep {id:string;name:string;phone:string;email:string;initials?:string;title?:string}
 export interface Customer {id:string;name:string;account_number?:string}
