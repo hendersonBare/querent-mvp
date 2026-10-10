@@ -69,7 +69,7 @@ describe('Free delivery pricing',()=>{
     fireEvent.click(toggle());
     await waitFor(()=>expect(toggle()).toHaveAttribute('aria-checked','true'));
     expect(calls().at(-1)).toEqual({url:'/api/rep/settings/freight',method:'PUT',body:{enabled:true}});
-    expect(card('Recovery pool')).toHaveTextContent('Ramp step 1 of 3');
+    expect(card('Recovery pool')).toHaveTextContent(/ramp step 1 of 3/i);
     expect(within(card('Free delivery pricing')).getAllByRole('row')[1]).toHaveTextContent('Now');
   });
 

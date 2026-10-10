@@ -697,3 +697,57 @@ tr[data-inactive] .name {
   grid-column: 2;
   margin-top: 0;
 }
+
+/* ---- Free delivery pricing (task C3, manager only): below the Pricing and Delivery rates cards ---- */
+.freight {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+.freight .card + .card {
+  margin-top: 0;
+}
+.loading {
+  padding: 16px 18px;
+  color: var(--rep-muted);
+  font-size: 13px;
+}
+.panel {
+  border-top: 1px solid var(--rep-line-2);
+  padding-top: 10px;
+}
+.panel .minor {
+  padding-top: 0;
+}
+.panelText {
+  padding: 0 18px 8px;
+  max-width: 76ch;
+  color: var(--rep-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.panel .table {
+  margin-bottom: 6px;
+}
+.table tr[aria-current="step"] > * {
+  background: var(--rep-accent-soft);
+}
+.warnings {
+  margin: 0 18px 12px;
+  padding: 0;
+  list-style: none;
+}
+.warnings li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--rep-warn-soft);
+  color: var(--rep-warn);
+  font-size: 13px;
+  font-weight: 600;
+}
+.warnings li + li {
+  margin-top: 6px;
+}

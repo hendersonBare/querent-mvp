@@ -16,7 +16,7 @@ async function call(path:''|'/preview',method:'GET'|'PUT',{body,persona='supplie
   const headers:Record<string,string>={'Content-Type':'application/json'};
   if(persona)headers.cookie=`querent-persona=${persona}`;
   const request=new NextRequest(`http://127.0.0.1/api/rep/settings/freight${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
-  const handler=(route as Record<string,(r:NextRequest)=>Promise<Response>>)[method];
+  const handler=(route as unknown as Record<string,(r:NextRequest)=>Promise<Response>>)[method];
   const response=await handler(request);
   const text=await response.text();
   return {status:response.status,cache:response.headers.get('cache-control'),text,json:JSON.parse(text)};
