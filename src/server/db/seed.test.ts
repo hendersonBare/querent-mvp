@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import {afterAll,beforeAll,describe,expect,it} from 'vitest';
-import {applySchema,ERP_SOURCED_TABLES} from './schema';
+import {migrate} from './migrate';
+import {ERP_SOURCED_TABLES} from './schema';
 import {seedDatabase,seedSampleQuote} from './seed';
 import {addDays} from './seed/dates';
 
@@ -12,7 +13,7 @@ const MOCKUP_SKUS=['HCS-12-13-2G8','HN-12-13-G8','FW-12-G8','CW-45-045-T1','CW-4
 const CATEGORY_NAMES=['Fasteners','Abrasives & Cutting','Safety & PPE','Material Handling & Tie-downs','Tools','Janitorial/MRO'];
 const INFO_CATEGORIES=['items_stock','pricing','orders_quotes','account'];
 
-function open(anchor:string){const d=new Database(':memory:');d.pragma('foreign_keys = ON');applySchema(d);seedDatabase(d,{anchor});return d;}
+function open(anchor:string){const d=new Database(':memory:');d.pragma('foreign_keys = ON');migrate(d);seedDatabase(d,{anchor});return d;}
 function milesBetween(a:{lat:number;lng:number},b:{lat:number;lng:number}){const r=(x:number)=>x*Math.PI/180;const h=Math.sin(r(b.lat-a.lat)/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(r(b.lng-a.lng)/2)**2;return 2*3958.8*Math.asin(Math.sqrt(h));}
 
 describe.each([MOCKUP_ANCHOR,'2027-03-01'])('seed anchored at %s',anchor=>{

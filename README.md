@@ -2,7 +2,7 @@
 
 Querent is a fictional demo of **Query to Quote** for an industrial distributor. A customer asks for goods in plain language. Querent matches each line to a SKU, checks stock, and prices a draft quote from the supplier's data. The assigned rep reviews and sends it, and the customer accepts or asks for changes, all inside Querent.
 
-It is one Next.js 16 application (App Router, React 19, TypeScript) backed by a local SQLite file. It needs no database server, accounts, containers, or migrations. All companies, people, and records are fictional.
+It is one Next.js 16 application (App Router, React 19, TypeScript) backed by a local SQLite file. It needs no database server, accounts, or containers; schema changes ship as numbered SQL migrations that run on app start. All companies, people, and records are fictional.
 
 The spec, decisions, tasks, and build status live in [`docs/plans/`](docs/plans/): `spec.md`, `decision-log.md`, `plan.md`, and `status.md`. The visual reference is [`docs/design/`](docs/design/README.md).
 
@@ -51,10 +51,10 @@ Open <http://localhost:3000> and choose a persona. The dev server listens on all
 
 ### The demo database
 
-- The database lives at `./data/querent.sqlite`, or wherever `DATABASE_PATH` points. It is created and seeded on first open, and its state survives restarts.
-- `npm run db:reset` (`scripts/reset-db.ts`) deletes the file and reseeds it. Run it before a demo, and after any schema change.
-- **Seed date:** every seeded date is an offset from a seed date. It defaults to yesterday (UTC), so the demo stays current. To reproduce the mockup's dates exactly (last paid Aug 12, last order Sep 9), reset with `QUERENT_SEED_DATE=2026-09-23 npm run db:reset`. `db:reset` reads the variable from your shell, not from `.env.local`.
-- **Schema:** `SCHEMA_VERSION` is in `src/server/db/schema.ts` (currently 4: a quote's `expires_on` and the delivery `road_factor`). There are no migrations. The app refuses to open a database from another version ("… is incompatible with schema 4. Run npm run db:reset.").
+- The database lives at `./data/querent.sqlite`, or wherever `DATABASE_PATH` points. It is created, migrated and seeded on first open, and its state survives restarts.
+- `npm run db:reset` (`scripts/reset-db.ts`) deletes the file, rebuilds it through every migration and reseeds it. Run it before a demo. It reads `.env.local` when that file exists; a variable already set in your shell wins.
+- **Seed date:** every seeded date is an offset from a seed date. It defaults to yesterday (UTC), so the demo stays current. To reproduce the mockup's dates exactly (last paid Aug 12, last order Sep 9), reset with `QUERENT_SEED_DATE=2026-09-23 npm run db:reset` (or set it in `.env.local`).
+- **Migrations:** the schema is the numbered SQL files in `src/server/db/migrations/` (`001_baseline.sql` is the v4 schema). On app start `src/server/db/migrate.ts` applies every file not yet recorded in `schema_migrations`, in numeric order, each in its own transaction. To change the schema, add the next `NNN_<slug>.sql`; never edit a shipped one. There are no down migrations. A pre-migrations v4 database is adopted as already at 001; one from any other version refuses to open ("… is incompatible with schema 4. Run npm run db:reset.").
 
 ### Chat: scripted mode and live mode
 
@@ -84,12 +84,15 @@ ANTHROPIC_MODEL=claude-sonnet-5
 
 ### Environment variables
 
+The one real env file is `.env.local` (git-ignored). Copy the committed `.env.example`, which lists every key with placeholders, and fill in what you need.
+
 | Variable | Default | What it does |
 |---|---|---|
 | `DATABASE_PATH` | `./data/querent.sqlite` | The SQLite file. On Railway use `/data/querent.sqlite`. |
 | `QUERENT_SEED_DATE` | yesterday (UTC) | The seed date (`YYYY-MM-DD`) for `db:reset` and first-open seeding. `2026-09-23` matches the mockup. |
 | `ANTHROPIC_API_KEY` | unset | Turns on live chat. Leave it unset for scripted mode. |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | The model live chat and the chip writer use. |
+| `OILPRICEAPI_KEY` | unset | OilPriceAPI key for the daily state gasoline price on Pricing & Delivery. Without it the fuel price is entered by hand. Server-only; never logged. |
 | `QUERENT_SCRIPTED` | unset | `1` forces scripted mode, even with a key. |
 | `PORT` | `3000` | The port for `npm start`. |
 | `QUERENT_E2E_RESET` | unset | **Tests only.** `1` enables `POST /api/test/reset` and `POST /api/test/rep-quotes`. Never set it on a shared deployment, because it lets anyone reset the demo. |
@@ -153,7 +156,7 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 | `src/components/rep/` | The rep portal shell and screens |
 | `src/domain/` | Shared domain types |
 | `src/server/repository/` | All data access (below) |
-| `src/server/db/` | The connection, schema, and seed |
+| `src/server/db/` | The connection, migrations, and seed |
 | `src/server/*` | The server logic, one folder per concern (below) |
 | `scripts/reset-db.ts` | `npm run db:reset` |
 | `e2e/` | Playwright specs |
@@ -226,9 +229,9 @@ The MVP keeps all data in SQLite. [`docs/erp-integration-readiness.md`](docs/erp
 2. Use `npm run build` as the build command and `npm start` as the start command.
 3. Add a persistent volume mounted at `/data`. Without it, the database resets on every deploy.
 4. Set `DATABASE_PATH=/data/querent.sqlite`.
-5. Optionally set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL`. Never set `QUERENT_E2E_RESET`.
+5. Optionally set `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` and `OILPRICEAPI_KEY`. Never set `QUERENT_E2E_RESET`.
 6. Generate a public HTTPS domain.
-7. **After a deploy that changes `SCHEMA_VERSION`** (now 4), the app refuses the old database on the volume. Run `npm run db:reset` once in the service's shell, with `DATABASE_PATH` set, to reseed the demo.
+7. **Before every deploy, back up the volume** (a Railway volume backup, or a copy of `/data/querent.sqlite`). Migrations run on app start and keep the demo data; there are no down migrations, so **rollback means redeploying the previous version and restoring that backup**.
 
 Railway's free credit is enough to experiment with, but whether it runs continuously for free depends on usage, and free and trial volume limits can change. Vercel cannot keep a local SQLite file, so a Vercel deployment would need a hosted database such as libSQL / Turso.
 

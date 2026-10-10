@@ -1,10 +1,9 @@
 import Database from 'better-sqlite3';
 import {mkdirSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
-import {applySchema,SCHEMA_VERSION} from './schema';
+import {migrate} from './migrate';
 import {seedAnchorFromEnv,seedDatabase} from './seed';
 
-export {SCHEMA_VERSION} from './schema';
 export const databasePath=()=>resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH||'./data/querent.sqlite');
 let singleton:Database.Database|undefined;
 
@@ -22,25 +21,20 @@ export function db(){
   return singleton;
 }
 
-// No migrations (spec §6.6): a database from another schema version refuses to open, and
-// `npm run db:reset` deletes it and reseeds. A new, empty database is seeded on first open.
+// Every open applies the pending migrations (spec §1.1, ./migrate.ts): a pre-T1 v4 database is
+// adopted, any other unmigrated one refuses to open and `npm run db:reset` rebuilds it. A new,
+// empty database is seeded on first open.
 function bootstrap(database:Database.Database){
-  const tables=database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").pluck().all() as string[];
-  if(tables.length){
-    const version=tables.includes('meta')?database.prepare("SELECT value FROM meta WHERE key='schema_version'").pluck().get() as string|undefined:undefined;
-    if(Number(version)!==SCHEMA_VERSION)throw new Error(`SQLite schema ${version??'(unversioned)'} at ${databasePath()} is incompatible with schema ${SCHEMA_VERSION}. Run npm run db:reset.`);
-  }
-  applySchema(database);
-  database.prepare("INSERT OR IGNORE INTO meta(key,value) VALUES('schema_version',?)").run(String(SCHEMA_VERSION));
+  migrate(database);
   // IMMEDIATE takes the write lock before the emptiness check, so two processes opening a new
   // database at once cannot both seed it.
   database.transaction(()=>{if(!database.prepare('SELECT count(*) FROM customers').pluck().get())seedDatabase(database,{anchor:seedAnchorFromEnv()});}).immediate();
 }
 
 /**
- * Drops every table and reseeds on the open connection, so the file stays in place and any other
- * connection to it (another process, or another copy of this module in a server bundle) sees the
- * fresh seed. `npm run db:reset` deletes the file instead, which also clears an incompatible schema.
+ * Drops every table, runs every migration and reseeds on the open connection, so the file stays in
+ * place and any other connection to it (another process, or another copy of this module in a server
+ * bundle) sees the fresh seed. `npm run db:reset` deletes the file instead, which also clears an incompatible schema.
  * Returns the seed anchor used.
  */
 export function reseedDatabase({anchor=seedAnchorFromEnv()}:{anchor?:string}={}){
@@ -51,8 +45,7 @@ export function reseedDatabase({anchor=seedAnchorFromEnv()}:{anchor?:string}={})
   try{
     database.transaction(()=>{
       for(const {type,name} of objects)database.exec(`DROP ${type.toUpperCase()} IF EXISTS "${name.replaceAll('"','""')}"`);
-      applySchema(database);
-      database.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(String(SCHEMA_VERSION));
+      migrate(database);
       seedDatabase(database,{anchor});
     }).immediate();
   }finally{database.pragma('foreign_keys = ON');}

@@ -5,7 +5,6 @@ data/
 *.tsbuildinfo
 playwright-report/
 test-results/
-.env.example
 .env.local
 .claude/worktrees/
 .claude/settings.local.json

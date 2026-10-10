@@ -31,7 +31,7 @@ export function settingsFixture(customerId:string|null=null):RepSettings{
     pricing:{scarcity_uplift_enabled:false},
     delivery:{base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25},
     sources:{
-      database:{seed_date:'2026-09-23',schema_version:2,records:{customers:4,items:60,orders:180,quotes:25},synced_at:'2026-09-23T12:00:00.000Z'},
+      database:{seed_date:'2026-09-23',schema_migration:'001_baseline',records:{customers:4,items:60,orders:180,quotes:25},synced_at:'2026-09-23T12:00:00.000Z'},
       erp:{last_updated:'2026-09-27T02:43:01.000Z',events:[{id:2,timestamp:'2026-09-27T02:43:01.000Z',message:'ERP connection refreshed'},{id:1,timestamp:'2026-09-27T02:42:01.000Z',message:'ERP connection refreshed'}]},
     },
   };

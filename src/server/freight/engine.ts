@@ -1,4 +1,5 @@
 import type {Branch,DeliveryRates} from '@/domain';
+import {roundDollars} from '@/lib/money';
 import {haversineRoadFactor,round1,type DistanceProvider,type Place} from './distance';
 
 // Freight by distance (spec §5.3). Pure: no server-only imports and no I/O beyond the
@@ -41,7 +42,6 @@ export interface FreightInput {
   rates:DeliveryRates;
 }
 
-const round2=(n:number)=>Math.round(Number((n*100).toPrecision(12)))/100;
 const usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 const perMile=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4});
 /** "$1,240.00": how freight dollars read on the quote and in Activity. */
@@ -58,11 +58,11 @@ export function priceDelivery({origin,miles:rawMiles,subtotal,rates}:{origin:str
   const miles=round1(rawMiles),from=`${miles1(miles)} mi from ${origin}`;
   if(miles>rates.max_radius_miles)return {rule:'beyond_radius',amount:CALL_FOR_FREIGHT,miles,formula:null,
     explanation:`${from} is beyond the ${round1(rates.max_radius_miles)} mi delivery radius. Call for freight: set it by hand before sending.`};
-  if(round2(subtotal)>=rates.free_threshold)return {rule:'free_threshold',amount:0,miles,formula:null,
-    explanation:`Free delivery: items total ${formatUsd(round2(subtotal))}, at or over the ${formatUsd(rates.free_threshold)} threshold. ${from}.`};
-  const byDistance=round2(rates.base_fee+rates.per_mile*miles);
+  if(roundDollars(subtotal)>=rates.free_threshold)return {rule:'free_threshold',amount:0,miles,formula:null,
+    explanation:`Free delivery: items total ${formatUsd(roundDollars(subtotal))}, at or over the ${formatUsd(rates.free_threshold)} threshold. ${from}.`};
+  const byDistance=roundDollars(rates.base_fee+rates.per_mile*miles);
   const formula=`${formatUsd(rates.base_fee)} + ${perMile.format(rates.per_mile)}/mi × ${miles1(miles)} mi = ${formatUsd(byDistance)}`;
-  if(byDistance<rates.min_charge)return {rule:'min_charge',amount:round2(rates.min_charge),miles,formula,
+  if(byDistance<rates.min_charge)return {rule:'min_charge',amount:roundDollars(rates.min_charge),miles,formula,
     explanation:`${from}: ${formula}, below the ${formatUsd(rates.min_charge)} minimum charge.`};
   return {rule:'distance',amount:byDistance,miles,formula,explanation:`${from}: ${formula}.`};
 }

@@ -8,6 +8,7 @@ export type ChatMode='scripted'|'live';
 export const DEFAULT_MODEL='claude-sonnet-5';
 
 /** `scripted` when QUERENT_SCRIPTED=1 or no ANTHROPIC_API_KEY is set, otherwise `live`. */
+// TODO(R-2): read the key from user secrets or a secrets manager instead of .env.local.
 export function chatMode(env:Record<string,string|undefined>=process.env):ChatMode{
   const forced=/^(1|true)$/i.test(env.QUERENT_SCRIPTED?.trim()??'');
   return forced||!env.ANTHROPIC_API_KEY?.trim()?'scripted':'live';

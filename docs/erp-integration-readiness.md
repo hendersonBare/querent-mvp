@@ -41,7 +41,7 @@ P21's own API reference is served by each customer's P21 middleware (for example
 ### 2.1 Data store
 
 - A local SQLite file (`./data/querent.sqlite`, or `DATABASE_PATH`) opened by `better-sqlite3` in `src/server/db/index.ts`. It is seeded on first open. (Repo)
-- `SCHEMA_VERSION=4` in `src/server/db/schema.ts`. There are no migrations. An older database refuses to open, and `npm run db:reset` rebuilds and reseeds it (spec §6.6). (Repo)
+- Numbered SQL migrations in `src/server/db/migrations/` (`001_baseline.sql` = the v4 schema), applied on app start by `src/server/db/migrate.ts` and recorded in `schema_migrations`. `npm run db:reset` rebuilds through them and reseeds. (Repo)
 - There is one supplier per deployment (`suppliers` table) and no multi-tenancy (spec §1). (Repo)
 
 ### 2.2 ERP-sourced tables and the sync-ready columns

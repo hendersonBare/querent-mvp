@@ -22,10 +22,10 @@ describe('ERP connection status',()=>{
 });
 
 describe('demo database (Settings > Data sources)',()=>{
-  it('describes the SQLite seed standing in for the ERP: seed day, schema, record counts and last ERP sync',async()=>{
-    const {SCHEMA_VERSION}=await import('../db');
+  it('describes the SQLite seed standing in for the ERP: seed day, latest migration, record counts and last ERP sync',async()=>{
+    const {readMigrations}=await import('../db/migrate');
     const info=demoDatabase();
-    expect(info).toMatchObject({seed_date:'2026-09-23',schema_version:SCHEMA_VERSION});
+    expect(info).toMatchObject({seed_date:'2026-09-23',schema_migration:readMigrations().at(-1)!.id});
     expect(info.records).toMatchObject({customers:4,items:expect.any(Number),orders:expect.any(Number),quotes:expect.any(Number)});
     expect(info.records.items).toBeGreaterThanOrEqual(50);
     expect(info.records.orders).toBeGreaterThan(0);
