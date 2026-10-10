@@ -10,7 +10,7 @@ Tasks for the v3 build. The spec is `docs/plans/spec.md`; final decisions are in
 4. At most 3 agents work at once.
 5. A PR merges only when ALL tests pass (typecheck, Vitest, build, the touched Playwright specs) AND the validation agent approves. Fix agents work on the same branch. Anything failing either gate stays unmerged (at most 3 fix-and-validate rounds, then label `blocked` and record why in `status.md`).
 6. Test-driven: write failing tests first in every task, and show them fail.
-7. After the PR merges, remove the worktree and the branch.
+7. After the PR merges, record the task as merged in `docs/plans/status.md`, then remove the worktree and the branch.
 
 ## Rules for every task
 
