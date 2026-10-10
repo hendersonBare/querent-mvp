@@ -7,6 +7,7 @@ import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
 import {useRepScope} from '../context';
 import {StatusChip} from '../quotes/QuotesList';
+import {ViewFullChat} from './chat-drawer/ViewFullChat';
 import {ExportMenu} from './export-menu/ExportMenu';
 import {AddItem} from './AddItem';
 import {LineGrid,lineRowId} from './LineGrid';
@@ -135,14 +136,18 @@ function StatusBanner({detail}:{detail:QuoteDetail}){
 function RequestPanel({detail}:{detail:QuoteDetail}){
   const {quote}=detail;
   const who=quote.contact_name??quote.customer_name;
-  return <details className={`${s.card} ${s.req}`}>
-    <summary><ChevronRight aria-hidden="true" size={14} strokeWidth={2} className={s.chev}/><span className={s.lbl}>Customer request</span>
-      <span className={s.reqSnip}>“{quote.request_text}”</span></summary>
-    <div className={s.reqBody}>
-      <blockquote>“{quote.request_text}”</blockquote>
-      <p className={s.who}>{who}{quote.conversation_id?', via Querent chat':''} · {requestedAt(quote.requested_at)}</p>
-    </div>
-  </details>;
+  // The compact box stays as it was; "View full chat" (B1, decision 26) sits beside its summary when the request came from chat.
+  return <div className={`${s.card} ${s.reqCard}`}>
+    <details className={s.req}>
+      <summary><ChevronRight aria-hidden="true" size={14} strokeWidth={2} className={s.chev}/><span className={s.lbl}>Customer request</span>
+        <span className={s.reqSnip}>“{quote.request_text}”</span></summary>
+      <div className={s.reqBody}>
+        <blockquote>“{quote.request_text}”</blockquote>
+        <p className={s.who}>{who}{quote.conversation_id?', via Querent chat':''} · {requestedAt(quote.requested_at)}</p>
+      </div>
+    </details>
+    {quote.conversation_id&&<div className={s.reqChat}><ViewFullChat quoteId={quote.id} customer={who}/></div>}
+  </div>;
 }
 
 const CHECK_LABELS:Record<CheckKind,string>={blocker:'Blocked',margin:'Margin',stock:'Stock',match:'Match'};
