@@ -56,3 +56,16 @@ export function seedRepRoles(database:Database.Database){
   const update=database.prepare('UPDATE reps SET role=?,team=? WHERE id=?');
   for(const r of REPS)update.run(r.role,r.team,r.id);
 }
+
+/** The seeded fuel price (v3 spec §4.3, OA-4): UT gasoline at $3.40/gal, so the offline demo and CI never need OilPriceAPI. */
+export const SEED_FUEL_PRICES=[{state:'UT',fuel:'gasoline',price_cents:340}] as const;
+
+/**
+ * The seeded fuel prices (008_fuel_prices; task C3), as of the seed date and counted as fetched that
+ * day. A database built at the v4 schema (the adoption test's fixture) has no such table yet.
+ */
+export function seedFuelPrices(database:Database.Database,anchor:string){
+  if(!database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='fuel_prices'").get())return;
+  const insert=database.prepare("INSERT INTO fuel_prices(state,fuel,price_cents,as_of,source,fetched_on) VALUES(?,?,?,?,'seed',?)");
+  for(const p of SEED_FUEL_PRICES)insert.run(p.state,p.fuel,p.price_cents,`${anchor}T00:00:00.000Z`,anchor);
+}

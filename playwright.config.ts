@@ -41,6 +41,8 @@ export default defineConfig({
           PORT: port,
           QUERENT_SCRIPTED: '1',
           ANTHROPIC_API_KEY: '',
+          // No real fuel price API either: next start never overrides a variable already set, even to ''.
+          OILPRICEAPI_KEY: '',
           NEXT_TELEMETRY_DISABLED: '1',
           // Every E2E run uses the mockup's dates (spec §2), and specs may reset the database
           // through the test-only POST /api/test/reset (e2e/golden-quote-flow.spec.ts).

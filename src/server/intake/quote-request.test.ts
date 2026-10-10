@@ -195,8 +195,8 @@ describe('free delivery pricing at creation (spec §4.2, §4.4, §4.5)',()=>{
   it('with free delivery pricing off, freezes only the modelled cost of a delivery: no rate, no recovery',async()=>{
     const {requestQuote,quote}=await services();
     const delivery=quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),OPTIONS)).quote.id)!;
-    // No fuel price yet (C3 stores them): 600 + 450 + 2,142.86¢ = 3,193¢.
-    expect(delivery).toMatchObject({freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:3193});
+    // Fuel at the seeded UT $3.40/gal (C3): 1,020 + 600 + 450 + 2,142.86¢ = 4,213¢.
+    expect(delivery).toMatchObject({freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:4213});
     expect(delivery.lines.map(l=>l.freight_recovery)).toEqual([0,0]);
     const pickup=quote((await requestQuote(DANA,body((await popupConversation()).id,{lines:BIG}),OPTIONS)).quote.id)!;
     expect(pickup).toMatchObject({freight_rate_bp:null,modelled_freight_cents:null});
@@ -215,8 +215,8 @@ describe('free delivery pricing at creation (spec §4.2, §4.4, §4.5)',()=>{
     const {requestQuote,quote}=await services();
     const provider={roadMiles:async()=>20};
     const q=quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),{...OPTIONS,provider})).quote.id)!;
-    // 40 mi round trip: 800 + 600 + 2,857.14¢ = 4,257¢.
-    expect(q.modelled_freight_cents).toBe(4257);
+    // 40 mi round trip: 1,360¢ fuel at the seeded $3.40/gal + 800 + 600 + 2,857.14¢ = 5,617¢.
+    expect(q.modelled_freight_cents).toBe(5617);
   });
 });
 

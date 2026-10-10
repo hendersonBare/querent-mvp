@@ -283,7 +283,7 @@ test("pricing & delivery: the scarcity uplift is off by default and toggles; bro
   const scarcity = page.getByRole("switch", { name: "Scarcity uplift" });
   await expect(scarcity).toHaveAttribute("aria-checked", "false");
   await expect(page.getByText("Off (default)")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Pricing" })).toContainText("suggest the customer price + 10%, never above list");
+  await expect(page.getByRole("region", { name: "Pricing", exact: true })).toContainText("suggest the customer price + 10%, never above list");
 
   const rates = page.getByRole("region", { name: "Delivery rates" });
   const field = (name: string) => rates.getByRole("spinbutton", { name });

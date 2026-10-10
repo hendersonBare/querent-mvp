@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {FULFILLMENTS,type ChatMessage,type ItemPopupPayload,type QuoteRequestedPayload} from '@/domain';
 import type {ChatTurn,QuoteRequestInput,QuoteRequestResult} from '@/lib/contracts';
 import type {DistanceProvider} from '@/server/freight/distance';
-import {applyQuoteRecovery,quoteRoadMiles} from '@/server/freight/quote';
+import {applyQuoteRecovery,prepareFuelPrice,quoteRoadMiles} from '@/server/freight/quote';
 import {draftLineFields} from '@/server/pricing';
 import {priceLines} from '@/server/pricing/service';
 import {
@@ -133,6 +133,8 @@ export async function requestQuote(who:QuoteRequester,body:unknown,{now=new Date
   const input=parse(body);
   const {customerId}=who;
   const miles=await deliveryMiles(customerId,input,provider);
+  // The delivering branch's fuel price, fetched at most once a day, for the modelled cost (spec §4.3).
+  if(branches().some(b=>b.id===input.branch_id))await prepareFuelPrice(input,{now});
   return inTransaction(()=>{
     if(!conversation(customerId,input.conversation_id))throw new QuoteRequestError(404,'Conversation not found.');
     const messages=conversationMessages(customerId,input.conversation_id);

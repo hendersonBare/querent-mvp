@@ -6,6 +6,7 @@ import {DELIVERY_RATE_KEYS,DELIVERY_RATE_LIMITS,checkDeliveryRates,type Delivery
 import {BROKEN_CASE_UPLIFT_PERCENT} from '@/server/pricing/engine';
 import {repPageStyles as page} from '../RepPage';
 import {saveSetting} from './api';
+import {FreeDeliveryControls} from './FreeDeliveryPricing';
 import {Switch} from './Switch';
 import s from './Settings.module.css';
 
@@ -14,6 +15,8 @@ import s from './Settings.module.css';
 // prices a quote. Delivery rates (spec §5.3): every rate the freight engine uses, editable by any
 // rep, with a worked example that follows the values being typed. Drafts use saved rates from
 // their next change on; a sent quote keeps the freight it went out with.
+// The manager also gets free delivery pricing's cards below them (./FreeDeliveryPricing, task C3);
+// the two cards above stay as they are (OA-55).
 
 /** The worked example's distance, as in spec §5.3: 12 mi straight-line is 15.0 road miles. */
 const EXAMPLE_MILES=15;
@@ -21,7 +24,7 @@ const EXAMPLE_MILES=15;
 const asText=(rates:DeliveryRates)=>Object.fromEntries(DELIVERY_RATE_KEYS.map(key=>[key,String(rates[key])])) as Record<DeliveryRateKey,string>;
 const asNumbers=(text:Record<DeliveryRateKey,string>)=>Object.fromEntries(DELIVERY_RATE_KEYS.map(key=>[key,text[key].trim()===''?Number.NaN:Number(text[key])]));
 
-export function PricingDelivery({pricing,delivery,onPricing,onDelivery}:{pricing:PricingSettings;delivery:DeliveryRates;onPricing:(pricing:PricingSettings)=>void;onDelivery:(delivery:DeliveryRates)=>void}){
+export function PricingDelivery({pricing,delivery,manager=false,onPricing,onDelivery}:{pricing:PricingSettings;delivery:DeliveryRates;manager?:boolean;onPricing:(pricing:PricingSettings)=>void;onDelivery:(delivery:DeliveryRates)=>void}){
   const [saving,setSaving]=useState(false),[error,setError]=useState('');
   const on=pricing.scarcity_uplift_enabled;
 
@@ -32,7 +35,8 @@ export function PricingDelivery({pricing,delivery,onPricing,onDelivery}:{pricing
     finally{setSaving(false);}
   }
 
-  return <div className={s.split}>
+  return <>
+  <div className={s.split}>
     <section className={`${page.card} ${s.card}`} aria-labelledby="settings-pricing">
       <div className={s.head}>
         <h2 id="settings-pricing">Pricing</h2>
@@ -60,7 +64,9 @@ export function PricingDelivery({pricing,delivery,onPricing,onDelivery}:{pricing
     </section>
 
     <DeliveryRatesForm delivery={delivery} onSaved={onDelivery}/>
-  </div>;
+  </div>
+  {manager&&<FreeDeliveryControls/>}
+  </>;
 }
 
 /** Delivery rates: all six, saved together. */

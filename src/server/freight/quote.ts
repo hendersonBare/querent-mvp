@@ -5,9 +5,10 @@ import {canEditDraft,effectiveStatus} from '@/server/quotes/lifecycle';
 import {
   addQuoteActivity,branch,cachedPoolRate,deliveryRates,freeDeliverySettings,freightCostSettings,freightRateSettings,inTransaction,quote,saveQuoteRecovery,setFreightOverride,
 } from '@/server/repository';
-import {modelFuelPriceCents,modelledDeliveryCost} from './cost-model';
+import {modelledDeliveryCost} from './cost-model';
 import {HaversineRoadFactorProvider,type DistanceProvider} from './distance';
 import {CALL_FOR_FREIGHT,computeFreight,formatUsd,freightWithMiles,needsMiles,resolveFreight,type FreightInput,type FreightOverride,type QuoteFreight} from './engine';
+import {fuelPriceStatus,refreshFuelPrice,type FuelPriceSource} from './fuel-price';
 import {rampStep,rateInForce} from './pool';
 import {allocateRecovery,carriesRecovery} from './recovery';
 
@@ -28,6 +29,9 @@ import {allocateRecovery,carriesRecovery} from './recovery';
 // repriceQuoteRecovery runs it on a draft after every edit and on every rep open, so a draft whose
 // frozen state disagrees with the toggle reprices on its next open or edit. Sent and final quotes
 // never change: their customer price is frozen in the snapshot.
+// The modelled cost's fuel price is the one in use for the delivering branch's state (./fuel-price:
+// manual, else the stored OilPriceAPI or seed price, else 0). It is refreshed (at most once a day)
+// before the synchronous transaction that freezes it: prepareFuelPrice.
 
 const clock=()=>new Date().toISOString();
 
@@ -95,12 +99,25 @@ export function rateInForceNow(now:string){
   return {rateBp:rateInForce({poolBp:pool.rateBp,count:pool.count,startingBp:settings.startingRateBp,capBp:settings.rateCapBp,step,steps:settings.rampSteps}),step,steps:settings.rampSteps};
 }
 
-/** The modelled cost of one delivery `miles` road miles away, in cents (spec §4.2). Fuel: the manual price only; C3 adds the stored state price. */
-export function modelledFreightCents(miles:number){
+/**
+ * The modelled cost of one delivery `miles` road miles away from a branch in `state`, in cents (spec
+ * §4.2), with the fuel price in use there (fuelPriceStatus: manual, stored, or 0 with a warning).
+ */
+export function modelledFreightCents(miles:number,state:string){
   const s=freightCostSettings();
-  const fuelPriceCents=modelFuelPriceCents({fuelType:s.fuelType,manualCents:s.fuelManualCents,gasolineCents:null});
+  const fuelPriceCents=fuelPriceStatus(state).cents;
   return modelledDeliveryCost({miles,mpg:s.mpg,fuelPriceCents,wearCentsPerMile:s.wearCentsPerMile,depreciationCentsPerMile:s.depreciationCentsPerMile,
     driverCentsPerHour:s.driverCentsPerHour,avgSpeedMph:s.avgSpeedMph,stopMinutes:s.stopMinutes}).cents;
+}
+
+/**
+ * Refreshes the fuel price for the branch's state ahead of a delivery's modelled cost (at most one
+ * fetch per state per UTC day; never throws). Will call needs none. `source` defaults to the
+ * configured OilPriceAPI source (none without a key).
+ */
+export async function prepareFuelPrice(route:Pick<QuoteRoute,'fulfillment'|'branch_id'>,{source,now}:{source?:FuelPriceSource|null;now?:string}={}){
+  const state=route.fulfillment==='delivery'?branch(route.branch_id)?.state:undefined;
+  if(state)await refreshFuelPrice(state,{...(source!==undefined?{source}:{}),...(now?{now}:{})});
 }
 
 /** Road miles for a delivery on `route`, or null for will call, no ship-to, or a ship-to the provider can't locate. */
@@ -132,7 +149,7 @@ export function applyQuoteRecovery(q:Quote,miles:number|null,{now,remodel=false}
   const rate=!carries?{rateBp:null,step:null,steps:null}
     :q.freight_rate_bp===null?rateInForceNow(now):{rateBp:q.freight_rate_bp,step:q.freight_ramp_step,steps:q.freight_ramp_steps};
   const measured=q.fulfillment==='delivery'&&!callForFreight&&computed.miles!==null?computed.miles:null;
-  const modelledCents=measured===null?null:remodel||(carries&&q.modelled_freight_cents===null)?modelledFreightCents(measured):q.modelled_freight_cents;
+  const modelledCents=measured===null?null:remodel||(carries&&q.modelled_freight_cents===null)?modelledFreightCents(measured,branch(q.branch_id)!.state):q.modelled_freight_cents;
   const allocated=rate.rateBp===null?null:allocateRecovery({rateBp:rate.rateBp,lineCapBp:freightRateSettings().lineCapBp,lines:q.lines.map(l=>({
     line_no:l.line_no,qty:l.qty,unitPriceCents:l.unit_price===null?null:toCents(l.unit_price),unitCostCents:toCents(l.unit_cost),basis:l.price_basis}))});
   const lines=q.lines.map((l,i)=>({lineId:l.id,freightRecovery:allocated?.[i].freight_recovery??0}));
@@ -153,6 +170,7 @@ export async function repriceQuoteRecovery(quoteId:string,{now=clock(),provider,
     const q=quote(quoteId);
     if(!q||!canEditDraft(effectiveStatus(q,now)))return false;
     const miles=await quoteRoadMiles(q,provider);
+    await prepareFuelPrice(q,{now});
     const result=inTransaction(()=>{
       const current=quote(quoteId);
       if(!current||!canEditDraft(effectiveStatus(current,now)))return false;
@@ -162,4 +180,18 @@ export async function repriceQuoteRecovery(quoteId:string,{now=clock(),provider,
     if(result!==null)return result;
   }
   throw new Error(`Quote ${quoteId} kept changing its delivery route while freight recovery was priced.`);
+}
+
+/** A delivery quote as the impact preview weighs it: its route, override and priced lines. */
+export type PreviewRoute=QuoteRoute&Pick<Quote,'freight_override'>&{lines:readonly Pick<QuoteLine,'qty'|'unit_price'>[]}
+
+/**
+ * Whether the quote would carry recovery with free delivery pricing on (spec §4.5, §4.7): delivery,
+ * no freight override, goods at or over the free threshold, and not call for freight.
+ */
+export async function wouldCarryRecovery(q:PreviewRoute,provider?:DistanceProvider){
+  const rates=deliveryRates(),miles=await quoteRoadMiles(q,provider);
+  const input:FreightInput={...placesOf(q),subtotal:pricedSubtotal(q.lines),rates,freeDeliveryPricing:true};
+  const callForFreight=freightWithMiles(input,miles).amount===CALL_FOR_FREIGHT;
+  return carriesRecovery({enabled:true,fulfillment:q.fulfillment,overridden:q.freight_override!==null,subtotal:input.subtotal,freeThreshold:rates.free_threshold,callForFreight});
 }
