@@ -77,7 +77,7 @@ test("table: each quote with its number and revision, customer, requested date, 
 test("filter: by status, with counts, kept in ?status= next to the picked customer", async ({ page }) => {
   await signInAsBrandi(page);
   await expect(statusFilter(page).getByRole("link")).toHaveText([
-    /^All\s*28$/, /^Draft ready\s*1$/, /^Changes requested\s*1$/, /^Sent\s*1$/, /^Accepted\s*17$/, /^Expired\s*8$/,
+    /^All\s*28$/, /^Draft ready\s*1$/, /^Changes requested\s*1$/, /^Sent\s*1$/, /^Accepted\s*17$/, /^Expired\s*8$/, /^Declined\s*0$/,
   ]);
   await statusFilter(page).getByRole("link", { name: /^Expired/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?status=expired$/);
