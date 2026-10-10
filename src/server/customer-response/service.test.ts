@@ -196,3 +196,106 @@ describe('requestCustomerChanges',()=>{
     expect(acceptCustomerQuote(DANA,SAMPLE,{...ACCEPT,revision:2},{now:'2026-09-24T18:00:00.000Z'}).quote).toMatchObject({status:'accepted',latest_revision:2});
   });
 });
+
+describe('declineCustomerQuote (v3 spec §2.1, decisions 13 to 15)',()=>{
+  beforeEach(sentSample);
+
+  /** The decline note must never come back to the customer: it is rep-only. */
+  const expectNoNote=(value:unknown,note:string)=>{
+    expect(JSON.stringify(value)).not.toContain(note);
+    expect(keys(value).filter(k=>/reason|decline_note|^note$/.test(k))).toEqual([]);
+  };
+
+  it.each([
+    ['price_too_high','Price too high'],
+    ['found_other_source','Found other source'],
+    ['need_sooner','Need it sooner than quoted'],
+    ['wrong_items','Wrong items or quantity'],
+  ] as const)('declines with %s: declined, final, unread for Brandi, logged with the reason, customer-safe',async(reason,label)=>{
+    const {declineCustomerQuote,quote,quoteActivity,repBadges}=await services();
+    const {eventsFrom}=await import('@/server/quotes');
+    const costs=await seededCosts(SAMPLE);
+    const badge=repBadges('brandi',{now:NOW}).quotes;
+    // A note sent with any reason but Other is not kept.
+    const result=declineCustomerQuote(DANA,'Q-24817',{revision:1,reason,note:'ignored words'},{now:NOW});
+    expect(result).toEqual({replayed:false,quote:expect.objectContaining({id:SAMPLE,status:'declined',latest_revision:1,response:{kind:'declined',revision:1}})});
+    expectCustomerSafe(result,costs);
+    expectNoNote(result,'ignored words');
+    const q=quote(SAMPLE)!;
+    expect(q).toMatchObject({status:'declined',decline_reason:reason,decline_note:null,declined_at:NOW,responded_at:NOW,unread_for_rep:true,unread_for_customer:false});
+    expect(eventsFrom(q.status)).toEqual([]);
+    expect(repBadges('brandi',{now:NOW}).quotes).toBe(badge+1);
+    expect(quoteActivity(SAMPLE).at(-1)).toMatchObject({actor:'customer',actor_id:q.contact_id,kind:'declined',at:NOW,message:`Dana declined Q-24817 rev 1: ${label}`});
+  });
+
+  it('keeps the Other note for Brandi only: trimmed, control characters stripped, in Activity but never in the answer',async()=>{
+    const {declineCustomerQuote,quote,quoteActivity}=await services();
+    const costs=await seededCosts(SAMPLE);
+    const result=declineCustomerQuote(DANA,SAMPLE,{revision:1,reason:'other',note:'  Went with a\u0007 local shop​  '},{now:NOW});
+    expectCustomerSafe(result,costs);
+    expectNoNote(result,'local shop');
+    expect(quote(SAMPLE)).toMatchObject({status:'declined',decline_reason:'other',decline_note:'Went with a local shop'});
+    expect(quoteActivity(SAMPLE).at(-1)).toMatchObject({kind:'declined',message:'Dana declined Q-24817 rev 1: Other: "Went with a local shop"'});
+  });
+
+  it('keeps the Other note to 250 characters, and an empty one is no note',async()=>{
+    const {declineCustomerQuote,quote}=await services();
+    expect(()=>declineCustomerQuote(DANA,SAMPLE,{revision:1,reason:'other',note:'x'.repeat(251)},{now:NOW}))
+      .toThrow(expect.objectContaining({code:'invalid_input',httpStatus:400,message:'Keep the note to 250 characters.'}));
+    expect(quote(SAMPLE)?.status).toBe('sent');
+    declineCustomerQuote(DANA,SAMPLE,{revision:1,reason:'other',note:` ${'x'.repeat(250)} `},{now:NOW});
+    expect(quote(SAMPLE)?.decline_note).toBe('x'.repeat(250));
+    await sentSample();
+    declineCustomerQuote(DANA,SAMPLE,{revision:1,reason:'other',note:'  \n '},{now:NOW});
+    expect(quote(SAMPLE)).toMatchObject({status:'declined',decline_reason:'other',decline_note:null});
+  });
+
+  it.each([
+    ['no reason',{revision:1}],
+    ['a null reason',{revision:1,reason:null}],
+    ['no body fields at all',{}],
+  ])('records the decline with %s (Decline works with nothing chosen)',async(_,body)=>{
+    const {declineCustomerQuote,quote,quoteActivity}=await services();
+    expect(declineCustomerQuote(DANA,SAMPLE,body,{now:NOW}).quote).toMatchObject({status:'declined',response:{kind:'declined',revision:1}});
+    expect(quote(SAMPLE)).toMatchObject({status:'declined',decline_reason:null,decline_note:null,declined_at:NOW,unread_for_rep:true});
+    expect(quoteActivity(SAMPLE).at(-1)).toMatchObject({kind:'declined',message:'Dana declined Q-24817 rev 1 (no reason given)'});
+  });
+
+  it('refuses an unknown reason (there is no “no response”), another field, or a bad revision',async()=>{
+    const {declineCustomerQuote,quote}=await services();
+    const refused=(body:unknown,message:string)=>expect(()=>declineCustomerQuote(DANA,SAMPLE,body,{now:NOW}),JSON.stringify(body))
+      .toThrow(expect.objectContaining({code:'invalid_input',httpStatus:400,message}));
+    refused({revision:1,reason:'no_response'},'Choose one of the reasons, or none.');
+    refused({revision:1,reason:'Price too high'},'Choose one of the reasons, or none.');
+    refused({revision:1,note:7},'The note must be text.');
+    refused({revision:1,reason:'other',total:1},'Decline takes the revision, a reason and a note only (not total).');
+    refused({revision:'1'},'Decline needs the revision you are looking at. Reload the quote and try again.');
+    refused('decline','Decline takes the revision, a reason and a note only.');
+    expect(quote(SAMPLE)?.status).toBe('sent');
+  });
+
+  it('a double submit is one decline: the same Idempotency-Key replays it, and without one it is refused (409)',async()=>{
+    const {declineCustomerQuote,acceptCustomerQuote,requestCustomerChanges,quoteActivity}=await services();
+    const first=declineCustomerQuote(DANA,SAMPLE,{revision:1,reason:'price_too_high'},{now:NOW,idempotencyKey:'decline-1'});
+    expect(declineCustomerQuote(DANA,SAMPLE,{revision:1,reason:'price_too_high'},{now:NOW,idempotencyKey:'decline-1'})).toEqual({...first,replayed:true});
+    expect(quoteActivity(SAMPLE).filter(a=>a.kind==='declined')).toHaveLength(1);
+    const already=expect.objectContaining({code:'illegal_transition',httpStatus:409,message:'You already declined Q-24817.'});
+    expect(()=>declineCustomerQuote(DANA,SAMPLE,{revision:1},{now:NOW})).toThrow(already);
+    expect(()=>acceptCustomerQuote(DANA,SAMPLE,ACCEPT,{now:NOW})).toThrow(already);
+    expect(()=>requestCustomerChanges(DANA,SAMPLE,{revision:1,note:'x'},{now:NOW})).toThrow(already);
+  });
+
+  it('refuses a quote that can’t be answered: expired, already accepted, never sent, an older revision, someone else’s',async()=>{
+    const {declineCustomerQuote,acceptCustomerQuote,resetSample,quote}=await services();
+    expect(()=>declineCustomerQuote(DANA,SAMPLE,{revision:1},{now:'2026-10-08T00:00:00.000Z'}))
+      .toThrow(expect.objectContaining({code:'expired',httpStatus:409,message:'Q-24817 expired: it was valid until Oct 7. Ask Brandi for a new quote.'}));
+    expect(quote(SAMPLE)?.status).not.toBe('declined');
+    await sentSample();
+    expect(()=>declineCustomerQuote(DANA,SAMPLE,{revision:2},{now:NOW})).toThrow(expect.objectContaining({code:'conflict',httpStatus:409}));
+    expect(()=>declineCustomerQuote({customerId:'great-basin'},SAMPLE,{revision:1},{now:NOW})).toThrow(expect.objectContaining({code:'not_found',httpStatus:404}));
+    acceptCustomerQuote(DANA,SAMPLE,ACCEPT,{now:NOW});
+    expect(()=>declineCustomerQuote(DANA,SAMPLE,{revision:1},{now:NOW})).toThrow(expect.objectContaining({code:'illegal_transition',message:'You already accepted Q-24817.'}));
+    resetSample();
+    expect(()=>declineCustomerQuote(DANA,SAMPLE,{},{now:NOW})).toThrow(expect.objectContaining({code:'illegal_transition',message:'Q-24817 hasn’t been sent to you yet.'}));
+  });
+});

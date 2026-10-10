@@ -17,6 +17,7 @@ vi.mock('next/link',()=>({default:({href,children,prefetch,...rest}:AnchorHTMLAt
 
 const {RepShell}=await import('../RepShell');
 const {QuotesList,quotesApiPath}=await import('./QuotesList');
+const {REP_STATUS}=await import('./labels');
 
 const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'};
 let served:RepQuoteList;
@@ -105,11 +106,12 @@ describe('the status filter',()=>{
     renderList(quoteList({customer:WASATCH}),'customer=wasatch');
     const filter=screen.getByRole('navigation',{name:'Filter by status'});
     const links=within(filter).getAllByRole('link');
-    expect(links.map(l=>l.textContent)).toEqual(['All4','Draft ready1','Changes requested1','Sent0','Accepted2','Expired0']);
+    expect(links.map(l=>l.textContent)).toEqual(['All4','Draft ready1','Changes requested1','Sent0','Accepted2','Expired0','Declined0']);
     expect(links.map(l=>l.getAttribute('href'))).toEqual([
       '/rep/quotes?customer=wasatch',
       '/rep/quotes?status=ready_for_review&customer=wasatch','/rep/quotes?status=changes_requested&customer=wasatch',
       '/rep/quotes?status=sent&customer=wasatch','/rep/quotes?status=accepted&customer=wasatch','/rep/quotes?status=expired&customer=wasatch',
+      '/rep/quotes?status=declined&customer=wasatch',
     ]);
     expect(within(filter).getByRole('link',{current:'page'})).toHaveTextContent('All4');
   });
@@ -119,6 +121,12 @@ describe('the status filter',()=>{
     expect(within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{current:'page'})).toHaveTextContent('Changes requested1');
     expect(within(table()).getAllByRole('rowheader').map(h=>within(h).getByRole('link').textContent)).toEqual(['Q-24818']);
     expect(within(table()).getByText(/^Changes requested quotes for all your customers/)).toBeInTheDocument();
+  });
+
+  it('has a Declined filter and chip (v3 spec §6, task A1)',()=>{
+    renderList(quoteList({status:'declined'}),'status=declined');
+    expect(screen.getByRole('heading',{name:'No declined quotes'})).toBeInTheDocument();
+    expect(REP_STATUS.declined).toEqual({label:'Declined',tone:'declined'});
   });
 
   it('says so when nothing has the filtered status, and offers every status',()=>{

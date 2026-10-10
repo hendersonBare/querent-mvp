@@ -33,6 +33,7 @@ describe('quoteDate',()=>{
 
 it('has a chip for every status, labelled as in spec §3',()=>{
   expect(Object.fromEntries(Object.entries(STATUS_CHIPS).map(([status,chip])=>[status,chip.label]))).toEqual({
-    ready_for_review:'Awaiting rep',sent:'Sent',accepted:'Accepted',changes_requested:'Changes requested',expired:'Expired',
+    ready_for_review:'Awaiting rep',sent:'Sent',accepted:'Accepted',changes_requested:'Changes requested',expired:'Expired',declined:'Declined',
   });
+  expect(STATUS_CHIPS.declined.tone).toBe('closed');
 });
