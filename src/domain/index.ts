@@ -8,3 +8,4 @@ export * from './freight';
 export * from './orders';
 export * from './pricing';
 export * from './quotes';
+export * from './team';
