@@ -9,3 +9,4 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | `README.md` (Local Chromium override) | Says to edit `playwright.config.ts` locally; a git-excluded `playwright.local.config.ts` wrapper is safer. |
 | `docs/codebase-structure.html` | Mentions old Notion task numbers in an archived analysis. |
 | `src/server/db/migrate.ts` | Each open takes one write lock per migration file even when applied, and the per-file `foreign_key_check` covers the whole database (a pre-existing bad row would block later migrations). Negligible today. |
+| `src/server/repository/chat.ts` | Message order relies on SQLite `rowid` as the tie-break for equal `created_at` (pre-existing in `conversationMessages`); a future `messages` rebuild or VACUUM could reorder same-millisecond messages. |
