@@ -3,20 +3,21 @@ import {copyFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach,beforeEach,describe,expect,it} from 'vitest';
-import {migrate,migrationsDir} from './migrate';
+import {migrate,migrationsDir,readMigrations} from './migrate';
 
-// 003_declined (decision 8, v3 spec §1.2): SQLite can't alter a CHECK, so the migration rebuilds
+// 004_declined (decision 8, v3 spec §1.2): SQLite can't alter a CHECK, so the migration rebuilds
 // `quotes` with `declined` in its status CHECK and the three decline columns. The rebuild must keep
 // every row and every pre-migration column with its value (001's, and 002_freight_recovery's), and every row that references a quote
 // (quote_lines, quote_removed_lines, quote_revisions, quote_activity, quote_notes, orders.quote_id,
 // quotes.duplicated_from) must still resolve to it.
 
-/** Every migration before 003_declined: the database the rebuild runs on. */
-const BEFORE=['001_baseline.sql','002_freight_recovery.sql'];
+const TARGET='004_declined';
+/** Every migration before 004_declined (001 to 003): the database the rebuild runs on. */
+const BEFORE=readMigrations().filter(m=>m.id<TARGET).map(m=>`${m.id}.sql`);
 let dir='';
 let database:Database.Database;
 beforeEach(()=>{
-  dir=mkdtempSync(join(tmpdir(),'querent-003-'));
+  dir=mkdtempSync(join(tmpdir(),'querent-004-'));
   for(const name of BEFORE)copyFileSync(join(migrationsDir(),name),join(dir,name));
   database=new Database(':memory:');
   database.pragma('foreign_keys = ON');
@@ -30,8 +31,8 @@ const count=(table:string)=>database.prepare(`SELECT count(*) FROM ${table}`).pl
 const columns=()=>database.prepare("SELECT name FROM pragma_table_info('quotes')").pluck().all() as string[];
 const CHILDREN=['quote_lines','quote_removed_lines','quote_revisions','quote_activity','quote_notes','orders'];
 
-/** A database at 002 with two quotes (the second duplicated from the first) and a row in every table that references quotes. */
-function seed002(){
+/** A database at 003 with two quotes (the second duplicated from the first) and a row in every table that references quotes. */
+function seed003(){
   exec(`INSERT INTO branches(id,code,name,address,city,state,zip,lat,lng,will_call_phone,will_call_hours) VALUES('slc','SLC','Salt Lake','1 Test Way','Salt Lake City','UT','84101',40.7,-111.9,'','7-4')`);
   exec(`INSERT INTO product_categories(id,name,sort_order) VALUES('fasteners','Fasteners',1)`);
   exec(`INSERT INTO items(id,sku,description,category_id,pack,case_qty,cost,list_price) VALUES('bolt','B-1','Bolt','fasteners','box',10,12.5,20)`);
@@ -57,19 +58,23 @@ function seed002(){
   exec(`INSERT INTO orders(id,order_number,customer_id,quote_id,order_date,status,fulfillment,branch_id,subtotal,freight,tax,total) VALUES('o-1','SO-1','wasatch','q-1','2026-09-05','open','delivery','slc',195,35.5,0,230.5)`);
 }
 
-function migrateTo003(){
-  copyFileSync(join(migrationsDir(),'003_declined.sql'),join(dir,'003_declined.sql'));
+function migrateTo004(){
+  copyFileSync(join(migrationsDir(),`${TARGET}.sql`),join(dir,`${TARGET}.sql`));
   return migrate(database,{dir});
 }
 
-describe('003_declined',()=>{
+describe('004_declined',()=>{
+  it('runs on every earlier migration, 001 to 003',()=>{
+    expect(BEFORE).toEqual(['001_baseline.sql','002_freight_recovery.sql','003_suggestion_lines.sql']);
+  });
+
   it('keeps every quote, every pre-migration column and its value, and adds the three decline columns (null)',()=>{
-    seed002();
+    seed003();
     const before=columns(),quotesBefore=rows('SELECT * FROM quotes ORDER BY id');
     expect(before).toEqual(expect.arrayContaining(['freight_rate_bp','freight_ramp_step','freight_ramp_steps','modelled_freight_cents']));
     expect(quotesBefore[0]).toMatchObject({freight_rate_bp:500,freight_ramp_step:2,freight_ramp_steps:3,modelled_freight_cents:4213});
     const counts=Object.fromEntries(CHILDREN.map(t=>[t,count(t)]));
-    expect(migrateTo003()).toEqual(['003_declined']);
+    expect(migrateTo004()).toEqual([TARGET]);
     expect(columns()).toEqual([...before,'declined_at','decline_reason','decline_note']);
     const after=rows('SELECT * FROM quotes ORDER BY id');
     expect(after).toEqual(quotesBefore.map(q=>({...q,declined_at:null,decline_reason:null,decline_note:null})));
@@ -77,8 +82,8 @@ describe('003_declined',()=>{
   });
 
   it('leaves every reference to quotes resolving: foreign_key_check is clean, and cascades still reach the rebuilt table',()=>{
-    seed002();
-    migrateTo003();
+    seed003();
+    migrateTo004();
     expect(database.pragma('foreign_key_check')).toEqual([]);
     expect(database.pragma('foreign_keys',{simple:true})).toBe(1);
     for(const table of ['quote_lines','quote_removed_lines','quote_revisions','quote_activity','quote_notes','orders','quotes'])
@@ -93,14 +98,14 @@ describe('003_declined',()=>{
   });
 
   it('recreates the quotes indexes and leaves no quotes_new behind',()=>{
-    migrateTo003();
+    migrateTo004();
     expect(database.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name='quotes_customer'").pluck().get()).toBe('CREATE INDEX quotes_customer ON quotes(customer_id,requested_at)');
     expect(database.prepare("SELECT count(*) FROM sqlite_master WHERE name LIKE 'quotes_new%'").pluck().get()).toBe(0);
   });
 
   it('accepts declined with a reason and a note of up to 250 characters, and refuses an unknown status, reason or a longer note',()=>{
-    seed002();
-    migrateTo003();
+    seed003();
+    migrateTo004();
     exec(`UPDATE quotes SET status='declined',declined_at='2026-09-05T00:00:00.000Z',decline_reason='price_too_high' WHERE id='q-2'`);
     for(const reason of ['price_too_high','found_other_source','need_sooner','wrong_items','other',null])exec('UPDATE quotes SET decline_reason=? WHERE id=?',reason,'q-2');
     exec(`UPDATE quotes SET decline_reason='other',decline_note=? WHERE id='q-2'`,'x'.repeat(250));
