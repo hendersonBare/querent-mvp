@@ -11,8 +11,19 @@ export interface ItemCandidate {sku:string;description:string;pack:string;catego
 /** One matched line of a quote request. requested_text is what the customer said for it. */
 export interface CartLine {sku:string;qty:number;requested_text?:string}
 
-/** Payload of an `item_popup` message: what the item pop-up opens with (spec §3). No prices. */
-export interface ItemPopupPayload {fulfillment:Fulfillment;branch_id:string;lines:CartLine[]}
+/**
+ * One "Frequently bought together" suggestion in the item pop-up (decision 37, spec §10, task E1):
+ * identity and a short reason only, never a price or cost. Adding it puts it in the cart at qty 1.
+ */
+export interface PopupSuggestion {item_id:string;sku:string;description:string;pack:string;reason:string}
+
+/**
+ * Payload of an `item_popup` message: what the item pop-up opens with (spec §3). No prices.
+ * `suggestions` are chosen once when the pop-up is created (task E1) and `suggestions_offered`
+ * records how many were shown, the Team dashboard's acceptance denominator (OA-13). Both are absent
+ * on pop-ups from before E1 and on a clarifying reply's cart.
+ */
+export interface ItemPopupPayload {fulfillment:Fulfillment;branch_id:string;lines:CartLine[];suggestions?:PopupSuggestion[];suggestions_offered?:number}
 
 /**
  * One requested line Querent could not match to a single SKU with confidence (spec §3, task 2.2).
