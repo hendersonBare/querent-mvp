@@ -113,7 +113,9 @@
   background: var(--rep-accent-soft);
 }
 .repChip input {
+  width: auto;
   margin: 0;
+  padding: 0;
   accent-color: var(--rep-accent);
 }
 .repChip:focus-within {
@@ -187,6 +189,7 @@
   color: var(--rep-ink-2);
 }
 .dates input {
+  width: auto;
   padding: 5px 8px;
   border: 1px solid var(--rep-line);
   border-radius: 7px;
@@ -232,6 +235,8 @@
   text-align: center;
 }
 .tableScroll {
+  /* The containing block of the screen-reader words inside, so they scroll (and clip) with the table. */
+  position: relative;
   max-width: 100%;
   overflow: auto;
   border: 1px solid var(--rep-line-2);

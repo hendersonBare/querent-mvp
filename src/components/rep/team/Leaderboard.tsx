@@ -93,7 +93,7 @@ export function Leaderboard({data}:{data:TeamMetrics}){
         <thead role="rowgroup">
           <tr role="row">
             <th role="columnheader" scope="col">Rep</th>
-            {COLUMNS.map(c=><th key={c.key} role="columnheader" scope="col" title={c.title}>{c.label}</th>)}
+            {COLUMNS.map(c=><th key={c.key} role="columnheader" scope="col" title={c.title} className={c.key==='open'?s.openCell:undefined}>{c.label}</th>)}
           </tr>
         </thead>
         <tbody role="rowgroup">
