@@ -27,6 +27,28 @@ export async function updateLiveRecord<T extends LiveTable>(table:T,id:string,co
   if(db().prepare(`UPDATE ${table} SET ${column}=? WHERE id=?`).run(value,id).changes!==1)throw new Error(`No ${table} row ${id}`);
 }
 
+/** The frozen freight columns a quote carries (spec §1.2 004 row, §4.4). */
+const QUOTE_FREIGHT=['freight_rate_bp','freight_ramp_step','freight_ramp_steps','modelled_freight_cents'] as const;
+type QuoteFreightColumn=(typeof QUOTE_FREIGHT)[number];
+
+/**
+ * Tests only: sets a quote's frozen freight columns, as quote creation will once free delivery
+ * pricing is on (C2), so pool tests can build eligible and ineligible quotes. Columns come from a fixed list.
+ */
+export async function setQuoteFreightFixture(quoteId:string,values:Partial<Record<QuoteFreightColumn,number|null>>){
+  const columns=Object.keys(values) as QuoteFreightColumn[];
+  if(!columns.length||columns.some(c=>!QUOTE_FREIGHT.includes(c)))throw new Error(`Not quote freight columns: ${columns.join(',')}`);
+  const {db}=await import('../db');
+  if(db().prepare(`UPDATE quotes SET ${columns.map(c=>`${c}=?`).join(',')} WHERE id=?`).run(...columns.map(c=>values[c]),quoteId).changes!==1)throw new Error(`No quote ${quoteId}`);
+}
+
+/** Tests only: stores a settings key (null removes it), for keys whose setter belongs to a later slice (C3). */
+export async function setSettingFixture(key:string,value:string|null){
+  const {db}=await import('../db');
+  if(value===null)db().prepare('DELETE FROM settings WHERE key=?').run(key);
+  else db().prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key,value);
+}
+
 export function useSeededDatabase(seedDate=SEED_DATE){
   let root='';
   beforeAll(()=>{
