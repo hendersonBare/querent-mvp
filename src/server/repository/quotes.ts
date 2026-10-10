@@ -1,7 +1,7 @@
 import 'server-only';
 import type {
   ActivityActor,CustomerQuoteRevision,CustomerQuoteSummary,CustomerQuoteView,LineSource,NewQuote,NewQuoteLine,NewQuoteRevision,Quote,QuoteActivity,QuoteFulfillmentPatch,
-  QuoteHeader,QuoteLine,QuoteLinePatch,QuoteListRow,QuoteNote,QuoteRevision,QuoteSnapshot,QuoteStatus,QuoteTermsPatch,QuoteTransition,Rep,
+  QuoteHeader,QuoteLine,QuoteLinePatch,QuoteListRow,QuoteNote,QuoteRecoveryState,QuoteRevision,QuoteSnapshot,QuoteStatus,QuoteTermsPatch,QuoteTransition,Rep,
 } from '@/domain';
 import {db,seedAnchor} from '../db';
 import {SAMPLE_QUOTE,seedSampleQuote} from '../db/seed';
@@ -14,7 +14,8 @@ import {all,bool,flag,inTransaction,nowIso,one,run,scalar} from './sql';
 
 const HEADER=`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,cu.account_number,q.contact_id,ct.name contact_name,q.rep_id,r.name rep_name,
   q.status,q.revision,q.conversation_id,q.request_text,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.fulfillment,q.branch_id,b.code branch_code,
-  q.requested_date,q.fulfillment_time,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override,q.freight_override_reason,q.valid_days,q.valid_until,q.expires_on,
+  q.requested_date,q.fulfillment_time,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override,q.freight_override_reason,
+  q.freight_rate_bp,q.freight_ramp_step,q.freight_ramp_steps,q.modelled_freight_cents,q.valid_days,q.valid_until,q.expires_on,
   q.customer_po,q.customer_note,q.change_request_note,q.declined_at,q.decline_reason,q.decline_note,q.unread_for_rep,q.unread_for_customer,q.is_sample,q.duplicated_from
   FROM quotes q JOIN customers cu ON cu.id=q.customer_id JOIN reps r ON r.id=q.rep_id JOIN branches b ON b.id=q.branch_id LEFT JOIN contacts ct ON ct.id=q.contact_id`;
 type Flags='unread_for_rep'|'unread_for_customer'|'is_sample';
@@ -22,7 +23,7 @@ type HeaderRow=Omit<QuoteHeader,Flags>&Record<Flags,number>;
 const toHeader=(row:HeaderRow):QuoteHeader=>({...row,unread_for_rep:bool(row.unread_for_rep),unread_for_customer:bool(row.unread_for_customer),is_sample:bool(row.is_sample)});
 
 const LINE=`SELECT l.id,l.quote_id,l.line_no,l.item_id,i.sku,i.description,i.pack,i.case_qty,i.category_id,c.name category_name,i.list_price,l.qty,l.unit_price,l.price_basis,
-  l.suggested_price,l.suggested_basis,l.customer_price,l.unit_cost,l.explanation,l.requested_text,l.match_score,l.added_by
+  l.suggested_price,l.suggested_basis,l.customer_price,l.unit_cost,l.freight_recovery,l.explanation,l.requested_text,l.match_score,l.added_by
   FROM quote_lines l JOIN items i ON i.id=l.item_id JOIN product_categories c ON c.id=i.category_id`;
 const quoteLines=(quoteId:string)=>all<QuoteLine>(`${LINE} WHERE l.quote_id=? ORDER BY l.line_no`,quoteId);
 const quoteLine=(quoteId:string,lineId:string)=>one<QuoteLine>(`${LINE} WHERE l.quote_id=? AND l.id=?`,quoteId,lineId);
@@ -194,6 +195,22 @@ export function setFreightOverride(quoteId:string,override:{amount:number;reason
   if(override&&(!Number.isFinite(override.amount)||override.amount<0))throw new RangeError(`Freight must be at least 0 (got ${override.amount}).`);
   if(override&&!override.reason.trim())throw new Error('A freight override needs a reason.');
   return updateQuote(quoteId,[['freight_override',override?.amount??null],['freight_override_reason',override?.reason.trim()??null]],at);
+}
+
+/**
+ * Stores free delivery pricing's frozen state on a quote (spec §4.4, §4.5), as freight/quote.ts
+ * decides it: the rate, its ramp step, the modelled cost and each line's recovery (cents per unit).
+ * It is derived from the draft, so updated_at is left alone (a send in flight isn't a conflict; the
+ * send compares the total it confirmed). Returns false if the quote doesn't exist.
+ */
+export function saveQuoteRecovery(quoteId:string,state:QuoteRecoveryState){
+  for(const l of state.lines)if(!Number.isInteger(l.freightRecovery)||l.freightRecovery<0)throw new RangeError(`Freight recovery must be whole cents of at least 0 (got ${l.freightRecovery}).`);
+  return inTransaction(()=>{
+    if(run('UPDATE quotes SET freight_rate_bp=?,freight_ramp_step=?,freight_ramp_steps=?,modelled_freight_cents=? WHERE id=?',
+      state.rateBp,state.rampStep,state.rampSteps,state.modelledCents,quoteId).changes!==1)return false;
+    for(const l of state.lines)run('UPDATE quote_lines SET freight_recovery=? WHERE id=? AND quote_id=?',l.freightRecovery,l.lineId,quoteId);
+    return true;
+  });
 }
 
 /**

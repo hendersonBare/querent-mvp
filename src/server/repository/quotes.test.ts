@@ -2,7 +2,7 @@ import {describe,expect,it} from 'vitest';
 import type {Quote,QuoteSnapshot} from '@/domain';
 import {
   addQuoteActivity,addQuoteLine,addQuoteNote,addQuoteRevision,createQuote,customerQuote,customerQuoteRevision,customerQuotes,markQuoteRead,quote,quoteActivity,quoteByNumber,quoteNotes,
-  quoteRevision,quoteRevisions,quotes,removeQuoteLine,resetSampleQuote,restoreQuoteLine,saveQuoteTransition,setFreightOverride,unreadQuoteCount,updateQuoteFulfillment,updateQuoteLine,updateQuoteTerms,
+  quoteRevision,quoteRevisions,quotes,removeQuoteLine,resetSampleQuote,restoreQuoteLine,saveQuoteRecovery,saveQuoteTransition,setFreightOverride,unreadQuoteCount,updateQuoteFulfillment,updateQuoteLine,updateQuoteTerms,
 } from './quotes';
 import {inTransaction} from './sql';
 import {useSeededDatabase} from './test-db';
@@ -24,7 +24,7 @@ describe('reading quotes',()=>{
       ['HCS-12-13-2G8',10,31.5,'last_paid',21.4],['CW-45-045-T1',6,36,'contract',24.1],['GLV-N8-L-1000',4,79,'last_paid',58],['RS-2-27-JH',12,22.95,'customer',14.2],
     ]);
     expect(sample.lines[0]).toEqual({id:'q-24817-1',quote_id:'q-24817',line_no:1,item_id:'HCS-12-13-2G8',sku:'HCS-12-13-2G8',description:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc',pack:'Box of 50',
-      case_qty:10,category_id:'fasteners',category_name:'Fasteners',list_price:38.95,qty:10,unit_price:31.5,price_basis:'last_paid',suggested_price:31.5,suggested_basis:'last_paid',customer_price:30.95,unit_cost:21.4,
+      case_qty:10,category_id:'fasteners',category_name:'Fasteners',list_price:38.95,qty:10,unit_price:31.5,price_basis:'last_paid',suggested_price:31.5,suggested_basis:'last_paid',customer_price:30.95,unit_cost:21.4,freight_recovery:0,
       explanation:'Last paid $31.50 on Aug 12, above customer price $30.95. +$5.50 GP vs customer price.',requested_text:'1/2 in grade 8 hex bolts, 10 boxes',match_score:0.92,added_by:'querent'});
   });
 
@@ -180,6 +180,20 @@ describe('editing lines, terms, fulfillment and freight',()=>{
     expect(()=>setFreightOverride(q.id,{amount:-1,reason:'x'})).toThrow(RangeError);
     expect(()=>setFreightOverride(q.id,{amount:10,reason:' '})).toThrow('needs a reason');
     expect(setFreightOverride('nope',null)).toBe(false);
+  });
+
+  it('stores free delivery pricing\'s frozen state without touching updated_at (C2)',()=>{
+    const q=newQuote();
+    expect(quote(q.id)).toMatchObject({freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null});
+    expect(q.lines.map(l=>l.freight_recovery)).toEqual([0]);
+    expect(saveQuoteRecovery(q.id,{rateBp:267,rampStep:2,rampSteps:3,modelledCents:4213,lines:[{lineId:q.lines[0].id,freightRecovery:63}]})).toBe(true);
+    const saved=quote(q.id)!;
+    expect(saved).toMatchObject({freight_rate_bp:267,freight_ramp_step:2,freight_ramp_steps:3,modelled_freight_cents:4213,updated_at:q.updated_at});
+    expect(saved.lines[0].freight_recovery).toBe(63);
+    expect(saveQuoteRecovery(q.id,{rateBp:null,rampStep:null,rampSteps:null,modelledCents:null,lines:[{lineId:q.lines[0].id,freightRecovery:0}]})).toBe(true);
+    expect(quote(q.id)).toMatchObject({freight_rate_bp:null,modelled_freight_cents:null});
+    expect(()=>saveQuoteRecovery(q.id,{rateBp:1,rampStep:1,rampSteps:1,modelledCents:1,lines:[{lineId:q.lines[0].id,freightRecovery:1.5}]})).toThrow(RangeError);
+    expect(saveQuoteRecovery('nope',{rateBp:null,rampStep:null,rampSteps:null,modelledCents:null,lines:[]})).toBe(false);
   });
 });
 

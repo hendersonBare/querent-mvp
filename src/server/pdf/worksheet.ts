@@ -32,6 +32,11 @@ export interface WorksheetLineFacts {
   why:string|null;
   /** Margin against floor[quote rep][category] (lineFloorStatus), or null when the category is unknown. */
   floor:LineFloorStatus|null;
+  /**
+   * Freight recovered in the printed price, cents per unit (spec §4.5); 0 when absent. Margin and
+   * gross profit use the price before it (OA-10), as the quote screen does.
+   */
+  freight_recovery?:number;
 }
 
 export interface WorksheetAccount {terms:string|null;credit_limit:number|null;open_balance:number|null;past_due_balance:number|null}
@@ -125,15 +130,18 @@ export function worksheetModel(q:PdfQuote,ctx:PdfContext,facts:WorksheetFacts):W
   let items=0,cost=0,below=0,currentCost=false;
   const lines=q.lines.map((l,i):WorksheetLine=>{
     const f=facts.lines[i],shown=frame.lines[i];
-    const fraction=f.floor?.margin??margin(l.unit_price,f.unit_cost);
-    if(l.unit_price!==null&&f.unit_cost!==null){items+=l.total??0;cost+=l.qty*f.unit_cost;}
+    // The price before freight recovery: what margin and gross profit are measured on (OA-10).
+    const recovery=f.freight_recovery??0;
+    const unitPrice=l.unit_price===null||!recovery?l.unit_price:cents(l.unit_price-recovery/100);
+    const fraction=f.floor?.margin??margin(unitPrice,f.unit_cost);
+    if(unitPrice!==null&&f.unit_cost!==null){items+=recovery?cents(l.qty*unitPrice):l.total??0;cost+=l.qty*f.unit_cost;}
     const belowFloor=!!f.floor?.belowFloor;
     if(belowFloor)below++;
     if(f.cost_source==='item')currentCost=true;
     return {...shown,category:f.category_name,basis:f.basis?BASIS_LABELS[f.basis]:NONE,
       cost:f.unit_cost===null?NONE:`${formatUnitPrice(f.unit_cost)}${f.cost_source==='item'?'*':''}`,
       margin:formatMargin(fraction),floor:f.floor?formatFloor(f.floor.floor):NONE,belowFloor,warning:f.floor?.label??null,
-      facts:lineFacts(l.unit_price,f),why:f.why};
+      facts:lineFacts(unitPrice,f),why:f.why};
   });
   items=cents(items);cost=cents(cost);
 

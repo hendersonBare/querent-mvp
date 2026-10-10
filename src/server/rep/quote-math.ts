@@ -3,7 +3,7 @@ import {formatFloor,formatMargin,isBelowFloor,lineFloorStatus,margin,resolveFloo
 import {CALL_FOR_FREIGHT,priceDelivery,type QuoteFreight} from '@/server/freight/engine';
 import {CONFIDENCE} from '@/server/matching/score';
 import {explainQuoteGp,priceLine,querentFoundGp,type PriceOption,type PricedLine,type PricingInput} from '@/server/pricing';
-import {cents,sendBlockers,type SendCheckQuote} from '@/server/quotes';
+import {cents,customerUnitPrice,sendBlockers,type SendCheckQuote} from '@/server/quotes';
 
 // The rep's quote detail (spec §4, §5.1, §5.2; task 3.3): the math behind the line grid, the
 // totals and the summary card. Pure and client-safe (no server-only imports): the server uses it
@@ -15,6 +15,9 @@ import {cents,sendBlockers,type SendCheckQuote} from '@/server/quotes';
 // - The red warning and the margin shown come from the floor rules (lineFloorStatus and
 //   formatMargin, task 1.2), so the number on screen always agrees with the warning.
 // - Money is rounded to the cent (quotes' cents()), as the send snapshot totals it.
+// - Free delivery pricing (spec §4.5, OA-10): line totals, items and the quote total are at the
+//   customer-facing price (unit price + the line's freight recovery), as the snapshot freezes it;
+//   cost, GP, margin, floors and the free-delivery threshold stay on the unit price (`goods`).
 
 /** Everything priceLine needs for one line except its qty, which the rep edits. */
 export type LinePricing=Omit<PricingInput,'qty'>;
@@ -159,7 +162,7 @@ export interface LineStock {
 
 export interface LineFigures {
   priced:PricedLine|null;
-  /** qty x unit price to the cent, or null while unpriced. */
+  /** qty x the customer-facing unit price (unit price + freight recovery) to the cent, or null while unpriced. */
   total:number|null;
   margin:number|null;
   /** The margin as the portal prints it (formatMargin): "26.6%", or "—". */
@@ -185,7 +188,7 @@ export function lineFigures(line:DetailLine,floor:FloorContext):LineFigures{
   const priced=linePricing(line);
   const status=lineFloorStatus(line,floor);
   const last=line.pricing?.sources.last_paid;
-  return {priced,total:line.unit_price===null?null:cents(line.qty*line.unit_price),margin:status.margin,marginLabel:formatMargin(status.margin),floor:status,
+  return {priced,total:line.unit_price===null?null:cents(line.qty*customerUnitPrice(line.unit_price,line.freight_recovery)),margin:status.margin,marginLabel:formatMargin(status.margin),floor:status,
     stock:lineStock(line),lastPaid:last?{price:last.unit_price,date:last.order_date}:null};
 }
 
@@ -240,11 +243,15 @@ function freightLabel(freight:QuoteFreight){
 }
 
 export interface QuoteFigures {
-  /** Items: the priced lines, to the cent. */
+  /** Items: the priced lines at the customer-facing price (unit price + freight recovery), to the cent. */
   items:number;
+  /** The priced lines at their unit price, before freight recovery: what GP, margin and the free-delivery threshold use (OA-10). */
+  goods:number;
   /** Cost of the priced lines. */
-  cost:number;gp:number;
-  /** (items - cost) / items (spec §5.2), or null with no items. */
+  cost:number;
+  /** goods - cost. */
+  gp:number;
+  /** (goods - cost) / goods (spec §5.2), or null with no items. */
   margin:number|null;marginLabel:string;
   freight:{amount:number|null;callForFreight:boolean;label:string};
   /** items + freight, or null while freight is call for freight. */
@@ -275,17 +282,18 @@ const percentOfBar=(fraction:number)=>Math.max(0,Math.min(100,fraction/BAR_MAX_M
 /** The totals and the summary card for the lines as they stand. */
 export function quoteFigures(lines:readonly DetailLine[],{freight,rates,branchCode,floor}:QuoteFiguresInput):QuoteFigures{
   const onPrice=priced(lines);
-  const items=cents(onPrice.reduce((sum,l)=>sum+cents(l.qty*l.unit_price),0));
+  const goods=cents(onPrice.reduce((sum,l)=>sum+cents(l.qty*l.unit_price),0));
+  const items=cents(onPrice.reduce((sum,l)=>sum+cents(l.qty*customerUnitPrice(l.unit_price,l.freight_recovery)),0));
   const cost=cents(onPrice.reduce((sum,l)=>sum+l.qty*l.unit_cost,0));
-  const quoteMargin=margin(items,cost);
-  const freightAmount=liveFreight(freight,items,rates,branchCode);
+  const quoteMargin=margin(goods,cost);
+  const freightAmount=liveFreight(freight,goods,rates,branchCode);
   const callForFreight=freightAmount===CALL_FOR_FREIGHT;
   const blended=blendedFloor(lines,floor);
   const belowFloor=quoteMargin!==null&&blended.value!==null&&isBelowFloor(quoteMargin,blended.value);
   const withLastPaid=onPrice.filter(l=>l.pricing?.sources.last_paid);
   const lift=withLastPaid.length?cents(withLastPaid.reduce((sum,l)=>sum+cents((l.unit_price-l.pricing!.sources.last_paid!.unit_price)*l.qty),0)):null;
   const picks=lines.flatMap(l=>{const p=linePricing(l);return p?[{qty:l.qty,suggested_price:p.suggestion.price,suggested_basis:p.suggestion.basis,customer_price:p.suggestion.customerPrice}]:[];});
-  return {items,cost,gp:cents(items-cost),margin:quoteMargin,marginLabel:formatMargin(quoteMargin),
+  return {items,goods,cost,gp:cents(goods-cost),margin:quoteMargin,marginLabel:formatMargin(quoteMargin),
     freight:{amount:callForFreight?null:freightAmount,callForFreight,label:freightLabel(freight)},
     total:callForFreight?null:cents(items+freightAmount),floor:blended,belowFloor,
     bar:{width:quoteMargin===null?0:percentOfBar(quoteMargin),marker:blended.value===null?null:percentOfBar(blended.value)},

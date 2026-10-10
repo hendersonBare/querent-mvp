@@ -7,7 +7,7 @@ import {QuoteActionError,canEditDraft,effectiveStatus} from '@/server/quotes';
 import {
   addQuoteActivity,addQuoteLine,catalogItem,inTransaction,quote,removeQuoteLine,restoreQuoteLine,searchItems,stockForItems,updateQuoteLine,
 } from '@/server/repository';
-import {detailLines,pricingDay,quoteDetailOf,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
+import {detailLines,pricingDay,repricedDetail,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
 import {MAX_PRICE,MAX_QTY,applyPatch,shortName,withBasis,type DetailLine,type LinePatch} from './quote-math';
 import {repQuote,touchRepQuote} from './quotes';
 
@@ -19,7 +19,8 @@ import {repQuote,touchRepQuote} from './quotes';
 //     sent, accepted and expired are read-only; changes_requested is editable, spec §5.4), since
 //     the repository itself doesn't check status;
 //   - validates what the rep typed server-side (a price is at least $0 and in whole cents);
-//   - writes the line and an Activity entry in one transaction, then returns the fresh detail;
+//   - writes the line and an Activity entry in one transaction, then returns the fresh detail,
+//     after reallocating the draft's freight recovery at its frozen rate (spec §4.5);
 //   - touches the quote (last_rep_touch_at, v3 spec §3) in that transaction, so a refused edit doesn't.
 // Prices come only from here and the pricing engine: the customer's routes never set one.
 
@@ -108,7 +109,8 @@ function saveLine(q:Quote,line:DetailLine,at:string){
     customerPrice:line.customer_price,explanation:line.explanation},at);
 }
 
-const freshDetail=(quoteId:string,options:QuoteDetailOptions)=>quoteDetailOf(quote(quoteId)!,options);
+/** The fresh detail, with the draft's freight recovery reallocated for the edit (spec §4.5). */
+const freshDetail=(quoteId:string,options:QuoteDetailOptions)=>repricedDetail(quoteId,options);
 
 /** PATCH /api/rep/quotes/<id>/lines/<lineId>: qty, price basis or a typed price. Returns the fresh detail. */
 export async function editRepQuoteLine(repId:string,quoteIdOrNumber:string,lineId:string,body:unknown,{now=clock(),provider}:QuoteDetailOptions={}):Promise<QuoteDetail>{

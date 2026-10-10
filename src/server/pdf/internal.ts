@@ -78,12 +78,15 @@ export async function internalWorksheet(repId:string,quoteIdOrNumber:string,rev:
   const lines=source.lines.map((line,i):WorksheetLineFacts=>{
     const item=items[i],p=pricing[i];
     const lastPaid=p?.options.find(o=>o.basis==='last_paid');
-    return {unit_cost:item.unit_cost,cost_source:item.cost_source,category_name:item.category_name,
-      basis:basisFor(line.unit_price,item.own,p),
+    // The printed price includes the line's freight recovery (spec §4.5); basis, margin and floor use the price before it (OA-10).
+    const recovery=item.own?.freight_recovery??0;
+    const unitPrice=line.unit_price===null||!recovery?line.unit_price:cents(line.unit_price-recovery/100);
+    return {unit_cost:item.unit_cost,cost_source:item.cost_source,category_name:item.category_name,freight_recovery:recovery,
+      basis:basisFor(unitPrice,item.own,p),
       querent:p?{basis:p.suggestion.basis,price:p.suggestion.price}:null,
       last_paid:lastPaid?.price!=null&&lastPaid.note?{price:lastPaid.price,date:lastPaid.note}:null,
       why:p?.explanation??null,
-      floor:item.unit_cost!==null&&item.category_id?lineFloorStatus({unit_price:line.unit_price,unit_cost:item.unit_cost,category_id:item.category_id,category_name:item.category_name??item.category_id},floors):null};
+      floor:item.unit_cost!==null&&item.category_id?lineFloorStatus({unit_price:unitPrice,unit_cost:item.unit_cost,category_id:item.category_id,category_name:item.category_name??item.category_id},floors):null};
   });
 
   const account=accountSummary(q.customer_id);

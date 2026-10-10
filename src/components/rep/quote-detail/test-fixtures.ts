@@ -54,7 +54,7 @@ export function detailLine(item:ItemFacts,{n,qty,unit_price,price_basis,suggeste
     cost:item.cost,case_qty:item.case_qty,category_id:item.category_id,last_paid:item.last_paid??null};
   return {id:`q-24817-${n}`,quote_id:'q-24817',line_no:n,item_id:item.sku,sku:item.sku,description:item.description,pack:item.pack,case_qty:item.case_qty,
     category_id:item.category_id,category_name:item.category_name,list_price:item.list_price,qty,unit_price,price_basis,suggested_price,suggested_basis,
-    customer_price:item.customer_price,unit_cost:item.cost,explanation:null,requested_text,match_score,added_by,
+    customer_price:item.customer_price,unit_cost:item.cost,freight_recovery:0,explanation:null,requested_text,match_score,added_by,
     pricing:{sources,branchId:'slc',stock:item.stock,scarcityEnabled:false,floor:floorOf(item.category_id),on:PRICING_DAY}};
 }
 
@@ -75,7 +75,7 @@ export function sampleDetail({quote,...overrides}:Partial<Omit<QuoteDetail,'quot
       contact_title:'Purchasing',rep_id:'brandi',rep_name:'Brandi Gallegos',status:'ready_for_review',revision:0,conversation_id:'conv-q-24817',request_text:REQUEST,
       requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',updated_at:'2026-09-23T16:15:00.000Z',sent_at:null,responded_at:null,
       fulfillment:'will_call',branch_id:'slc',branch_code:'SLC',requested_date:'2026-09-24',fulfillment_time:null,ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',
-      ship_to_lat:40.5513,ship_to_lng:-111.933,freight_override:null,freight_override_reason:null,valid_days:14,valid_until:null,expires_on:null,customer_po:null,customer_note:null,
+      ship_to_lat:40.5513,ship_to_lng:-111.933,freight_override:null,freight_override_reason:null,freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null,valid_days:14,valid_until:null,expires_on:null,customer_po:null,customer_note:null,
       change_request_note:null,declined_at:null,decline_reason:null,decline_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:true,duplicated_from:null,...quote},
     valid_until:'2026-10-09',
     editable:true,

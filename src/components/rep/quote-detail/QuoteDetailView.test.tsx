@@ -240,6 +240,39 @@ describe('line grid',()=>{
   });
 });
 
+describe('free delivery pricing (spec §4.6, decision 36)',()=>{
+  const recovered=()=>{
+    const lines=[{...SAMPLE_LINES[0],freight_recovery:240},...SAMPLE_LINES.slice(1)];
+    server.lines=lines;
+    return sampleDetail({lines,quote:{fulfillment:'delivery',freight_rate_bp:500,freight_ramp_step:2,freight_ramp_steps:3},
+      freight:{computed:{rule:'free_delivery_pricing',amount:0,miles:15,formula:null,explanation:'Free delivery pricing: freight is recovered in item prices.'},override:null,amount:0,source:'computed',unresolved:false}});
+  };
+
+  it('shows the quote\'s recovery rate as a header chip, and the line\'s recovery in "Why this price?"',()=>{
+    renderPage(recovered());
+    expect(screen.getByText('Freight recovery 5.0%')).toBeInTheDocument();
+    const toggle=screen.getByRole('button',{name:'Why this price? Hex cap screw 1/2-13 x 2 in'});
+    fireEvent.click(toggle);
+    const why=document.getElementById(toggle.getAttribute('aria-controls')!)!;
+    expect(why).toHaveTextContent('Freight recovery +$2.40 (rate 5.0%, ramp step 2 of 3)');
+    // The unit price field keeps the rep's price; the total is at the customer-facing price: 10 × $33.90.
+    expect(priceField('HCS-12-13-2G8')).toHaveValue('31.50');
+    expect(row('HCS-12-13-2G8').querySelector('td[data-label="Total"]')).toHaveTextContent('$339.00');
+    expect(totalsText()).toContain('$1,146.40');
+  });
+
+  it('shows no recovery on a line that carries none, nor on a quote without it',()=>{
+    const {unmount}=renderPage(recovered());
+    const wheels=screen.getByRole('button',{name:'Why this price? Cut-off wheel 4.5 x .045 x 7/8 in'});
+    fireEvent.click(wheels);
+    expect(document.getElementById(wheels.getAttribute('aria-controls')!)!).not.toHaveTextContent('Freight recovery');
+    unmount();
+    renderPage();
+    fireEvent.click(screen.getByRole('button',{name:'Why this price? Hex cap screw 1/2-13 x 2 in'}));
+    expect(screen.queryByText(/Freight recovery/)).toBeNull();
+  });
+});
+
 describe('the "?" next to the price basis',()=>{
   it('tells why Querent suggests its price, and follows the pick when the qty makes a broken case',()=>{
     renderPage();
