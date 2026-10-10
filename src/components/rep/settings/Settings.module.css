@@ -621,6 +621,10 @@
 .hours .sub {
   margin-top: 0;
 }
+.table + .rateActions {
+  padding-top: 12px;
+  border-top: 1px solid var(--rep-line-2);
+}
 
 /* ---- Reps (manager, task D1): team label field and the active switch with its state ---- */
 .teamForm {
@@ -662,5 +666,8 @@ tr[data-inactive] .name {
   }
   .stack .num {
     text-align: left;
+  }
+  .stack .hours .cellWord {
+    min-width: 92px;
   }
 }

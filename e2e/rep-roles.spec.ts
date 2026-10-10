@@ -90,7 +90,8 @@ test("Brandi edits an aging threshold, and the Quotes list follows it", async ({
   const sentRed = page.getByRole("spinbutton", { name: "Sent red hours" });
   await expect(sentRed).toHaveValue("168");
   await sentRed.fill("72");
-  await expect(page.getByRole("alert")).toHaveText("Sent: amber must come before red.");
+  // (The page also has Next's empty route announcer, an alert: look inside the card.)
+  await expect(page.getByRole("region", { name: "Aging thresholds" }).getByRole("alert")).toHaveText("Sent: amber must come before red.");
   await expect(page.getByRole("button", { name: "Save thresholds" })).toBeDisabled();
   await sentRed.fill("96");
   await page.getByRole("button", { name: "Save thresholds" }).click();
@@ -124,9 +125,12 @@ test("Brandi sets a team label, and can mark Mara inactive only after reassignin
   const mara = page.getByRole("switch", { name: "Mara Jensen active" });
   await expect(mara).toBeDisabled();
   await expect(mara).toHaveAccessibleDescription("Reassign 1 customer in Rep assignments first");
-  const refused = await page.request.put("/api/rep/team/reps/mara", { data: { active: false } });
-  expect(refused.status()).toBe(409);
-  expect(await refused.json()).toMatchObject({ code: "has_customers" });
+  // From the page itself: the production session cookie is Secure, which Playwright's request client won't send over http.
+  const refused = await page.evaluate(async () => {
+    const response = await fetch("/api/rep/team/reps/mara", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active: false }) });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(refused).toMatchObject({ status: 409, body: { code: "has_customers" } });
   await expect(page.getByRole("switch", { name: "Brandi Gallegos active" })).toBeDisabled();
   await screenshot(page, testInfo, "brandi-reps");
 
