@@ -4,7 +4,7 @@ import {FULFILLMENTS,type QuoteFulfillmentPatch,type QuoteTermsPatch} from '@/do
 import {formatUsd} from '@/server/freight/engine';
 import {overrideFreight} from '@/server/freight/quote';
 import {QuoteActionError,expirationProblem} from '@/server/quotes';
-import {addQuoteActivity,addQuoteNote,branch,inTransaction,quote,updateQuoteFulfillment,updateQuoteTerms} from '@/server/repository';
+import {addQuoteActivity,addQuoteNote,branch,inTransaction,updateQuoteFulfillment,updateQuoteTerms} from '@/server/repository';
 import {repricedDetail,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
 import {editableQuote} from './quote-edits';
 
