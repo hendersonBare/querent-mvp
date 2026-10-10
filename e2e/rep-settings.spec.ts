@@ -14,7 +14,8 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
 const STOCK_QUESTION = "Do you have 1/2 in grade 8 hex bolts in stock?";
-const TABS = ["Rep assignments", "Customer access", "Margin floors", "Pricing & delivery", "Data sources"] as const;
+// Brandi is the manager, so she also has Reps and Aging (task D1; e2e/rep-roles.spec.ts covers them).
+const TABS = ["Rep assignments", "Reps", "Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"] as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -330,9 +331,11 @@ test("phone (390px): every Settings tab fits, the current tab is in view, and no
   await expect(page).toHaveURL(/\/rep\/settings$/);
   const slug: Record<(typeof TABS)[number], string> = {
     "Rep assignments": "assignments",
+    Reps: "reps",
     "Customer access": "access",
     "Margin floors": "floors",
     "Pricing & delivery": "pricing",
+    Aging: "aging",
     "Data sources": "sources",
   };
   for (const tab of TABS) {

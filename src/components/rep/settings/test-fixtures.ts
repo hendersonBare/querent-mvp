@@ -11,11 +11,20 @@ const floors=(values:number[])=>CATEGORIES.map(([category_id,category_name],i)=>
 const rule=(category:'items_stock'|'pricing'|'orders_quotes'|'account',enabled:boolean|null,one=true)=>({category,enabled,rep_id:one?'brandi':null,mixed_rep:!one,
   rep_name:one?'Brandi Gallegos':'Multiple reps',phone:one?'(801) 111-2222':null,email:one?'brandi.gallegos@herrickindustrial.com':null});
 
-/** Brandi's Settings, with Customer access for `customerId` (null: All customers). */
-export function settingsFixture(customerId:string|null=null):RepSettings{
+const team=(id:string,name:string,initials:string,title:string,role:'rep'|'manager',teamLabel:string|null,customer_count:number,active=true)=>({id,name,initials,title,role,team:teamLabel,active,customer_count});
+/** The manager's Reps card on the seed (task D1): Brandi manages; Mara and Nora have a customer each, Eli none. */
+export const TEAM=[
+  team('brandi','Brandi Gallegos','BG','Inside Sales','manager','Inside Sales',2),team('eli','Eli Porter','EP','Outside Sales','rep','Outside Sales',0),
+  team('mara','Mara Jensen','MJ','Inside Sales','rep','Inside Sales',1),team('nora','Nora Chen','NC','Account Manager','rep','Outside Sales',1),
+];
+export const AGING={rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:72,sentRedH:168};
+
+/** Brandi's Settings, with Customer access for `customerId` (null: All customers). manager:false gives a rep's (no manager settings). */
+export function settingsFixture(customerId:string|null=null,{manager=true}:{manager?:boolean}={}):RepSettings{
   const one=customerId!==null;
   return {
     rep_id:'brandi',
+    manager:manager?{reps:TEAM,aging:AGING}:null,
     reps:REPS,
     assignments:[
       {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',placeholder:true,quotes:[]},
