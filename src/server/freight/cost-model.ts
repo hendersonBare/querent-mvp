@@ -23,7 +23,7 @@ export interface CostModelInput {
   /** One-way road miles from the branch to the ship-to. */
   miles:number;
   mpg:number;
-  /** Cents per gallon (modelFuelPriceCents). */
+  /** Cents per gallon (modelFuelPriceCents; fuel-price.ts fuelPriceStatus). */
   fuelPriceCents:number;
   wearCentsPerMile:number;depreciationCentsPerMile:number;driverCentsPerHour:number;avgSpeedMph:number;
   /** Stop or unload time per delivery (default 0). */

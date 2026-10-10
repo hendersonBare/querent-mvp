@@ -25,3 +25,15 @@ export interface PoolInputs {modelledCents:number;goodsCents:number;count:number
  * divide), whether enough quotes are in the window to use it over the starting rate, and the UTC day it was computed.
  */
 export interface FreightPool {rateBp:number|null;on:boolean;count:number;computedOn:string}
+
+/** A stored fuel price (fuel_prices, 008): cents per gallon, when it was true, where it came from, and the UTC day it was last fetched. */
+export interface FuelPriceRow {state:string;fuel:FuelType;price_cents:number;as_of:string;source:'api'|'seed';fetched_on:string}
+
+/**
+ * The fuel price the cost model uses for a state (spec §4.3): the manual price, the stored API or
+ * seed price, or none (fuel 0). `ageDays` is the stored price's age in whole days; `warnings` are
+ * what Pricing & delivery shows (stale, missing, zero).
+ */
+export interface FuelStatus {
+  state:string;fuelType:FuelType;cents:number;source:'manual'|'api'|'seed'|'none';asOf:string|null;ageDays:number|null;warnings:string[];
+}

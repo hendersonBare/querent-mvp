@@ -215,8 +215,8 @@ describe('free delivery pricing at creation (spec §4.2, §4.4, §4.5)',()=>{
     const {requestQuote,quote}=await services();
     const provider={roadMiles:async()=>20};
     const q=quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),{...OPTIONS,provider})).quote.id)!;
-    // 40 mi round trip: 800 + 600 + 2,857.14¢ = 4,257¢.
-    expect(q.modelled_freight_cents).toBe(4257);
+    // 40 mi round trip: 1,360¢ fuel at the seeded $3.40/gal + 800 + 600 + 2,857.14¢ = 5,617¢.
+    expect(q.modelled_freight_cents).toBe(5617);
   });
 });
 

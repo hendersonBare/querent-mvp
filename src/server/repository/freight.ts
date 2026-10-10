@@ -1,5 +1,5 @@
 import 'server-only';
-import type {FreightPool,PoolInputs} from '@/domain';
+import type {FreightPool,FuelPriceRow,FuelType,PoolInputs,PriceBasis,Fulfillment} from '@/domain';
 import {toCents} from '@/lib/money';
 import {POOL_DEFAULTS,poolRate} from '../freight/pool';
 import {all,inTransaction,nowIso,one,run,scalar} from './sql';
@@ -14,7 +14,7 @@ import {all,inTransaction,nowIso,one,run,scalar} from './sql';
 const ELIGIBLE=`q.status='accepted' AND q.fulfillment='delivery' AND q.freight_rate_bp IS NOT NULL AND q.responded_at>=@from AND q.responded_at<=@to`;
 
 /** The window [now − 90 days, now] as ISO times. */
-function poolWindow(now:string){
+export function poolWindow(now:string){
   const to=new Date(now);
   if(Number.isNaN(to.getTime()))throw new RangeError(`Not an ISO time: ${now}`);
   return {from:new Date(to.getTime()-POOL_DEFAULTS.windowDays*86_400_000).toISOString(),to:to.toISOString()};
@@ -54,4 +54,50 @@ export function cachedPoolRate(now=nowIso()):FreightPool{
     write(KEYS.on,String(on));write(KEYS.count,String(inputs.count));write(KEYS.day,day);
     return {rateBp,on,count:inputs.count,computedOn:day};
   });
+}
+
+/** What the eligible quotes of the trailing 90 days recovered in item prices: Σ freight_recovery × qty, in cents (Pricing & delivery's pool panel, spec §4.6). */
+export function poolRecoveredCents(now=nowIso()){
+  return scalar<number>(`SELECT coalesce(sum(l.freight_recovery*l.qty),0) FROM quote_lines l JOIN quotes q ON q.id=l.quote_id WHERE ${ELIGIBLE}`,poolWindow(now))??0;
+}
+
+// ---- The impact preview's quotes (spec §4.7) ----
+
+/** A line of a preview quote: price, cost, basis and the item's product category. Internal (cost). */
+export interface PreviewLineRow {line_no:number;qty:number;unit_price:number|null;unit_cost:number;price_basis:PriceBasis|null;category_id:string;category_name:string;category_order:number}
+/** A delivery quote the impact preview weighs: its route, override and lines. */
+export interface PreviewQuoteRow {id:string;fulfillment:Fulfillment;branch_id:string;ship_to_address:string|null;ship_to_lat:number|null;ship_to_lng:number|null;freight_override:number|null;lines:PreviewLineRow[]}
+
+const PREVIEW_QUOTES=`q.fulfillment='delivery' AND q.created_at>=@from AND q.created_at<=@to`;
+
+/** Every delivery quote created in the trailing 90 days of `now` (both ends inclusive), any status, with its lines in order. */
+export function previewQuotes(now=nowIso()):PreviewQuoteRow[]{
+  const window=poolWindow(now);
+  const quotes=all<Omit<PreviewQuoteRow,'lines'>>(`SELECT q.id,q.fulfillment,q.branch_id,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override FROM quotes q
+    WHERE ${PREVIEW_QUOTES} ORDER BY q.created_at,q.id`,window);
+  const lines=all<PreviewLineRow&{quote_id:string}>(`SELECT l.quote_id,l.line_no,l.qty,l.unit_price,l.unit_cost,l.price_basis,c.id category_id,c.name category_name,c.sort_order category_order
+    FROM quote_lines l JOIN quotes q ON q.id=l.quote_id JOIN items i ON i.id=l.item_id JOIN product_categories c ON c.id=i.category_id
+    WHERE ${PREVIEW_QUOTES} ORDER BY l.quote_id,l.line_no`,window);
+  const byQuote=new Map<string,PreviewLineRow[]>();
+  for(const {quote_id,...line} of lines)byQuote.set(quote_id,[...(byQuote.get(quote_id)??[]),line]);
+  return quotes.map(q=>({...q,lines:byQuote.get(q.id)??[]}));
+}
+
+// ---- Fuel prices (fuel_prices, 008; spec §4.3). One row per state and fuel. ----
+
+const FUEL='SELECT state,fuel,price_cents,as_of,source,fetched_on FROM fuel_prices';
+
+/** The stored price for a state and fuel, or undefined when none was ever stored. */
+export function storedFuelPrice(state:string,fuel:FuelType){return one<FuelPriceRow>(`${FUEL} WHERE state=? AND fuel=?`,state,fuel);}
+
+/** Stores (replaces) the price for its state and fuel. */
+export function saveFuelPrice(row:FuelPriceRow){
+  if(!Number.isInteger(row.price_cents)||row.price_cents<0)throw new RangeError(`A fuel price must be whole cents of at least 0 (got ${row.price_cents}).`);
+  run(`INSERT INTO fuel_prices(state,fuel,price_cents,as_of,source,fetched_on) VALUES(@state,@fuel,@price_cents,@as_of,@source,@fetched_on)
+    ON CONFLICT(state,fuel) DO UPDATE SET price_cents=excluded.price_cents,as_of=excluded.as_of,source=excluded.source,fetched_on=excluded.fetched_on`,row);
+}
+
+/** Records a fetch attempt on `day` (a failed one keeps the price and its as_of). Returns false when there is no row. */
+export function markFuelPriceFetched(state:string,fuel:FuelType,day:string){
+  return run('UPDATE fuel_prices SET fetched_on=? WHERE state=? AND fuel=?',day,state,fuel).changes===1;
 }

@@ -24,7 +24,7 @@ export function setDeliveryRates(rates:DeliveryRates){
 }
 
 // ---- Free delivery pricing (spec §1.3). Each getter falls back to the code default, kept next to the
-// logic that uses it, when the key is absent or unreadable. Setters arrive with the manager's controls (C3).
+// logic that uses it, when the key is absent or unreadable. The setters below serve the manager's controls (C3).
 
 const setting=(key:string)=>scalar<string>('SELECT value FROM settings WHERE key=?',key);
 /** A stored number, or `fallback` when the key is absent, blank or not a finite number. */
@@ -66,6 +66,54 @@ export function freightRateSettings():FreightRateSettings{
     rampSteps:numberSetting('freight_ramp_steps',d.rampSteps),
     rampDays:numberSetting('freight_ramp_days',d.rampDays),
   };
+}
+
+const writeSetting=(key:string,value:string)=>run('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,value);
+
+/**
+ * Turns free delivery pricing on or off (C3; managers only, the route checks). Turning it on records
+ * `at` as free_delivery_enabled_at, the ramp's day 0; turning it off clears nothing else.
+ */
+export function setFreeDeliveryPricing(enabled:boolean,at=nowIso()){
+  inTransaction(()=>{writeSetting('free_delivery_pricing',String(enabled));if(enabled)writeSetting('free_delivery_enabled_at',at);});
+  return freeDeliverySettings();
+}
+
+/** When a manager last viewed the impact preview (free_delivery_preview_viewed_at), or null. */
+export function freightPreviewViewedAt(){return setting('free_delivery_preview_viewed_at')||null;}
+export function setFreightPreviewViewedAt(at=nowIso()){writeSetting('free_delivery_preview_viewed_at',at);}
+
+/** The freight_* key behind each cost-model input and rate setting (spec §1.3). */
+const COST_KEYS:Readonly<Record<keyof FreightCostSettings,string>>={
+  mpg:'freight_vehicle_mpg',fuelType:'freight_fuel_type',wearCentsPerMile:'freight_wear_cents_per_mile',depreciationCentsPerMile:'freight_depreciation_cents_per_mile',
+  driverCentsPerHour:'freight_driver_cents_per_hour',avgSpeedMph:'freight_avg_speed_mph',stopMinutes:'freight_stop_minutes',fuelManualCents:'freight_fuel_manual_cents',
+};
+const RATE_KEYS:Readonly<Record<keyof FreightRateSettings,string>>={
+  startingRateBp:'freight_starting_rate_bp',rateCapBp:'freight_rate_cap_bp',lineCapBp:'freight_line_cap_bp',rampSteps:'freight_ramp_steps',rampDays:'freight_ramp_days',
+};
+
+/** Stores the given cost-model inputs (already checked: checkFreightUpdate). fuelManualCents null removes the manual price. */
+export function setFreightCostSettings(cost:Partial<FreightCostSettings>){
+  inTransaction(()=>{
+    for(const [field,value] of Object.entries(cost)){
+      const key=COST_KEYS[field as keyof FreightCostSettings];
+      if(!key)throw new RangeError(`Not a cost-model setting: ${field}`);
+      if(value===null)run('DELETE FROM settings WHERE key=?',key);else writeSetting(key,String(value));
+    }
+  });
+  return freightCostSettings();
+}
+
+/** Stores the given starting rate, caps and ramp (already checked: checkFreightUpdate). */
+export function setFreightRateSettings(rates:Partial<FreightRateSettings>){
+  inTransaction(()=>{
+    for(const [field,value] of Object.entries(rates)){
+      const key=RATE_KEYS[field as keyof FreightRateSettings];
+      if(!key)throw new RangeError(`Not a recovery rate setting: ${field}`);
+      writeSetting(key,String(value));
+    }
+  });
+  return freightRateSettings();
 }
 
 /** The aging_* keys behind each threshold (spec §1.3). */
