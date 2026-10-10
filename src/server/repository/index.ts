@@ -16,4 +16,5 @@ export * from './orders';
 export * from './pricing';
 export * from './quotes';
 export * from './settings';
+export * from './team';
 export {inTransaction} from './sql';

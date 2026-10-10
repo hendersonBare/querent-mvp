@@ -568,6 +568,23 @@
   letter-spacing: normal;
   text-transform: none;
 }
+/* The Team dashboard's drill-down (task D3): what the list is narrowed to, and how to widen it. */
+.drillChip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 5px 10px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background: var(--rep-surface-2);
+  font-size: 13px;
+  color: var(--rep-ink-2);
+}
+.drillChip a {
+  font-weight: 600;
+  white-space: nowrap;
+}
 .notice:empty {
   display: none;
 }

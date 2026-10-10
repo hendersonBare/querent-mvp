@@ -65,6 +65,18 @@ describe('header',()=>{
     expect(screen.getByRole('button',{name:'Account: Brandi Gallegos'})).toHaveTextContent('BG');
   });
 
+  it('gives the manager a Team section after Analytics, current on /rep/team; a rep never sees it (v3 spec §6, task D3)',()=>{
+    at('/rep/team');
+    const {unmount}=render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" customers={customers} initialBadges={{quotes:0,attention:0}}><ScopedPage/></RepShell>);
+    const links=within(portalNav()).getAllByRole('link');
+    expect(links.map(l=>l.textContent)).toEqual(['Quotes','Customers','Orders','Items','Analytics','Team','Settings']);
+    expect(within(portalNav()).getByRole('link',{name:'Team'})).toHaveAttribute('href','/rep/team');
+    expect(within(portalNav()).getByRole('link',{name:'Team'})).toHaveAttribute('aria-current','page');
+    unmount();
+    renderShell();
+    expect(within(portalNav()).queryByRole('link',{name:'Team'})).toBeNull();
+  });
+
   it('marks the current section, including its sub-pages',()=>{
     at('/rep/quotes/Q-24817');
     renderShell();

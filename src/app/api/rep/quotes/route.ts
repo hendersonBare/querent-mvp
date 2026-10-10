@@ -1,5 +1,5 @@
-import {ATTENTION_PARAM,SORT_PARAM,STATUS_PARAM,isAttention} from '@/components/rep/quotes/labels';
-import {REPS_PARAM,REP_PARAM,SCOPE_PARAM,TEAM_PARAM,isAllReps} from '@/components/rep/scope';
+import {AGING_PARAM,ATTENTION_PARAM,SORT_PARAM,STATUS_PARAM,isAttention} from '@/components/rep/quotes/labels';
+import {FROM_PARAM,REPS_PARAM,REP_PARAM,SCOPE_PARAM,TEAM_PARAM,TO_PARAM,isAllReps} from '@/components/rep/scope';
 import {repJson,repRoute} from '@/server/rep/http';
 import {parseAttentionSort,parseStatus,repQuoteList} from '@/server/rep/quotes';
 export const runtime='nodejs';export const dynamic='force-dynamic';
@@ -11,7 +11,8 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
  * its aging and its rep. The Quotes page polls it. Rep-only.
  *
  * ?scope=all&rep=<id>&team=<label> (v3 spec §5, task D2): the manager's All reps scope, every rep's
- * quotes filtered by rep or team label; a rep asking for it gets 403.
+ * quotes filtered by rep or team label; a rep asking for it gets 403. The Team dashboard's drill-down
+ * (task D3) adds &rep=a,b, &from=&to= (created in [from, to)) and &aging=ok|amber|red.
  */
 export const GET=repRoute(async(repId,request,_context,session)=>{
   const params=request.nextUrl.searchParams;
@@ -19,5 +20,5 @@ export const GET=repRoute(async(repId,request,_context,session)=>{
   if(allReps&&!session.manager)return repJson({detail:'Manager access required.'},403);
   return repJson(await repQuoteList(repId,{customerId:params.get(SCOPE_PARAM),status:parseStatus(params.get(STATUS_PARAM)),
     attention:isAttention(params.get(ATTENTION_PARAM)),sort:parseAttentionSort(params.get(SORT_PARAM)),
-    manager:session.manager,allReps:allReps?{rep:params.get(REP_PARAM),team:params.get(TEAM_PARAM)}:null}));
+    manager:session.manager,allReps:allReps?{rep:params.get(REP_PARAM),team:params.get(TEAM_PARAM),from:params.get(FROM_PARAM),to:params.get(TO_PARAM),aging:params.get(AGING_PARAM)}:null}));
 });

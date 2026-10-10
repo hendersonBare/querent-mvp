@@ -1,0 +1,408 @@
+/* The Team dashboard (v3 spec §6 Team, task D3). Not in the mockup, so it follows Analytics
+   (src/components/rep/analytics/Analytics.module.css): white panels with hairlines on the portal
+   gray, Archivo for figures, Querent green for links and the picked choice. Aging keeps its word
+   and icon beside the colour (decision 18). Wide tables scroll inside their own box. */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.loading {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--rep-muted);
+  background: var(--rep-surface);
+  border: 1px solid var(--rep-line);
+  border-radius: 10px;
+}
+.notice {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid #efd9ae;
+  border-radius: 8px;
+  background: var(--rep-warn-soft);
+  font-size: 13.5px;
+}
+.body {
+  min-width: 0;
+  transition: opacity 0.15s;
+}
+.body[data-stale] {
+  opacity: 0.55;
+}
+.export {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--rep-line);
+  border-radius: 8px;
+  background: var(--rep-surface);
+  color: var(--rep-ink);
+  font: 600 13px/1.2 var(--rep-body);
+  white-space: nowrap;
+}
+.export:hover {
+  background: var(--rep-surface-2);
+  text-decoration: none;
+}
+
+/* ---- Filters: reps as tick chips, then team and the window on one line ---- */
+.filters {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: var(--rep-surface);
+  border: 1px solid var(--rep-line);
+  border-radius: 10px;
+}
+.reps {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.filterHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-bottom: 8px;
+}
+.filterLabel {
+  font: 600 13px/1.3 var(--rep-body);
+  color: var(--rep-ink-2);
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--rep-accent);
+  font: 500 13px/1.3 var(--rep-body);
+  cursor: pointer;
+}
+.linkButton:hover {
+  text-decoration: underline;
+}
+.repChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.repChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px 6px 9px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background: var(--rep-surface);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.repChip:has(input:checked) {
+  border-color: var(--rep-accent);
+  background: var(--rep-accent-soft);
+}
+.repChip input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--rep-accent);
+}
+.repChip:focus-within {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 1px;
+}
+.inactive {
+  color: var(--rep-muted);
+}
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+.select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.select select {
+  max-width: 220px;
+  padding: 6px 28px 6px 9px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  background-color: var(--rep-surface);
+  color: var(--rep-ink);
+  font: 500 13px/1.3 var(--rep-body);
+}
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.segments {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rep-line);
+  border-radius: 8px;
+  background: var(--rep-surface);
+}
+.segments button {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--rep-ink-2);
+  font: 600 13px/1.2 var(--rep-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.segments button:hover {
+  background: var(--rep-surface-2);
+}
+.segments button[aria-pressed="true"] {
+  background: var(--rep-accent);
+  color: var(--rep-accent-ink);
+}
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.dates label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--rep-ink-2);
+}
+.dates input {
+  width: auto;
+  padding: 5px 8px;
+  border: 1px solid var(--rep-line);
+  border-radius: 7px;
+  font: 500 13px/1.3 var(--rep-body);
+  color: var(--rep-ink);
+}
+.problem {
+  margin: 0;
+  color: var(--rep-bad);
+  font-size: 13px;
+}
+
+/* ---- Panels ---- */
+.panel {
+  min-width: 0;
+  margin-bottom: 14px;
+  padding: 16px 18px 18px;
+  background: var(--rep-surface);
+  border: 1px solid var(--rep-line);
+  border-radius: 10px;
+}
+.panelHead {
+  margin-bottom: 12px;
+}
+.panelTitle {
+  margin: 0;
+  font: 600 15px/1.3 var(--rep-body);
+  letter-spacing: normal;
+}
+.panelSummary {
+  margin: 4px 0 0;
+  max-width: 80ch;
+  font-size: 13px;
+  color: var(--rep-muted);
+}
+.emptyNote {
+  margin: 0;
+  padding: 18px 14px;
+  border-radius: 8px;
+  background: var(--rep-surface-2);
+  color: var(--rep-muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+.tableScroll {
+  /* The containing block of the screen-reader words inside, so they scroll (and clip) with the table. */
+  position: relative;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--rep-line-2);
+  border-radius: 8px;
+}
+.tableScroll:focus-visible {
+  outline: 2px solid var(--rep-accent);
+  outline-offset: 2px;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th,
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rep-line-2);
+  background: none;
+  color: var(--rep-ink);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-align: right;
+  text-transform: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--rep-surface-2);
+  color: var(--rep-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  background: var(--rep-surface);
+}
+.table thead th:first-child {
+  z-index: 2;
+  background: var(--rep-surface-2);
+}
+.table tbody th {
+  font-weight: 500;
+}
+.table tr:last-child > * {
+  border-bottom: 0;
+}
+.table a {
+  color: var(--rep-accent);
+  font-weight: 600;
+}
+.table tbody th a {
+  color: var(--rep-ink);
+}
+/* The totals row: a heavier rule above, figures in the display face. */
+.table tr[data-totals] > * {
+  border-top: 2px solid var(--rep-line);
+  background: var(--rep-surface-2);
+  font: 600 13.5px/1.3 var(--rep-display);
+  font-stretch: 106%;
+}
+.table tr[data-totals] th:first-child {
+  background: var(--rep-surface-2);
+}
+.table tr[data-empty] > *,
+.table td[data-zero],
+.zero {
+  color: var(--rep-muted);
+}
+.sub {
+  color: var(--rep-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Open quotes by aging: a count each, amber and red with their icon (decision 18). */
+.openCell {
+  text-align: left !important;
+}
+.split {
+  display: inline-flex;
+  gap: 10px;
+}
+.splitItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.splitWord {
+  color: var(--rep-muted);
+  font-size: 11.5px;
+}
+.splitItem[data-level="amber"] svg {
+  color: var(--rep-warn);
+}
+.splitItem[data-level="red"] svg {
+  color: var(--rep-bad);
+}
+
+/* ---- Decline reasons: the counts beside the Other notes ---- */
+.declineGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.notes {
+  min-width: 0;
+}
+.notesTitle {
+  margin: 0 0 8px;
+  font: 600 13px/1.3 var(--rep-body);
+  color: var(--rep-ink-2);
+}
+.noteList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.noteList li {
+  display: grid;
+  gap: 3px;
+  padding: 9px 12px;
+  border-left: 3px solid var(--rep-line);
+  border-radius: 0 8px 8px 0;
+  background: var(--rep-surface-2);
+}
+.noteText {
+  font-size: 13.5px;
+  color: var(--rep-ink);
+  overflow-wrap: anywhere;
+}
+.noteMeta {
+  font-size: 12.5px;
+  color: var(--rep-muted);
+}
+.noteMeta a {
+  color: var(--rep-accent);
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .declineGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .panel {
+    padding: 14px 12px 14px;
+  }
+  .filters {
+    padding: 12px;
+  }
+  .select {
+    flex: 1 1 100%;
+  }
+  .select select {
+    flex: 1;
+    max-width: none;
+  }
+}

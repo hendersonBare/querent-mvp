@@ -10,6 +10,8 @@ export const STATUS_PARAM='status';
 /** The Needs attention filter (v3 spec §3, task A2): ?attention=1, sorted oldest first with ?sort=oldest. */
 export const ATTENTION_PARAM='attention';
 export const SORT_PARAM='sort';
+/** The Team dashboard's drill-down into one aging level of the open quotes (?aging=ok|amber|red, All reps only, task D3). */
+export const AGING_PARAM='aging';
 /** ?attention=1 and nothing else turns the Needs attention view on. */
 export const isAttention=(value:string|null|undefined)=>value==='1';
 

@@ -15,6 +15,8 @@ const SECTIONS = [
   ["Orders", "/rep/orders"],
   ["Items", "/rep/items"],
   ["Analytics", "/rep/analytics"],
+  // Brandi is the manager: Team is hers alone (v3 spec §6, task D3).
+  ["Team", "/rep/team"],
   ["Settings", "/rep/settings"],
 ] as const;
 const CUSTOMERS = [
@@ -69,7 +71,7 @@ test("nav: the header matches mockup 03 and every section opens its own page", a
   );
   await expect(page.getByRole("link", { name: /^Notifications/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Account: Brandi Gallegos" })).toHaveText("BG");
-  await expect(portalNav(page).getByRole("link")).toHaveText([/^Quotes/, "Customers", "Orders", "Items", "Analytics", "Settings"]);
+  await expect(portalNav(page).getByRole("link")).toHaveText([/^Quotes/, "Customers", "Orders", "Items", "Analytics", "Team", "Settings"]);
   await attachScreenshot(page, testInfo, "rep-portal-desktop-quotes");
 
   for (const [label, path] of SECTIONS) {
