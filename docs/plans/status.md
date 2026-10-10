@@ -2,4 +2,5 @@
 
 | Task | PR | State |
 |---|---|---|
-| Phase 3 (spec + plan) | pending | in progress |
+| P3 (spec + plan) | [#35](https://github.com/hendersonBare/querent-mvp/pull/35) | merged |
+| T0 | [#36](https://github.com/hendersonBare/querent-mvp/pull/36) | in review |
