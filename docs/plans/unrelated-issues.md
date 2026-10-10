@@ -12,3 +12,5 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | `src/server/repository/chat.ts` | Message order relies on SQLite `rowid` as the tie-break for equal `created_at` (pre-existing in `conversationMessages`); a future `messages` rebuild or VACUUM could reorder same-millisecond messages. |
 | `npm run typecheck` | Does not cover `e2e/*.ts`; `next build` does, so a spec type error shows only at build time. |
 | Playwright runs | The agent proxy logs blocked requests to `www.google.com:443` (likely a font/asset fetch); tests unaffected. |
+| `src/server/freight/quote.ts` (`deliveryMiles`) | Rebuilds the ship-to address string that the repository also builds; the two could drift. |
+| Send / draft PDF / quote list | Do not reprice a draft; if the toggle flips while a rep has a draft open, Send uses the recovery shown at last open (by design, OA-48). |
