@@ -4,4 +4,4 @@
 |---|---|---|
 | P3 (spec + plan) | [#35](https://github.com/hendersonBare/querent-mvp/pull/35) | merged |
 | T0 | [#36](https://github.com/hendersonBare/querent-mvp/pull/36) | merged |
-| T1 | pending | in progress |
+| T1 | [#37](https://github.com/hendersonBare/querent-mvp/pull/37) | in review |
