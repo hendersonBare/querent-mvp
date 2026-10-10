@@ -19,3 +19,6 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | `src/app/api/query/[...path]/route.ts:14-15` | `/api/query/me` and `/api/query/erp/status` still answer an inactive rep (low-sensitivity data). |
 | `src/server/rep/team.ts`, `TeamReps.tsx` | `plural()` and the 40-char team label limit are duplicated client/server. |
 | Reset sample quote | Resetting Q-24817 after it was reassigned returns it to Brandi and drops its reassignment activity (delete + re-insert). Demo-only. |
+| `src/app/globals.css` | A global `input{width:100%;padding…}` rule stretches checkboxes and date inputs across the rep portal (overridden locally on the Team page). |
+| `src/server/repository/team.ts:29-31` | Copies the latest-sent-total and priced subtotal subqueries from `repository/quotes.ts` instead of sharing them. |
+| Team page | Still shows the Viewing customer picker, which has no effect there. |
