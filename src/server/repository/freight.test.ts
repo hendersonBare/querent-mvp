@@ -13,7 +13,7 @@ const NOW='2026-09-23T18:00:00.000Z';
 const DAY=86_400_000;
 const daysBefore=(days:number,extraMs=0)=>new Date(Date.parse(NOW)-days*DAY-extraMs).toISOString();
 
-interface Fixture {fulfillment?:'delivery'|'will_call';status?:'accepted'|'sent';respondedAt?:string|null;rateBp?:number|null;modelledCents?:number|null;lines?:NewQuoteLine[]}
+interface Fixture {fulfillment?:'delivery'|'will_call';status?:'accepted'|'sent'|'changes_requested';respondedAt?:string|null;rateBp?:number|null;modelledCents?:number|null;lines?:NewQuoteLine[]}
 const BOLTS:NewQuoteLine={itemId:'HCS-12-13-2G5',qty:10,unitPrice:21.95,priceBasis:'customer'};
 
 /** A quote stored as C2 will store it: created, accepted at `respondedAt`, with its frozen freight columns. */
@@ -48,9 +48,11 @@ describe('poolInputs: eligible accepted delivery quotes in the trailing 90 days'
     ]});
     // Eligible: accepted exactly 90 days before now (the window's first instant), same bolts price on another quote.
     await fixture({respondedAt:daysBefore(90),modelledCents:4838,lines:[{itemId:'HCS-12-13-2G5',qty:5,unitPrice:21.95,priceBasis:'last_paid'}]});
-    // Ineligible: will call, not accepted, no frozen rate (override or toggle off), just outside the window, accepted after now.
+    // Ineligible: will call, sent and not yet answered, changes requested, no frozen rate (override or toggle off), just outside the window, accepted after now.
     await fixture({fulfillment:'will_call',modelledCents:null});
     await fixture({status:'sent',respondedAt:null});
+    // Not accepted although everything else qualifies: the customer responded inside the window by asking for changes.
+    await fixture({status:'changes_requested',respondedAt:daysBefore(3),modelledCents:7000,lines:[{itemId:'HCS-12-13-2G5',qty:4,unitPrice:21.95,priceBasis:'customer'}]});
     await fixture({rateBp:null,modelledCents:5000});
     await fixture({respondedAt:daysBefore(90,1)});
     await fixture({respondedAt:new Date(Date.parse(NOW)+1).toISOString()});
