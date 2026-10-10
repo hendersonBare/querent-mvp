@@ -5,7 +5,7 @@ import {formatUsd} from '@/server/freight/engine';
 import {overrideFreight} from '@/server/freight/quote';
 import {QuoteActionError,expirationProblem} from '@/server/quotes';
 import {addQuoteActivity,addQuoteNote,branch,inTransaction,quote,updateQuoteFulfillment,updateQuoteTerms} from '@/server/repository';
-import {quoteDetailOf,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
+import {repricedDetail,type QuoteDetail,type QuoteDetailOptions} from './quote-detail';
 import {editableQuote} from './quote-edits';
 
 // The rep's edits from the quote detail's side panels (spec §4, §5.3, §5.4; task 3.4): pickup or
@@ -21,6 +21,10 @@ import {editableQuote} from './quote-edits';
 // A freight override never clears the "delivery needs a ship-to" blocker: sendBlockers checks the
 // ship-to on its own (task 1.5). Internal notes are team-only: they live in quote_notes, which no
 // customer read, snapshot or customer PDF touches.
+//
+// Free delivery pricing (spec §4.5): every edit answers after repricing the draft's freight
+// recovery. A freight override drops it and takes the quote out of the pool (freight_rate_bp NULL);
+// clearing the override re-freezes the rate in force (OA-22). Activity logs the override as before.
 
 const clock=()=>new Date().toISOString();
 const firstName=(name:string)=>name.trim().split(/\s+/)[0];
@@ -42,7 +46,8 @@ const tooLong=(what:string,max:number)=>({error:`${what} can’t be over ${max.t
 const OptionalText=(what:string,max:number)=>z.string({error:`${what} must be text.`}).trim().max(max,tooLong(what,max)).nullable()
   .transform(value=>value?value:null);
 
-const refresh=(quoteId:string,options:QuoteDetailOptions)=>quoteDetailOf(quote(quoteId)!,options);
+/** The fresh detail, with the draft's freight recovery repriced (spec §4.5); `remodel` after a fulfillment or branch change. */
+const refresh=(quoteId:string,options:QuoteDetailOptions&{remodel?:boolean})=>repricedDetail(quoteId,options);
 
 // ---- Pickup or delivery ----
 
@@ -70,7 +75,7 @@ export async function editRepQuoteFulfillment(repId:string,quoteIdOrNumber:strin
     if(patch.branchId)log('branch_changed',`${who} changed the branch from ${q.branch_code} to ${code}`);
     return q.id;
   });
-  return refresh(quoteId,{now,provider});
+  return refresh(quoteId,{now,provider,remodel:true});
 }
 
 // ---- Freight override ----

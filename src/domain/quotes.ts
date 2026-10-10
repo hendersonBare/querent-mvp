@@ -188,4 +188,13 @@ export interface QuoteTransition {
   fulfillmentTime?:string|null;customerPo?:string|null;changeRequestNote?:string|null;unreadForRep?:boolean;unreadForCustomer?:boolean;
 }
 
+/**
+ * Free delivery pricing's frozen state on a draft (spec §4.4, §4.5): the rate with its ramp step
+ * (all null: no recovery), the modelled delivery cost in cents, and each line's recovery in cents per unit.
+ */
+export interface QuoteRecoveryState {
+  rateBp:number|null;rampStep:number|null;rampSteps:number|null;modelledCents:number|null;
+  lines:{lineId:string;freightRecovery:number}[];
+}
+
 export interface NewQuoteRevision {revision:number;sentBy:string;message?:string|null;attachPdf?:boolean;total:number;snapshot:QuoteSnapshot;sentAt?:string}

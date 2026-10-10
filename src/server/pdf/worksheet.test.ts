@@ -97,6 +97,15 @@ describe('worksheetModel',()=>{
     ]);
   });
 
+  it('prints the customer-facing price but keeps gross profit and margin on the price before freight recovery (OA-10)',()=>{
+    // The bolts print at $33.90 ($31.50 + $2.40 recovered), so the customer total is $1,146.40; GP and margin are as without it.
+    const recovered:PdfQuote={...DRAFT,lines:[{...DRAFT.lines[0],unit_price:33.9,total:339},...DRAFT.lines.slice(1)],subtotal:1146.4,total:1146.4};
+    const m=worksheetModel(recovered,CONTEXT,{...FACTS,lines:[{...LINE_FACTS[0],freight_recovery:240},...LINE_FACTS.slice(1)]});
+    expect(m.frame.totals.at(-1)).toMatchObject({label:'Total',value:'$1,146.40'});
+    expect(m.profit.slice(0,3)).toEqual([{label:'Cost of goods',value:'$761.00'},{label:'Gross profit',value:'$361.40'},{label:'Margin',value:'32.2%'}]);
+    expect(m.lines[0].facts[0]).toBe('Querent\'s pick.');
+  });
+
   it('leaves an unpriced line out of the margin, and shows no margin for it',()=>{
     const open:PdfQuote={...DRAFT,lines:[DRAFT.lines[0],{...DRAFT.lines[1],unit_price:null,total:null}],subtotal:315,total:315};
     const m=worksheetModel(open,CONTEXT,{...FACTS,lines:[LINE_FACTS[0],{...LINE_FACTS[1],basis:null,floor:floor(null,24.1,'abrasives','Abrasives & Cutting')}]});

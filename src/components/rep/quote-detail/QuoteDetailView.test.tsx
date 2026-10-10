@@ -245,7 +245,7 @@ describe('free delivery pricing (spec §4.6, decision 36)',()=>{
     expect(why).toHaveTextContent('Freight recovery +$2.40 (rate 5.0%, ramp step 2 of 3)');
     // The unit price field keeps the rep's price; the total is at the customer-facing price: 10 × $33.90.
     expect(priceField('HCS-12-13-2G8')).toHaveValue('31.50');
-    expect(cellText(cells('HCS-12-13-2G8').at(-2)!)).toBe('$339.00');
+    expect(row('HCS-12-13-2G8').querySelector('td[data-label="Total"]')).toHaveTextContent('$339.00');
     expect(totalsText()).toContain('$1,146.40');
   });
 

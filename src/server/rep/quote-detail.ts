@@ -3,9 +3,10 @@ import type {DeliveryRates,Quote} from '@/domain';
 import {resolveFloor,type FloorRow} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
 import type {QuoteFreight} from '@/server/freight/engine';
+import {repriceQuoteRecovery} from '@/server/freight/quote';
 import {canEditDraft,effectiveStatus,validUntilOnSend} from '@/server/quotes';
 import {sendCheck,type SendCheck} from '@/server/quotes/service';
-import {contact,deliveryRates,pricingSettings,priceSources,repFloors,stockForItems} from '@/server/repository';
+import {contact,deliveryRates,pricingSettings,priceSources,quote as loadQuote,repFloors,stockForItems} from '@/server/repository';
 import type {DetailLine} from './quote-math';
 import {quotePanels,type QuotePanels} from './quote-panels';
 import {repQuote} from './quotes';
@@ -17,6 +18,10 @@ import {repQuote} from './quotes';
 // Each line ships with its pricing facts (priceSources, stock, the scarcity setting, the rep's
 // floor for its category, the pricing day), so the page can re-run the pricing engine and the
 // floor rules as the rep types (./quote-math) and show exactly what a save will store.
+//
+// Free delivery pricing (spec §4.5): opening a draft, and every edit, reprices its freight recovery
+// first (repriceQuoteRecovery), so a draft whose frozen state disagrees with the toggle reprices on
+// its next open or edit. Sent and final quotes are never repriced.
 
 const clock=()=>new Date().toISOString();
 
@@ -76,8 +81,18 @@ export async function quoteDetailOf(q:Quote,{now=clock(),provider}:QuoteDetailOp
     panels:quotePanels(q,now)};
 }
 
+/**
+ * The detail after an edit or on an open: the draft's freight recovery repriced first (a no-op for
+ * sent and final quotes), then read fresh. `remodel` measures the modelled delivery cost again, for
+ * an edit that changed the fulfillment, branch or ship-to.
+ */
+export async function repricedDetail(quoteId:string,{remodel=false,...options}:QuoteDetailOptions&{remodel?:boolean}={}):Promise<QuoteDetail>{
+  await repriceQuoteRecovery(quoteId,{now:options.now,provider:options.provider,remodel});
+  return quoteDetailOf(loadQuote(quoteId)!,options);
+}
+
 /** One of the rep's quotes, by id or number, with everything the detail page needs; undefined if it isn't theirs. */
 export async function repQuoteDetail(repId:string,quoteIdOrNumber:string,options:QuoteDetailOptions={}):Promise<QuoteDetail|undefined>{
   const q=repQuote(repId,quoteIdOrNumber);
-  return q&&quoteDetailOf(q,options);
+  return q&&repricedDetail(q.id,options);
 }

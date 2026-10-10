@@ -3,6 +3,8 @@ import {useEffect,useRef,type RefObject} from 'react';
 import {ChevronRight,X} from 'lucide-react';
 import type {PriceBasis} from '@/domain';
 import {formatMargin,margin,type FloorContext} from '@/server/floors';
+import {formatRateBp} from '@/server/freight/recovery';
+import {fromCents} from '@/lib/money';
 import {BASIS_LABELS} from '@/server/pricing';
 import {lineFigures,parseMoney,parseQty,priceForMargin,shortName,type DetailLine,type LineFigures} from '@/server/rep/quote-math';
 import {CONFIDENCE} from '@/server/matching/score';
@@ -18,7 +20,13 @@ import s from './QuoteDetail.module.css';
 // available at the quote branch, cost (Show cost), the unit price with its price-basis dropdown,
 // margin, total and remove. A line below floor[rep][category] gets the red warning directly
 // above its price field (never blocking); each line has a collapsed "Why this price?" row, and a
-// "?" next to the price-basis dropdown whose tip lists why Querent suggests its price.
+// "?" next to the price-basis dropdown whose tip lists why Querent suggests its price. Under free
+// delivery pricing, "Why this price?" also shows the line's freight recovery per unit with the
+// quote's frozen rate and ramp step (spec §4.6); the unit price field stays the rep's price and the
+// total is at the customer-facing price.
+
+/** The quote's frozen recovery rate and ramp step (spec §4.6), or null when it carries no recovery. */
+export interface QuoteRecovery {rateBp:number;step:number|null;steps:number|null}
 
 export interface LineGridProps {
   lines:readonly DetailLine[];
@@ -31,6 +39,8 @@ export interface LineGridProps {
   editable:boolean;
   /** Lines whose "Why this price?" row is open. */
   open:ReadonlySet<string>;
+  /** The quote's freight recovery rate, when it carries recovery. */
+  recovery?:QuoteRecovery|null;
   onToggle:(lineId:string)=>void;
   /** An added line whose qty field should take focus. */
   focusLineId?:string|null;
@@ -66,7 +76,7 @@ export function LineGrid({lines,showCost,...props}:LineGridProps){
   </div>;
 }
 
-function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,open,onToggle,focusLineId,onFocused,columns}:Omit<LineGridProps,'lines'>&{line:DetailLine;columns:number}){
+function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,open,onToggle,focusLineId,onFocused,columns,recovery=null}:Omit<LineGridProps,'lines'>&{line:DetailLine;columns:number}){
   const figures=lineFigures(line,floor);
   const name=shortName(line.description);
   const isOpen=open.has(line.id);
@@ -129,7 +139,7 @@ function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,ope
       </td>
     </tr>
     <tr className={s.why} id={whyId} hidden={!isOpen}>
-      <td colSpan={columns}>{isOpen&&<WhyThisPrice line={line} figures={figures} floorLabel={floorLabel}
+      <td colSpan={columns}>{isOpen&&<WhyThisPrice line={line} figures={figures} floorLabel={floorLabel} recovery={recovery}
         customerFirstName={customerFirstName} asOf={asOf} editable={editable} onUse={basis=>editor.edit(line.id,{basis})}/>}</td>
     </tr>
   </tbody>;
@@ -179,8 +189,14 @@ function PriceReasons({line,priced,floorLabel}:{line:DetailLine;priced:NonNullab
   </InfoTip>;
 }
 
+/** "Freight recovery +$2.40 (rate 5.0%, ramp step 2 of 3)": the line's recovery per unit at the quote's frozen rate (spec §4.6). */
+export function recoveryText(recoveryCents:number,{rateBp,step,steps}:QuoteRecovery){
+  const ramp=step!==null&&steps!==null?`, ramp step ${step} of ${steps}`:'';
+  return `Freight recovery +${money(fromCents(recoveryCents))} (rate ${formatRateBp(rateBp)}${ramp})`;
+}
+
 /** The collapsed "Why this price?" row: Querent's explanation, every price option with its margin, stock by branch, and what the customer asked for. */
-function WhyThisPrice({line,figures,floorLabel,customerFirstName,asOf,editable,onUse}:{line:DetailLine;figures:LineFigures;floorLabel:string;customerFirstName:string;asOf:string;editable:boolean;onUse:(basis:PriceBasis)=>void}){
+function WhyThisPrice({line,figures,floorLabel,recovery,customerFirstName,asOf,editable,onUse}:{line:DetailLine;figures:LineFigures;floorLabel:string;recovery:QuoteRecovery|null;customerFirstName:string;asOf:string;editable:boolean;onUse:(basis:PriceBasis)=>void}){
   const {priced,stock,lastPaid}=figures;
   const pick=priced?.suggestion;
   const offPick=pick&&pick.basis!==null&&(line.price_basis!==pick.basis||line.unit_price!==pick.price);
@@ -191,6 +207,7 @@ function WhyThisPrice({line,figures,floorLabel,customerFirstName,asOf,editable,o
       <p className={s.explain}>{priced?priced.explanation:'No price facts on file for this item. Price it by hand.'}</p>
       {offPick&&line.unit_price!==null&&<p className={s.whyNote}>You priced it at {line.price_basis?BASIS_LABELS[line.price_basis]:'Custom'}, {money(line.unit_price)}.</p>}
       <p className={s.whyNote}>{floorLabel}{lastPaid&&<> · Last paid {money(lastPaid.price)} on {day(lastPaid.date,asOf)}</>}</p>
+      {recovery&&line.freight_recovery>0&&<p className={s.whyNote}>{recoveryText(line.freight_recovery,recovery)}</p>}
     </section>
     {priced&&<section className={s.whyTable}>
       <h4>Price options</h4>

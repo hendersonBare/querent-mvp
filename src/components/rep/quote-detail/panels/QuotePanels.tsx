@@ -23,7 +23,7 @@ export function QuotePanels({editor,figures}:{editor:QuoteEditor;figures:QuoteFi
   const save=useCallback<SavePanel>((endpoint,method,body)=>saveQuote(()=>savePanel(quoteId,endpoint,method,body)),[saveQuote,quoteId]);
   return <>
     <CustomerPanel detail={detail} quoteTotal={figures.total??figures.items}/>
-    <FulfillmentPanel detail={detail} items={figures.items} save={save}/>
+    <FulfillmentPanel detail={detail} items={figures.goods} save={save}/>
     <TermsPanel detail={detail} save={save}/>
     <NotesPanel detail={detail} save={save}/>
     <ActivityPanel detail={detail}/>

@@ -2,6 +2,8 @@ import 'server-only';
 import {z} from 'zod';
 import {FULFILLMENTS,type ChatMessage,type ItemPopupPayload,type QuoteRequestedPayload} from '@/domain';
 import type {ChatTurn,QuoteRequestInput,QuoteRequestResult} from '@/lib/contracts';
+import type {DistanceProvider} from '@/server/freight/distance';
+import {applyQuoteRecovery,quoteRoadMiles} from '@/server/freight/quote';
 import {draftLineFields} from '@/server/pricing';
 import {priceLines} from '@/server/pricing/service';
 import {
@@ -24,6 +26,12 @@ import {
 // quote's branch, ship-to and subtotal whenever it is read (only a rep override is stored), and
 // the "Suggested by Querent" chips are computed per view (quoteUpsells). The draft carries their
 // inputs: the branch, pickup or delivery, and the ship-to on file.
+//
+// Free delivery pricing (spec §4.2, §4.4, §4.5) is frozen at creation, in the same transaction:
+// the modelled delivery cost of a delivery, and, when the quote carries recovery, the rate in force
+// with its ramp step and each line's recovery (applyQuoteRecovery). The road miles are measured
+// first, with the DistanceProvider, from the chosen branch to the account's ship-to (the quote's).
+// None of it reaches the customer's answer.
 //
 // One pop-up makes at most one quote: the quote_requested message records the pop-up it came from,
 // and pressing Request quote again (a double click, a retry, a second tab) replays that quote. The
@@ -89,11 +97,25 @@ function earlierTurn(messages:readonly ChatMessage[],confirmation:ChatMessage):C
 }
 
 export interface QuoteRequester {customerId:string;contactId:string|null}
+
+/**
+ * Road miles from the chosen branch to the account's ship-to (where the quote will deliver), for a
+ * delivery; null for will call, or when either end is unknown (the transaction refuses those).
+ */
+async function deliveryMiles(customerId:string,input:QuoteRequestInput,provider?:DistanceProvider){
+  const shipTo=customerAccount(customerId)?.ship_to;
+  if(input.fulfillment!=='delivery'||!shipTo||!branches().some(b=>b.id===input.branch_id))return null;
+  // The ship-to createQuote will copy onto the quote (repository customerShipTo).
+  const address=`${shipTo.address}, ${shipTo.city}, ${shipTo.state} ${shipTo.zip}`;
+  return quoteRoadMiles({fulfillment:'delivery',branch_id:input.branch_id,ship_to_address:address,ship_to_lat:shipTo.lat,ship_to_lng:shipTo.lng},provider);
+}
 export interface QuoteRequestOptions {
   /** ISO timestamp for the quote and its Activity; defaults to the clock. (The chat turn always takes the clock.) */
   now?:string;
   /** The pricing day (YYYY-MM-DD); defaults to now's day. */
   on?:string;
+  /** Road miles for the modelled delivery cost (spec §4.2); haversine × road factor by default. */
+  provider?:DistanceProvider;
 }
 
 /**
@@ -103,9 +125,10 @@ export interface QuoteRequestOptions {
  * (422): an unknown or repeated SKU, a SKU not on the pop-up, a qty outside 1 to 9999, an unknown
  * branch, delivery without a ship-to on file, or any field besides those four (a price, a cost).
  */
-export function requestQuote(who:QuoteRequester,body:unknown,{now=new Date().toISOString(),on=now.slice(0,10)}:QuoteRequestOptions={}):QuoteRequestResult{
+export async function requestQuote(who:QuoteRequester,body:unknown,{now=new Date().toISOString(),on=now.slice(0,10),provider}:QuoteRequestOptions={}):Promise<QuoteRequestResult>{
   const input=parse(body);
   const {customerId}=who;
+  const miles=await deliveryMiles(customerId,input,provider);
   return inTransaction(()=>{
     if(!conversation(customerId,input.conversation_id))throw new QuoteRequestError(404,'Conversation not found.');
     const messages=conversationMessages(customerId,input.conversation_id);
@@ -150,6 +173,7 @@ export function requestQuote(who:QuoteRequester,body:unknown,{now=new Date().toI
       lines:lines.map((l,i)=>({itemId:l.item.id,qty:l.qty,...draftLineFields(priced[i]),requestedText:l.requestedText,addedBy:'querent'})),
       requestedAt:now,at:now,
     });
+    applyQuoteRecovery(q,miles,{now,remodel:true});
 
     const where=input.fulfillment==='will_call'?`pickup at ${branch.code}`:`delivery from ${branch.code}`;
     const items=plural(lines.length,'item');

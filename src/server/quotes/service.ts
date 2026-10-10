@@ -12,7 +12,7 @@ import {QUOTE_MESSAGE_MAX,quoteReadyPayload,sanitizeChatText} from './announce';
 import {QuoteActionError} from './errors';
 import {assertEvent,daysUntil,effectiveStatus,expiresAt,isExpired,utcDay,validUntilOnSend} from './lifecycle';
 import {sendBlockers,type SendBlocker} from './send-check';
-import {buildSnapshot,cents,letterheadOf,repContactOf,type SnapshotInput} from './snapshot';
+import {buildSnapshot,cents,customerUnitPrice,letterheadOf,repContactOf,type SnapshotInput} from './snapshot';
 
 // Quote lifecycle services (spec §5.4): the only code that changes a quote's status. Each one
 // reads the quote, asks ./lifecycle whether the move is legal, and persists it with
@@ -69,13 +69,13 @@ export interface SendCheck {
   /** Lines below the rep's floor: a warning only, shown as a count in Confirm send. */
   below_floor_count:number;
   freight:QuoteFreight;
-  /** Priced lines only, to the cent, as the snapshot will total them. */
+  /** Priced lines only, at the customer-facing unit price (with freight recovery), to the cent, as the snapshot will total them. */
   subtotal:number;
   /** subtotal + freight, or null while freight is call for freight. */
   total:number|null;
 }
 
-const pricedSubtotal=(q:Quote)=>cents(q.lines.reduce((sum,l)=>sum+(l.unit_price!==null&&Number.isFinite(l.unit_price)?cents(l.qty*l.unit_price):0),0));
+const pricedSubtotal=(q:Quote)=>cents(q.lines.reduce((sum,l)=>sum+(l.unit_price!==null&&Number.isFinite(l.unit_price)?cents(l.qty*customerUnitPrice(l.unit_price,l.freight_recovery)):0),0));
 
 /** What the Approve & send dialog needs: can it go, and if not, why; plus the floor warnings and the total. */
 export async function sendCheck(quoteIdOrNumber:string,{provider,now=clock()}:{provider?:DistanceProvider;now?:string}={}):Promise<SendCheck>{

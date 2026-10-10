@@ -2,6 +2,7 @@
 import {useCallback,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {ChevronRight} from 'lucide-react';
+import {formatRateBp} from '@/server/freight/recovery';
 import {fulfillmentTimeLabel} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
@@ -48,6 +49,9 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
   },[]);
   const customer=quote.contact_name??quote.customer_name;
   const closeSend=useCallback(()=>setSending(false),[]);
+  // The quote's frozen freight recovery rate (spec §4.6), for "Why this price?".
+  const recovery=useMemo(()=>quote.freight_rate_bp===null?null:{rateBp:quote.freight_rate_bp,step:quote.freight_ramp_step,steps:quote.freight_ramp_steps},
+    [quote.freight_rate_bp,quote.freight_ramp_step,quote.freight_ramp_steps]);
 
   return <>
     <QuoteHeader detail={detail} editor={editor} onApprove={()=>setSending(true)}/>
@@ -65,7 +69,7 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
           {editor.error&&<p className={s.problem} role="alert">{editor.error}<button type="button" className={s.link} onClick={editor.dismissError}>Dismiss</button></p>}
           {editable&&<UndoBar editor={editor}/>}
           <LineGrid lines={lines} editor={editor} floor={floor} customerFirstName={firstName(customer)} asOf={detail.as_of} showCost={showCost} editable={editable}
-            open={open} onToggle={toggle} focusLineId={editor.focusLineId} onFocused={editor.clearFocus}/>
+            open={open} onToggle={toggle} focusLineId={editor.focusLineId} onFocused={editor.clearFocus} recovery={recovery}/>
           <Totals figures={figures}/>
         </section>
         <UpsellsSection editor={editor} querentFound={figures.querentFoundLabel}/>
@@ -97,7 +101,8 @@ function QuoteHeader({detail,editor,onApprove}:{detail:QuoteDetail;editor:QuoteE
     </nav>
     <div className={s.qtop}>
       <div className={s.qtitle}>
-        <div className={list.titleRow}><h1 className={s.title}>{quote.customer_name}</h1><StatusChip status={quote.status}/></div>
+        <div className={list.titleRow}><h1 className={s.title}>{quote.customer_name}</h1><StatusChip status={quote.status}/>
+          {quote.freight_rate_bp!==null&&<span className={list.tag} title="Free delivery pricing: this rate of the goods value is recovered in item prices (rep-only)">Freight recovery {formatRateBp(quote.freight_rate_bp)}</span>}</div>
         <p className={s.qmeta}>{quote.quote_number}{quote.revision>0&&` rev ${quote.revision}`}{who&&` · ${who}`} · Requested {requestedAt(quote.requested_at)} · Valid until {day(detail.valid_until,detail.as_of)}</p>
       </div>
       <div className={s.qactions}>

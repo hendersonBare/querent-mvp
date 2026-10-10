@@ -1,7 +1,7 @@
 import 'server-only';
 import type {
   ActivityActor,CustomerQuoteRevision,CustomerQuoteSummary,CustomerQuoteView,LineSource,NewQuote,NewQuoteLine,NewQuoteRevision,Quote,QuoteActivity,QuoteFulfillmentPatch,
-  QuoteHeader,QuoteLine,QuoteLinePatch,QuoteListRow,QuoteNote,QuoteRevision,QuoteSnapshot,QuoteStatus,QuoteTermsPatch,QuoteTransition,Rep,
+  QuoteHeader,QuoteLine,QuoteLinePatch,QuoteListRow,QuoteNote,QuoteRecoveryState,QuoteRevision,QuoteSnapshot,QuoteStatus,QuoteTermsPatch,QuoteTransition,Rep,
 } from '@/domain';
 import {db,seedAnchor} from '../db';
 import {SAMPLE_QUOTE,seedSampleQuote} from '../db/seed';
@@ -195,6 +195,22 @@ export function setFreightOverride(quoteId:string,override:{amount:number;reason
   if(override&&(!Number.isFinite(override.amount)||override.amount<0))throw new RangeError(`Freight must be at least 0 (got ${override.amount}).`);
   if(override&&!override.reason.trim())throw new Error('A freight override needs a reason.');
   return updateQuote(quoteId,[['freight_override',override?.amount??null],['freight_override_reason',override?.reason.trim()??null]],at);
+}
+
+/**
+ * Stores free delivery pricing's frozen state on a quote (spec §4.4, §4.5), as freight/quote.ts
+ * decides it: the rate, its ramp step, the modelled cost and each line's recovery (cents per unit).
+ * It is derived from the draft, so updated_at is left alone (a send in flight isn't a conflict; the
+ * send compares the total it confirmed). Returns false if the quote doesn't exist.
+ */
+export function saveQuoteRecovery(quoteId:string,state:QuoteRecoveryState){
+  for(const l of state.lines)if(!Number.isInteger(l.freightRecovery)||l.freightRecovery<0)throw new RangeError(`Freight recovery must be whole cents of at least 0 (got ${l.freightRecovery}).`);
+  return inTransaction(()=>{
+    if(run('UPDATE quotes SET freight_rate_bp=?,freight_ramp_step=?,freight_ramp_steps=?,modelled_freight_cents=? WHERE id=?',
+      state.rateBp,state.rampStep,state.rampSteps,state.modelledCents,quoteId).changes!==1)return false;
+    for(const l of state.lines)run('UPDATE quote_lines SET freight_recovery=? WHERE id=? AND quote_id=?',l.freightRecovery,l.lineId,quoteId);
+    return true;
+  });
 }
 
 /**

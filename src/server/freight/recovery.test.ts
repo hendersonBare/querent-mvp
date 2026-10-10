@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
-import {allocateRecovery,carriesRecovery,customerUnitPrice,recoveryGoodsCents,type RecoveryLine} from './recovery';
+import {customerUnitPrice} from '@/server/quotes/snapshot';
+import {allocateRecovery,carriesRecovery,formatRateBp,recoveryGoodsCents,type RecoveryLine} from './recovery';
 
 // Margin-weighted allocation within a quote (spec §4.5, decision 33; OA-5, OA-6, OA-16, OA-24;
 // test plan §12 "Allocation").
@@ -93,5 +94,11 @@ describe('customerUnitPrice',()=>{
     expect(customerUnitPrice(31.5,95)).toBe(32.45);
     expect(customerUnitPrice(0.0825,0)).toBe(0.0825);
     expect(customerUnitPrice(0.1,20)).toBe(0.3);
+  });
+});
+
+describe('formatRateBp',()=>{
+  it('reads a bp rate as a percent with one decimal, as "Why this price?" and the header chip show it',()=>{
+    expect([500,267,200,0,800].map(formatRateBp)).toEqual(['5.0%','2.7%','2.0%','0.0%','8.0%']);
   });
 });

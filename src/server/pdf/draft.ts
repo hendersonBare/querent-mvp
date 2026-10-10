@@ -1,6 +1,6 @@
 import type {Quote} from '@/domain';
 import type {QuoteFreight} from '@/server/freight/engine';
-import {cents} from '@/server/quotes/snapshot';
+import {cents,customerUnitPrice} from '@/server/quotes/snapshot';
 import {validUntilOnSend} from '@/server/quotes/lifecycle';
 import type {PdfQuote} from './model';
 
@@ -8,12 +8,13 @@ import type {PdfQuote} from './model';
 // get sent revisions only. Like buildSnapshot, it copies only the customer fields of the draft,
 // so cost, basis, suggestions and Querent's notes never reach the PDF. Unlike it, an unfinished
 // draft still previews: an unpriced line or call-for-freight shows as open, with no total. It
-// freezes nothing, so the terms, rep contact and letterhead come from the live records.
+// freezes nothing, so the terms, rep contact and letterhead come from the live records. Prices are
+// the customer-facing unit price (unit price + freight recovery, spec §4.5), as a send would freeze them.
 
 /** The draft as the next revision would print it: dated `now`, valid for the quote's days from now. */
 export function fromDraft(q:Quote,freight:QuoteFreight,now:string):PdfQuote{
   const lines=q.lines.map(l=>{
-    const price=l.unit_price!==null&&Number.isFinite(l.unit_price)?l.unit_price:null;
+    const price=l.unit_price!==null&&Number.isFinite(l.unit_price)?customerUnitPrice(l.unit_price,l.freight_recovery):null;
     return {sku:l.sku,description:l.description,pack:l.pack,qty:l.qty,unit_price:price,total:price===null?null:cents(l.qty*price)};
   });
   const subtotal=cents(lines.reduce((sum,l)=>sum+(l.total??0),0));
