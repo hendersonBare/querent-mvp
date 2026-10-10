@@ -1,11 +1,12 @@
 import type {Branch,Quote,QuoteSnapshot,Rep,SnapshotLetterhead,SnapshotRepContact,Supplier} from '@/domain';
+import {roundDollars} from '@/lib/money';
 
 // The frozen revision (spec §5.4): each send stores what the customer was sent ("Q-24817 rev 2")
 // so the PDF they saw can always be reproduced. Pure; copies only customer-facing fields, never
 // cost, margin, Querent's suggestions or internal notes.
 
-/** Rounds dollars to the cent, half up. toPrecision drops float noise first (7 x 12.345 = 86.41499999999999 -> 86.42). */
-export const cents=(n:number)=>Math.round(Number((n*100).toPrecision(12)))/100;
+/** Rounds dollars to the cent: the shared money helper (src/lib/money.ts), kept under its old name for its callers. */
+export const cents=roundDollars;
 
 /** The rep's contact block on the customer PDF, from a rep or a stored contact: named fields only. */
 export function repContactOf(r:Pick<Rep,'name'>&{[K in 'title'|'phone'|'email']:string|null}):SnapshotRepContact{

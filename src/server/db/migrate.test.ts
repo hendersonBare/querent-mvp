@@ -3,6 +3,9 @@ import {copyFileSync,mkdtempSync,readdirSync,rmSync,writeFileSync} from 'node:fs
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach,beforeEach,describe,expect,it} from 'vitest';
+import {FULFILLMENTS} from '../../domain/orders';
+import {PRICE_BASES,QUOTE_STATUSES} from '../../domain/quotes';
+import {categories} from '../../lib/contracts';
 import {migrate,migrationsDir,readMigrations} from './migrate';
 import {createV4Database,masterOf,v4Schema} from './test-v4';
 
@@ -46,6 +49,17 @@ describe('migrate',()=>{
     migrate(database,{dir});
     expect(masterOf(database)).toEqual(v4Schema());
     expect(database.prepare("SELECT value FROM meta WHERE key='schema_version'").pluck().get()).toBe('4');
+  });
+
+  it('keeps the CHECK lists of the migrated schema equal to the domain constants',()=>{
+    migrate(database);
+    const sql=(table:string)=>database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").pluck().get(table) as string;
+    const check=(table:string,column:string)=>[...sql(table).matchAll(new RegExp(`CHECK\\(${column} IN \\(([^)]*)\\)\\)`,'g'))].map(m=>m[1].split(',').map(v=>v.slice(1,-1)));
+    expect(check('quotes','status')).toEqual([[...QUOTE_STATUSES]]);
+    for(const table of ['quotes','orders'])expect(check(table,'fulfillment')).toEqual([[...FULFILLMENTS]]);
+    expect(check('quote_lines','price_basis')).toEqual([[...PRICE_BASES]]);
+    expect(check('quote_lines','suggested_basis')).toEqual([[...PRICE_BASES]]);
+    expect(check('access','category')).toEqual([[...categories]]);
   });
 
   it('adopts a v4 database as already at 001 without running it, then applies later files',()=>{

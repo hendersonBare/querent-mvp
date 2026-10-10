@@ -52,7 +52,7 @@ export function DataSources({initial}:{initial:Sources}){
         <div><dt>Seeded for</dt><dd>{day(database.seed_date)}</dd></div>
         <div><dt>Records</dt><dd>{records.customers} customers, {records.items} items, {records.orders} orders, {records.quotes} quotes</dd></div>
         <div><dt>ERP records synced</dt><dd>{database.synced_at?<Time iso={database.synced_at} withDate seconds={false}/>:'Not yet'}</dd></div>
-        <div><dt>Schema version</dt><dd>{database.schema_version}</dd></div>
+        <div><dt>Schema migration</dt><dd>{database.schema_migration}</dd></div>
       </dl>
     </div>
     <div className={s.source}>

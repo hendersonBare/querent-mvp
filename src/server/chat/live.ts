@@ -43,6 +43,7 @@ export const HISTORY_LIMIT=20;
 
 let shared:LiveClient|undefined;
 /** One client per server process; the SDK reads ANTHROPIC_API_KEY. */
+// TODO(R-2): pass the key from user secrets or a secrets manager instead of .env.local.
 function defaultClient(){return shared??=new Anthropic({timeout:60_000,maxRetries:2});}
 
 /** The system prompt: who Querent is, the rules, and this customer's rep and branches. Stable for a customer and day. */

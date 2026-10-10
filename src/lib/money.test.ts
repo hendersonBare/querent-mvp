@@ -37,11 +37,12 @@ describe('roundDollars, the one rounding function behind snapshot, freight and r
   });
 
   // Documented differences. roundDollars uses the snapshot/freight toPrecision(12) noise cleanup, not the
-  // repository's +EPSILON (EPSILON is below one ulp above ~$1, so it fails to rescue a half cent there),
+  // repository's +EPSILON (EPSILON is below one ulp from $2 up, so it fails to rescue many half cents there),
   // and rounds a negative exact half cent away from zero instead of up.
   it.each([
-    [1000.005,1000.01,1000.01,1000],     // EPSILON too small at this magnitude
-    [123456.785,123456.79,123456.79,123456.78],
+    [2.135,2.14,2.14,2.13],              // EPSILON is too small to rescue these half cents
+    [4.015,4.02,4.02,4.01],
+    [10.075,10.08,10.08,10.07],
     [-1.005,-1.01,-1,-1],                 // negative half cent: away from zero
     [-0.125,-0.13,-0.12,-0.12],
   ])('%s rounds to %s (snapshot and freight gave %s, repository %s)',(n,now,toPrecision,epsilon)=>{

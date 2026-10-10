@@ -5,7 +5,8 @@ import type {
 } from '@/domain';
 import {db,seedAnchor} from '../db';
 import {SAMPLE_QUOTE,seedSampleQuote} from '../db/seed';
-import {all,bool,flag,inTransaction,nowIso,one,round2,run,scalar} from './sql';
+import {roundDollars} from '@/lib/money';
+import {all,bool,flag,inTransaction,nowIso,one,run,scalar} from './sql';
 
 // Quote persistence (spec §4, §5.4). This module stores what the services decide: the state
 // machine (task 1.5) chooses transitions, the pricing engine (1.1) chooses prices. Quote and
@@ -54,7 +55,7 @@ export function quotes({customerId=null,repId=null,statuses}:QuoteFilter={}):Quo
     WHERE (@customerId IS NULL OR q.customer_id=@customerId) AND (@repId IS NULL OR q.rep_id=@repId) AND (@statuses IS NULL OR q.status IN (SELECT value FROM json_each(@statuses)))
     ORDER BY q.requested_at DESC,q.quote_number DESC`,{customerId,repId,statuses:statuses?JSON.stringify(statuses):null});
   return rows.map(row=>{
-    const subtotal=round2(row.subtotal),cost_total=round2(row.cost_total);
+    const subtotal=roundDollars(row.subtotal),cost_total=roundDollars(row.cost_total);
     return {...row,subtotal,cost_total,margin:subtotal>0?(subtotal-cost_total)/subtotal:null,unread_for_rep:bool(row.unread_for_rep),is_sample:bool(row.is_sample)};
   });
 }

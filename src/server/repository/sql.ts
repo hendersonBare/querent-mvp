@@ -34,7 +34,6 @@ export const list=(values:readonly string[])=>JSON.stringify(values);
 
 export const bool=(value:unknown)=>value===1||value===true;
 export const flag=(value:boolean)=>value?1:0;
-export const round2=(n:number)=>Math.round((n+Number.EPSILON)*100)/100;
 export const nowIso=()=>new Date().toISOString();
 /** Today as YYYY-MM-DD (UTC). */
 export const today=()=>nowIso().slice(0,10);
