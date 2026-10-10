@@ -1,14 +1,16 @@
 'use client';
 import {useCallback,useMemo,useState} from 'react';
 import Link from 'next/link';
+import {useRouter} from 'next/navigation';
 import {ChevronRight} from 'lucide-react';
 import {formatRateBp} from '@/server/freight/recovery';
-import {DECLINE_REASON_LABELS,fulfillmentTimeLabel} from '@/server/quotes';
+import {DECLINE_REASON_LABELS,canEditDraft,fulfillmentTimeLabel} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
 import {useRepScope} from '../context';
 import {AgingMarker} from '../quotes/AgingMarker';
 import {StatusChip} from '../quotes/QuotesList';
+import {ReassignDialog,type ReassignTarget} from '../reassign/ReassignDialog';
 import {ViewFullChat} from './chat-drawer/ViewFullChat';
 import {ExportMenu} from './export-menu/ExportMenu';
 import {AddItem} from './AddItem';
@@ -28,14 +30,26 @@ import s from './QuoteDetail.module.css';
 // the price-basis dropdowns and floor warnings, the totals and the summary card. Every edit
 // autosaves (./use-quote-editor). The side panels (3.4), the ⋯ menu items (3.5), "Suggested by
 // Querent" (3.6), the send dialog (3.7) and the Export menu (4.3) build on this page.
+//
+// The manager (task D2; v3 spec §6, §8; decision 22) reads any rep's quote: on another rep's the
+// page is read-only (`read_only`): a banner names the rep and offers Reassign, every edit control
+// is off, and the quote isn't marked read for its rep. On any quote the ⋯ menu offers "Reassign to
+// another rep" (the mockup's item, screen 06). After a move the page reloads as the new owner sees it.
 
 const firstName=(name:string)=>name.trim().split(/\s+/)[0];
 
-export function QuoteDetailView({initial}:{initial:QuoteDetail}){
+/** What the manager's Reassign needs (task D2): who she is and the active reps. Absent for a rep. */
+export interface QuoteReassign {me:string;targets:ReassignTarget[]}
+
+export function QuoteDetailView({initial,reassign}:{initial:QuoteDetail;reassign?:QuoteReassign}){
   const editor=useQuoteEditor(initial);
   const {detail,lines}=editor;
   const {quote,editable}=detail;
-  useMarkQuoteRead(quote.id);
+  const readOnly=detail.read_only!==null;
+  useMarkQuoteRead(quote.id,!readOnly);
+  const router=useRouter();
+  const [moving,setMoving]=useState(false);
+  const startReassign=useMemo(()=>reassign?()=>setMoving(true):undefined,[reassign]);
   const [showCost,setShowCost]=useState(false);
   const [open,setOpen]=useState<ReadonlySet<string>>(()=>new Set());
   const [sending,setSending]=useState(false);
@@ -55,7 +69,11 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
     [quote.freight_rate_bp,quote.freight_ramp_step,quote.freight_ramp_steps]);
 
   return <>
-    <QuoteHeader detail={detail} editor={editor} onApprove={()=>setSending(true)}/>
+    <QuoteHeader detail={detail} editor={editor} onApprove={()=>setSending(true)} onReassign={startReassign}/>
+    {detail.read_only&&<section className={s.banner} data-tone="readonly" aria-label="Read only">
+      <span><strong>Read only:</strong> {detail.read_only.rep_name}’s quote. Reassign it to edit.</span>
+      {startReassign&&<button type="button" className={s.btn} onClick={startReassign}>Reassign…</button>}
+    </section>}
     <StatusBanner detail={detail}/>
     <div className={s.qgrid}>
       <div className={s.qmain}>
@@ -81,10 +99,13 @@ export function QuoteDetailView({initial}:{initial:QuoteDetail}){
       </aside>
     </div>
     <ApproveAndSend open={sending} editor={editor} figures={figures} checks={checks} onClose={closeSend}/>
+    {moving&&reassign&&<ReassignDialog quotes={[{id:quote.id,quote_number:quote.quote_number}]} targets={reassign.targets} me={reassign.me}
+      currentRep={quote.rep_id} initial={readOnly?reassign.me:null} onClose={()=>setMoving(false)}
+      onDone={()=>{setMoving(false);router.refresh();}}/>}
   </>;
 }
 
-function QuoteHeader({detail,editor,onApprove}:{detail:QuoteDetail;editor:QuoteEditor;onApprove:()=>void}){
+function QuoteHeader({detail,editor,onApprove,onReassign}:{detail:QuoteDetail;editor:QuoteEditor;onApprove:()=>void;onReassign?:()=>void}){
   const scope=useRepScope();
   const {quote,editable}=detail;
   const [savedNote,setSavedNote]=useState<string|null>(null);
@@ -109,8 +130,9 @@ function QuoteHeader({detail,editor,onApprove}:{detail:QuoteDetail;editor:QuoteE
       <div className={s.qactions}>
         <p className={s.saveState} role="status">{status}</p>
         <button type="button" className={s.btn} onClick={saveDraft} disabled={!editable}>Save draft</button>
-        <ExportMenu detail={detail} lines={editor.lines} flush={editor.flush} buttonClassName={s.btn}/>
-        <MoreMenu quote={quote} flush={editor.flush} buttonClassName={`${s.btn} ${s.sq}`}/>
+        {/* A read-only draft (the manager's view, task D2) still exports as the draft, as its owner would see it. */}
+        <ExportMenu detail={detail.read_only?{...detail,editable:canEditDraft(quote.status)}:detail} lines={editor.lines} flush={editor.flush} buttonClassName={s.btn}/>
+        <MoreMenu quote={quote} flush={editor.flush} buttonClassName={`${s.btn} ${s.sq}`} readOnly={detail.read_only!==null} onReassign={onReassign}/>
         <button type="button" className={`${s.btn} ${s.primary}`} onClick={onApprove} disabled={!editable}>Approve &amp; send</button>
       </div>
     </div>

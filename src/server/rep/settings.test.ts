@@ -77,10 +77,10 @@ describe('repSettings: the page snapshot',()=>{
 });
 
 describe('assignRep: one rep per customer',()=>{
-  afterEach(()=>{assignRep({customer_id:'wasatch',rep_id:'brandi'});});
+  afterEach(()=>{assignRep('brandi',{customer_id:'wasatch',rep_id:'brandi'});});
 
-  it("never reassigns existing quotes: they stay in the old rep's list, against the old rep's floors",async()=>{
-    assignRep({customer_id:'wasatch',rep_id:'mara'});
+  it("without “Also move this customer’s open quotes”, existing quotes stay in the old rep's list, against the old rep's floors",async()=>{
+    assignRep('brandi',{customer_id:'wasatch',rep_id:'mara'});
     expect(quote('q-24817')?.rep_id).toBe('brandi');
     expect(quoteFloors('q-24817')).toMatchObject({rep_id:'brandi',belowFloorCount:1});
     const brandi=await repQuoteList('brandi',{customerId:'wasatch',now:NOW});
@@ -92,7 +92,7 @@ describe('assignRep: one rep per customer',()=>{
   });
 
   it("reassigns the customer: the rep contact Dana sees follows, and new quotes go to the new rep",()=>{
-    const {assignments}=assignRep({customer_id:'wasatch',rep_id:'mara'});
+    const {assignments}=assignRep('brandi',{customer_id:'wasatch',rep_id:'mara'});
     expect(assignments.find(a=>a.id==='wasatch')).toMatchObject({rep_id:'mara',rep_name:'Mara Jensen'});
     expect(assignedRep('wasatch')?.name).toBe('Mara Jensen');
     // The 2.4 sidebar and the access rules (the chat's rep panel) read the assignment live.
@@ -110,7 +110,7 @@ describe('assignRep: one rep per customer',()=>{
   });
 
   it("names the new rep when chat refuses a category the customer has turned off",async()=>{
-    assignRep({customer_id:'wasatch',rep_id:'mara'});
+    assignRep('brandi',{customer_id:'wasatch',rep_id:'mara'});
     updateAccess({customer_id:'wasatch',category:'items_stock',enabled:false});
     try{
       const answer=await ask('wasatch','conv-settings-reassigned','Do you have 1/2 in grade 8 hex bolts in stock?',{contactId:'dana'});
@@ -121,12 +121,12 @@ describe('assignRep: one rep per customer',()=>{
   });
 
   it('rejects a bad request, and an unknown customer or rep, changing nothing',()=>{
-    rejects(()=>assignRep({}),400);
-    rejects(()=>assignRep({customer_id:'wasatch'}),400);
-    rejects(()=>assignRep({customer_id:'wasatch',rep_id:7}),400);
-    rejects(()=>assignRep(null),400);
-    rejects(()=>assignRep({customer_id:'nobody',rep_id:'mara'}),404,/customer/i);
-    rejects(()=>assignRep({customer_id:'wasatch',rep_id:'nobody'}),404,/rep/i);
+    rejects(()=>assignRep('brandi',{}),400);
+    rejects(()=>assignRep('brandi',{customer_id:'wasatch'}),400);
+    rejects(()=>assignRep('brandi',{customer_id:'wasatch',rep_id:7}),400);
+    rejects(()=>assignRep('brandi',null),400);
+    rejects(()=>assignRep('brandi',{customer_id:'nobody',rep_id:'mara'}),404,/customer/i);
+    rejects(()=>assignRep('brandi',{customer_id:'wasatch',rep_id:'nobody'}),404,/rep/i);
     expect(assignedRep('wasatch')?.id).toBe('brandi');
   });
 });

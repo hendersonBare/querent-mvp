@@ -20,6 +20,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 //   3.2): any sent revision, or rev=draft to preview the unsent draft (the 3.7 send dialog), as the
 //   customer quote or as the internal worksheet (cost, margin, floors, Querent's reasoning, credit
 //   and internal notes). Another rep's quote is 404 in both variants, like an unknown one.
+// - the manager: the same, for any rep's quote, read-only (task D2).
 // - no session: 401. Unknown ids, other customers' quotes and unsent revisions: 404.
 
 export async function GET(request:NextRequest,{params}:{params:Promise<{id:string}>}){
@@ -36,11 +37,11 @@ export async function GET(request:NextRequest,{params}:{params:Promise<{id:strin
   // The rep check of /api/rep/badges (task 3.1): an active supplier rep (task D1).
   const access=repAccess(user);
   if(!access.ok)return pdfError(access.detail,access.status);
-  const repId=access.repId;
+  const {repId,manager}=access;
   if(query.variant==='internal'){
-    const worksheet=await internalWorksheet(repId,id,query.rev);
+    const worksheet=await internalWorksheet(repId,id,query.rev,{manager});
     return worksheet.ok?pdfFileResponse(await renderInternalWorksheetPdf(worksheet.model),worksheet.model.filename):pdfError(worksheet.detail,worksheet.status);
   }
-  const pdf=await repCustomerPdf(repId,id,query.rev);
+  const pdf=await repCustomerPdf(repId,id,query.rev,undefined,{manager});
   return pdf.ok?pdfResponse(pdf.model):pdfError(pdf.detail,pdf.status);
 }

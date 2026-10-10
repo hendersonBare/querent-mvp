@@ -5,16 +5,18 @@ import {useRepPortal} from '../context';
 /**
  * Marks the quote read for the rep once its page is on screen (a link prefetch never runs this),
  * then re-reads the nav badge instead of waiting for its poll (tasks 3.1, 3.2: opening a quote
- * calls markQuoteRead(id,'rep') through POST /api/rep/quotes/<id>/read).
+ * calls markQuoteRead(id,'rep') through POST /api/rep/quotes/<id>/read). Off (`enabled` false) for
+ * the manager reading another rep's quote: the dot is that rep's (task D2).
  */
-export function useMarkQuoteRead(quoteId:string){
+export function useMarkQuoteRead(quoteId:string,enabled=true){
   const {refreshBadges}=useRepPortal();
   const refresh=useRef(refreshBadges);
   useEffect(()=>{refresh.current=refreshBadges;},[refreshBadges]);
   useEffect(()=>{
+    if(!enabled)return;
     void fetch(`/api/rep/quotes/${encodeURIComponent(quoteId)}/read`,{method:'POST',cache:'no-store'}).then(response=>{
       if(response.status===401||response.status===403)window.location.assign('/');
       else if(response.ok)refresh.current();
     },()=>{/* Offline: the dot stays until the next visit. */});
-  },[quoteId]);
+  },[quoteId,enabled]);
 }

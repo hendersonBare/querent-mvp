@@ -280,15 +280,29 @@ test("sent, accepted and expired quotes are read-only; changes_requested is edit
   await expect(page.getByRole("textbox", { name: /^Quantity for / }).first()).toHaveValue("6");
 });
 
-test("rep-only: customers get 403, another rep's quote is not found, and prices are validated server-side", async ({ page, browser, baseURL }) => {
+test("rep-only: customers get 403, another rep's quote is not found (the manager reads it, read-only), and prices are validated server-side", async ({ page, browser, baseURL }) => {
   await openQuote(page);
   for (const body of [{ unitPrice: -1 }, { unitPrice: 12.345 }, { qty: 2.5 }, { basis: "contract" }]) {
     const response = await api(page, "/api/rep/quotes/Q-24817/lines/q-24817-1", "PATCH", body);
     expect(response.status).toBe(400);
   }
-  expect((await api(page, `/api/rep/quotes/${made.other_rep}`)).status).toBe(404);
-  await page.goto(`/rep/quotes/${made.other_rep}`);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quote not found");
+  // Brandi is the manager (task D2): she reads Mara's quote read-only, and can't edit it.
+  const theirs = await api(page, `/api/rep/quotes/${made.other_rep}`);
+  expect(theirs.status).toBe(200);
+  expect(theirs.body).toMatchObject({ editable: false, read_only: { rep_id: "mara" } });
+  expect((await api(page, `/api/rep/quotes/${made.other_rep}/lines/${theirs.body.lines[0].id}`, "PATCH", { qty: 3 })).status).toBe(404);
+  // Another rep (Eli): not found.
+  const eliContext = await browser.newContext({ baseURL });
+  try {
+    const eli = await eliContext.newPage();
+    await eli.goto("/");
+    expect(await eli.evaluate(async () => (await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: "eli" }) })).status)).toBe(200);
+    expect((await api(eli, `/api/rep/quotes/${made.other_rep}`)).status).toBe(404);
+    await eli.goto(`/rep/quotes/${made.other_rep}`);
+    await expect(eli.getByRole("heading", { level: 1 })).toHaveText("Quote not found");
+  } finally {
+    await eliContext.close();
+  }
 
   const context = await browser.newContext({ baseURL });
   try {

@@ -237,9 +237,19 @@ test("a sent quote exports its latest revision; one with changes requested expor
   expect(await pdfText(revising.body)).toContain(`${made.changes_requested} · Rev 2`);
 });
 
-test("the CSV route is rep-only: visitors 401, customers 403, another rep's quote 404", async ({ page, browser, baseURL, playwright }) => {
+test("the CSV route is rep-only: visitors 401, customers 403, another rep's quote 404 (the manager reads it)", async ({ page, browser, baseURL, playwright }) => {
   await openQuote(page);
-  expect(await status(page, `/api/rep/quotes/${made.other_rep}/lines.csv?rev=draft`)).toBe(404);
+  // Brandi is the manager: she reads any rep's quote (task D2). Another rep (Eli) gets 404.
+  expect(await status(page, `/api/rep/quotes/${made.other_rep}/lines.csv?rev=draft`)).toBe(200);
+  const eliContext = await browser.newContext({ baseURL });
+  try {
+    const eli = await eliContext.newPage();
+    await eli.goto("/");
+    expect(await eli.evaluate(async () => (await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: "eli" }) })).status)).toBe(200);
+    expect(await status(eli, `/api/rep/quotes/${made.other_rep}/lines.csv?rev=draft`)).toBe(404);
+  } finally {
+    await eliContext.close();
+  }
   expect(await status(page, `/api/rep/quotes/Q-99999/lines.csv`)).toBe(404);
   expect(await status(page, `/api/rep/quotes/${SAMPLE}/lines.csv?rev=draft`)).toBe(200);
 

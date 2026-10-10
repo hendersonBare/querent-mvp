@@ -7,7 +7,7 @@ import {repQuoteDetail,type QuoteDetail,type QuoteDetailOptions} from './quote-d
 import {repQuote} from './quotes';
 
 // The quote detail's ⋯ menu (spec §4, §5.4; task 3.5): Duplicate quote and Reset sample quote.
-// (Open customer in ERP is shown disabled until the ERP integration; there is no Reassign.)
+// (Open customer in ERP is shown disabled until the ERP integration; Reassign is the manager's: ./reassign, task D2.)
 // Both act only on the signed-in rep's own quote: another rep's reads as not found, as in the
 // Quotes list (3.2) and the detail page (3.3). The work itself is task 1.5's duplicateQuote and
 // resetSample; this layer adds who may do it, and the double-submit guard.

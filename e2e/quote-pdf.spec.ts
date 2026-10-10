@@ -17,7 +17,7 @@ let dana: Page;
 let brandi: Page;
 let nobody: Page;
 
-async function signIn(browser: Browser, baseURL: string, persona?: "customer" | "supplier") {
+async function signIn(browser: Browser, baseURL: string, persona?: "customer" | "supplier" | "eli") {
   const context = await browser.newContext({ baseURL });
   contexts.push(context);
   const page = await context.newPage();
@@ -146,7 +146,8 @@ test("Brandi previews the unsent Q-24817 draft with rev=draft; without rev there
 });
 
 // Runs last: the test-only hook (task 3.2) adds quotes, among them a draft for Mara's customer.
-test("Brandi can't open another rep's quote in either variant: Mara's quote is 404, as in her Quotes list", async ({ playwright }, testInfo) => {
+// Another rep (Eli) gets 404, as in his Quotes list; Brandi is the manager and reads it (task D2).
+test("another rep can't open Mara's quote in either variant (404); the manager can, read-only", async ({ browser, playwright }, testInfo) => {
   const api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL! });
   let otherRep = "";
   try {
@@ -157,14 +158,20 @@ test("Brandi can't open another rep's quote in either variant: Mara's quote is 4
     await api.dispose();
   }
   expect(otherRep).toMatch(/^Q-\d+$/);
+  const eli = await signIn(browser, testInfo.project.use.baseURL!, "eli");
   for (const url of [
     `/api/quotes/${otherRep}/pdf?rev=draft`,
     `/api/quotes/${otherRep}/pdf?variant=customer&rev=draft`,
     `/api/quotes/${otherRep}/pdf?variant=internal&rev=draft`,
     `/api/quotes/${otherRep}/pdf?variant=internal`,
   ]) {
-    const response = await get(brandi, url);
+    const response = await get(eli, url);
     expect(response.status, url).toBe(404);
     expect(response.json()).toEqual({ detail: "Quote not found." });
+  }
+  for (const url of [`/api/quotes/${otherRep}/pdf?variant=customer&rev=draft`, `/api/quotes/${otherRep}/pdf?variant=internal&rev=draft`]) {
+    const response = await get(brandi, url);
+    expect(response.status, `manager ${url}`).toBe(200);
+    expect(response.headers["content-type"]).toBe("application/pdf");
   }
 });

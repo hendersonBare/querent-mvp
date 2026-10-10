@@ -72,7 +72,7 @@ export function sampleDetail({quote,...overrides}:Partial<Omit<QuoteDetail,'quot
   return {
     as_of:AS_OF,
     quote:{id:'q-24817',quote_number:'Q-24817',customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',contact_id:'dana',contact_name:'Dana Ortiz',
-      contact_title:'Purchasing',rep_id:'brandi',rep_name:'Brandi Gallegos',status:'ready_for_review',revision:0,conversation_id:'conv-q-24817',request_text:REQUEST,
+      contact_title:'Purchasing',rep_id:'brandi',rep_name:'Brandi Gallegos',original_rep_id:'brandi',status:'ready_for_review',revision:0,conversation_id:'conv-q-24817',request_text:REQUEST,
       requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',updated_at:'2026-09-23T16:15:00.000Z',sent_at:null,responded_at:null,
       fulfillment:'will_call',branch_id:'slc',branch_code:'SLC',requested_date:'2026-09-24',fulfillment_time:null,ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',
       ship_to_lat:40.5513,ship_to_lng:-111.933,freight_override:null,freight_override_reason:null,freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null,valid_days:14,valid_until:null,expires_on:null,customer_po:null,customer_note:null,
@@ -86,6 +86,7 @@ export function sampleDetail({quote,...overrides}:Partial<Omit<QuoteDetail,'quot
     send_check:{can_send:true,status_problem:null,blockers:[],below_floor_count:1,subtotal:1122.4,total:1122.4,revision:1},
     panels:SAMPLE_PANELS,
     aging:{level:'ok',since:'2026-09-23T16:15:00.000Z',reason:'Requested 2 hours ago'},
+    read_only:null,
     ...overrides,
   };
 }

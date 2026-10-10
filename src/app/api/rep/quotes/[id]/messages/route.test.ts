@@ -3,7 +3,7 @@ import {expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
 
 // GET /api/rep/quotes/<id or number>/messages?before=&limit= (B1, spec §5, §9): the quote's whole
-// chat for the "View full chat" drawer. The owning rep only (a manager after D2): no session 401, a
+// chat for the "View full chat" drawer. The owning rep and the manager (task D2): no session 401, a
 // customer 403, another rep's quote 404 like an unknown one. Only id, role, kind, content and
 // created_at leave the server: never a payload.
 useSeededDatabase();
@@ -25,11 +25,13 @@ it('answers 401 without a session, 403 for a customer, 404 for an unknown quote 
   createConversation({id:'conv-canyon',customerId:'canyon-ridge',at:'2026-09-23T10:00:00.000Z'});
   addMessage('canyon-ridge','conv-canyon',{role:'customer',content:'Mara’s customer',at:'2026-09-23T10:00:01.000Z'});
   const theirs=createQuote({customerId:'canyon-ridge',conversationId:'conv-canyon',fulfillment:'will_call',branchId:'slc',lines:[]});
-  expect(theirs.rep_id).not.toBe('brandi');
-  const refused=await messages(theirs.quote_number);
+  expect(theirs.rep_id).toBe('mara');
+  const refused=await messages(theirs.quote_number,'','eli');
   expect(refused.status).toBe(404);
   expect(JSON.stringify(await refused.json())).not.toMatch(/Mara’s customer/);
-  expect((await messages(theirs.id)).status).toBe(404);
+  expect((await messages(theirs.id,'','eli')).status).toBe(404);
+  // Brandi is the manager: she reads it (task D2).
+  expect((await messages(theirs.id)).status).toBe(200);
 });
 
 it('serves the owner the chat by number or id, oldest first, with the total and no payloads',async()=>{

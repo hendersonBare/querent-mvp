@@ -9,13 +9,14 @@ import {usePoll} from '@/lib/use-poll';
 import type {RepBadges} from '@/server/rep/badges';
 import {ATTENTION_PARAM,overdueLabel} from './quotes/labels';
 import {RepPortalContext,useRepPortal,useRepScope,type RepIdentity,type RepPortalValue} from './context';
-import {ALL_CUSTOMERS,HOME_SECTION,REP_SECTIONS,SCOPE_PARAM,sectionFor} from './scope';
+import {ALL_CUSTOMERS,ALL_REPS,HOME_SECTION,REPS_PARAM,REP_SECTIONS,SCOPE_PARAM,isAllReps,sectionFor} from './scope';
 import s from './RepShell.module.css';
 
 // The rep portal frame (spec §4, docs/design/screens/03): the app bar (Querent, Herrick, the
 // section nav with the Quotes unread badge, search, the red Needs attention badge, bell, BG), then
 // the "Viewing" customer picker. The Needs attention badge (v3 spec §3, task A2) counts the rep's
-// red quotes only and sits beside the unread badge, which stays (OA-8).
+// red quotes only and sits beside the unread badge, which stays (OA-8). In the manager's All reps
+// scope (?scope=all, task D2) it counts every rep's red quotes, like the list (OA-52).
 
 /** How often the nav badges are re-read, so a customer's new request shows up without a reload. */
 export const BADGE_POLL_MS=5000;
@@ -31,8 +32,9 @@ export interface RepShellProps {
 
 const leave=()=>window.location.assign('/');
 
-async function loadBadges():Promise<RepBadges>{
-  const response=await fetch('/api/rep/badges',{cache:'no-store'});
+/** GET /api/rep/badges, or, in the manager's All reps scope, its every-rep red count (?scope=all, OA-52, task D2). */
+async function loadBadges(allReps:boolean):Promise<RepBadges>{
+  const response=await fetch(allReps?`/api/rep/badges?${REPS_PARAM}=${ALL_REPS}`:'/api/rep/badges',{cache:'no-store'});
   if(response.status===401||response.status===403){leave();throw new Error('Choose a demo workspace.');}
   if(!response.ok)throw new Error('Unable to load notifications.');
   return response.json();
@@ -41,7 +43,9 @@ async function loadBadges():Promise<RepBadges>{
 export function RepShell({rep,org,customers,initialBadges,className,children}:RepShellProps){
   const signOut=useCallback(()=>{void fetch('/api/session',{method:'DELETE'}).finally(leave);},[]);
   const api=useMemo(()=>createAPI(leave),[]);
-  const {data,refresh}=usePoll(loadBadges,BADGE_POLL_MS);
+  const allReps=!!rep.manager&&isAllReps(useSearchParams().get(REPS_PARAM));
+  const load=useCallback(()=>loadBadges(allReps),[allReps]);
+  const {data,refresh}=usePoll(load,BADGE_POLL_MS);
   const badges=data??initialBadges;
   const value=useMemo<RepPortalValue>(()=>({rep,org,customers,api,badges,refreshBadges:()=>void refresh(),signOut}),[rep,org,customers,api,badges,refresh,signOut]);
   return <RepPortalContext.Provider value={value}>

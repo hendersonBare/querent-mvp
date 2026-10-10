@@ -142,9 +142,10 @@ test("picker: the list shows the signed-in rep's quotes, for the picked customer
   await expect(viewing).toHaveValue("all");
   await expect(listed(page)).toHaveCount(31);
 
-  // Opening another rep's quote directly finds nothing either.
+  // Brandi is the manager: opening another rep's quote directly shows it read-only (task D2;
+  // e2e/rep-reassign.spec.ts covers it, and another rep's not-found).
   await page.goto(`/rep/quotes/${made.other_rep}`);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quote not found");
+  await expect(page.getByRole("region", { name: "Read only" })).toContainText("Mara Jensen’s quote");
 });
 
 test("empty state: a placeholder customer has no quotes yet", async ({ page }) => {

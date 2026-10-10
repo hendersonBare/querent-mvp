@@ -12,7 +12,7 @@ import {all,bool,flag,inTransaction,nowIso,one,run,scalar} from './sql';
 // machine (task 1.5) chooses transitions, the pricing engine (1.1) chooses prices. Quote and
 // QuoteLine carry cost and are internal; customers get customerQuotes / customerQuote only.
 
-const HEADER=`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,cu.account_number,q.contact_id,ct.name contact_name,q.rep_id,r.name rep_name,
+const HEADER=`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,cu.account_number,q.contact_id,ct.name contact_name,q.rep_id,r.name rep_name,q.original_rep_id,
   q.status,q.revision,q.conversation_id,q.request_text,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.fulfillment,q.branch_id,b.code branch_code,
   q.requested_date,q.fulfillment_time,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override,q.freight_override_reason,
   q.freight_rate_bp,q.freight_ramp_step,q.freight_ramp_steps,q.modelled_freight_cents,q.valid_days,q.valid_until,q.expires_on,
@@ -42,10 +42,12 @@ export function quoteByNumber(quoteNumber:string){
   return id?quote(id):undefined;
 }
 
-export interface QuoteFilter {customerId?:string|null;repId?:string|null;statuses?:readonly QuoteStatus[]}
+export interface QuoteFilter {customerId?:string|null;repId?:string|null;
+  /** Any of these reps (the manager's team filter, task D2). */
+  repIds?:readonly string[];statuses?:readonly QuoteStatus[]}
 
-/** The rep's Quotes list, newest request first. */
-export function quotes({customerId=null,repId=null,statuses}:QuoteFilter={}):QuoteListRow[]{
+/** The rep's Quotes list (or the manager's All reps list, task D2), newest request first. */
+export function quotes({customerId=null,repId=null,repIds,statuses}:QuoteFilter={}):QuoteListRow[]{
   const rows=all<Omit<QuoteListRow,'margin'|'unread_for_rep'|'is_sample'>&{unread_for_rep:number;is_sample:number}>(`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,q.rep_id,r.name rep_name,
       q.status,q.revision,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.valid_until,q.fulfillment,q.change_request_note,q.unread_for_rep,q.is_sample,
       (SELECT count(*) FROM quote_lines l WHERE l.quote_id=q.id) line_count,
@@ -53,8 +55,9 @@ export function quotes({customerId=null,repId=null,statuses}:QuoteFilter={}):Quo
       (SELECT coalesce(sum(l.qty*l.unit_cost),0) FROM quote_lines l WHERE l.quote_id=q.id AND l.unit_price IS NOT NULL) cost_total,
       q.freight_override,${LATEST_SENT_TOTAL} sent_total
     FROM quotes q JOIN customers cu ON cu.id=q.customer_id JOIN reps r ON r.id=q.rep_id
-    WHERE (@customerId IS NULL OR q.customer_id=@customerId) AND (@repId IS NULL OR q.rep_id=@repId) AND (@statuses IS NULL OR q.status IN (SELECT value FROM json_each(@statuses)))
-    ORDER BY q.requested_at DESC,q.quote_number DESC`,{customerId,repId,statuses:statuses?JSON.stringify(statuses):null});
+    WHERE (@customerId IS NULL OR q.customer_id=@customerId) AND (@repId IS NULL OR q.rep_id=@repId) AND (@repIds IS NULL OR q.rep_id IN (SELECT value FROM json_each(@repIds)))
+      AND (@statuses IS NULL OR q.status IN (SELECT value FROM json_each(@statuses)))
+    ORDER BY q.requested_at DESC,q.quote_number DESC`,{customerId,repId,repIds:repIds?JSON.stringify(repIds):null,statuses:statuses?JSON.stringify(statuses):null});
   return rows.map(row=>{
     const subtotal=roundDollars(row.subtotal),cost_total=roundDollars(row.cost_total);
     return {...row,subtotal,cost_total,margin:subtotal>0?(subtotal-cost_total)/subtotal:null,unread_for_rep:bool(row.unread_for_rep),is_sample:bool(row.is_sample)};
@@ -98,7 +101,7 @@ function customerShipTo(customerId:string){
 
 /**
  * Creates a quote in ready_for_review with the next quote number, for the customer's assigned
- * rep, flagged unread for the rep. Lines are numbered in order. Throws (and writes nothing) if
+ * rep (also its original_rep_id, which never changes: task D2), flagged unread for the rep. Lines are numbered in order. Throws (and writes nothing) if
  * the customer has no rep or an item is unknown.
  */
 export function createQuote(input:NewQuote):Quote{
@@ -108,10 +111,10 @@ export function createQuote(input:NewQuote):Quote{
     const next=(scalar<number|null>('SELECT max(CAST(substr(quote_number,3) AS INTEGER)) FROM quotes')??10000)+1;
     const id=`q-${next}`,at=input.at??nowIso();
     const shipTo=input.shipTo===undefined?customerShipTo(input.customerId):input.shipTo;
-    run(`INSERT INTO quotes(id,quote_number,customer_id,contact_id,rep_id,status,revision,conversation_id,request_text,requested_at,created_at,updated_at,fulfillment,branch_id,
+    run(`INSERT INTO quotes(id,quote_number,customer_id,contact_id,rep_id,original_rep_id,status,revision,conversation_id,request_text,requested_at,created_at,updated_at,fulfillment,branch_id,
         requested_date,ship_to_address,ship_to_lat,ship_to_lng,valid_days,customer_note,unread_for_rep,unread_for_customer,is_sample,duplicated_from)
-      VALUES(?,?,?,?,?,'ready_for_review',0,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,0,?)`,
-      id,`Q-${next}`,input.customerId,input.contactId??null,repId,input.conversationId??null,input.requestText??null,input.requestedAt??at,at,at,input.fulfillment,input.branchId,
+      VALUES(?,?,?,?,?,?,'ready_for_review',0,?,?,?,?,?,?,?,?,?,?,?,?,?,1,0,0,?)`,
+      id,`Q-${next}`,input.customerId,input.contactId??null,repId,repId,input.conversationId??null,input.requestText??null,input.requestedAt??at,at,at,input.fulfillment,input.branchId,
       input.requestedDate??null,shipTo?.address??null,shipTo?.lat??null,shipTo?.lng??null,input.validDays??14,input.customerNote??null,input.duplicatedFrom??null);
     for(const line of input.lines)insertLine(id,line,'querent');
     return quote(id)!;
@@ -231,6 +234,17 @@ export function saveQuoteTransition(quoteId:string,t:QuoteTransition){
 /** Clears the unread flag for the rep or the customer. Reading doesn't change updated_at. */
 export function markQuoteRead(quoteId:string,reader:'rep'|'customer'){
   return run(`UPDATE quotes SET ${reader==='rep'?'unread_for_rep':'unread_for_customer'}=0 WHERE id=?`,quoteId).changes===1;
+}
+
+// ---- Reassignment (v3 spec §8; decision 21; task D2) ----
+
+/**
+ * Makes `repId` the quote's current owner. original_rep_id keeps the first owner, and neither
+ * updated_at nor the touch clock moves: a move is not an edit. False for an unknown quote. The
+ * caller checks the rep and logs the move (src/server/rep/reassign.ts).
+ */
+export function setQuoteRep(quoteId:string,repId:string){
+  return run('UPDATE quotes SET rep_id=? WHERE id=?',repId,quoteId).changes===1;
 }
 
 // ---- Touch and view clocks (v3 spec §3, decision 25: "why quotes went untouched", D3) ----

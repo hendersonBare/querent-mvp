@@ -15,7 +15,7 @@ let GET:typeof import('./route').GET;
 /** Quotes of Canyon Ridge, Mara's customer: one she sent, one still a draft. */
 let marasSentQuote='',marasDraft='';
 
-const call=(id:string,query='',persona:'customer'|'supplier'|null='supplier')=>GET(
+const call=(id:string,query='',persona:'customer'|'supplier'|'eli'|null='supplier')=>GET(
   new NextRequest(`http://127.0.0.1/api/rep/quotes/${encodeURIComponent(id)}/lines.csv${query}`,{headers:persona?{cookie:`querent-persona=${persona}`}:{}}),
   {params:Promise.resolve({id})},
 );
@@ -51,11 +51,12 @@ describe('who may export',()=>{
     }
   });
 
-  it('answers 404 for another rep\'s quote, sent or draft, exactly as for an unknown one',async()=>{
+  it('answers 404 for another rep\'s quote, sent or draft, exactly as for an unknown one; the manager reads it (task D2)',async()=>{
     for(const [id,query] of [[marasSentQuote,''],[marasSentQuote,'?rev=1'],[marasDraft,'?rev=draft'],['q-nope','']]){
-      const response=await call(id,query);
+      const response=await call(id,query,'eli');
       expect(response.status,`${id}${query}`).toBe(404);
       expect(await detail(response)).toBe('Quote not found.');
+      expect((await call(id,query)).status,`manager ${id}${query}`).toBe(id==='q-nope'?404:200);
     }
   });
 

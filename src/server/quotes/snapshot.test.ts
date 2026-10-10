@@ -7,7 +7,7 @@ const line=(n:number,qty:number,unit_price:number|null,extra:Partial<QuoteLine>=
   suggested_basis:'customer',customer_price:1,unit_cost:0.5,freight_recovery:0,explanation:'Internal: margin is thin',requested_text:'bolts',match_score:0.9,added_by:'querent',...extra});
 
 const QUOTE:Quote={id:'q-1',quote_number:'Q-1',customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',contact_id:'dana',contact_name:'Dana Ortiz',
-  rep_id:'brandi',rep_name:'Brandi Gallegos',status:'ready_for_review',revision:0,conversation_id:null,request_text:null,requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',
+  rep_id:'brandi',rep_name:'Brandi Gallegos',original_rep_id:'brandi',status:'ready_for_review',revision:0,conversation_id:null,request_text:null,requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',
   updated_at:'2026-09-23T16:15:00.000Z',sent_at:null,responded_at:null,fulfillment:'delivery',branch_id:'slc',branch_code:'SLC',requested_date:'2026-09-24',fulfillment_time:null,
   ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',ship_to_lat:40.55,ship_to_lng:-111.93,freight_override:null,freight_override_reason:null,freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:null,valid_days:14,expires_on:null,valid_until:null,
   customer_po:'7781',customer_note:'Prices include cutting to length.',change_request_note:null,declined_at:null,decline_reason:null,decline_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:false,duplicated_from:null,

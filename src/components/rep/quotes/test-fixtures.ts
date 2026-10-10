@@ -1,5 +1,5 @@
 import type {CustomerListItem} from '@/domain';
-import type {QuoteStatusCounts,RepQuoteList,RepQuoteRow} from '@/server/rep/quotes';
+import type {ManagerListOptions,QuoteStatusCounts,RepQuoteList,RepQuoteRow} from '@/server/rep/quotes';
 
 // Quotes list fixtures for component tests (task 3.2), shaped like GET /api/rep/quotes.
 
@@ -13,7 +13,7 @@ export const CUSTOMERS:CustomerListItem[]=[
 export const WASATCH=CUSTOMERS[2];
 
 export function quoteRow(overrides:Partial<RepQuoteRow>={}):RepQuoteRow{
-  return {id:'q-24816',quote_number:'Q-24816',revision:1,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
+  return {id:'q-24816',quote_number:'Q-24816',rep_id:'brandi',rep_name:'Brandi Gallegos',revision:1,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
     status:'accepted',requested_at:'2026-09-07T15:20:00.000Z',sent_at:'2026-09-07T16:20:00.000Z',valid_until:'2026-09-21',
     total:782.75,total_basis:'sent',freight_pending:false,margin:0.281,margin_label:'28.1%',below_floor_count:0,
     unread:false,is_sample:false,line_count:3,change_request:null,aging:null,quoted_total:782.75,...overrides};
@@ -42,9 +42,17 @@ export const OVERDUE=quoteRow({...CHANGES,id:'q-24790',quote_number:'Q-24790',to
  * A list as the API returns it: counts and unread cover `scope`, rows are `scope` filtered by `status`,
  * or, with `attention`, the amber and red rows in the order given (the server sorts them).
  */
-export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,customer=null,other_rep=false,attention=false,sort='urgent'}:
-  {scope?:RepQuoteRow[];status?:RepQuoteList['status'];customer?:CustomerListItem|null;other_rep?:boolean;attention?:boolean;sort?:RepQuoteList['sort']}={}):RepQuoteList{
+export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,customer=null,other_rep=false,attention=false,sort='urgent',manager=null,reps='mine',rep_filter=null,team_filter=null}:
+  {scope?:RepQuoteRow[];status?:RepQuoteList['status'];customer?:CustomerListItem|null;other_rep?:boolean;attention?:boolean;sort?:RepQuoteList['sort'];
+    /** The manager's options (task D2), null for a rep; `reps` is the list's scope. */
+    manager?:ManagerListOptions|null;reps?:RepQuoteList['scope'];rep_filter?:string|null;team_filter?:string|null}={}):RepQuoteList{
   const aged=scope.filter(r=>r.aging&&r.aging.level!=='ok');
   return {as_of:AS_OF,customer,other_rep,status:attention?null:status,attention,sort,attention_count:aged.length,counts:counts(scope),unread:scope.filter(r=>r.unread).length,
-    rows:attention?aged:status?scope.filter(r=>r.status===status):scope};
+    rows:attention?aged:status?scope.filter(r=>r.status===status):scope,scope:reps,rep_filter,team_filter,manager};
 }
+
+/** The manager's rep and team options (task D2): Nora is inactive, so she filters but can't be a reassignment target. */
+export const MANAGER_OPTIONS:ManagerListOptions={reps:[
+  {id:'brandi',name:'Brandi Gallegos',team:'Inside Sales',active:true},{id:'eli',name:'Eli Porter',team:'Outside Sales',active:true},
+  {id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},{id:'nora',name:'Nora Chen',team:'Outside Sales',active:false},
+],teams:['Inside Sales','Outside Sales']};
