@@ -730,6 +730,50 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+/* "Frequently bought together" below the cart (task E1): each suggestion reads like a cart line,
+   with its reason in place of qty and stock, and an Add button. */
+.ip-together {
+  margin-top: 22px;
+}
+.ip-together-title {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.ip-suggestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ip-reason {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ip-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border: 1px solid #cfd9d6;
+  border-radius: 9px;
+  background: white;
+  color: var(--teal-dark);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ip-add:hover:not(:disabled) {
+  border-color: var(--teal);
+  background: #eef6f4;
+}
 .ip-foot {
   display: flex;
   align-items: center;
@@ -822,6 +866,15 @@
   }
   .ip-remove {
     grid-area: remove;
+    align-self: start;
+  }
+  .ip-suggestion {
+    gap: 8px 12px;
+  }
+  .ip-suggestion .ip-item {
+    grid-area: auto;
+  }
+  .ip-add {
     align-self: start;
   }
   .ip-foot {

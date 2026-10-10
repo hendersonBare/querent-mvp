@@ -196,6 +196,73 @@ describe('ItemPopup',()=>{
   });
 });
 
+describe('Frequently bought together (task E1)',()=>{
+  const NUT={item_id:'HN-12-13-G8',sku:'HN-12-13-G8',description:'Hex nut 1/2-13, Grade 8, yellow zinc',pack:'Box of 100',reason:'Matches the 1/2-13 Grade 8 bolts on your list.'};
+  const DISC={item_id:'FD-45-60Z',sku:'FD-45-60Z',description:'Flap disc 4.5 in, 60 grit zirconia',pack:'Box of 10',reason:'Bought with cut-off wheels on 3 of your 4 orders that had them in the last 12 months.'};
+  const WITH:ItemPopupPayload={...PAYLOAD,suggestions:[NUT,DISC],suggestions_offered:2};
+  const SKUS='HCS-12-13-2G8,CW-45-045-T1,HN-12-13-G8,FD-45-60Z';
+  const STOCKED:ItemPopupContext={...CONTEXT,items:[...CONTEXT.items,
+    {sku:'HN-12-13-G8',description:NUT.description,pack:'Box of 100',stock:[{branch_id:'slc',available:75},{branch_id:'ogden',available:40},{branch_id:'provo',available:22}]},
+    {sku:'FD-45-60Z',description:DISC.description,pack:'Box of 10',stock:[{branch_id:'slc',available:52},{branch_id:'ogden',available:18},{branch_id:'provo',available:9}]}]};
+  function open(payload=WITH){
+    const get=vi.fn(async(path:string)=>{
+      if(path===`customer/item-popup?skus=${encodeURIComponent(SKUS)}`)return STOCKED;
+      throw new Error(`unexpected get ${path}`);
+    });
+    const send=vi.fn().mockResolvedValue(RESULT);
+    render(<ItemPopup api={{get,send} as unknown as API} conversationId="conv-1" payload={payload} active autoOpen onRequested={vi.fn()}/>);
+    return {get,send};
+  }
+  const section=()=>within(dialog()).getByRole('region',{name:'Frequently bought together'});
+
+  it('shows each suggestion below the cart with its pack and reason, an Add button, and no prices',async()=>{
+    const {get}=open();
+    expect(await within(line('HCS-12-13-2G8')).findByText('64 at SLC')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(section()).toHaveTextContent('Hex nut 1/2-13, Grade 8, yellow zinc');
+    expect(section()).toHaveTextContent('Box of 100');
+    expect(section()).toHaveTextContent('Matches the 1/2-13 Grade 8 bolts on your list.');
+    expect(section()).toHaveTextContent('Bought with cut-off wheels on 3 of your 4 orders');
+    expect(within(section()).getAllByRole('button',{name:/^Add /})).toHaveLength(2);
+    // The cart comes first, then the suggestions; suggestions are not cart lines.
+    const items=within(dialog()).getByRole('list',{name:'Items'});
+    expect(items.compareDocumentPosition(section())&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(dialog()).getAllByRole('listitem')).toHaveLength(2);
+    expect(dialog().textContent).not.toContain('$');
+  });
+
+  it('Add puts the item in the cart at qty 1 with its stock, takes it out of the suggestions, and Request quote sends it',async()=>{
+    const {send}=open();
+    await within(line('HCS-12-13-2G8')).findByText('64 at SLC');
+    fireEvent.click(within(section()).getByRole('button',{name:'Add HN-12-13-G8 to your list'}));
+    expect(within(dialog()).getByLabelText('Qty for HN-12-13-G8')).toHaveValue(1);
+    expect(line('HN-12-13-G8')).toHaveTextContent('Hex nut 1/2-13, Grade 8, yellow zinc');
+    expect(line('HN-12-13-G8')).toHaveTextContent('75 at SLC');
+    expect(within(section()).queryByText(NUT.description)).not.toBeInTheDocument();
+    expect(dialog()).toHaveTextContent('3 items');
+    fireEvent.click(requestButton());
+    await waitFor(()=>expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0][2]).toEqual({conversation_id:'conv-1',fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10},{sku:'CW-45-045-T1',qty:6},{sku:'HN-12-13-G8',qty:1}]});
+  });
+
+  it('puts a removed suggestion back in the suggestions, and hides the section once every suggestion is in the cart',async()=>{
+    open();
+    await within(line('HCS-12-13-2G8')).findByText('64 at SLC');
+    fireEvent.click(within(section()).getByRole('button',{name:'Add HN-12-13-G8 to your list'}));
+    fireEvent.click(within(dialog()).getByRole('button',{name:'Remove HN-12-13-G8'}));
+    expect(within(section()).getByText(NUT.description)).toBeInTheDocument();
+    fireEvent.click(within(section()).getByRole('button',{name:'Add HN-12-13-G8 to your list'}));
+    fireEvent.click(within(section()).getByRole('button',{name:'Add FD-45-60Z to your list'}));
+    expect(within(dialog()).queryByRole('region',{name:'Frequently bought together'})).not.toBeInTheDocument();
+  });
+
+  it('shows no section for a pop-up without suggestions',async()=>{
+    setup();
+    await within(line('HCS-12-13-2G8')).findByText('64 at SLC');
+    expect(within(dialog()).queryByRole('region',{name:'Frequently bought together'})).not.toBeInTheDocument();
+  });
+});
+
 describe('stockAt and parseQty',()=>{
   it('reads stock against the qty',()=>{
     expect(stockAt(64,10,'SLC')).toEqual({tone:'ok',text:'64 at SLC'});

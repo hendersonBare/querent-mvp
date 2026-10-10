@@ -1,9 +1,11 @@
 import "server-only";
+import type { ItemPopupPayload } from "@/domain";
 import type { ChatAnswer } from "@/lib/contracts";
 import { liveReply } from "./chat/live";
 import { chatMode } from "./chat/mode";
 import { reply, type ChatReply } from "./chat/reply";
 import { scriptedReply } from "./chat/scripted";
+import { withSuggestions } from "./customer/suggestions";
 import {
   addMessage,
   appendLog,
@@ -16,6 +18,8 @@ import {
 // reply's kind and payload, e.g. the item pop-up's cart) and in the query log behind analytics.
 // Live mode is Claude with typed tools over the customer-safe repository (task 2.1); scripted
 // mode answers without an API key or with QUERENT_SCRIPTED=1 (spec §6.5, task 0.4).
+// An item pop-up is stored with its "Frequently bought together" suggestions and how many were
+// offered (decision 37, spec §10, task E1), chosen once here so Request quote can check them.
 
 /** The conversation id belongs to another customer. */
 export class ConversationNotFoundError extends Error {}
@@ -51,6 +55,14 @@ export async function ask(
   } catch (error) {
     console.error("Chat pipeline failed", error);
     result = reply({ outcome: "error", content: "We couldn’t complete that lookup. Please try again." });
+  }
+  if (result.kind === "item_popup" && result.payload) {
+    try {
+      result = { ...result, payload: await withSuggestions(customerId, result.payload as ItemPopupPayload) };
+    } catch (error) {
+      // The list still opens without suggestions.
+      console.error("Pop-up suggestions failed", error);
+    }
   }
   addMessage(customerId, conversationId, {
     role: "assistant",

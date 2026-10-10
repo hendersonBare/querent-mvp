@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach,beforeEach,describe,expect,it} from 'vitest';
 import {FULFILLMENTS} from '../../domain/orders';
-import {PRICE_BASES,QUOTE_STATUSES} from '../../domain/quotes';
+import {LINE_SOURCES,PRICE_BASES,QUOTE_STATUSES} from '../../domain/quotes';
 import {categories} from '../../lib/contracts';
 import {migrate,migrationsDir,readMigrations} from './migrate';
 import {createV4Database,masterOf,v4Schema} from './test-v4';
@@ -60,6 +60,7 @@ describe('migrate',()=>{
     expect(check('quote_lines','price_basis')).toEqual([[...PRICE_BASES]]);
     expect(check('quote_lines','suggested_basis')).toEqual([[...PRICE_BASES]]);
     expect(check('access','category')).toEqual([[...categories]]);
+    for(const table of ['quote_lines','quote_removed_lines'])expect(check(table,'added_by')).toEqual([[...LINE_SOURCES]]);
   });
 
   it('adopts a v4 database as already at 001 without running it, then applies later files',()=>{
