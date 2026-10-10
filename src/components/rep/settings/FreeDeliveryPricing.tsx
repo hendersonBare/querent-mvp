@@ -250,7 +250,7 @@ function CostModelCard({view,onView}:{view:FreightSettingsView;onView:(v:Freight
         <div>
           <dt><label htmlFor="cost-fuel-type">Fuel type</label></dt>
           <dd><select id="cost-fuel-type" className={s.select} value={text.fuelType} disabled={form.saving} onChange={event=>form.set('fuelType')(event.target.value)}>
-            {FUEL_TYPES.map(f=><option key={f} value={f}>{f==='gasoline'?'Gasoline (state price, daily)':'Diesel (manual price)'}</option>)}
+            {FUEL_TYPES.map(f=><option key={f} value={f}>{f==='gasoline'?'Gasoline (state price)':'Diesel (manual price)'}</option>)}
           </select></dd>
         </div>
         <NumberField id="cost-fuel-manual" label="Manual fuel price" value={text.fuelManualCents} prefix="$" unit="per gallon; blank uses the state price" step={0.01} disabled={form.saving} onChange={form.set('fuelManualCents')}/>

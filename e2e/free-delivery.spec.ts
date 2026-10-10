@@ -152,6 +152,13 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   // It stays on after a reload.
   await brandi.reload();
   await expect(toggle(brandi)).toHaveAttribute("aria-checked", "true");
+
+  // At phone width the cards stack and the page never scrolls sideways.
+  await brandi.setViewportSize({ width: 390, height: 844 });
+  await expect(card(brandi, "Delivery cost model")).toBeVisible();
+  expect(await brandi.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  await screenshot(brandi, testInfo, "pricing-delivery-390");
+  await brandi.setViewportSize({ width: 1440, height: 1000 });
 });
 
 test("the delivery draft reprices on Brandi's open: the recovery chip and the line's recovery", async ({}, testInfo) => {
@@ -172,9 +179,11 @@ test("the customer sees only the final unit price and Freight $0.00: nothing abo
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message: `Hi Dana, here is ${number}. Thanks, Brandi`, attach_pdf: true, revision, total }),
     });
-    return { status: response.status, id: detail.id as string };
+    return { status: response.status };
   }, quoteNumber);
   expect(result.status).toBe(200);
+  // Quote ids follow their numbers (q-24818 for Q-24818).
+  const id = `q-${quoteNumber.slice(2)}`;
 
   const card = dana.getByRole("article", { name: new RegExp(`^Quote ${quoteNumber} is ready: `) });
   await expect(card).toBeVisible();
@@ -184,11 +193,13 @@ test("the customer sees only the final unit price and Freight $0.00: nothing abo
   await expect(modal).not.toContainText(RECOVERY);
   await screenshot(dana, testInfo, "customer-preview");
 
-  const { pdf, json } = await dana.evaluate(async (id) => {
+  const { status, pdf, json } = await dana.evaluate(async (id) => {
     const pdfResponse = await fetch(`/api/quotes/${id}/pdf?variant=customer`);
     const json = await fetch(`/api/query/customer/quotes/${id}`).then((r) => r.text());
-    return { pdf: Array.from(new Uint8Array(await pdfResponse.arrayBuffer())), json };
-  }, result.id);
+    return { status: pdfResponse.status, pdf: Array.from(new Uint8Array(await pdfResponse.arrayBuffer())), json };
+  }, id);
+  expect(status).toBe(200);
+  expect(json).toContain(quoteNumber);
   const document = await getDocumentProxy(new Uint8Array(pdf));
   const text = (await extractText(document, { mergePages: true })).text.replace(/\s+/g, " ");
   expect(text).toMatch(/Freight [^$]*\$0\.00/);
