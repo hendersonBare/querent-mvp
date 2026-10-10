@@ -15,3 +15,6 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | `src/server/freight/quote.ts` (`deliveryMiles`) | Rebuilds the ship-to address string that the repository also builds; the two could drift. |
 | Send / draft PDF / quote list | Do not reprice a draft; if the toggle flips while a rep has a draft open, Send uses the recovery shown at last open (by design, OA-48). |
 | `src/server/rep/quote-upsells.ts:128` | Taking a stale upsell chip (refused 409) still stamps `last_rep_touch_at`; negligible because opening the page already touched it. |
+| `src/app/api/session/route.ts` | `POST /api/session {"persona":"toString"}` returns 500 and `__proto__` sets an ignored cookie (`in` instead of `Object.hasOwn`); harmless. |
+| `src/app/api/query/[...path]/route.ts:14-15` | `/api/query/me` and `/api/query/erp/status` still answer an inactive rep (low-sensitivity data). |
+| `src/server/rep/team.ts`, `TeamReps.tsx` | `plural()` and the 40-char team label limit are duplicated client/server. |
