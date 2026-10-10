@@ -1,5 +1,5 @@
 import 'server-only';
-import {QUOTE_READY_KIND,type ChatMessage,type Quote,type QuoteRevision,type QuoteTransition} from '@/domain';
+import {DECLINE_REASONS,QUOTE_READY_KIND,type ChatMessage,type DeclineReason,type Quote,type QuoteRevision,type QuoteTransition} from '@/domain';
 import {quoteFloors} from '@/server/floors/service';
 import type {DistanceProvider} from '@/server/freight/distance';
 import {formatUsd,type QuoteFreight} from '@/server/freight/engine';
@@ -11,6 +11,7 @@ import {
 import {QUOTE_MESSAGE_MAX,quoteReadyPayload,sanitizeChatText} from './announce';
 import {QuoteActionError} from './errors';
 import {assertEvent,daysUntil,effectiveStatus,expiresAt,isExpired,utcDay,validUntilOnSend} from './lifecycle';
+import {cleanDeclineNote,DECLINE_REASON_LABELS,declineNoteProblem} from './response-rules';
 import {sendBlockers,type SendBlocker} from './send-check';
 import {buildSnapshot,cents,letterheadOf,repContactOf,type SnapshotInput} from './snapshot';
 
@@ -202,7 +203,7 @@ export function expireOverdueQuotes({now=clock(),customerId=null}:{now?:string;c
  * quote found past valid_until has its expiry stored first), a legal move, and the revision the
  * customer is looking at is still the latest (a second tab can't accept a superseded revision).
  */
-function forCustomerAction(customerId:string,quoteIdOrNumber:string,event:'accept'|'request_changes',revision:number,now:string){
+function forCustomerAction(customerId:string,quoteIdOrNumber:string,event:'accept'|'request_changes'|'decline',revision:number,now:string){
   const q=load(quoteIdOrNumber);
   if(q.customer_id!==customerId)throw new QuoteActionError('not_found',`No quote ${quoteIdOrNumber}.`);
   if(effectiveStatus(q,now)==='expired'){
@@ -263,6 +264,35 @@ export function requestChanges(customerId:string,quoteIdOrNumber:string,{revisio
   return inTransaction(()=>{
     persist(q,{to:'changes_requested',at:now,respondedAt:now,changeRequestNote:body,unreadForRep:true,unreadForCustomer:false});
     addQuoteActivity(q.id,{actor:'customer',actorId:q.contact_id,kind:'changes_requested',at:now,message:`${customerWho(q)} requested changes to ${q.quote_number} rev ${q.revision}: "${body}"`});
+    return load(q.id);
+  });
+}
+
+export interface DeclineInput {
+  /** The revision the customer is declining: the latest one sent. */
+  revision:number;
+  /** One of the five reasons, or null: Decline works with nothing chosen (decision 14). */
+  reason:DeclineReason|null;
+  /** The Other text. Kept only with reason 'other': plain text, trimmed, at most 250 characters (OA-28). */
+  note?:string|null;
+  now?:string;
+}
+
+/**
+ * Decline (v3 spec §2.1, decisions 13 to 15): sent --> declined, final. Stores when and why, flags
+ * the rep (badge) and logs the reason (and the Other note) in Activity, all in one transaction. The
+ * reason and note are the rep's only: nothing customer-facing reads them.
+ */
+export function declineQuote(customerId:string,quoteIdOrNumber:string,{revision,reason,note=null,now=clock()}:DeclineInput):Quote{
+  const q=forCustomerAction(customerId,quoteIdOrNumber,'decline',revision,now);
+  if(reason!==null&&!DECLINE_REASONS.includes(reason))throw new QuoteActionError('invalid_input','Choose one of the reasons, or none.');
+  const kept=reason==='other'?cleanDeclineNote(note)||null:null;
+  const problem=kept&&declineNoteProblem(kept);
+  if(problem)throw new QuoteActionError('invalid_input',problem);
+  return inTransaction(()=>{
+    persist(q,{to:'declined',at:now,respondedAt:now,declinedAt:now,declineReason:reason,declineNote:kept,unreadForRep:true,unreadForCustomer:false});
+    const why=reason===null?' (no reason given)':`: ${DECLINE_REASON_LABELS[reason]}${kept?`: "${kept}"`:''}`;
+    addQuoteActivity(q.id,{actor:'customer',actorId:q.contact_id,kind:'declined',at:now,message:`${customerWho(q)} declined ${q.quote_number} rev ${q.revision}${why}`});
     return load(q.id);
   });
 }

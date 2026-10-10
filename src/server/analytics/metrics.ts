@@ -9,7 +9,7 @@ import {quoteOutcome,winRate} from '@/server/quotes';
 // the rules are tested without a database. ./service loads the facts for the signed-in rep.
 //
 // The rules the cards share with the rest of the app come from their owners, so the numbers agree:
-//   win/loss and expiry    src/server/quotes (task 1.5): expired, and sent past valid_until, is lost
+//   win/loss and expiry    src/server/quotes (task 1.5): expired, declined (A1), and sent past valid_until, is lost
 //   GP Querent found       src/server/pricing querentFoundGp (task 1.1), the number behind
 //                          explainQuoteGp's "Querent found +$Y GP" on the quote
 //   margin and floors      src/server/floors (task 1.2): margin(), DEFAULT_FLOOR, priceBelowFloor()

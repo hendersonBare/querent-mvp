@@ -15,7 +15,7 @@ import {all,bool,flag,inTransaction,nowIso,one,run,scalar} from './sql';
 const HEADER=`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,cu.account_number,q.contact_id,ct.name contact_name,q.rep_id,r.name rep_name,
   q.status,q.revision,q.conversation_id,q.request_text,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.fulfillment,q.branch_id,b.code branch_code,
   q.requested_date,q.fulfillment_time,q.ship_to_address,q.ship_to_lat,q.ship_to_lng,q.freight_override,q.freight_override_reason,q.valid_days,q.valid_until,q.expires_on,
-  q.customer_po,q.customer_note,q.change_request_note,q.unread_for_rep,q.unread_for_customer,q.is_sample,q.duplicated_from
+  q.customer_po,q.customer_note,q.change_request_note,q.declined_at,q.decline_reason,q.decline_note,q.unread_for_rep,q.unread_for_customer,q.is_sample,q.duplicated_from
   FROM quotes q JOIN customers cu ON cu.id=q.customer_id JOIN reps r ON r.id=q.rep_id JOIN branches b ON b.id=q.branch_id LEFT JOIN contacts ct ON ct.id=q.contact_id`;
 type Flags='unread_for_rep'|'unread_for_customer'|'is_sample';
 type HeaderRow=Omit<QuoteHeader,Flags>&Record<Flags,number>;
@@ -202,7 +202,8 @@ export function setFreightOverride(quoteId:string,override:{amount:number;reason
  */
 export function saveQuoteTransition(quoteId:string,t:QuoteTransition){
   const columns:[string,unknown][]=[['status',t.to]];
-  const optional:[keyof QuoteTransition,string][]=[['revision','revision'],['sentAt','sent_at'],['respondedAt','responded_at'],['validUntil','valid_until'],['fulfillmentTime','fulfillment_time'],['customerPo','customer_po'],['changeRequestNote','change_request_note']];
+  const optional:[keyof QuoteTransition,string][]=[['revision','revision'],['sentAt','sent_at'],['respondedAt','responded_at'],['validUntil','valid_until'],['fulfillmentTime','fulfillment_time'],['customerPo','customer_po'],['changeRequestNote','change_request_note'],
+    ['declinedAt','declined_at'],['declineReason','decline_reason'],['declineNote','decline_note']];
   for(const [key,column] of optional)if(t[key]!==undefined)columns.push([column,t[key]]);
   if(t.unreadForRep!==undefined)columns.push(['unread_for_rep',flag(t.unreadForRep)]);
   if(t.unreadForCustomer!==undefined)columns.push(['unread_for_customer',flag(t.unreadForCustomer)]);

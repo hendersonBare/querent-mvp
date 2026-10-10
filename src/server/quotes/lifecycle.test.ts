@@ -22,7 +22,7 @@ const illegal=pairs.filter(([from,event])=>!LEGAL.some(([f,e])=>f===from&&e===ev
 
 describe('transition table',()=>{
   it('has exactly the six edges of spec §5.4 and v3 §2',()=>{
-    expect(pairs).toHaveLength(36);
+    expect(pairs).toHaveLength(30);
     expect(pairs.filter(([from,event])=>nextStatus(from,event)!==null).map(([from,event])=>[from,event,nextStatus(from,event)])).toEqual(expect.arrayContaining(LEGAL));
     expect(pairs.filter(([from,event])=>nextStatus(from,event)!==null)).toHaveLength(LEGAL.length);
   });

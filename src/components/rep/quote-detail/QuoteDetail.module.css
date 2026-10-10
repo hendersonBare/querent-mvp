@@ -258,6 +258,10 @@
   background: var(--rep-ok-soft);
   border-color: color-mix(in srgb, var(--rep-ok) 30%, transparent);
 }
+.banner[data-tone="declined"] {
+  background: var(--rep-bad-soft);
+  border-color: color-mix(in srgb, var(--rep-bad) 30%, transparent);
+}
 
 /* ---- Layout: the main column and the rail ---- */
 .qgrid {

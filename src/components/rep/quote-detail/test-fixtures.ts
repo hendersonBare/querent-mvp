@@ -76,7 +76,7 @@ export function sampleDetail({quote,...overrides}:Partial<Omit<QuoteDetail,'quot
       requested_at:'2026-09-23T16:14:00.000Z',created_at:'2026-09-23T16:15:00.000Z',updated_at:'2026-09-23T16:15:00.000Z',sent_at:null,responded_at:null,
       fulfillment:'will_call',branch_id:'slc',branch_code:'SLC',requested_date:'2026-09-24',fulfillment_time:null,ship_to_address:'1800 W 10950 S, South Jordan, UT 84095',
       ship_to_lat:40.5513,ship_to_lng:-111.933,freight_override:null,freight_override_reason:null,valid_days:14,valid_until:null,expires_on:null,customer_po:null,customer_note:null,
-      change_request_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:true,duplicated_from:null,...quote},
+      change_request_note:null,declined_at:null,decline_reason:null,decline_note:null,unread_for_rep:true,unread_for_customer:false,is_sample:true,duplicated_from:null,...quote},
     valid_until:'2026-10-09',
     editable:true,
     lines:SAMPLE_LINES,
