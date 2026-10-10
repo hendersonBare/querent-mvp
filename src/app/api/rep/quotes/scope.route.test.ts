@@ -15,6 +15,8 @@ const headers=(persona:string)=>({cookie:`querent-persona=${persona}`});
 const list=async(query='',persona='supplier')=>(await import('./route')).GET(new NextRequest(`http://127.0.0.1/api/rep/quotes${query}`,{headers:headers(persona)}));
 const badges=async(query='',persona='supplier')=>(await import('../badges/route')).GET(new NextRequest(`http://127.0.0.1/api/rep/badges${query}`,{headers:headers(persona)}));
 type Row={quote_number:string;rep_id:string;rep_name:string;unread:boolean};
+// The seed: Brandi's 31 (Wasatch's 28 and three of Mara's she covered), Mara's 18 and Eli's 26 (the demo book, task F1), and the three made below.
+const SEEDED={brandi:31,mara:18,eli:26},ALL=SEEDED.brandi+SEEDED.mara+SEEDED.eli+3;
 
 let mara={fresh:'',overdue:''},nora='';
 beforeAll(async()=>{
@@ -31,8 +33,8 @@ describe('GET /api/rep/quotes?scope=all (manager)',()=>{
     const response=await list('?scope=all');
     expect(response.status).toBe(200);
     const body=await response.json();
-    expect(body).toMatchObject({scope:'all',rep_filter:null,team_filter:null,counts:{all:31}});
-    expect(body.rows).toHaveLength(31);
+    expect(body).toMatchObject({scope:'all',rep_filter:null,team_filter:null,counts:{all:ALL}});
+    expect(body.rows).toHaveLength(ALL);
     expect(body.rows.find((r:Row)=>r.quote_number===mara.fresh)).toMatchObject({rep_id:'mara',rep_name:'Mara Jensen',unread:false});
     expect(body.rows.find((r:Row)=>r.quote_number===nora)).toMatchObject({rep_id:'nora',rep_name:'Nora Chen'});
     expect(body.manager.reps.map((r:{id:string;name:string;team:string|null;active:boolean})=>[r.id,r.team,r.active])).toEqual([
@@ -44,15 +46,17 @@ describe('GET /api/rep/quotes?scope=all (manager)',()=>{
 
   it('filters by rep and by team label; unknown values read as every rep or team',async()=>{
     const byRep=await (await list('?scope=all&rep=mara')).json();
-    expect(byRep).toMatchObject({rep_filter:'mara',counts:{all:2}});
-    expect(byRep.rows.map((r:Row)=>r.quote_number).sort()).toEqual([mara.fresh,mara.overdue].sort());
+    expect(byRep).toMatchObject({rep_filter:'mara',counts:{all:SEEDED.mara+2}});
+    expect(byRep.rows.map((r:Row)=>r.quote_number)).toEqual(expect.arrayContaining([mara.fresh,mara.overdue]));
+    expect(byRep.rows.every((r:Row)=>r.rep_id==='mara')).toBe(true);
     const byTeam=await (await list(`?scope=all&team=${encodeURIComponent('Outside Sales')}`)).json();
-    expect(byTeam).toMatchObject({team_filter:'Outside Sales'});
-    expect(byTeam.rows.map((r:Row)=>r.quote_number)).toEqual([nora]);
+    expect(byTeam).toMatchObject({team_filter:'Outside Sales',counts:{all:SEEDED.eli+1}});
+    expect(byTeam.rows.map((r:Row)=>r.quote_number)).toContain(nora);
+    expect(new Set(byTeam.rows.map((r:Row)=>r.rep_id))).toEqual(new Set(['eli','nora']));
     const inside=await (await list(`?scope=all&team=${encodeURIComponent('Inside Sales')}`)).json();
     expect(new Set(inside.rows.map((r:Row)=>r.rep_id))).toEqual(new Set(['brandi','mara']));
     const unknown=await (await list('?scope=all&rep=nobody&team=Nowhere')).json();
-    expect(unknown).toMatchObject({rep_filter:null,team_filter:null,counts:{all:31}});
+    expect(unknown).toMatchObject({rep_filter:null,team_filter:null,counts:{all:ALL}});
   });
 
   it('runs the Needs attention view over every rep, red first',async()=>{
@@ -66,12 +70,12 @@ describe('GET /api/rep/quotes?scope=all (manager)',()=>{
     expect(levels).toEqual([...levels].sort((a:string,b:string)=>(a==='red'?0:1)-(b==='red'?0:1)));
     const mine=await (await list('?attention=1')).json();
     expect(mine.rows.every((r:Row)=>r.rep_id==='brandi')).toBe(true);
-    expect(body.attention_count).toBe(mine.attention_count+2);
+    expect(body.rows.filter((r:Row)=>r.rep_id==='brandi')).toHaveLength(mine.attention_count);
   });
 
   it('without scope=all the manager sees her own quotes, with the manager options for the scope switch; rep and team need the scope',async()=>{
     const body=await (await list('?rep=mara')).json();
-    expect(body).toMatchObject({scope:'mine',rep_filter:null,counts:{all:28}});
+    expect(body).toMatchObject({scope:'mine',rep_filter:null,counts:{all:SEEDED.brandi}});
     expect(body.rows.every((r:Row)=>r.rep_id==='brandi')).toBe(true);
     expect(body.manager.reps).toHaveLength(4);
   });
@@ -83,7 +87,7 @@ describe('a rep and the All reps scope',()=>{
     expect(refused.status).toBe(403);
     expect(await refused.json()).toEqual({detail:'Manager access required.'});
     const own=await (await list('?rep=brandi','mara')).json();
-    expect(own).toMatchObject({scope:'mine',manager:null,counts:{all:2}});
+    expect(own).toMatchObject({scope:'mine',manager:null,counts:{all:SEEDED.mara+2}});
     expect(own.rows.every((r:Row)=>r.rep_id==='mara')).toBe(true);
     expect((await list('?scope=all','eli')).status).toBe(403);
   });
@@ -93,10 +97,13 @@ describe('GET /api/rep/badges?scope=all',()=>{
   it('counts every rep’s red quotes for the manager; unread stays her own',async()=>{
     const own=await (await badges()).json();
     const all=await (await badges('?scope=all')).json();
-    expect(all).toEqual({quotes:own.quotes,attention:own.attention+1});
+    const othersRed=(await (await list('?scope=all&attention=1')).json()).rows.filter((r:Row&{aging:{level:string}})=>r.rep_id!=='brandi'&&r.aging.level==='red').length;
+    expect(othersRed).toBeGreaterThan(1);
+    expect(all).toEqual({quotes:own.quotes,attention:own.attention+othersRed});
   });
   it('refuses a rep (403)',async()=>{
     expect((await badges('?scope=all','mara')).status).toBe(403);
-    expect(await (await badges('','mara')).json()).toEqual({quotes:2,attention:1});
+    // The two made above and her new demo draft are unread; this Overdue one and her demo book's Overdue draft and change request.
+    expect(await (await badges('','mara')).json()).toEqual({quotes:3,attention:3});
   });
 });

@@ -17,7 +17,8 @@ describe('migration 005_quote_touch',()=>{
       {name:'customer_viewed_at',type:'TEXT',notnull:0,dflt_value:null},
       {name:'last_rep_touch_at',type:'TEXT',notnull:0,dflt_value:null},
     ]);
-    expect(db().prepare('SELECT count(*) FROM quotes WHERE last_rep_touch_at IS NOT NULL OR customer_viewed_at IS NOT NULL').pluck().get()).toBe(0);
+    // The demo book (task F1) seeds both clocks; Wasatch's quotes have neither.
+    expect(db().prepare("SELECT count(*) FROM quotes WHERE customer_id='wasatch' AND (last_rep_touch_at IS NOT NULL OR customer_viewed_at IS NOT NULL)").pluck().get()).toBe(0);
     expect(db().prepare("SELECT id FROM schema_migrations WHERE id='005_quote_touch'").pluck().get()).toBe('005_quote_touch');
   });
 });

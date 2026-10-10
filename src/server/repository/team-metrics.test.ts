@@ -2,12 +2,14 @@ import {beforeAll,describe,expect,it} from 'vitest';
 import {db} from '../db';
 import {addQuoteActivity,addQuoteLine,createQuote,setQuoteRep} from './quotes';
 import {teamQuoteFacts,teamStatusEvents} from './team';
-import {setQuoteFreightFixture,useSeededDatabase} from './test-db';
+import {clearDemoBook,setQuoteFreightFixture,useSeededDatabase} from './test-db';
 
 // The Team dashboard's live reads (v3 spec §7; decisions 23–25; OA-19; task D3): the cohort is the
 // quotes created in [from, to), two instants the browser computed at its local midnight, owned now
 // by one of the selected reps. No materialised tables: every call reads the quotes as they are.
 useSeededDatabase();
+// The demo seed's book (task F1) is dated from the real clock: deleted, so only this file's quotes fall in its fixed windows on any day.
+beforeAll(clearDemoBook);
 
 // Denver (MST, UTC-7) midnights for Jan 1 and Jan 11, 2027: after every seeded quote.
 const FROM='2027-01-01T07:00:00.000Z',TO='2027-01-11T07:00:00.000Z';

@@ -6,7 +6,7 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 //     disabled. She reassigns it to herself and can edit it after; Activity says who moved it.
 //   - Brandi ticks two quotes in All reps and reassigns them to Eli in bulk; the rep filter shows them as Eli's.
 //   - Mara (a rep) can't use the All reps scope or reassign, and still sees only her own quotes.
-// Mara has no chooser button yet (F1, OA-18), so her session is the demo cookie set directly.
+// Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day (POST /api/test/reset; the
 // server needs QUERENT_E2E_RESET=1), then POST /api/test/rep-quotes adds, among others, a fresh
@@ -113,7 +113,10 @@ test("Brandi reassigns two quotes to Eli in bulk from All reps", async ({ page }
 
   await page.getByRole("combobox", { name: "Rep" }).selectOption("eli");
   await expect(page).toHaveURL(/rep=eli/);
-  await expect(page.getByRole("table").getByRole("rowheader")).toHaveCount(2);
+  // Eli's own demo book (task F1) and the two just moved.
+  for (const number of [fixture.sent, fixture.changes_requested]) await expect(quoteRow(page, number)).toContainText("Eli Porter");
+  await expect(page.getByRole("table").getByRole("rowheader").filter({ hasText: /Q-\d+/ })).not.toHaveCount(0);
+  expect(await page.getByRole("table").getByRole("rowgroup").filter({ hasText: "Mara Jensen" }).count()).toBe(0);
   await screenshot(page, testInfo, "filtered-eli");
 
   // Phone: the All reps list fits without sideways scrolling.

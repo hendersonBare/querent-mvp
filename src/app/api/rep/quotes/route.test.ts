@@ -16,8 +16,9 @@ it("returns the signed-in rep's quotes with counts, never cached",async()=>{
   expect(response.headers.get('cache-control')).toMatch(/no-store/);
   const list=await response.json();
   expect(list).toMatchObject({customer:null,other_rep:false,status:null,unread:1});
-  expect(list.counts).toMatchObject({all:28,ready_for_review:1,accepted:17,expired:7});
-  expect(list.rows[3]).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',total_basis:'draft',margin_label:'32.2%',unread:true});
+  // Wasatch's 28 and the three accepted quotes Brandi covered for Mara (task F1).
+  expect(list.counts).toMatchObject({all:31,ready_for_review:1,accepted:20,expired:7});
+  expect(list.rows.find((r:{quote_number:string})=>r.quote_number==='Q-24817')).toMatchObject({quote_number:'Q-24817',status:'ready_for_review',total_basis:'draft',margin_label:'32.2%',unread:true});
 });
 
 it('follows ?customer= and ?status=, reading unknown values as All customers and every status',async()=>{
@@ -28,10 +29,10 @@ it('follows ?customer= and ?status=, reading unknown values as All customers and
   const placeholder=await (await get('?customer=great-basin')).json();
   expect(placeholder).toMatchObject({rows:[],other_rep:false,counts:{all:0}});
   const otherRep=await (await get('?customer=canyon-ridge')).json();
-  expect(otherRep).toMatchObject({rows:[],other_rep:true,customer:{rep_name:'Mara Jensen'}});
+  expect(otherRep).toMatchObject({other_rep:true,customer:{rep_name:'Mara Jensen'},counts:{all:3,accepted:3}});
   const unknown=await (await get('?customer=nobody&status=lost')).json();
   expect(unknown).toMatchObject({customer:null,status:null});
-  expect(unknown.rows).toHaveLength(28);
+  expect(unknown.rows).toHaveLength(31);
   expect((await (await get('?customer=all')).json()).customer).toBeNull();
 });
 

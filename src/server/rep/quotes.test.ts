@@ -23,14 +23,15 @@ const request=(input:Partial<NewQuote>={})=>createQuote({customerId:'wasatch',co
 describe('repQuoteList: the seeded queue',()=>{
   it("lists the rep's quotes newest request first, the sample quote next after the aging quotes",async()=>{
     const list=await repQuoteList('brandi',{now:NOW});
-    expect(list.rows).toHaveLength(28);
-    expect(list.rows.slice(0,4).map(r=>r.quote_number)).toEqual(['Q-24791','Q-24790','Q-24789','Q-24817']);
-    expect(list.rows[3]).toMatchObject({quote_number:'Q-24817',revision:0,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
+    // Her 28 Wasatch quotes and three accepted quotes of Mara's she covered (the demo book, task F1), dated from the real clock: list Wasatch's for a fixed order.
+    expect(list.rows).toHaveLength(31);
+    expect(list.rows.filter(r=>r.customer_id==='wasatch').slice(0,4).map(r=>r.quote_number)).toEqual(['Q-24791','Q-24790','Q-24789','Q-24817']);
+    expect(list.rows.find(r=>r.quote_number==='Q-24817')).toMatchObject({quote_number:'Q-24817',revision:0,customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',
       status:'ready_for_review',requested_at:'2026-09-23T16:14:00.000Z',sent_at:null,unread:true,is_sample:true,line_count:4,change_request:null});
     const requested=list.rows.map(r=>r.requested_at);
     expect(requested).toEqual([...requested].sort().reverse());
     expect(list).toMatchObject({customer:null,other_rep:false,status:null,unread:1,as_of:NOW});
-    expect(list.counts).toEqual({all:28,ready_for_review:1,sent:2,changes_requested:1,accepted:17,expired:7,declined:0});
+    expect(list.counts).toEqual({all:31,ready_for_review:1,sent:2,changes_requested:1,accepted:20,expired:7,declined:0});
   });
 
   it("totals a draft live, as Approve & send would: Q-24817 is $1,122.40 will call at 32.2%, with the gloves under Brandi's 30% PPE floor",async()=>{
@@ -53,10 +54,10 @@ describe('repQuoteList: the seeded queue',()=>{
 
   it('filters by status without changing the counts',async()=>{
     const accepted=await repQuoteList('brandi',{now:NOW,status:'accepted'});
-    expect(accepted.rows).toHaveLength(17);
+    expect(accepted.rows).toHaveLength(20);
     expect(accepted.rows.every(r=>r.status==='accepted')).toBe(true);
     expect(accepted.status).toBe('accepted');
-    expect(accepted.counts.all).toBe(28);
+    expect(accepted.counts.all).toBe(31);
     expect((await repQuoteList('brandi',{now:NOW,status:'changes_requested'})).rows.map(r=>r.quote_number)).toEqual(['Q-24790']);
   });
 });
@@ -79,7 +80,7 @@ describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
   it("reads an unknown customer as All customers, like the picker",async()=>{
     const list=await repQuoteList('brandi',{now:NOW,customerId:'nobody'});
     expect(list.customer).toBeNull();
-    expect(list.rows).toHaveLength(28);
+    expect(list.rows).toHaveLength(31);
   });
 
   it("shows only the signed-in rep's quotes: another rep's customer reads as theirs, not an empty queue",async()=>{
@@ -88,12 +89,16 @@ describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
       expect(other.rep_id).toBe('mara');
       const all=await repQuoteList('brandi',{now:NOW});
       expect(all.rows.map(r=>r.quote_number)).not.toContain(other.quote_number);
-      expect(all.counts.all).toBe(28);
+      expect(all.counts.all).toBe(31);
+      // Picking Mara's customer shows Brandi only the three quotes she covered for Mara (task F1).
       const canyon=await repQuoteList('brandi',{now:NOW,customerId:'canyon-ridge'});
-      expect(canyon).toMatchObject({rows:[],other_rep:true,customer:{name:'Canyon Ridge Builders',rep_name:'Mara Jensen'}});
+      expect(canyon).toMatchObject({other_rep:true,customer:{name:'Canyon Ridge Builders',rep_name:'Mara Jensen'}});
+      expect(canyon.rows.map(r=>[r.rep_id,r.status])).toEqual([['brandi','accepted'],['brandi','accepted'],['brandi','accepted']]);
       const mara=await repQuoteList('mara',{now:NOW});
-      expect(mara.rows.map(r=>r.quote_number)).toEqual([other.quote_number]);
-      expect(mara).toMatchObject({unread:1,other_rep:false});
+      expect(mara.rows.map(r=>r.quote_number)).toContain(other.quote_number);
+      expect(mara.rows.every(r=>r.rep_id==='mara')).toBe(true);
+      // Her new demo draft and this one.
+      expect(mara).toMatchObject({unread:2,other_rep:false});
     }finally{
       // Leave the queue as seeded for the tests below: Mara's quote never shows for Brandi anyway.
       openRepQuote('mara',other.id);

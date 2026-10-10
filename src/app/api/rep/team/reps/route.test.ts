@@ -29,7 +29,7 @@ describe('who may use the team routes',()=>{
     const list=await call('GET');
     expect(list).toMatchObject({status:200,cache:expect.stringMatching(/no-store/)});
     expect(list.json.reps.map((r:{id:string;role:string;team:string;active:boolean;customer_count:number})=>[r.id,r.role,r.team,r.active,r.customer_count])).toEqual([
-      ['brandi','manager','Inside Sales',true,2],['eli','rep','Outside Sales',true,0],['mara','rep','Inside Sales',true,1],['nora','rep','Outside Sales',true,1],
+      ['brandi','manager','Inside Sales',true,2],['eli','rep','Outside Sales',true,2],['mara','rep','Inside Sales',true,1],['nora','rep','Outside Sales',true,1],
     ]);
   });
 

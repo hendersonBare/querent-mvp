@@ -2,8 +2,8 @@
 
 Querent v2 (Query to Quote), task 7.2. This covers how the finished MVP code handles ERP data today and what has to change to connect a real ERP. It goes deep on **Epicor Prophet 21 (P21) + Epicor WMS**, and covers **Epicor Eclipse**, **Infor Distribution FACTS** and **TIMS (Computers Unlimited)** more briefly.
 
-- Code baseline: `main` at `7b09f06` (schema v3). Spec: Notion "Querent v2: Query to Quote" §6 (<https://app.notion.com/p/3e7afa1db504810fbbddc37175014ead>).
-- Written 2026-09-27. This file is the source of record. The Notion page "ERP Integration Readiness" (<https://app.notion.com/p/3e8afa1db50481e497a2f6fcdeb0368e>, a child of the plan page) is a short companion that links here, because the Notion workspace goes read-only for new content after 2026-09-29.
+- Code baseline: written against `main` at `7b09f06` (2026-09-27); §2 is refreshed for Querent v3 (migrations `001`–`008`, roles, decline, aging, reassignment, free delivery pricing; §2.12 lists what v3 adds). The v3 spec and decisions are in `docs/plans/spec.md` and `docs/plans/decision-log.md`.
+- This file is the source of record.
 
 ## How to read the evidence column
 
@@ -30,7 +30,7 @@ P21's own API reference is served by each customer's P21 middleware (for example
 - **Code changes a real integration needs:**
   - an ERP adapter module and a sync worker;
   - an async seam for live price and availability, because the repository, the chat tools and the quote intake are synchronous today (§2.11);
-  - the next schema version (v5; v4 added quote expiration dates and the delivery road factor): an ERP order reference on quotes, multiple ship-tos, geocodes for ship-tos and branches, an outbox table, and possibly a cross-reference table for CRM IDs;
+  - the next numbered migration (after `008_fuel_prices`): an ERP order reference on quotes, multiple ship-tos, geocodes for ship-tos and branches, an outbox table, and possibly a cross-reference table for CRM IDs;
   - a real sync status to replace the simulated heartbeat.
 - **Biggest unknowns:** Herrick's P21 version and middleware URL, how Querent reaches that middleware over the network, API licensing, the exact price and availability endpoint and whether it takes several items per call, the cost basis for margin, whether quotes should also exist in P21, and whether Epicor WMS changes what "available" means. See the open questions in §4.12.
 
@@ -41,7 +41,9 @@ P21's own API reference is served by each customer's P21 middleware (for example
 ### 2.1 Data store
 
 - A local SQLite file (`./data/querent.sqlite`, or `DATABASE_PATH`) opened by `better-sqlite3` in `src/server/db/index.ts`. It is seeded on first open. (Repo)
-- Numbered SQL migrations in `src/server/db/migrations/` (`001_baseline.sql` = the v4 schema), applied on app start by `src/server/db/migrate.ts` and recorded in `schema_migrations`. `npm run db:reset` rebuilds through them and reseeds. (Repo)
+- Numbered SQL migrations in `src/server/db/migrations/`, applied on app start by `src/server/db/migrate.ts`, each in its own transaction, and recorded in `schema_migrations`. `npm run db:reset` rebuilds through them and reseeds. There are no down migrations: rollback is a volume backup restore. (Repo)
+  - `001_baseline` is the v4 schema (a pre-migrations v4 database is adopted as already at 001).
+  - `002_freight_recovery` (recovery columns), `003_suggestion_lines` (`added_by='suggestion'`, a `quote_lines` rebuild), `004_declined` (the `declined` status and reason, a `quotes` rebuild), `005_quote_touch` (touch and view clocks), `006_roles` (rep role, team, active), `007_original_rep` and `008_fuel_prices`. §2.12 describes the columns.
 - There is one supplier per deployment (`suppliers` table) and no multi-tenancy (spec §1). (Repo)
 
 ### 2.2 ERP-sourced tables and the sync-ready columns
@@ -67,7 +69,7 @@ In the seed, every row has `source='seed'`, a readable `external_id`, and `synce
 | `contract_lines` | contract price per item | `CONTRACT:SKU` | `pricing.ts` |
 | `customers` | account, terms, credit, balances, tax, price level, **one** ship-to with lat/lng | account number | `accounts.ts` `customerAccount`, `accountSummary`, `deliveryAddress`, `customers`, `customerDirectory` |
 | `contacts` | customer contacts | `ACCOUNT:contact-id` | `accounts.ts` `contacts`, `contact` |
-| `reps` | sales reps | `REP-<initials>` | `accounts.ts` `reps`, `rep`, `assignedRep` |
+| `reps` | sales reps; also the Querent-owned `role`, `team` and `active` (§2.12) | `REP-<initials>` | `accounts.ts` `reps`, `rep`, `assignedRep`, `teamReps`, `repStanding` |
 | `orders` | order header, status, fulfillment, branch, shipment, totals, `quote_id` | order number | `orders.ts` (all functions), `accounts.ts` `customerStats` |
 | `order_lines` | line, item, qty, unit_price, **unit_cost** | `ORDER:line` | `orders.ts`, `pricing.ts` `lastPaid`, `priceSources` |
 
@@ -76,11 +78,11 @@ Details that matter for a sync:
 - **Local ids are not ERP ids.** Foreign keys use local `id` columns (for example `quote_lines.item_id REFERENCES items(id)`). The seed happens to use the SKU as `items.id`, but a sync must resolve each foreign key through `(source, external_id)` and must not assume local id = ERP id. (Repo: `schema.ts`, `seed/reference.ts`)
 - **Querent-created rows** leave `external_id` NULL. SQLite treats NULLs as distinct in a unique index, so they never collide. (Repo: `schema.ts`)
 - **Business keys are also unique:** `items.sku`, `customers.account_number`, `branches.code`, `contracts.contract_number`, `orders.order_number`. A sync that renames a SKU in the ERP has to update in place. (Repo: `schema.ts`)
-- **Nothing outside the seed writes to these 13 tables.** A grep for INSERT, UPDATE or DELETE on them in `src/server/repository/*.ts` finds nothing. The sync job would be their only writer. (Repo)
+- **Nothing outside the seed writes the ERP fields of these 13 tables.** The one exception is Querent-owned columns added in v3: Settings > Reps writes `reps.team` and `reps.active` (`accounts.ts`). A rep sync must upsert the ERP fields and leave `role`, `team` and `active` alone. Otherwise the sync job would be the only writer. (Repo)
 
 ### 2.3 Querent-owned tables (never synced)
 
-`suppliers`, `settings`, `customer_rep` (one rep per customer, edited in Settings > Rep assignments), `rep_category_floors`, `departments`, `delivery_rates`, `quotes`, `quote_lines`, `quote_removed_lines`, `quote_revisions`, `quote_activity`, `quote_notes`, `conversations`, `messages`, `query_logs`, `access`, `sync_events` and `meta`. (Repo: `src/server/db/schema.ts`)
+`suppliers`, `settings`, `customer_rep` (one rep per customer, edited by a manager in Settings > Rep assignments), `rep_category_floors`, `departments`, `delivery_rates`, `quotes`, `quote_lines`, `quote_removed_lines`, `quote_revisions`, `quote_activity`, `quote_notes`, `conversations`, `messages`, `query_logs`, `access`, `fuel_prices` (v3: the daily state gasoline price from OilPriceAPI), `sync_events`, `meta` and the migration runner's `schema_migrations`. (Repo: `src/server/db/migrations/`)
 
 Two decisions are needed at integration time:
 
@@ -98,7 +100,7 @@ Two decisions are needed at integration time:
 
   An ERP adapter that talks HTTP instead of SQL fits under the same rule: put it behind repository-shaped functions.
 - `src/server/repository/erp.ts` is the ERP status module today (Repo):
-  - `demoDatabase()` returns the seed date, schema version, record counts, and the newest `synced_at` across customers, items, branch_stock, customer_prices, contracts and orders.
+  - `demoDatabase()` returns the seed date, the latest applied migration id, record counts, and the newest `synced_at` across customers, items, branch_stock, customer_prices, contracts and orders.
   - `events()` returns recent `sync_events` rows.
   - `heartbeat()` inserts a row.
 
@@ -137,7 +139,7 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 
 ### 2.7 Quotes and the step 8/9 boundary
 
-- The state machine is in `src/server/quotes/lifecycle.ts`: ready_for_review → sent → accepted, or changes_requested, or expired. (Repo)
+- The state machine is in `src/server/quotes/lifecycle.ts`: ready_for_review → sent → accepted, changes_requested, declined (v3, final, with an optional reason) or expired. Aging (ok, amber, red) is derived on read, never stored. (Repo)
 - The services are in `src/server/quotes/service.ts`:
   - `sendQuote` stores a frozen `quote_revisions.snapshot` (built in `src/server/quotes/snapshot.ts`), posts the chat message and logs Activity.
   - `acceptQuote` sets `accepted` with `fulfillment_time` and `customer_po`, flags the rep and logs Activity. **Acceptance ends the MVP.** Step 9 (write the order to the ERP) is out of scope (spec §1).
@@ -155,7 +157,7 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 ### 2.9 Settings > Data sources and the heartbeat
 
 - `src/components/rep/settings/DataSources.tsx` shows two cards (Repo):
-  - "Demo database": the seed date, record counts, "ERP records synced" (the newest `synced_at`) and the schema version, with a "Sample data" pill.
+  - "Demo database": the seed date, record counts, "ERP records synced" (the newest `synced_at`) and the latest schema migration, with a "Sample data" pill.
   - "Herrick Industrial Supply ERP": "Connected", or "Update delayed" when the last `sync_events` row is 120 s old or older, plus the last 5 syncs.
 - Its data comes from `dataSources()` in `src/server/rep/settings.ts` and `GET /api/rep/settings/sources`. (Repo)
 - **The connection is simulated.** `ensureHeartbeat()` in `src/server/heartbeat.ts` runs every 60 s once any of these has been hit: the Settings page (`src/app/rep/settings/page.tsx`), the Settings API routes, or the chat query route (`src/app/api/query/[...path]/route.ts`). It calls `heartbeat()`, which writes "ERP connection refreshed" into `sync_events`. No ERP is contacted. (Repo)
@@ -172,7 +174,8 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 | Cost from `items.cost` | `schema.ts` | Pick an ERP cost basis. |
 | Accepted quote stops at `accepted` | `quotes/service.ts` `acceptQuote` | Step 9 outbox and write-back (§4.10). |
 | "Open customer in ERP" disabled | `MoreMenu.tsx` | A deep link into the ERP client. Whether P21 supports one is Unverified. |
-| Persona chooser, no auth | README "Security boundary" | Real auth and customer identity mapped to the ERP customer id and contact. |
+| Persona chooser (a manager, two reps, one customer), no auth | README "Security model", `TODO(R-4)` | Real auth, with customer identity mapped to the ERP customer id and contact, and rep identity and role mapped to the ERP salesrep (manager subtrees are `TODO(R-12)`). |
+| Pool seeded by a demo "pilot" | `src/server/db/seed/demo.ts` | Real accepted delivery quotes fill the pool; it uses the starting rate until 20 are in the window. |
 | Scripted chat | `src/server/chat/scripted.ts` | None. Scripted mode stays for CI. |
 
 ### 2.11 Constraints a real integration must respect
@@ -180,7 +183,19 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 1. **Synchronous core.** Repository calls, `priceLines()`, `requestQuote()` and every chat tool (`ToolResult<T>`, not a Promise) are synchronous. A live ERP call cannot go inside them without an async refactor. Querent design: fetch live data **before** the transaction (for example, an async `prefetchPrices(customer, items, branch)` in the route), then pass it into the synchronous pricing code. Or keep the data synced so nothing changes.
 2. **Identity.** Resolve every foreign key through `(source, external_id)` (§2.2).
 3. **The customer-safe boundary.** The ERP adapter must not hand cost to chat tools. Keep cost-bearing reads in internal repository functions.
-4. **No migrations.** Schema v4 for the integration will reseed. That is fine before go-live and needs a migration story after.
+4. **Migrations, not reseeds.** Integration columns and tables (the ERP order reference, ship-tos, the outbox) go in the next numbered migration, which runs on app start and keeps the data. Back up the volume before each deploy; a table rebuild cannot be undone except by restoring that backup.
+
+### 2.12 What v3 adds that a sync or write-back must respect
+
+| Where | What | Integration note |
+|---|---|---|
+| `reps.role`, `reps.team`, `reps.active` (006) | `rep` or `manager`; a free-text team label used only as a filter; inactive reps lose access, and can only be marked inactive once no customer is assigned to them | Querent-owned columns on an ERP-sourced table: a rep sync must not overwrite them. If `customer_rep` comes from the ERP salesrep (§2.3), deactivation still waits for those customers to move. |
+| `quotes.original_rep_id` (007) | the rep the quote was created for; `rep_id` is the current owner, which a manager can reassign (each move logged in `quote_activity`, kind `reassigned`) | Write-back should credit the current owner (`rep_id`) as the order's salesrep unless the customer decides otherwise. |
+| `quotes.status='declined'`, `declined_at`, `decline_reason`, `decline_note` (004) | the customer's decline and its reason; the Other note is rep-only | Never written back as an order. The reasons are CRM material (lost-reason codes) if a CRM sync is built. |
+| `quotes.last_rep_touch_at`, `customer_viewed_at` (005) | the rep's last open or edit, and the customer's last PDF view | Querent-only signals for the Team dashboard. |
+| `quotes.freight_rate_bp`, `freight_ramp_step`, `freight_ramp_steps`, `modelled_freight_cents`; `quote_lines.freight_recovery` (002) | free delivery pricing: the recovery rate frozen at creation, and the per-unit recovery (integer cents) on top of `unit_price` | The customer agreed to `unit_price + freight_recovery` with freight $0.00: that is the price to write to the ERP order line (it is what the snapshot holds). Margin and floors stay on `unit_price`. |
+| `quote_lines.added_by='suggestion'` (003) | lines the customer added from the pop-up's "Frequently bought together" | Ordinary order lines on write-back. |
+| `fuel_prices` (008), `freight_*` settings | the gasoline price by state (OilPriceAPI, fetched at most once a day) and the manager's cost-model inputs | Querent-owned. A fleet or routing system could replace them later (`TODO(R-10)`, `TODO(R-11)`). |
 
 ---
 
@@ -191,7 +206,7 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 | ERP adapter (one per ERP) | auth and token cache; `pull(entity, since)`; `priceAndAvailability(customer, lines, branch)`; `createOrder(acceptedQuote)`; optional `createQuote` | `src/server/erp/<vendor>/` (new), called only by the sync worker and repository-shaped functions |
 | Sync worker | per-entity watermarks; upsert by `(source, external_id)`; resolve foreign keys; set `synced_at`; write `sync_events`; periodic full reconcile for deletes | a separate process or interval, never inside a request |
 | Live price and availability | async prefetch before the step-5 intake transaction and before send; short cache | a route or service layer, then the pure pricing engine |
-| Outbox (step 9) | durable queue of accepted quotes to write back; idempotency key; retries; last error | new `erp_outbox` table (next schema version) and a worker |
+| Outbox (step 9) | durable queue of accepted quotes to write back; idempotency key; retries; last error | new `erp_outbox` table (next migration) and a worker |
 | Tenant config | ERP kind, base URL, credentials (env or secret store, **never** in the DB or this doc) | environment per deployment (one supplier per deployment today) |
 
 ---
@@ -342,7 +357,7 @@ Every run writes `sync_events` with the entity, rows upserted, errors and the ne
 3. **Map ids.** Convert items, customer, branch and ship-to to P21 ids through `external_id`. If any of them has no external id, fail with a clear error for the rep.
 4. **De-duplicate.** Before any retry, query `oe_hdr` for an order with the same customer and PO, or the Querent reference (§4.8, last row). Which field can hold that reference is Unverified.
 5. **Submit.** `POST /uiserver0/api/V2/Transaction` with `Name: "Order"` (Search [S6]). An unexpected P21 message counts as a failure (§4.6).
-6. **Record.** Store the returned order number in a new column, `quotes.erp_order_number` (next schema version). Add an Activity entry ("Order SO-… created in P21") and a rep badge.
+6. **Record.** Store the returned order number in a new column, `quotes.erp_order_number` (next migration). Add an Activity entry ("Order SO-… created in P21") and a rep badge.
 7. **Link.** When the order sync picks up the `oe_hdr` row, set `orders.quote_id` by matching `erp_order_number`. `src/server/repository/orders.ts` already joins `orders.quote_id` to show the quote number on an order (`get_order_status`, the rep's Orders views). Analytics win rate reads quote statuses, not orders (`src/server/repository/analytics.ts`).
 8. **Failure.** Retry with backoff on network errors only. Validation errors go to the rep, and Settings > Data sources shows outbox failures.
 9. **Option (open question).** Create a **P21 quote** at step 7 (send) and convert it to an order on accept. P21 supports conversion in the UI (Search [S16]); API support is Unverified. Choose this only if Herrick's reps must see Querent quotes inside P21.

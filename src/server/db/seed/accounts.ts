@@ -49,9 +49,24 @@ export const TAX_RATE=0.0725;
 // several customers. They have no orders, quotes, prices or logs (spec §2).
 export const PLACEHOLDER_CUSTOMERS=[
   {id:'great-basin',account_number:'GBF-2207',name:'Great Basin Fabrication',rep:'brandi'},
-  {id:'canyon-ridge',account_number:'CRB-3318',name:'Canyon Ridge Builders',rep:'mara'},
   {id:'uinta-facility',account_number:'UFS-4051',name:'Uinta Facility Services',rep:'nora'},
 ];
+
+// Mara's and Eli's books (v3 decision 39; task F1): accounts with a ship-to inside the delivery radius
+// and one buyer each (a name and title only), so ./demo can seed their quotes. Each delivers from its
+// nearest branch. Canyon Ridge was a placeholder before v3.
+export const DEMO_CUSTOMERS=[
+  {id:'canyon-ridge',account_number:'CRB-3318',name:'Canyon Ridge Builders',rep:'mara',branch:'slc',terms:'Net 30',credit_limit:40000,open_balance:9650,
+    ship_to_name:'Canyon Ridge Builders, Draper yard',ship_to_address:'250 W Galena Park Blvd',ship_to_city:'Draper',ship_to_zip:'84020',ship_to_lat:40.523,ship_to_lng:-111.893,
+    contact:{id:'luis',name:'Luis Herrera',title:'Project Manager'}},
+  {id:'utah-valley-electric',account_number:'UVE-5126',name:'Utah Valley Electric',rep:'eli',branch:'provo',terms:'Net 30',credit_limit:30000,open_balance:4210,
+    ship_to_name:'Utah Valley Electric, Orem shop',ship_to_address:'870 S Geneva Rd',ship_to_city:'Orem',ship_to_zip:'84058',ship_to_lat:40.283,ship_to_lng:-111.722,
+    contact:{id:'kim',name:'Kim Nakamura',title:'Purchasing'}},
+  {id:'weber-basin',account_number:'WBF-6074',name:'Weber Basin Fabricators',rep:'eli',branch:'ogden',terms:'Net 45',credit_limit:25000,open_balance:2875,
+    ship_to_name:'Weber Basin Fabricators, plant',ship_to_address:'1150 S 3300 W',ship_to_city:'Ogden',ship_to_zip:'84401',ship_to_lat:41.21,ship_to_lng:-112.04,
+    contact:{id:'tom',name:'Tom Becker',title:'Shop Foreman'}},
+] as const;
+export type DemoCustomer=typeof DEMO_CUSTOMERS[number];
 
 /** Contract windows are day offsets from the anchor (anchor 2026-09-23 gives Jan 1 to Dec 31, 2026). */
 export const CONTRACTS=[

@@ -43,7 +43,7 @@ describe('detailTitle',()=>{
 
 describe('customerList',()=>{
   it('lists every customer by name, or only the picked one',()=>{
-    expect(customerList().map(c=>c.id)).toEqual(['canyon-ridge','great-basin','uinta-facility','wasatch']);
+    expect(customerList().map(c=>c.id)).toEqual(['canyon-ridge','great-basin','uinta-facility','utah-valley-electric','wasatch','weber-basin']);
     expect(customerList('great-basin')).toEqual([expect.objectContaining({id:'great-basin',rep_name:'Brandi Gallegos',order_count:0,quote_count:0,terms:null})]);
     expect(customerList('nobody')).toEqual([]);
   });

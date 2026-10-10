@@ -24,7 +24,9 @@ const CUSTOMERS = [
   "Canyon Ridge Builders",
   "Great Basin Fabrication",
   "Uinta Facility Services",
+  "Utah Valley Electric",
   "Wasatch Mechanical Contractors",
+  "Weber Basin Fabricators",
 ];
 
 test.describe.configure({ mode: "serial" });

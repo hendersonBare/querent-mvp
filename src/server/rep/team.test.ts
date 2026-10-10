@@ -61,9 +61,12 @@ describe('updateTeamRep: deactivation',()=>{
 
   it('counts customers in the message, and changes the label and the flag together when both are sent',()=>{
     rejects(()=>updateTeamRep('mara','brandi',{active:false}),409,/^Brandi Gallegos still has 2 customers\. Reassign them/,'has_customers');
+    // Eli's two demo customers (task F1) move to Nora first, and back after.
+    for(const id of ['utah-valley-electric','weber-basin'])setAssignedRep(id,'nora');
     const both=updateTeamRep('brandi','eli',{team:'Field',active:false}).reps.find(r=>r.id==='eli');
     expect(both).toMatchObject({team:'Field',active:false});
     updateTeamRep('brandi','eli',{team:'Outside Sales',active:true});
+    for(const id of ['utah-valley-electric','weber-basin'])setAssignedRep(id,'eli');
   });
 
   it('never lets a manager deactivate themselves',()=>{

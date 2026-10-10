@@ -19,7 +19,9 @@ const request=(input:Partial<NewQuote>={})=>createQuote({customerId:'wasatch',co
 describe('repBadges: the Quotes unread badge',()=>{
   it('counts the seeded sample quote Q-24817 for Brandi, and nothing for reps without unread quotes',()=>{
     expect(repBadges('brandi',{now:T0})).toEqual({quotes:1,attention:0});
-    expect(repBadges('mara',{now:T0})).toEqual({quotes:0,attention:0});
+    // Nora has no quotes; Mara's and Eli's demo books (task F1) each hold a new draft they haven't opened.
+    expect(repBadges('nora',{now:T0})).toEqual({quotes:0,attention:0});
+    expect(repBadges('mara',{now:T0}).quotes).toBe(1);
   });
 
   it('goes up when a customer requests a quote and down when the rep opens it',()=>{

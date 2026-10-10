@@ -11,7 +11,8 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 //
 // The seed also has three open aging quotes dated from the reset time (task A2, e2e/rep-aging.spec.ts):
 // Q-24789 and Q-24791 sent, Q-24790 changes requested. They are read, so the unread counts hold, and
-// the sample Q-24817, weeks old on the server's clock, carries the Overdue marker.
+// the sample Q-24817, weeks old on the server's clock, carries the Overdue marker. The demo book
+// (task F1) adds three accepted Canyon Ridge quotes Brandi covered for Mara, so All customers lists 34.
 
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
@@ -74,7 +75,7 @@ test("table: each quote with its number and revision, customer, requested date, 
   // Expiry is lazy: the quote sent 20 days ago (valid 14) lists as Expired, not Sent.
   await expect(quote(page, made.overdue).getByRole("cell").nth(2)).toHaveText("Expired");
   await expect(quote(page, "Q-24816").getByRole("cell").nth(2)).toHaveText("Accepted");
-  await expect(listed(page)).toHaveCount(31);
+  await expect(listed(page)).toHaveCount(34);
   await attachScreenshot(page, testInfo, "quotes-1440");
 });
 
@@ -82,7 +83,7 @@ test("filter: by status, with counts, kept in ?status= next to the picked custom
   await signInAsBrandi(page);
   await expect(statusFilter(page).getByRole("link")).toHaveText([
     // Needs attention: the sample, the seed's Q-24789 and Q-24790, and this fixture's change request (asked a day ago: red at 24 h).
-    /^All\s*31$/, /^Needs attention\s*4$/, /^Draft ready\s*1$/, /^Changes requested\s*2$/, /^Sent\s*3$/, /^Accepted\s*17$/, /^Expired\s*8$/, /^Declined\s*0$/,
+    /^All\s*34$/, /^Needs attention\s*4$/, /^Draft ready\s*1$/, /^Changes requested\s*2$/, /^Sent\s*3$/, /^Accepted\s*20$/, /^Expired\s*8$/, /^Declined\s*0$/,
   ]);
   await statusFilter(page).getByRole("link", { name: /^Expired/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?status=expired$/);
@@ -129,18 +130,20 @@ test("changes_requested: highlighted, with the customer's note under the row", a
 test("picker: the list shows the signed-in rep's quotes, for the picked customer", async ({ page }) => {
   await signInAsBrandi(page);
   // Mara's customer's quote is never in Brandi's list.
-  await expect(listed(page)).toHaveCount(31);
+  await expect(listed(page)).toHaveCount(34);
   await expect(quote(page, made.other_rep)).toHaveCount(0);
 
+  // Picking Mara's customer shows only the three Canyon Ridge quotes Brandi covered for Mara (task F1).
   const viewing = page.getByLabel("Viewing");
   await viewing.selectOption("canyon-ridge");
   await expect(page).toHaveURL(/\/rep\/quotes\?customer=canyon-ridge$/);
-  await expect(page.getByRole("heading", { name: "Canyon Ridge Builders is Mara Jensen’s customer" })).toBeVisible();
-  await expect(quotesTable(page)).toHaveCount(0);
-  await page.getByRole("link", { name: "Show all your quotes" }).click();
+  await expect(listed(page)).toHaveCount(3);
+  for (const status of await quotesTable(page).getByRole("rowgroup").filter({ has: page.getByRole("rowheader") }).all())
+    await expect(status.getByRole("cell").nth(2)).toHaveText("Accepted");
+  await expect(quote(page, made.other_rep)).toHaveCount(0);
+  await viewing.selectOption("all");
   await expect(page).toHaveURL(/\/rep\/quotes$/);
-  await expect(viewing).toHaveValue("all");
-  await expect(listed(page)).toHaveCount(31);
+  await expect(listed(page)).toHaveCount(34);
 
   // Brandi is the manager: opening another rep's quote directly shows it read-only (task D2;
   // e2e/rep-reassign.spec.ts covers it, and another rep's not-found).

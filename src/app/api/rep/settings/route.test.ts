@@ -36,7 +36,7 @@ describe('GET /api/rep/settings',()=>{
     expect(all.status).toBe(200);
     expect(all.cache).toMatch(/no-store/);
     expect(all.json).toMatchObject({rep_id:'brandi',access:{customer_id:null},pricing:{scarcity_uplift_enabled:false},delivery:{base_fee:25,road_factor:1.25}});
-    expect(all.json.assignments).toHaveLength(4);
+    expect(all.json.assignments).toHaveLength(6);
     expect(all.json.floors.mine.floors.find((f:{category_id:string})=>f.category_id==='safety')).toMatchObject({margin_floor:0.3,label:'30.0%'});
     expect((await call('','GET',{query:'?customer=wasatch'})).json.access.customer_id).toBe('wasatch');
     expect((await call('','GET',{query:'?customer=nobody'})).json.access.customer_id).toBeNull();

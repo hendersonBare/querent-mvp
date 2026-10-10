@@ -7,6 +7,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
 // states the rep's Quotes list shows but the seed doesn't have, through the real quote services.
 // Times are relative to the server's clock, so the quotes are as fresh (or as overdue) on any day.
 // Like the reset, it exists only when the server runs with QUERENT_E2E_RESET=1.
+// TODO(R-6): guard /api/test/* more strictly before deployment (an env flag alone keeps them off by default, nothing more).
 
 const CHANGE_NOTE='Can you make the gloves 6 cases, and hold it for pickup at SLC instead?';
 const DAY=86_400_000;

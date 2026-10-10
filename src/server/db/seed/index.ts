@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import {seedAgingQuotes} from './aging';
 import {seedChatLogs} from './chat';
+import {seedDemoQuotes} from './demo';
 import {at} from './dates';
 import {seedHistory} from './history';
 import {backfillOriginalReps,inserter} from './insert';
@@ -13,7 +14,7 @@ export {seedAnchorFromEnv} from './dates';
 export interface SeedOptions{
   /** YYYY-MM-DD: the day Dana sent the Q-24817 request. Every seeded date is relative to it. */
   anchor:string;
-  /** The reset time: the aging quotes (./aging) are relative to it, not the anchor. Now by default. */
+  /** The reset time: the aging quotes (./aging) and the demo book (./demo) are relative to it, not the anchor. Now by default. */
   now?:string;
 }
 
@@ -28,6 +29,7 @@ export function seedDatabase(database:Database.Database,{anchor,now=new Date().t
     seedChatLogs(context);
     seedSampleQuote(database,anchor);
     seedAgingQuotes(context,now);
+    seedDemoQuotes(database,context,now);
     backfillOriginalReps(database);
     context.insert('meta',{key:'seed_anchor',value:anchor});
     context.insert('sync_events',{timestamp:new Date().toISOString(),message:'ERP connection refreshed'});

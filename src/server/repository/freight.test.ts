@@ -4,7 +4,7 @@ import {toCents} from '@/lib/money';
 import {cachedPoolRate,poolInputs} from './freight';
 import {createQuote,saveQuoteTransition} from './quotes';
 import {scalar} from './sql';
-import {setQuoteFreightFixture,useSeededDatabase} from './test-db';
+import {clearSeededPool,setQuoteFreightFixture,useSeededDatabase} from './test-db';
 
 useSeededDatabase();
 
@@ -25,14 +25,16 @@ async function fixture({fulfillment='delivery',status='accepted',respondedAt=day
 }
 
 describe('the recovery columns (migration 002)',()=>{
-  it('default every seeded line to 0¢ recovery and every seeded quote to no frozen rate',()=>{
-    expect(scalar<number>('SELECT count(*) FROM quote_lines WHERE freight_recovery<>0')).toBe(0);
-    expect(scalar<number>('SELECT count(*) FROM quotes WHERE freight_rate_bp IS NOT NULL OR freight_ramp_step IS NOT NULL OR freight_ramp_steps IS NOT NULL OR modelled_freight_cents IS NOT NULL')).toBe(0);
+  it('default every Wasatch line to 0¢ recovery and every Wasatch quote to no frozen rate (the demo book\'s pilot quotes carry some, task F1)',()=>{
+    expect(scalar<number>("SELECT count(*) FROM quote_lines l JOIN quotes q ON q.id=l.quote_id WHERE q.customer_id='wasatch' AND l.freight_recovery<>0")).toBe(0);
+    expect(scalar<number>("SELECT count(*) FROM quotes WHERE customer_id='wasatch' AND (freight_rate_bp IS NOT NULL OR freight_ramp_step IS NOT NULL OR freight_ramp_steps IS NOT NULL OR modelled_freight_cents IS NOT NULL)")).toBe(0);
   });
 });
 
 describe('poolInputs: eligible accepted delivery quotes in the trailing 90 days',()=>{
-  it('is empty on the seed: no seeded quote carries recovery',()=>{
+  // The demo seed's pilot quotes are dated from the real clock (src/server/repository/demo-pool.test.ts covers them): take them out, so these fixtures are the whole pool on any day.
+  it('is empty once the seed\'s pilot quotes are out of the pool',async()=>{
+    await clearSeededPool();
     expect(poolInputs(NOW)).toEqual({modelledCents:0,goodsCents:0,count:0});
   });
 

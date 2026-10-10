@@ -1,9 +1,11 @@
-import {describe,expect,it} from 'vitest';
-import {useSeededDatabase} from '@/server/repository/test-db';
+import {beforeAll,describe,expect,it} from 'vitest';
+import {clearDemoBook,useSeededDatabase} from '@/server/repository/test-db';
 
 // The Team dashboard end to end over the seeded database (v3 spec §5, §7; decisions 23–25; task D3):
 // quotes made and moved through the real services, read back live through the repository.
 useSeededDatabase();
+// The demo seed's book (task F1) is dated from the real clock: deleted, so only this file's quotes fall in its fixed window on any day.
+beforeAll(clearDemoBook);
 
 const FROM='2027-03-01T07:00:00.000Z',TO='2027-03-08T07:00:00.000Z',NOW='2027-03-07T12:00:00.000Z';
 const at=(day:number,hour:number)=>`2027-03-0${day}T${String(hour).padStart(2,'0')}:00:00.000Z`;

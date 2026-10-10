@@ -1,9 +1,11 @@
 import {afterAll,afterEach,beforeAll,describe,expect,it} from 'vitest';
 import type {ItemPopupPayload,QuoteRequestedPayload} from '@/domain';
 import type {QuoteRequestInput} from '@/lib/contracts';
-import {SEED_DATE,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
+import {SEED_DATE,clearSeededPool,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 
 useSeededDatabase();
+// The demo seed's pilot quotes (task F1) are dated from the real clock: out of the pool, so the starting rate is the one in force at this file's fixed times.
+beforeAll(clearSeededPool);
 
 // Request quote (task 2.3): the item pop-up's cart becomes a ready_for_review quote for Brandi,
 // priced by the pricing engine (1.1), with freight (1.3) and upsells (1.6) available on it, and the

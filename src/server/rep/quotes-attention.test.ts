@@ -42,7 +42,7 @@ describe('the Needs attention filter',()=>{
     expect(numbers(list.rows)).toEqual(['Q-24790','Q-24817','Q-24789']);
     expect(list).toMatchObject({attention:true,sort:'urgent',status:null,attention_count:3});
     // The status counts still describe every quote of the picked customer.
-    expect(list.counts).toMatchObject({all:28,sent:2,changes_requested:1,ready_for_review:1});
+    expect(list.counts).toMatchObject({all:31,sent:2,changes_requested:1,ready_for_review:1});
   });
 
   it('toggles to oldest clock first',async()=>{
@@ -64,7 +64,10 @@ describe('the Needs attention filter',()=>{
   it('follows the Viewing picker',async()=>{
     expect((await repQuoteList('brandi',{now:now(),attention:true,customerId:'great-basin'})).rows).toEqual([]);
     expect(numbers((await repQuoteList('brandi',{now:now(),attention:true,customerId:'wasatch'})).rows)).toEqual(['Q-24790','Q-24817','Q-24789']);
-    expect((await repQuoteList('mara',{now:now(),attention:true})).attention_count).toBe(0);
+    expect((await repQuoteList('nora',{now:now(),attention:true})).attention_count).toBe(0);
+    // Mara's demo book (task F1): her Overdue draft and change request first, then Aging.
+    const mara=await repQuoteList('mara',{now:now(),attention:true});
+    expect(mara.rows.map(r=>r.aging!.level)).toEqual(['red','red','amber','amber']);
   });
 
   it('honours the supplier’s thresholds',async()=>{
@@ -98,7 +101,9 @@ describe('attentionOrder',()=>{
 describe('the header badge counts red quotes only',()=>{
   it('adds attention beside the unread count (OA-8)',()=>{
     expect(repBadges('brandi',{now:now()})).toEqual({quotes:1,attention:2});
-    expect(repBadges('mara',{now:now()})).toEqual({quotes:0,attention:0});
+    expect(repBadges('nora',{now:now()})).toEqual({quotes:0,attention:0});
+    // Mara's demo book (task F1): a new draft she hasn't opened; an Overdue draft and change request.
+    expect(repBadges('mara',{now:now()})).toEqual({quotes:1,attention:2});
   });
 
   it('honours the supplier’s thresholds',async()=>{
