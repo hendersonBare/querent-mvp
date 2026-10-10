@@ -28,10 +28,11 @@ export interface CustomerAccount {
 export interface AccountSummary {customer_id:string;account_number:string;name:string;terms:string|null;credit_limit:number|null;open_balance:number|null;past_due_balance:number|null;tax_status:'taxable'|'exempt'|null;rep:Rep|null}
 
 /**
- * Internal facts for the rep's Customer panel. Lost quotes are stored as `expired` (task 0.2),
- * so win_rate = accepted / (accepted + expired), or null with no decided quotes.
+ * Internal facts for the rep's Customer panel. A quote is lost when it expired (the seed stores its
+ * lost quotes that way, task 0.2) or the customer declined it (A1), as quoteOutcome counts them, so
+ * win_rate = accepted / (accepted + lost), or null with no decided quotes.
  */
-export interface CustomerStats {customer_id:string;last_order:{order_number:string;order_date:string;total:number}|null;quotes_accepted:number;quotes_expired:number;win_rate:number|null}
+export interface CustomerStats {customer_id:string;last_order:{order_number:string;order_date:string;total:number}|null;quotes_accepted:number;quotes_lost:number;win_rate:number|null}
 
 export interface Contact {id:string;customer_id:string;name:string;title:string|null;phone:string|null;email:string|null;is_primary:boolean}
 

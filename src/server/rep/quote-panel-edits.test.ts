@@ -49,6 +49,16 @@ describe('the panels in the detail',()=>{
     expect(panels.customer.win_rate).toEqual({rate:17/25,won:17,lost:8,open:1});
   });
 
+  it('counts a declined quote as lost in the Customer panel win rate (task A1)',async()=>{
+    const {detail,service}=await load();
+    const winRate=async()=>(await detail.repQuoteDetail('brandi','Q-24817',{now:NOW}))!.panels.customer.win_rate;
+    const before=await winRate();
+    const copy=service.duplicateQuote('Q-24817',{repId:'brandi',now:'2026-09-24T15:00:00.000Z'});
+    await service.sendQuote(copy.id,{repId:'brandi',now:'2026-09-24T16:00:00.000Z'});
+    service.declineQuote('wasatch',copy.id,{revision:1,reason:'wrong_items',now:'2026-09-25T15:00:00.000Z'});
+    expect(await winRate()).toEqual({...before,lost:before.lost+1,rate:before.won/(before.won+before.lost+1)});
+  });
+
   it('counts only quotes requested in the last 12 months, as the panel says (3.4 follow-up)',async()=>{
     const {detail,service}=await load();
     const winRate=async()=>(await detail.repQuoteDetail('brandi','Q-24817',{now:NOW}))!.panels.customer.win_rate;
