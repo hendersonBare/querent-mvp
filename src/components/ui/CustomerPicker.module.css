@@ -1,0 +1,95 @@
+/* The page-local customer picker (C_QOBoard closed, C_QOB1 open, C_QOT7 typed). */
+.box {
+  position: relative;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: 100%;
+  height: var(--q-picker-height);
+  border-radius: var(--q-radius-control);
+  background: var(--q-card);
+  border: 1px solid var(--q-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  cursor: text;
+}
+.open {
+  border: 2px solid var(--q-accent);
+}
+.icon {
+  flex: none;
+}
+.label {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.input {
+  position: absolute;
+  inset: 0 14px 0 41px;
+  width: auto;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--q-text);
+  font-family: inherit;
+  font-size: var(--q-text-body);
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: normal;
+}
+.input:focus,
+.input:focus-visible {
+  outline: none;
+}
+.panel {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  width: 360px;
+  box-sizing: border-box;
+  background: var(--q-card);
+  border: 1px solid var(--q-rule);
+  border-radius: 12px;
+  box-shadow: var(--q-shadow-picker);
+  padding: 5px;
+  z-index: 6;
+  font-size: var(--q-text-control);
+  color: var(--q-text);
+  font-weight: 500;
+  cursor: default;
+}
+.list {
+  overflow-y: auto;
+}
+.option {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 10px;
+  border-radius: var(--q-radius-field);
+  background: transparent;
+  cursor: pointer;
+}
+.active {
+  background: var(--q-table-header);
+}
+.name {
+  font-weight: 600;
+}
+.code {
+  font-family: var(--q-font-mono);
+  font-size: 11.5px;
+  color: var(--q-text-code);
+}
+.hint {
+  padding: 7px 10px 3px;
+  font-size: 11.5px;
+  color: var(--q-text-code);
+  border-top: 1px solid var(--q-table-header);
+  margin-top: 4px;
+}

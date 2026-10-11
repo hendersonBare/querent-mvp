@@ -23,6 +23,7 @@ Old mockup brand (retired by the new UI): "Querent green" teal primary, Archivo 
 The build follows the mockup except where the spec decided otherwise. Verifiers: these are **not** defects.
 
 **Rep portal**
+- **Type (lane U, U0):** the portal renders in Albert Sans and Geist Mono (the new UI's fonts), not the mockup's Archivo and IBM Plex, while each page keeps the mockup's layout until its lane U task rebuilds it on the charcoal frames.
 - Nav is `Quotes / Customers / Orders / Items / Analytics / Settings`. There is no header customer picker (task U1): scope is role based, and pages that need a customer filter it themselves with `?customer=`. The rep is **Brandi Gallegos (BG)**, not "JP"/Jordan.
 - Each line has a **price-basis dropdown** (Contract / Customer / List / Last paid / Custom) showing each option's dollar value. Querent's pick is **bold**. The rep can type any price.
 - A **red warning sits directly above the price field** when a line is below the floor for (quote rep × product category). It never blocks.

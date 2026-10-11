@@ -1,0 +1,46 @@
+/* The caution and bell dropdowns (C_QOB3, C_QOB4): 360 wide under the button, a dark header, short rows. */
+.wrap {
+  position: relative;
+  display: flex;
+}
+.panel {
+  top: 50px;
+  right: 0;
+  width: 360px;
+  overflow: hidden;
+}
+.head {
+  background: var(--q-rail);
+  color: #fff;
+  padding: 12px 16px;
+  font-weight: 800;
+}
+.item {
+  padding: 12px 16px;
+  border-top: 1px solid var(--q-table-header);
+  cursor: pointer;
+}
+.item:hover {
+  background: var(--q-lane);
+}
+.line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.title {
+  font-weight: 800;
+}
+.tag {
+  font-size: var(--q-text-table-head);
+  font-weight: 700;
+  color: var(--q-text-muted);
+}
+.problem {
+  color: var(--q-red);
+}
+.body {
+  font-size: 13.5px;
+  color: var(--q-table-header-text);
+  margin-top: 2px;
+}

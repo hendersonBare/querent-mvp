@@ -8,7 +8,7 @@ import {describe,expect,it} from 'vitest';
 // TypeScript usage instead (an unknown key is undefined, and reviews catch it).
 
 const ROOT=resolve(__dirname,'../..');
-const STYLESHEETS=['src/app/globals.css','src/app/customer.css','src/app/persona.css'];
+const STYLESHEETS=['src/app/globals.css','src/app/customer.css','src/app/persona.css','src/app/tokens.css'];
 /** Classes built at runtime from a prefix (`cx-chip-${tone}`, `ip-stock-${tone}`). */
 const DYNAMIC=[/^cx-chip-/,/^ip-stock-/];
 

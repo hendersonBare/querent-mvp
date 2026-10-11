@@ -1,0 +1,18 @@
+/* The opened panel (C_QOB2 filter, C_QOT2 columns): white, a #C4C7C5 hairline, radius 14 and the
+   popover shadow. Width, padding and placement come from the control that opens it. */
+.popover {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--q-card);
+  border: 1px solid var(--q-rule);
+  border-radius: var(--q-radius-card);
+  box-shadow: var(--q-shadow-popover);
+  z-index: 6;
+  color: var(--q-text);
+  font-size: var(--q-text-control);
+  font-weight: 400;
+  text-align: start;
+}
+.popover:focus {
+  outline: none;
+}

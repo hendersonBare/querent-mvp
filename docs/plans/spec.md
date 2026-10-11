@@ -36,6 +36,7 @@ Numbers below are the expected order. Each slice takes the next free number on `
 | `006_roles.sql` | D1 | `reps.role TEXT NOT NULL DEFAULT 'rep' CHECK(role IN ('rep','manager'))`, `reps.team TEXT`, `reps.active INTEGER NOT NULL DEFAULT 1`; sets `brandi` to `manager` |
 | `007_original_rep.sql` | D2 | `quotes.original_rep_id TEXT REFERENCES reps(id)`, backfilled from `rep_id` |
 | `008_suggestion_lines.sql` | E1 | Rebuild `quote_lines` and `quote_removed_lines`: `added_by` CHECK adds `'suggestion'` |
+| `009_ui_table_prefs.sql` | U0 | `ui_table_prefs(user_id TEXT NOT NULL, table_id TEXT NOT NULL, column_order TEXT NOT NULL, hidden_columns TEXT NOT NULL, PRIMARY KEY(user_id,table_id))`; both lists are JSON arrays of column ids (CHECKed) |
 
 Rebuild migrations (002, 008) follow SQLite's 12-step recipe: create `<t>_new` with the new definition, `INSERT INTO <t>_new SELECT …` with explicit columns, `DROP TABLE <t>`, `ALTER TABLE <t>_new RENAME TO <t>`, recreate the table's indexes, and rely on the runner's `foreign_key_check`. Each has a Vitest test that builds a database at the previous migration, inserts rows that reference the rebuilt table (`quote_lines`, `quote_revisions`, `quote_activity`, `orders.quote_id`, `quotes.duplicated_from`), migrates, and asserts row counts, values and that foreign keys still resolve.
 
@@ -254,6 +255,7 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 | `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
 | `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
 | line add with `added_by:'suggestion'` | E1 | customer | adding a suggestion to the cart at qty 1 |
+| `GET /api/rep/table-prefs?table=<id>`, `PUT /api/rep/table-prefs` | U0 | rep, manager | the signed-in user's column order and hidden columns for one table: `{table_id, prefs:{column_order, hidden_columns}\|null}`; PUT takes `{table_id, column_order, hidden_columns}` and refuses any other field (a `user_id` included) with 400 |
 
 Rep write routes refuse a quote the caller does not own (existing "not found"), including managers: a manager reads any quote but edits only after reassigning it to themselves (D2).
 
@@ -275,6 +277,7 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 ### Rep: header (`RepShell`)
 - Red Needs-attention badge (A2): the rep's own red quotes, every rep's for the manager (U1). Team nav item for managers (D3).
 - No "Viewing" customer picker and no `?customer=` on nav links (U1). Customer filters live on the pages that need them (Quotes, Customers, Orders, Analytics, Settings > Customer access).
+- Type (U0): every rep page renders in Albert Sans (UI) and Geist Mono (numbers, codes), loaded once by `next/font` in the root layout; Archivo and IBM Plex are gone. The layouts stay as they are until their lane U task rebuilds them on the shared primitives in `src/components/ui/` and the tokens in `src/app/tokens.css`.
 
 ### Rep: Quote detail (`/rep/quotes/[id]`)
 - `RequestPanel`: "View full chat" button with "N messages", opening a side drawer: customer messages emphasised, assistant turns collapsed to one line each (expand on click), pages of 50 with "Load earlier" (B1).
