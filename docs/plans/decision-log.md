@@ -105,6 +105,21 @@ Wall-clock hours, not business hours. A `sent` quote also turns amber 2 days bef
 39. Seed aging quotes with timestamps relative to the reset time, so every reset gives the same amber, red and fresh mix. Seed more than 20 accepted delivery quotes in the last 90 days across the three reps, so the computed pool rate shows next to the starting rate. Add rep personas to the workspace chooser, and seed quotes covering every status (including declined with reasons, and expired).
 40. `docs/todo-registry.md` lists the TODOs below. Mark each in code as `TODO(R-n)`. Add a Vitest guard that every `TODO(R-n)` marker in `src/` matches an ID in the registry.
 
+## 9. New UI (lane U, charcoal canvas)
+Source: the product owner's lane U prompt (10/11). The frames in `docs/design/canvas-frames/` are the visual source of truth; `docs/design/new-ui-refactor-prompt.md` holds the only frame-to-route map. Do not re-ask these.
+41. Customer quote actions: a notification bell. A quote notification opens the quote with Accept, Request changes and Decline.
+42. The role switch for reps who are also managers is dropped. It is not built.
+43. No phone or tablet layouts. No breakpoints, hamburger drawers or stacked-card tables; the old responsive CSS of every replaced page is deleted.
+44. Send blockers: Approve and send is disabled while any blocker exists, with the first blocker named under it and "+N more"; clicking it jumps to the line or field; stock-short and low-confidence matches show as inline notes on their line. The server still refuses a blocked send.
+45. Bulk reassign moves to Teams and Reps (row selection on the reps table). The Quotes table has no reassign.
+46. Rename `/rep/items` to `/rep/stock` and `/rep/team` to `/rep/teams`, with permanent redirects from the old paths. Links, tests and docs are updated.
+47. A parent team is grouping only. No permission inheritance (hierarchical visibility stays R-12).
+48. Feature flags are environment variables read on the server: `FEATURE_FREE_DELIVERY_PRICING`, `FEATURE_RECOVERY_POOL`, `FEATURE_DELIVERY_COST_MODEL`, default off, listed in `.env.example`. No flags table (the Appendix C `feature_flags` migration is skipped). Their sections do not render and their settings routes reject writes while off.
+49. Customer login, embed and auth are deferred to the Supabase work. The current demo auth and cookies stay untouched. The visitor screen is selected by having no session. No token handoff, embed script or anonymous public query route is built; the visitor box submits to one stub that always replies "Sign in to continue." and never calls the model or any tool, so no prices, orders, quotes or account data can come back through it. TODO(R-14).
+50. Fidelity: every UI change traces to a frame id in the map. Exact values and copy come from the frame's own styles; no em-dashes, no added descriptions, helper text, icons or buttons. A screen, state or control without a frame gets the minimum needed to function in the same tokens and is listed under "No frame" in `docs/plans/status.md`. Placeholder data in the frames (Appendix G) is never copied into code. "FEATURE FLAG: HIDDEN" badges and dashed outlines are design markers and never render.
+51. Viewport: frames are drawn at 1440 x 900; the product is built and verified at 1920 x 1080. The rail stays 216px and sticky at 100vh; the page area is fluid. Fixed widths in a frame stay fixed; flex and grid widths grow; no max-widths and no type scaling.
+52. Hover, focus, loading and disabled states are built quietly per "States not drawn" in `docs/design/new-ui-style-guide.md`. Empty and error states are one plain line. Nothing else is built without a frame.
+
 ## TODO registry contents
 | ID | TODO |
 |---|---|
@@ -121,6 +136,7 @@ Wall-clock hours, not business hours. A `sent` quote also turns amber 2 days bef
 | R-11 | Fleet onboarding to prefill MPG and vehicle inputs |
 | R-12 | Hierarchical visibility (manager subtree), named groups, with real auth |
 | R-13 | Tooling mismatches deliberately ignored for now (Supabase and Railway tooling in the dev environment) |
+| R-14 | Real anonymous query route: public tool allow-list, rate limit, CORS, then Supabase auth and embed |
 
 ## Explicitly NOT in scope
 Settings audit table and History tab. Price-shock monitor and auto-pause. Re-quote button. Freight what-if simulator. A dedicated accessibility pass beyond the text label and icon rule. Any outbound email, SMS or Apollo or Twilio code. Required rep reason codes. AI chat summaries. Per-customer uplift exemptions. Business-hours clocks. Checkout upselling (H).
@@ -134,3 +150,4 @@ Settings audit table and History tab. Price-shock monitor and auto-pause. Re-quo
 - **Lane D** (after A1 and A2): D1 roles, `team` label, rep deactivation; D2 reassignment and the All-reps scope; D3 Team dashboard.
 - **Lane E** (after T1): E1 the LLM suggestions in the pop-up.
 - **F1** (last): personas, seed data, demo script, Playwright spec, docs refresh, TODO registry and guard.
+- **Lane U** (new UI): U0 to U11, detailed at the end of `docs/plans/plan.md`.
