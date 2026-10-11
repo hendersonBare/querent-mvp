@@ -44,7 +44,7 @@ export function DeclineReasons({data}:{data:TeamMetrics}){
         {notes.length?<ul className={s.noteList} aria-label="Other reasons in their words">
           {notes.map(n=><li key={n.quote_id}>
             <q className={s.noteText}>{n.note}</q>
-            <span className={s.noteMeta}><Link href={`/rep/quotes/${encodeURIComponent(n.quote_number)}?scope=all`} prefetch={false}>{n.quote_number}</Link>, {n.rep_name}{n.declined_at&&<>, {noteDay(n.declined_at)}</>}</span>
+            <span className={s.noteMeta}><Link href={`/rep/quotes/${encodeURIComponent(n.quote_number)}`} prefetch={false}>{n.quote_number}</Link>, {n.rep_name}{n.declined_at&&<>, {noteDay(n.declined_at)}</>}</span>
           </li>)}
         </ul>:<p className={s.emptyNote}>No customer chose Other.</p>}
       </div>

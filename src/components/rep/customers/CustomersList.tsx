@@ -2,11 +2,12 @@ import Link from 'next/link';
 import type {CustomerDirectoryRow} from '@/domain';
 import {RepPageHeader} from '../RepPage';
 import {count,day,money} from '../reference/format';
-import {Empty,hrefFor,pageStyles as page,referenceStyles as s,type Viewing} from '../reference/parts';
+import {Empty,pageStyles as page,referenceStyles as s,type Viewing} from '../reference/parts';
 
-// Customers (spec §4, task 3.8): every account with its one assigned rep, read-only. Placeholder
-// customers (spec §2) have a name, account number and rep only, so their other cells say so.
-// The "Viewing" picker narrows the list to the picked customer.
+// Customers (spec §4, task 3.8): each account the rep may read (their own; every account for the
+// manager, task U1) with its one assigned rep, read-only. Placeholder customers (spec §2) have a
+// name, account number and rep only, so their other cells say so. The page's own ?customer=
+// narrows the list to one customer.
 
 export function CustomersList({rows,viewing,repId}:{rows:CustomerDirectoryRow[];viewing:Viewing;
   /** The signed-in rep, whose customers are marked "You". */
@@ -28,19 +29,19 @@ export function CustomersList({rows,viewing,repId}:{rows:CustomerDirectoryRow[];
               <th scope="col" className={`${s.num} ${s.wide}`}>Quotes</th>
             </tr>
           </thead>
-          <tbody>{rows.map(row=><CustomerRow key={row.id} row={row} viewing={viewing} mine={row.rep_id===repId}/>)}</tbody>
+          <tbody>{rows.map(row=><CustomerRow key={row.id} row={row} mine={row.rep_id===repId}/>)}</tbody>
         </table>
       </div>:<Empty heading="No customers">Customers come from Herrick’s ERP data.</Empty>}
     </section>
-    {viewing.customerId&&<p className={s.note}>Showing {viewing.label} only. Choose All customers under Viewing to see every account.</p>}
+    {viewing.customerId&&<p className={s.note}>Showing {viewing.label} only. <Link href="/rep/customers">Show every customer</Link></p>}
   </>;
 }
 
-function CustomerRow({row,viewing,mine}:{row:CustomerDirectoryRow;viewing:Viewing;mine:boolean}){
+function CustomerRow({row,mine}:{row:CustomerDirectoryRow;mine:boolean}){
   const onFile=row.terms!==null||row.credit_limit!==null;
   return <tr>
     <th scope="row">
-      <Link className={s.name} href={hrefFor(viewing,`/rep/customers/${encodeURIComponent(row.id)}`)}>{row.name}</Link>
+      <Link className={s.name} href={`/rep/customers/${encodeURIComponent(row.id)}`}>{row.name}</Link>
       <span className={`${s.sub} ${s.mono}`}>{row.account_number}</span>
     </th>
     <td>{row.rep_name??<span className={s.muted}>Unassigned</span>}{mine&&<span className={s.tag}>You</span>}</td>

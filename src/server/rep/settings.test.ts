@@ -31,8 +31,8 @@ function rejects(fn:()=>unknown,status:number,message?:RegExp){
 }
 
 describe('repSettings: the page snapshot',()=>{
-  it('lists every customer (placeholders too) with its one rep and its quotes by rep, and every rep to pick from',()=>{
-    const settings=repSettings('brandi');
+  it('lists every customer (placeholders too) for the manager with its one rep and its quotes by rep, and every rep to pick from',()=>{
+    const settings=repSettings('brandi',{manager:true});
     expect(settings.rep_id).toBe('brandi');
     expect(settings.reps.map(r=>r.name)).toEqual(['Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);
     expect(settings.assignments.map(a=>[a.name,a.account_number,a.rep_name,a.placeholder])).toEqual([
@@ -47,6 +47,14 @@ describe('repSettings: the page snapshot',()=>{
     expect(settings.assignments.find(a=>a.id==='canyon-ridge')!.quotes).toEqual(expect.arrayContaining([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:3},{rep_id:'eli',rep_name:'Eli Porter',count:2},{rep_id:'mara',rep_name:'Mara Jensen',count:18}]));
     expect(settings.assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]); // with the 3 aging quotes (task A2)
     expect(settings.assignments.find(a=>a.id==='great-basin')!.quotes).toEqual([]);
+  });
+
+  it('lists only a rep\'s own customers, with only their own quotes, and ignores another rep\'s customer for Customer access (task U1)',()=>{
+    const settings=repSettings('mara',{customerId:'wasatch'});
+    expect(settings.assignments.map(a=>a.id)).toEqual(['canyon-ridge']);
+    expect(settings.assignments[0].quotes).toEqual([{rep_id:'mara',rep_name:'Mara Jensen',count:18}]);
+    expect(settings.access.customer_id).toBeNull();
+    expect(repSettings('mara',{customerId:'canyon-ridge'}).access.customer_id).toBe('canyon-ridge');
   });
 
   it("has Brandi's floors to edit, shown as the warnings print them, and the other reps' read-only",()=>{
@@ -87,10 +95,12 @@ describe('assignRep: one rep per customer',()=>{
     assignRep('brandi',{customer_id:'wasatch',rep_id:'mara'});
     expect(quote('q-24817')?.rep_id).toBe('brandi');
     expect(quoteFloors('q-24817')).toMatchObject({rep_id:'brandi',belowFloorCount:1});
-    const brandi=await repQuoteList('brandi',{customerId:'wasatch',now:NOW});
-    expect(brandi).toMatchObject({other_rep:true,counts:{all:28}});
+    // The manager still reads them for Wasatch; as a rep Brandi can no longer filter by Mara's customer (task U1).
+    const brandi=await repQuoteList('brandi',{customerId:'wasatch',now:NOW,manager:true,filters:{rep:'brandi'}});
+    expect(brandi).toMatchObject({customer:{id:'wasatch',rep_id:'mara'},counts:{all:28}});
+    expect((await repQuoteList('brandi',{customerId:'wasatch',now:NOW})).customer).toBeNull();
     expect(brandi.rows.find(r=>r.quote_number==='Q-24817')).toMatchObject({below_floor_count:1});
-    const row=repSettings('brandi').assignments.find(a=>a.id==='wasatch')!;
+    const row=repSettings('brandi',{manager:true}).assignments.find(a=>a.id==='wasatch')!;
     expect(row.rep_name).toBe('Mara Jensen');
     expect(row.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]);
   });
@@ -108,7 +118,7 @@ describe('assignRep: one rep per customer',()=>{
     // A quote requested now is the new rep's (spec §5.2: the quote's rep is the customer's assigned rep).
     const fresh=createQuote({customerId:'wasatch',contactId:'dana',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5,priceBasis:'last_paid'}]});
     expect(fresh.rep_id).toBe('mara');
-    expect(repSettings('brandi').assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([
+    expect(repSettings('brandi',{manager:true}).assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([
       {rep_id:'brandi',rep_name:'Brandi Gallegos',count:28},{rep_id:'mara',rep_name:'Mara Jensen',count:1},
     ]);
   });

@@ -2,10 +2,11 @@ import Link from 'next/link';
 import type {OrderListRow} from '@/domain';
 import {RepPageHeader} from '../RepPage';
 import {count,day,fulfillment,money} from '../reference/format';
-import {Empty,hrefFor,pageStyles as page,OrderStatusChip,referenceStyles as s,type Viewing} from '../reference/parts';
+import {Empty,pageStyles as page,OrderStatusChip,referenceStyles as s,type Viewing} from '../reference/parts';
 
-// Orders (spec §4, task 3.8): every order from Herrick's ERP data, newest first, read-only. It
-// follows the "Viewing" picker; with All customers each row names its customer.
+// Orders (spec §4, task 3.8): orders from Herrick's ERP data, newest first, read-only: the rep's
+// own customers' (every customer's for the manager, task U1). The page's own ?customer= narrows it
+// to one customer; with All customers each row names its customer.
 
 export function OrdersList({rows,viewing}:{rows:OrderListRow[];viewing:Viewing}){
   const allCustomers=viewing.customerId===null;
@@ -28,7 +29,7 @@ export function OrdersList({rows,viewing}:{rows:OrderListRow[];viewing:Viewing})
           </thead>
           <tbody>{rows.map(o=><tr key={o.id}>
             <th scope="row">
-              <Link className={s.name} href={hrefFor(viewing,`/rep/orders/${encodeURIComponent(o.order_number)}`)}>{o.order_number}</Link>
+              <Link className={s.name} href={`/rep/orders/${encodeURIComponent(o.order_number)}`}>{o.order_number}</Link>
               {(o.po_number||o.quote_number)&&<span className={s.sub}>
                 {o.po_number&&<span className={s.ref}>PO {o.po_number}</span>}{o.po_number&&o.quote_number&&' · '}{o.quote_number&&<span className={s.ref}>from {o.quote_number}</span>}
               </span>}

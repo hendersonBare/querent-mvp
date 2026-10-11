@@ -15,16 +15,23 @@ import {analyticsScope,repAnalytics} from './service';
 useSeededDatabase();
 
 const NOW=`${SEED_DATE}T18:00:00.000Z`;
+/** Brandi's own book (her customers, as a rep reads it); the manager's whole-organization scope is tested under scope. */
 const brandi=(customerId:string|null=null,now=NOW)=>repAnalytics('brandi',{customerId,now});
 
-describe('scope: the signed-in rep\'s customers, narrowed by the picker',()=>{
-  it('covers every customer of the rep for All customers, one of them when picked, and none of another rep\'s',()=>{
-    expect(analyticsScope('brandi',null)).toEqual({customer:null,customer_ids:['great-basin','wasatch'],other_rep:false});
-    expect(analyticsScope('brandi','wasatch')).toMatchObject({customer:{id:'wasatch',name:'Wasatch Mechanical Contractors'},customer_ids:['wasatch'],other_rep:false});
-    expect(analyticsScope('brandi','canyon-ridge')).toMatchObject({customer:{id:'canyon-ridge',rep_name:'Mara Jensen'},customer_ids:[],other_rep:true});
-    expect(analyticsScope('brandi','nobody')).toEqual(analyticsScope('brandi',null));
-    expect(analyticsScope('mara',null).customer_ids).toEqual(['canyon-ridge']);
-    expect(analyticsScope('brandi',null,customers().map(c=>({...c,rep_id:'nora'}))).customer_ids).toEqual([]);
+describe('scope: the signed-in rep\'s customers, or every customer for the manager, narrowed by the page\'s filter (task U1)',()=>{
+  const rep=(repId:string)=>({repId,manager:false});
+  it('covers every customer of the rep for All customers, one of them when filtered, and ignores another rep\'s',()=>{
+    expect(analyticsScope(rep('brandi'),null)).toEqual({customer:null,customer_ids:['great-basin','wasatch']});
+    expect(analyticsScope(rep('brandi'),'wasatch')).toMatchObject({customer:{id:'wasatch',name:'Wasatch Mechanical Contractors'},customer_ids:['wasatch']});
+    expect(analyticsScope(rep('brandi'),'canyon-ridge')).toEqual(analyticsScope(rep('brandi'),null));
+    expect(analyticsScope(rep('brandi'),'nobody')).toEqual(analyticsScope(rep('brandi'),null));
+    expect(analyticsScope(rep('mara'),null).customer_ids).toEqual(['canyon-ridge']);
+    expect(analyticsScope(rep('brandi'),null,customers().map(c=>({...c,rep_id:'nora'}))).customer_ids).toEqual([]);
+  });
+  it('covers the whole organization for the manager, and any one customer',()=>{
+    const manager={repId:'brandi',manager:true};
+    expect(analyticsScope(manager,null).customer_ids).toEqual(customers().map(c=>c.id));
+    expect(analyticsScope(manager,'canyon-ridge')).toMatchObject({customer:{id:'canyon-ridge',rep_name:'Mara Jensen'},customer_ids:['canyon-ridge']});
   });
 });
 
@@ -118,16 +125,15 @@ describe('placeholder and other reps\' customers',()=>{
 
   it('shows zeros for Brandi\'s placeholder customer, Great Basin',()=>{
     const result=brandi('great-basin');
-    expect(result).toMatchObject({scope:{customer:{id:'great-basin'},customer_ids:['great-basin'],other_rep:false},...empty});
+    expect(result).toMatchObject({scope:{customer:{id:'great-basin'},customer_ids:['great-basin']},...empty});
     expect(result.weekly.every(w=>w.quotes===0)).toBe(true);
     expect(result.queries.total_queries).toBe(0);
   });
 
-  it('shows zeros for another rep\'s customer, and says so',()=>{
+  it('ignores another rep\'s customer for a rep: the numbers are their own customers\', and name no one else (task U1)',()=>{
     const result=brandi('canyon-ridge');
-    expect(result).toMatchObject({scope:{customer:{id:'canyon-ridge',rep_name:'Mara Jensen'},customer_ids:[],other_rep:true},...empty});
-    expect(result.queries).toMatchObject({total_queries:0});
-    expect(result.access).toEqual([]);
+    expect(result.scope).toEqual({customer:null,customer_ids:['great-basin','wasatch']});
+    expect(result.win_rate).toEqual(brandi().win_rate);
   });
 
   it('shows zeros for a rep whose customers have no data',()=>{

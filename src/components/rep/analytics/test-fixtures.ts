@@ -29,7 +29,7 @@ const categories=['items_stock','pricing','orders_quotes','account'] as const;
 export function seedAnalytics(customer:CustomerListItem|null=null):RepAnalytics{
   return {
     as_of:'2026-09-23T18:00:00.000Z',
-    scope:{customer,customer_ids:customer?[customer.id]:['great-basin','wasatch'],other_rep:false},
+    scope:{customer,customer_ids:customer?[customer.id]:['great-basin','wasatch']},
     turnaround:{median_minutes:92.5,quotes:24,fastest_minutes:35,slowest_minutes:260},
     win_rate:{rate:17/24,won:17,lost:7,open:1},
     quoted:{quoted:9045.35,accepted:7008.05,quoted_count:24,accepted_count:17,share:7008.05/9045.35},
@@ -56,11 +56,11 @@ export function seedAnalytics(customer:CustomerListItem|null=null):RepAnalytics{
   };
 }
 
-/** A customer with no data: a placeholder of the rep's (other_rep false) or another rep's customer. */
-export function emptyAnalytics(customer:CustomerListItem,otherRep=false):RepAnalytics{
+/** A customer with no data: a placeholder customer of the rep's. */
+export function emptyAnalytics(customer:CustomerListItem):RepAnalytics{
   return {
     as_of:'2026-09-23T18:00:00.000Z',
-    scope:{customer,customer_ids:otherRep?[]:[customer.id],other_rep:otherRep},
+    scope:{customer,customer_ids:[customer.id]},
     turnaround:{median_minutes:null,quotes:0,fastest_minutes:null,slowest_minutes:null},
     win_rate:{rate:null,won:0,lost:0,open:0},
     quoted:{quoted:0,accepted:0,quoted_count:0,accepted_count:0,share:null},
@@ -70,7 +70,7 @@ export function emptyAnalytics(customer:CustomerListItem,otherRep=false):RepAnal
     margin:{overall:{margin:null,floor:null,revenue:0,lines:0,below_floor:0},categories:[]},
     top_items:[],
     questions:{total:0,answered:0,with_data:0,no_match:0,needed_rep:0,rate:null},
-    queries:{total_queries:0,minutes_saved:0,hours_saved:'0.0',categories:categories.map(category=>({category,count:0,rep_name:otherRep?'—':customer.rep_name??'Self-serve'}))},
-    access:otherRep?[]:categories.map(category=>({category,enabled:true,rep_id:customer.rep_id,mixed_rep:false,rep_name:customer.rep_name??'Self-serve',phone:null,email:null})),
+    queries:{total_queries:0,minutes_saved:0,hours_saved:'0.0',categories:categories.map(category=>({category,count:0,rep_name:customer.rep_name??'Self-serve'}))},
+    access:categories.map(category=>({category,enabled:true,rep_id:customer.rep_id,mixed_rep:false,rep_name:customer.rep_name??'Self-serve',phone:null,email:null})),
   };
 }

@@ -20,8 +20,9 @@ const EVERY_CUSTOMER=['canyon-ridge','great-basin','uinta-facility','utah-valley
 let brandisQuote='',marasQuote='';
 beforeAll(async()=>{
   const {quotes}=await import('@/server/repository');
-  brandisQuote=quotes({repId:'brandi',customerId:'wasatch'})[0].quote_number;
-  marasQuote=quotes({repId:'mara'})[0].quote_number;
+  // Sent quotes (revision 1 or more), so the lines CSV has a revision to export.
+  brandisQuote=quotes({repId:'brandi',customerId:'wasatch'}).find(q=>q.revision>0)!.quote_number;
+  marasQuote=quotes({repId:'mara'}).find(q=>q.revision>0)!.quote_number;
 });
 
 describe('GET /api/rep/quotes',()=>{
@@ -95,7 +96,7 @@ describe('GET /api/rep/analytics',()=>{
 
 describe('GET /api/rep/badges',()=>{
   const badges=async(query:string,persona:string)=>json((await import('./badges/route')).GET(get(`/api/rep/badges${query}`,persona)));
-  const red=async(persona:string)=>(await (await import('./quotes/route')).GET(get('/api/rep/quotes?attention=1',persona)).json()).rows.filter((r:{aging:{level:string}})=>r.aging.level==='red').length;
+  const red=async(persona:string)=>(await (await (await import('./quotes/route')).GET(get('/api/rep/quotes?attention=1',persona))).json()).rows.filter((r:{aging:{level:string}})=>r.aging.level==='red').length;
 
   it('a rep’s red count is their own; ?scope=all is ignored, not refused',async()=>{
     const own=await badges('','mara');

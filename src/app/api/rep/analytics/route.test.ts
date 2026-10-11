@@ -9,29 +9,33 @@ const get=async(persona?:string,query='')=>{
   return GET(new NextRequest(`http://127.0.0.1/api/rep/analytics${query}`,{headers:persona?{cookie:`querent-persona=${persona}`}:{}}));
 };
 
-it("returns the signed-in rep's analytics for All customers, never cached",async()=>{
+// Brandi (the supplier persona) is the manager: her All customers covers the whole organization
+// (task U1). Wasatch, her own customer, carries the seed's history, so the numbers are read for it.
+it("returns the analytics for every customer the rep may read, never cached",async()=>{
   const response=await get('supplier');
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toMatch(/no-store/);
-  const body=await response.json();
-  expect(body.scope).toEqual({customer:null,customer_ids:['great-basin','wasatch'],other_rep:false});
+  expect((await response.json()).scope).toEqual({customer:null,customer_ids:['canyon-ridge','great-basin','uinta-facility','utah-valley-electric','wasatch','weber-basin']});
+  expect((await (await get('mara')).json()).scope).toEqual({customer:null,customer_ids:['canyon-ridge']});
+  const body=await (await get('supplier','?customer=wasatch')).json();
+  expect(body.scope).toMatchObject({customer:{id:'wasatch'},customer_ids:['wasatch']});
   expect(body.win_rate).toMatchObject({won:17,lost:7});
   expect(body.hours_saved).toMatchObject({hours:9,quotes_sent:27}); // 24 history quotes and the 3 aging ones (task A2)
   expect(body.weekly).toHaveLength(26);
   expect(body.queries.total_queries).toBe(40);
 });
 
-it('follows the picker: a placeholder customer reads zero, another rep\'s customer is flagged, an unknown one is All customers',async()=>{
+it('follows the page\'s own ?customer=: a placeholder customer reads zero, another rep\'s customer is ignored for a rep, an unknown one is All customers',async()=>{
   const greatBasin=await (await get('supplier','?customer=great-basin')).json();
-  expect(greatBasin.scope).toMatchObject({customer:{id:'great-basin'},customer_ids:['great-basin'],other_rep:false});
+  expect(greatBasin.scope).toMatchObject({customer:{id:'great-basin'},customer_ids:['great-basin']});
   expect(greatBasin.hours_saved.quotes_sent).toBe(0);
   expect(greatBasin.queries.total_queries).toBe(0);
-  const canyon=await (await get('supplier','?customer=canyon-ridge')).json();
-  expect(canyon.scope).toMatchObject({customer:{id:'canyon-ridge'},customer_ids:[],other_rep:true});
+  const canyon=await (await get('eli','?customer=canyon-ridge')).json();
+  expect(canyon.scope).toEqual({customer:null,customer_ids:['utah-valley-electric','weber-basin']});
   const unknown=await (await get('supplier','?customer=nobody')).json();
   expect(unknown.scope.customer).toBeNull();
-  const all=await (await get('supplier','?customer=all')).json();
-  expect(all.scope.customer_ids).toEqual(['great-basin','wasatch']);
+  const all=await (await get('mara','?customer=all')).json();
+  expect(all.scope.customer_ids).toEqual(['canyon-ridge']);
 });
 
 it('asks for a workspace without a session, and refuses the customer persona',async()=>{

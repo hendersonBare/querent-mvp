@@ -88,12 +88,25 @@ describe('Rep assignments',()=>{
 });
 
 describe('Customer access',()=>{
+  const PICKABLE=[{id:'great-basin',name:'Great Basin Fabrication'},{id:'wasatch',name:'Wasatch Mechanical Contractors'}];
+  it('picks its customer on the tab (the page\'s own ?customer=; task U1: no header picker)',()=>{
+    const onPick=vi.fn();
+    render(<CustomerAccess access={settingsFixture('wasatch').access} scopeLabel="Wasatch Mechanical Contractors" customers={PICKABLE} onPick={onPick} onChange={vi.fn()}/>);
+    const picker=screen.getByRole('combobox',{name:'Customer'});
+    expect(picker).toHaveValue('wasatch');
+    expect(within(picker).getAllByRole('option').map(o=>o.textContent)).toEqual(['All customers','Great Basin Fabrication','Wasatch Mechanical Contractors']);
+    fireEvent.change(picker,{target:{value:'great-basin'}});
+    expect(onPick).toHaveBeenLastCalledWith('great-basin');
+    fireEvent.change(picker,{target:{value:''}});
+    expect(onPick).toHaveBeenLastCalledWith(null);
+  });
+
   it("shows what each category covers, and turns one off for the picked customer",async()=>{
     const settings=settingsFixture('wasatch');
     const off={...settings.access,rules:settings.access.rules.map(r=>r.category==='items_stock'?{...r,enabled:false}:r)};
     replies=[{body:off}];
     const onChange=vi.fn();
-    const {rerender}=render(<CustomerAccess access={settings.access} scopeLabel="Wasatch Mechanical Contractors" onChange={onChange}/>);
+    const {rerender}=render(<CustomerAccess access={settings.access} scopeLabel="Wasatch Mechanical Contractors" customers={PICKABLE} onPick={vi.fn()} onChange={onChange}/>);
     expect(screen.getByText(/What Querent answers in chat for Wasatch Mechanical Contractors/)).toBeInTheDocument();
     expect(screen.getAllByRole('switch').map(s=>s.getAttribute('aria-label'))).toEqual(['Items & stock','Pricing','Orders & quotes','Account']);
     expect(screen.getByText('Finding items, stock by branch, and asking for a quote in chat')).toBeInTheDocument();
@@ -103,7 +116,7 @@ describe('Customer access',()=>{
     fireEvent.click(items);
     await waitFor(()=>expect(onChange).toHaveBeenCalledWith(off));
     expect(sent()).toEqual([{url:'/api/rep/settings/access',body:{customer_id:'wasatch',category:'items_stock',enabled:false}}]);
-    rerender(<CustomerAccess access={off} scopeLabel="Wasatch Mechanical Contractors" onChange={onChange}/>);
+    rerender(<CustomerAccess access={off} scopeLabel="Wasatch Mechanical Contractors" customers={PICKABLE} onPick={vi.fn()} onChange={onChange}/>);
     expect(screen.getByRole('switch',{name:'Items & stock'})).not.toBeChecked();
     expect(screen.getByRole('switch',{name:'Items & stock'})).toHaveAccessibleDescription('Off: chat refers them to Brandi Gallegos');
   });
@@ -112,7 +125,7 @@ describe('Customer access',()=>{
     const settings=settingsFixture();
     const mixed={...settings.access,rules:settings.access.rules.map(r=>r.category==='pricing'?{...r,enabled:null}:r)};
     replies=[{body:settings.access}];
-    render(<CustomerAccess access={mixed} scopeLabel="All customers" onChange={vi.fn()}/>);
+    render(<CustomerAccess access={mixed} scopeLabel="All customers" customers={PICKABLE} onPick={vi.fn()} onChange={vi.fn()}/>);
     expect(screen.getByText(/for every customer\. A change here applies to all of them/)).toBeInTheDocument();
     const pricing=screen.getByRole('switch',{name:'Pricing'});
     expect(pricing).not.toBeChecked();

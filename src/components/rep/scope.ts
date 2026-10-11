@@ -1,29 +1,22 @@
-// Rep portal navigation and the "Viewing" customer picker (spec §4). Pure helpers, no React.
+// Rep portal navigation (spec §4) and the page-local customer filter. Pure helpers, no React.
 //
-// The picked customer lives in the URL as ?customer=<customer id>. No param means All customers.
-// Every nav link keeps it, a reload keeps it, and any page can read it:
-//   - Client Components: useRepScope() from './context' ({customerId, customer, label, href, ...}).
-//   - Server Components: the page's searchParams prop, `(await searchParams).customer`, checked
-//     against the customer list the same way scopeFrom() does.
-// Lists and analytics (tasks 3.2, 3.8, 6.2) filter by it.
+// Scope is role based on the server (Appendix B; decisions 20, 22, 42; task U1): a rep reads only
+// their own customers, quotes, orders and analytics; the manager reads the whole organization.
+// There is no header "Viewing" picker and no "My quotes / All reps" switch, so nav links carry no
+// query. ?customer=<id> is only a page's own filter (Quotes, Customers, Orders, Settings > Customer
+// access, Analytics); the server reads it and ignores a customer the signed-in rep can't read.
 
-export const SCOPE_PARAM='customer';
+/** A page's own customer filter: ?customer=<customer id>. */
+export const CUSTOMER_PARAM='customer';
+/** ?customer=all, like no param, means every customer the rep may read. */
 export const ALL_CUSTOMERS='all';
 
-// The manager's All reps scope (v3 spec §6 Quotes list; decision 22; task D2) lives in ?scope=all
-// and travels with every portal link like the picked customer, so the quote pages and the header's
-// Needs attention badge keep it (OA-52). Only the manager's links carry it; a rep's never do.
-/** ?scope=all: every rep's quotes (the manager only). */
-export const REPS_PARAM='scope';
-export const ALL_REPS='all';
-/** The All reps list's rep and team filters (?rep=<id>, ?team=<label>). */
+/** The manager's rep and team filters on the Quotes list (?rep=<id or a,b>, ?team=<label>). */
 export const REP_PARAM='rep';
 export const TEAM_PARAM='team';
-/** The Team dashboard's drill-down window in All reps (?from=&to=, ISO instants, task D3). */
+/** The Team dashboard's drill-down window on the Quotes list (?from=&to=, ISO instants, task D3). */
 export const FROM_PARAM='from';
 export const TO_PARAM='to';
-/** ?scope=all, and nothing else, is the All reps scope. */
-export const isAllReps=(value:string|null|undefined)=>value===ALL_REPS;
 
 /** The portal's sections, in nav order (spec §4). Team is the manager's alone (v3 spec §6, task D3). */
 export const REP_SECTIONS=[
@@ -43,26 +36,18 @@ export const HOME_SECTION=REP_SECTIONS[0];
 /** The section a path belongs to: /rep/quotes and /rep/quotes/Q-24817 are both Quotes. */
 export const sectionFor=(pathname:string):RepSection|undefined=>REP_SECTIONS.find(s=>pathname===s.href||pathname.startsWith(`${s.href}/`));
 
-/**
- * The picked customer's id from a query string, or null for All customers. With `known`, an id
- * that isn't one of those customers also reads as All customers.
- */
-export function scopeFrom(params:{get(name:string):string|null},known?:readonly {id:string}[]):string|null{
-  const id=params.get(SCOPE_PARAM);
-  if(!id||id===ALL_CUSTOMERS)return null;
-  return !known||known.some(c=>c.id===id)?id:null;
+/** A page's own ?customer= as given, or null for every customer. The server checks it against what the rep may read. */
+export function customerFilter(params:{get(name:string):string|null}):string|null{
+  const id=params.get(CUSTOMER_PARAM);
+  return !id||id===ALL_CUSTOMERS?null:id;
 }
 
-/**
- * `path` with the picked customer set (or removed for All customers), keeping its other params.
- * `allReps` sets (true) or removes (false) the manager's ?scope=all; undefined leaves `path`'s own.
- */
-export function scopedHref(path:string,customerId:string|null,allReps?:boolean){
+/** `path` filtered to one customer (or unfiltered with null), keeping its other params: a link into one page's filter, never carried on. */
+export function withCustomer(path:string,customerId:string|null){
   const at=path.indexOf('?');
   const base=at<0?path:path.slice(0,at);
   const params=new URLSearchParams(at<0?'':path.slice(at+1));
-  if(customerId)params.set(SCOPE_PARAM,customerId);else params.delete(SCOPE_PARAM);
-  if(allReps===true)params.set(REPS_PARAM,ALL_REPS);else if(allReps===false)params.delete(REPS_PARAM);
+  if(customerId)params.set(CUSTOMER_PARAM,customerId);else params.delete(CUSTOMER_PARAM);
   const query=params.toString();
   return query?`${base}?${query}`:base;
 }

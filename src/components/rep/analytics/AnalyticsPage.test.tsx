@@ -31,7 +31,7 @@ const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 
 function renderPage(query=''){
   nav.query=query;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:1,attention:0}}><AnalyticsPage/></RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><AnalyticsPage/></RepShell>);
 }
 const card=(name:string)=>screen.getByRole('region',{name});
 
@@ -137,8 +137,8 @@ describe('All customers',()=>{
   });
 });
 
-describe('the picker',()=>{
-  it('reads the picked customer, and a placeholder customer shows zeros and empty states',async()=>{
+describe('the page\'s own customer filter',()=>{
+  it('reads ?customer=, and a placeholder customer shows zeros and empty states',async()=>{
     analytics=customer=>customer==='great-basin'?emptyAnalytics(greatBasin):seedAnalytics();
     renderPage('customer=great-basin');
     expect(await screen.findByText('Quotes and customer questions for Great Basin Fabrication')).toBeInTheDocument();
@@ -159,11 +159,20 @@ describe('the picker',()=>{
     expect(screen.getAllByRole('button',{name:/^How .+ is calculated$/})).toHaveLength(12);
   });
 
-  it('says so when the picked customer is another rep\'s',async()=>{
-    analytics=()=>emptyAnalytics(canyonRidge,true);
-    renderPage('customer=canyon-ridge');
-    expect(await screen.findByRole('note')).toHaveTextContent('Canyon Ridge Builders is Mara Jensen’s customer. Analytics covers your own customers, so there’s nothing to count here.');
-    expect(screen.queryByText('categories fully enabled')).not.toBeInTheDocument();
+  it('shows the rep\'s own numbers when the server ignores another rep\'s customer (task U1), naming no one else',async()=>{
+    analytics=()=>seedAnalytics();
+    renderPage(`customer=${canyonRidge.id}`);
+    expect(await screen.findByText('1 h 33 min')).toBeInTheDocument();
+    expect(requested()).toContain('/api/rep/analytics?customer=canyon-ridge');
+    expect(screen.getByText('Quotes and customer questions for all your customers')).toBeInTheDocument();
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Canyon Ridge|Mara Jensen/)).not.toBeInTheDocument();
+  });
+
+  it('covers all customers for the manager (task U1)',async()=>{
+    nav.query='';
+    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><AnalyticsPage/></RepShell>);
+    expect(await screen.findByText('Quotes and customer questions for all customers')).toBeInTheDocument();
   });
 
   it('shows the error when the numbers can\'t load',async()=>{

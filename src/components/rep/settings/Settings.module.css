@@ -26,6 +26,16 @@
   line-height: 1.5;
 }
 
+/* Customer access's own customer filter (task U1: the header "Viewing" picker is gone). */
+.accessPick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px 0;
+  color: var(--rep-muted);
+  font-size: 13px;
+}
+
 .error,
 .notice:not(:empty) {
   margin: 12px 18px 0;

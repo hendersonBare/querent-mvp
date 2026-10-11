@@ -12,7 +12,7 @@ import {drillHref,type TeamWindow} from './window';
 import s from './Team.module.css';
 
 // The leaderboard (v3 spec §6 Team, §7; decisions 23, 24; task D3): one row per selected rep plus
-// a totals row, a column per metric. Each count links to the All reps Quotes list filtered to
+// a totals row, a column per metric. Each count links to the manager's Quotes list filtered to
 // exactly those quotes (the rep or the group, the window, the status or aging level); each rep's
 // name opens all their cohort quotes. The table scrolls inside its own box on a narrow screen.
 

@@ -9,11 +9,17 @@ const get=async(persona?:string)=>{
   return GET(new NextRequest('http://127.0.0.1/api/rep/badges',{headers:persona?{cookie:`querent-persona=${persona}`}:{}}));
 };
 
-it("returns the signed-in rep's badge counts: the seeded sample quote unread, and her red quotes (task A2: the sample and Q-24790)",async()=>{
-  const response=await get('supplier');
+it("returns the signed-in rep's badge counts: a rep's own unread and red quotes (Mara: her new demo draft unread; her Overdue draft and change request)",async()=>{
+  const response=await get('mara');
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toMatch(/no-store/);
   expect(await response.json()).toEqual({quotes:1,attention:2});
+});
+
+it('counts every rep\'s red quotes for the manager (task U1); her unread stays her own (the seeded sample quote)',async()=>{
+  const body=await (await get('supplier')).json();
+  const own={brandi:2,mara:2},eli=(await (await get('eli')).json()).attention;
+  expect(body).toEqual({quotes:1,attention:own.brandi+own.mara+eli});
 });
 
 it('asks for a workspace without a session, and refuses the customer persona',async()=>{

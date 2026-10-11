@@ -38,7 +38,7 @@ describe('/rep/quotes',()=>{
   const page=async(params:SearchParams={})=>props(await (await import('./quotes/page')).default(search(params))).initial;
   it('a rep reads only their own quotes, whatever ?scope= or ?customer= say',async()=>{
     as('mara');
-    for(const params of [{},{scope:'all'},{customer:'wasatch'},{scope:'all',rep:'brandi'}]){
+    for(const params of [{},{scope:'all'},{customer:'wasatch'},{scope:'all',rep:'brandi'}] as SearchParams[]){
       const list=await page(params);
       expect(list).toMatchObject({scope:'mine',customer:null,counts:{all:SEEDED.mara}});
       expect(list.rows.every((r:{rep_id:string})=>r.rep_id==='mara')).toBe(true);

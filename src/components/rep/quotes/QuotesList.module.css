@@ -516,37 +516,13 @@
   gap: 8px 12px;
 }
 
-/* ---- The manager (task D2): "My quotes / All reps", the rep and team filters, the bulk bar ---- */
+/* ---- The manager (tasks D2, U1): the rep and team filters, the bulk bar ---- */
 .scopebar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 14px;
   margin-bottom: 12px;
-}
-.scopeSwitch {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--rep-line);
-  border-radius: 8px;
-  background: var(--rep-surface);
-}
-.scopeSwitch a {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--rep-ink-2);
-  white-space: nowrap;
-}
-.scopeSwitch a:hover {
-  background: var(--rep-surface-2);
-  text-decoration: none;
-}
-.scopeSwitch a[aria-current="page"] {
-  background: var(--rep-accent);
-  color: var(--rep-accent-ink);
 }
 .scopeFilter {
   display: inline-flex;

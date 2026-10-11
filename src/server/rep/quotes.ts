@@ -6,29 +6,30 @@ import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingL
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
 import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamReps,touchQuoteByRep} from '@/server/repository';
 import {isoInstant} from '@/server/team/query';
+import {customerFilterFor} from './access';
 
 // The rep's Quotes list (spec §4, task 3.2): status, customer, requested date, total, margin and
-// the unread dot, filtered by status and by the "Viewing" picker. Rep-only: it carries margin,
+// the unread dot, filtered by status and by the page's own ?customer=. Rep-only: it carries margin,
 // so it is served only to the supplier persona (GET /api/rep/quotes, the /rep/quotes page).
 //
-// Whose quotes: the signed-in rep's (quotes.rep_id), the same rule as the Quotes badge
-// (./badges). A quote's rep is the customer's assigned rep when it was requested, until a manager
-// reassigns it (task D2). The picker lists every customer, so picking another rep's
-// customer shows no quotes and says whose customer it is (other_rep). This is task 3.2's default,
-// flagged for review: the spec doesn't say whether a rep sees colleagues' quotes.
+// Whose quotes (Appendix B; decisions 20, 22; task U1): purely by role. A rep's list is their own
+// quotes (quotes.rep_id, the current owner), the same rule as the Quotes badge (./badges); the
+// manager's is every rep's. No parameter widens it (the old ?scope=all is ignored), and a
+// ?customer= the rep can't read (another rep's customer) is ignored like an unknown one. A quote's
+// rep is the customer's assigned rep when it was requested, until a manager reassigns it (task D2).
 //
 // Aging (v3 spec §3, task A2): every row carries its aging, and the Needs attention view
 // (?attention=1) shows the amber and red open quotes, red first, then the largest quoted total,
 // or oldest clock first with ?sort=oldest. Other filters keep newest request first (OA-9).
 //
-// The manager (v3 spec §6, §8; decisions 21, 22; task D2) also has the All reps scope: every rep's
-// quotes, each row naming its rep, filtered by rep or team label, with the Needs attention view over
-// the same quotes (OA-52). Quotes now move between reps (./reassign), so a quote's rep is its
-// current owner, not always the customer's assigned rep. A rep's list is still their own quotes.
+// The manager (v3 spec §6, §8; decisions 21, 22; tasks D2, U1) sees every rep's quotes, each row
+// naming its rep, filtered by rep or team label, with the Needs attention view over the same quotes
+// (OA-52). Quotes move between reps (./reassign), so a quote's rep is its current owner, not always
+// the customer's assigned rep.
 //
-// The Team dashboard drills into All reps (v3 spec §6 Team; decision 23; task D3), so the scope also
-// takes its window (?from=&to=: quotes created in [from, to), two ISO instants), an aging level for
-// the open quotes (?aging=ok|amber|red, a view like Needs attention) and several reps (?rep=a,b).
+// The Team dashboard drills into the manager's list (v3 spec §6 Team; decision 23; task D3), so it
+// also takes a window (?from=&to=: quotes created in [from, to), two ISO instants), an aging level
+// for the open quotes (?aging=ok|amber|red, a view like Needs attention) and several reps (?rep=a,b).
 
 const clock=()=>new Date().toISOString();
 
@@ -84,7 +85,7 @@ export interface RepQuoteRow {
 
 export type QuoteStatusCounts=Record<QuoteStatus,number>&{all:number};
 
-/** Whose quotes the list shows: the signed-in rep's, or every rep's (the manager's All reps scope, task D2). */
+/** Whose quotes the list shows, by role (task U1): the signed-in rep's own, or every rep's for the manager. */
 export type QuotesScope='mine'|'all';
 /** A rep in the manager's rep filter and reassignment choices; inactive reps stay for history (OA-27). */
 export interface ScopeRep {id:string;name:string;team:string|null;active:boolean}
@@ -94,10 +95,8 @@ export interface ManagerListOptions {reps:ScopeRep[];teams:string[]}
 export interface RepQuoteList {
   /** When the list was read: statuses are effective as of this instant. */
   as_of:string;
-  /** The picked customer, or null for All customers. */
+  /** The page's own customer filter, or null for All customers. */
   customer:CustomerListItem|null;
-  /** The picked customer is assigned to another rep, so their quotes aren't in this rep's list. */
-  other_rep:boolean;
   /** The status filter applied to `rows`, or null for every status (always null in the Needs attention view). */
   status:QuoteStatus|null;
   /** `rows` are the Needs attention view: the amber and red open quotes. */
@@ -112,31 +111,31 @@ export interface RepQuoteList {
   unread:number;
   rows:RepQuoteRow[];
   scope:QuotesScope;
-  /** The All reps scope's rep and team filters as applied (null: every rep, every team). Several reps read "mara,nora" (task D3). */
+  /** The manager's rep and team filters as applied (null: every rep, every team). Several reps read "mara,nora" (task D3). */
   rep_filter:string|null;team_filter:string|null;
-  /** The Team dashboard's window as applied (All reps only): quotes created in [from, to). */
+  /** The Team dashboard's window as applied (the manager only): quotes created in [from, to). */
   window:{from:string;to:string}|null;
-  /** The open quotes at this aging level only (All reps only, task D3); it replaces the status filter. */
+  /** The open quotes at this aging level only (the manager only, task D3); it replaces the status filter. */
   aging_filter:AgingLevel|null;
-  /** For the manager (the scope switch, filters and Reassign); null for a rep. */
+  /** For the manager (the rep and team filters and Reassign); null for a rep. */
   manager:ManagerListOptions|null;
 }
 
 export interface RepQuoteListOptions {
-  /** The "Viewing" picker (?customer=). An unknown id reads as All customers, as the picker does. */
+  /** The page's own ?customer=. An unknown id, or one the rep can't read, reads as All customers (task U1). */
   customerId?:string|null;
   status?:QuoteStatus|null;
   /** The Needs attention view (?attention=1); it replaces the status filter. */
   attention?:boolean;
   sort?:AttentionSort;
-  /** The signed-in rep is the manager (repAccess). */
+  /** The signed-in rep is the manager (repAccess): the list is every rep's quotes (task U1). */
   manager?:boolean;
   /**
-   * The All reps scope with its filters (?scope=all&rep=&team=): the manager only, ignored for a rep.
-   * Unknown values read as every rep or team. The Team dashboard's drill-down adds rep=a,b, the window
-   * (from, to) and an aging level (task D3); a malformed one is ignored.
+   * The manager's filters (?rep=&team=), ignored for a rep. Unknown values read as every rep or team.
+   * The Team dashboard's drill-down adds rep=a,b, the window (from, to) and an aging level (task D3);
+   * a malformed one is ignored.
    */
-  allReps?:{rep?:string|null;team?:string|null;from?:string|null;to?:string|null;aging?:string|null}|null;
+  filters?:{rep?:string|null;team?:string|null;from?:string|null;to?:string|null;aging?:string|null}|null;
   /** For tests. */
   now?:string;
   /** Freight's distance provider for draft totals; haversine by default. */
@@ -184,27 +183,28 @@ const withAging=<T extends QuoteListRow>(rows:T[],now:string,thresholds:AgingThr
   rows.map(row=>({...row,status:effectiveStatus(row,now),aging:aging(row,now,thresholds)}));
 
 /**
- * The signed-in rep's Quotes list (or, for the manager in the All reps scope, every rep's), newest
- * request first. Expiry is lazy (task 1.5), so this stores the expiry of every sent quote past
- * valid_until first, and every row is read through effectiveStatus as well.
+ * The Quotes list for the signed-in rep: their own quotes, or every rep's for the manager (task U1),
+ * newest request first. Expiry is lazy (task 1.5), so this stores the expiry of every sent quote
+ * past valid_until first, and every row is read through effectiveStatus as well.
  */
-export async function repQuoteList(repId:string,{customerId=null,status=null,attention=false,sort='urgent',manager=false,allReps=null,now=clock(),provider}:RepQuoteListOptions={}):Promise<RepQuoteList>{
+export async function repQuoteList(repId:string,{customerId=null,status=null,attention=false,sort='urgent',manager=false,filters=null,now=clock(),provider}:RepQuoteListOptions={}):Promise<RepQuoteList>{
   expireOverdueQuotes({now});
   const everyone=customers();
-  const customer=customerId?everyone.find(c=>c.id===customerId)??null:null;
+  const customer=customerFilterFor({repId,manager},customerId,everyone);
   const accounts=new Map(everyone.map(c=>[c.id,c.account_number]));
   const options=manager?managerListOptions():null;
-  const all=!!options&&!!allReps;
-  const asked=all?(allReps.rep??'').split(','):[];
+  const all=!!options;
+  const asked=all?(filters?.rep??'').split(','):[];
   const pickedReps=all?options.reps.filter(r=>asked.includes(r.id)).map(r=>r.id):[];
-  const teamIds=all&&options.teams.includes(allReps.team??'')?options.reps.filter(r=>r.team===allReps.team).map(r=>r.id):undefined;
+  const team=filters?.team??'';
+  const teamIds=all&&options.teams.includes(team)?options.reps.filter(r=>r.team===team).map(r=>r.id):undefined;
   const repFilter=pickedReps.length?pickedReps.join(','):null;
-  const teamFilter=teamIds?allReps!.team!:null;
+  const teamFilter=teamIds?team:null;
   const repIds=pickedReps.length>1?pickedReps.filter(id=>!teamIds||teamIds.includes(id)):teamIds;
   const filter=all?{repId:pickedReps.length===1?pickedReps[0]:null,repIds}:{repId};
-  const from=all?isoInstant(allReps.from??null):null,to=all?isoInstant(allReps.to??null):null;
+  const from=all?isoInstant(filters?.from??null):null,to=all?isoInstant(filters?.to??null):null;
   const window=from&&to&&from<to?{from,to}:null;
-  const agingFilter=all&&!attention?parseAgingLevel(allReps.aging):null;
+  const agingFilter=all&&!attention?parseAgingLevel(filters?.aging):null;
   const scoped=withAging(quotes({...filter,customerId:customer?.id??null}),now).filter(row=>!window||(row.created_at>=window.from&&row.created_at<window.to));
   const counts=emptyCounts();
   for(const row of scoped){counts[row.status]++;counts.all++;}
@@ -213,14 +213,14 @@ export async function repQuoteList(repId:string,{customerId=null,status=null,att
   let rows:RepQuoteRow[]=[];
   for(const row of shown)rows.push(await toRow(row,accounts.get(row.customer_id)??null,repId,provider));
   if(attention)rows=attentionOrder(rows,sort);
-  return {as_of:now,customer,other_rep:!all&&!!customer&&customer.rep_id!==repId,status:attention||agingFilter?null:status,attention,sort:attention?sort:'urgent',
+  return {as_of:now,customer,status:attention||agingFilter?null:status,attention,sort:attention?sort:'urgent',
     attention_count:scoped.filter(row=>needsAttention(row.aging)).length,counts,unread:scoped.filter(row=>row.unread_for_rep&&row.rep_id===repId).length,rows,
     scope:all?'all':'mine',rep_filter:repFilter,team_filter:teamFilter,window,aging_filter:agingFilter,manager:options};
 }
 
 /**
  * The header badge's count (v3 spec §3, decision 18): the rep's red open quotes, all customers, or
- * every rep's (repId null: the manager's All reps scope, OA-52). The caller stores lazy expiry first (repBadges does).
+ * every rep's (repId null: the manager, task U1). The caller stores lazy expiry first (repBadges does).
  */
 export function redQuoteCount(repId:string|null,now:string){
   return withAging(quotes({repId,statuses:['ready_for_review','changes_requested','sent']}),now).filter(row=>row.aging?.level==='red').length;
