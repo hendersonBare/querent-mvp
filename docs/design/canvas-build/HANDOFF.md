@@ -31,7 +31,7 @@ Scripts build on each other with `exec`, so keep them in one folder and run them
 5. Do not run a script that rewrites `canvas.json` and then publish it without step 1. It would undo hand edits (moved frames, renamed notes).
 
 ## Rules that bit before
-- Frames are 1440 x 900. Long pages use a scrolled frame (a `translateY` offset), not a tall frame.
+- Frames are 1440 x 900 (the product is verified at 1920 x 1080; see the style guide). Long pages use a scrolled frame (a `translateY` offset), not a tall frame.
 - No em-dashes. Hyphens only.
 - Section titles sit on the left of each section, size 200, like the Customers title.
 - Percent signs inside `%`-formatted Python strings must be `%%`.

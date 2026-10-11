@@ -1,0 +1,1250 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "C_AN1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Overview scrolled",
+      "w": 1440,
+      "x": 1520,
+      "y": 13100
+    },
+    "C_AN2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer questions",
+      "w": 1440,
+      "x": 4560,
+      "y": 14120
+    },
+    "C_AN3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Overview, show table",
+      "w": 1440,
+      "x": 3040,
+      "y": 13100
+    },
+    "C_AN4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Overview, filter open",
+      "w": 1440,
+      "x": 4560,
+      "y": 13100
+    },
+    "C_AN5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer questions scrolled",
+      "w": 1440,
+      "x": 6080,
+      "y": 14120
+    },
+    "C_AN6.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Rep leaderboard",
+      "w": 1440,
+      "x": 0,
+      "y": 14120
+    },
+    "C_AN7.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Decline reasons",
+      "w": 1440,
+      "x": 1520,
+      "y": 14120
+    },
+    "C_AN8.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Untouched quotes",
+      "w": 1440,
+      "x": 3040,
+      "y": 14120
+    },
+    "C_ANBase.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Overview",
+      "w": 1440,
+      "x": 0,
+      "y": 13100
+    },
+    "C_CU1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter open",
+      "w": 1440,
+      "x": 1520,
+      "y": 7640
+    },
+    "C_CU2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter applied",
+      "w": 1440,
+      "x": 3040,
+      "y": 7640
+    },
+    "C_CU3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer page",
+      "w": 1440,
+      "x": 4560,
+      "y": 7640
+    },
+    "C_CUBase.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customers",
+      "w": 1440,
+      "x": 0,
+      "y": 7640
+    },
+    "C_CVE0.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Base box: visitors who are not logged in",
+      "w": 1440,
+      "x": 0,
+      "y": 27280
+    },
+    "C_CVL1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Logged in: base box with Orders, My rep and the bell",
+      "w": 1440,
+      "x": 1520,
+      "y": 27280
+    },
+    "C_CVL2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Logged in: Orders opened",
+      "w": 1440,
+      "x": 3040,
+      "y": 27280
+    },
+    "C_CVL3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Logged in: My rep opened",
+      "w": 1440,
+      "x": 4560,
+      "y": 27280
+    },
+    "C_CVL4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Logged in: notification bell opened",
+      "w": 1440,
+      "x": 6080,
+      "y": 27280
+    },
+    "C_CVL5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Logged in: quote opened from the bell",
+      "w": 1440,
+      "x": 7600,
+      "y": 27280
+    },
+    "C_OR1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter open",
+      "w": 1440,
+      "x": 1520,
+      "y": 8860
+    },
+    "C_OR2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Order page",
+      "w": 1440,
+      "x": 3040,
+      "y": 8860
+    },
+    "C_ORBase.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Orders",
+      "w": 1440,
+      "x": 0,
+      "y": 8860
+    },
+    "C_QE1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E1 Approve and send",
+      "w": 1440,
+      "x": 1520,
+      "y": 4380
+    },
+    "C_QE10.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E10 Price source",
+      "w": 1440,
+      "x": 7600,
+      "y": 5400
+    },
+    "C_QE11.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E11 Draft saved",
+      "w": 1440,
+      "x": 1520,
+      "y": 6420
+    },
+    "C_QE2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E2 Export",
+      "w": 1440,
+      "x": 3040,
+      "y": 4380
+    },
+    "C_QE3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E3 More actions",
+      "w": 1440,
+      "x": 4560,
+      "y": 4380
+    },
+    "C_QE4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E4 Quote details",
+      "w": 1440,
+      "x": 6080,
+      "y": 4380
+    },
+    "C_QE5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E5 Suggested by Querent",
+      "w": 1440,
+      "x": 7600,
+      "y": 4380
+    },
+    "C_QE6.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E6 Customer chat",
+      "w": 1440,
+      "x": 1520,
+      "y": 5400
+    },
+    "C_QE7.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E7 Show cost and stock",
+      "w": 1440,
+      "x": 3040,
+      "y": 5400
+    },
+    "C_QE8.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E8 Add item",
+      "w": 1440,
+      "x": 4560,
+      "y": 5400
+    },
+    "C_QE9.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "E9 Line details",
+      "w": 1440,
+      "x": 6080,
+      "y": 5400
+    },
+    "C_QEBase.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Quote editor",
+      "w": 1440,
+      "x": 0,
+      "y": 4380
+    },
+    "C_QOB1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B1 Customer picker",
+      "w": 1440,
+      "x": 1520,
+      "y": -100
+    },
+    "C_QOB2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B2 Filter",
+      "w": 1440,
+      "x": 3040,
+      "y": -100
+    },
+    "C_QOB3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B3 Needs attention",
+      "w": 1440,
+      "x": 4560,
+      "y": -100
+    },
+    "C_QOB4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B4 Notifications",
+      "w": 1440,
+      "x": 6080,
+      "y": -100
+    },
+    "C_QOB5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B5 Quote preview",
+      "w": 1440,
+      "x": 7600,
+      "y": -100
+    },
+    "C_QOB6.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B6 View note",
+      "w": 1440,
+      "x": 1520,
+      "y": 920
+    },
+    "C_QOB7.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B7 Show more",
+      "w": 1440,
+      "x": 3040,
+      "y": 920
+    },
+    "C_QOB8.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B8 Reorder columns",
+      "w": 1440,
+      "x": 4560,
+      "y": 920
+    },
+    "C_QOB9.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "B9 Sign out",
+      "w": 1440,
+      "x": 6080,
+      "y": 920
+    },
+    "C_QOBoard.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Board view",
+      "w": 1440,
+      "x": 0,
+      "y": -100
+    },
+    "C_QOT1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T1 Filter",
+      "w": 1440,
+      "x": 1520,
+      "y": 2140
+    },
+    "C_QOT2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T2 Columns",
+      "w": 1440,
+      "x": 3040,
+      "y": 2140
+    },
+    "C_QOT3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T3 Quote preview",
+      "w": 1440,
+      "x": 4560,
+      "y": 2140
+    },
+    "C_QOT4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T4 View note",
+      "w": 1440,
+      "x": 6080,
+      "y": 2140
+    },
+    "C_QOT5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T5 Show more",
+      "w": 1440,
+      "x": 7600,
+      "y": 2140
+    },
+    "C_QOT6.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T6 Reorder columns",
+      "w": 1440,
+      "x": 1520,
+      "y": 3160
+    },
+    "C_QOT7.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "T7 Customer search",
+      "w": 1440,
+      "x": 3040,
+      "y": 3160
+    },
+    "C_QOTable.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Table view",
+      "w": 1440,
+      "x": 0,
+      "y": 2140
+    },
+    "C_RAN1.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Overview",
+      "w": 1440,
+      "x": 0,
+      "y": 23040
+    },
+    "C_RAN2.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter",
+      "w": 1440,
+      "x": 1520,
+      "y": 23040
+    },
+    "C_RAN3.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Decline reasons",
+      "w": 1440,
+      "x": 3040,
+      "y": 23040
+    },
+    "C_RAN4.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Untouched quotes",
+      "w": 1440,
+      "x": 4560,
+      "y": 23040
+    },
+    "C_RAN5.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer questions",
+      "w": 1440,
+      "x": 6080,
+      "y": 23040
+    },
+    "C_RCU1.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter",
+      "w": 1440,
+      "x": 1520,
+      "y": 21820
+    },
+    "C_RCUBase.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customers",
+      "w": 1440,
+      "x": 0,
+      "y": 21820
+    },
+    "C_RQB1.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer picker",
+      "w": 1440,
+      "x": 1520,
+      "y": 20600
+    },
+    "C_RQB2.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter",
+      "w": 1440,
+      "x": 3040,
+      "y": 20600
+    },
+    "C_RQBoard.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Board",
+      "w": 1440,
+      "x": 0,
+      "y": 20600
+    },
+    "C_RQTable.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Table",
+      "w": 1440,
+      "x": 4560,
+      "y": 20600
+    },
+    "C_RS1.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Margins",
+      "w": 1440,
+      "x": 0,
+      "y": 24260
+    },
+    "C_RS2.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Profile",
+      "w": 1440,
+      "x": 1520,
+      "y": 24260
+    },
+    "C_RS3.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Margin below floor",
+      "w": 1440,
+      "x": 3040,
+      "y": 24260
+    },
+    "C_RS4.dc.html": {
+      "h": 900,
+      "page": "charcoal",
+      "title": "Notifications",
+      "w": 1440,
+      "x": 4560,
+      "y": 24260
+    },
+    "C_S1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer access",
+      "w": 1440,
+      "x": 0,
+      "y": 16560
+    },
+    "C_S1a.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer access: filter open",
+      "w": 1440,
+      "x": 6080,
+      "y": 16560
+    },
+    "C_S1b.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Customer access: filter applied",
+      "w": 1440,
+      "x": 6080,
+      "y": 17580
+    },
+    "C_S2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Margin floors",
+      "w": 1440,
+      "x": 1520,
+      "y": 16560
+    },
+    "C_S3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Margin floors, review a rep",
+      "w": 1440,
+      "x": 3040,
+      "y": 16560
+    },
+    "C_S4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Pricing and delivery",
+      "w": 1440,
+      "x": 0,
+      "y": 17580
+    },
+    "C_S5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Pricing, free delivery",
+      "w": 1440,
+      "x": 1520,
+      "y": 17580
+    },
+    "C_S6.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Pricing, pool and cost model",
+      "w": 1440,
+      "x": 3040,
+      "y": 17580
+    },
+    "C_S7.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Impact preview",
+      "w": 1440,
+      "x": 4560,
+      "y": 17580
+    },
+    "C_S8.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Aging",
+      "w": 1440,
+      "x": 4560,
+      "y": 16560
+    },
+    "C_ST1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Filter open",
+      "w": 1440,
+      "x": 1520,
+      "y": 10080
+    },
+    "C_ST2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Item page",
+      "w": 1440,
+      "x": 3040,
+      "y": 10080
+    },
+    "C_ST3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Add to quote",
+      "w": 1440,
+      "x": 4560,
+      "y": 10080
+    },
+    "C_STBase.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Stock",
+      "w": 1440,
+      "x": 0,
+      "y": 10080
+    },
+    "C_TR1.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Rep customers",
+      "w": 1440,
+      "x": 1520,
+      "y": 15340
+    },
+    "C_TR2.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Disconnect a customer",
+      "w": 1440,
+      "x": 3040,
+      "y": 15340
+    },
+    "C_TR3.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Connect a customer",
+      "w": 1440,
+      "x": 4560,
+      "y": 15340
+    },
+    "C_TR4.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Move approval",
+      "w": 1440,
+      "x": 6080,
+      "y": 15340
+    },
+    "C_TR5.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Team selected",
+      "w": 1440,
+      "x": 7600,
+      "y": 15340
+    },
+    "C_TR6.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Create team",
+      "w": 1440,
+      "x": 9120,
+      "y": 15340
+    },
+    "C_TR7.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Move team",
+      "w": 1440,
+      "x": 10640,
+      "y": 15340
+    },
+    "C_TRBase.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "page": "charcoal",
+      "title": "Teams and Reps",
+      "w": 1440,
+      "x": 0,
+      "y": 15340
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-10T21:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "charcoal_label": {
+      "fill": "gray",
+      "maxH": 400,
+      "page": "charcoal",
+      "text": "Option B: charcoal rail and charcoal card title bars, light gray table and board headers, green only for actions. A copy of every frame on the New UI page. Change the layout on New UI first, then regenerate this page with mk_charcoal.py.",
+      "w": 1100,
+      "x": -1781,
+      "y": -2750
+    },
+    "charcoal_readme": {
+      "fill": "gray",
+      "maxH": 700,
+      "page": "charcoal",
+      "text": "Querent new UI. Four sections, top to bottom: 1 Shared (rep and manager), 2 Manager only, 3 Rep view, 4 Customer view.\nEach page is a row of frames, 1440 x 900: the page first, then one frame per button opened. The group title is on the left of its row.\nLook: dark green rail, Albert Sans, accent green. No em-dashes. Numbers are placeholders, not product data.",
+      "w": 1100,
+      "x": -1781,
+      "y": -2200
+    },
+    "charcoal_s1g1s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Board view. Each frame to the right is one button on the page, opened.",
+      "w": 640,
+      "x": -1781,
+      "y": 460
+    },
+    "charcoal_s1g1t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Quotes board",
+      "w": 240,
+      "x": -1781,
+      "y": -60
+    },
+    "charcoal_s1g2s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Table view. Each frame to the right is one button on the page, opened.",
+      "w": 640,
+      "x": -1781,
+      "y": 2700
+    },
+    "charcoal_s1g2t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Quotes table",
+      "w": 240,
+      "x": -1781,
+      "y": 2180
+    },
+    "charcoal_s1g3s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Each frame to the right is one button on the quote editing page, opened.",
+      "w": 640,
+      "x": -1781,
+      "y": 4940
+    },
+    "charcoal_s1g3t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Quote editing",
+      "w": 240,
+      "x": -1781,
+      "y": 4420
+    },
+    "charcoal_s1g4s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "One list with the rep on every row. Filter by one rep or several. Clicking a customer opens the customer page.",
+      "w": 640,
+      "x": -1781,
+      "y": 8200
+    },
+    "charcoal_s1g4t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Customers",
+      "w": 240,
+      "x": -1781,
+      "y": 7680
+    },
+    "charcoal_s1g5s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Orders come from the ERP and are read-only. Clicking an order opens the order page.",
+      "w": 640,
+      "x": -1781,
+      "y": 9420
+    },
+    "charcoal_s1g5t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Orders",
+      "w": 240,
+      "x": -1781,
+      "y": 8900
+    },
+    "charcoal_s1g6s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Items is now Stock. The category dropdown became the Filter button. Clicking an item opens the item page. Add to quote works from the list or the item page.",
+      "w": 640,
+      "x": -1781,
+      "y": 10640
+    },
+    "charcoal_s1g6t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Stock",
+      "w": 240,
+      "x": -1781,
+      "y": 10120
+    },
+    "charcoal_s2g1s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Five tabs: Overview, Rep leaderboard, Decline reasons, Untouched quotes and Customer questions. The Filter button works on every tab.",
+      "w": 640,
+      "x": -1781,
+      "y": 13660
+    },
+    "charcoal_s2g1t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Analytics",
+      "w": 240,
+      "x": -1781,
+      "y": 13140
+    },
+    "charcoal_s2g2s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Replaces the Team tab and the Reps and Rep assignments settings. Assignments only, no analytics.",
+      "w": 640,
+      "x": -1781,
+      "y": 15900
+    },
+    "charcoal_s2g2t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Teams and Reps",
+      "w": 240,
+      "x": -1781,
+      "y": 15380
+    },
+    "charcoal_s2g3s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Only managers can change these. Margin floors are the organization hard stops, with a rep review below. Descriptions only where a new user could misread a setting.",
+      "w": 640,
+      "x": -1781,
+      "y": 17120
+    },
+    "charcoal_s2g3t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Settings",
+      "w": 240,
+      "x": -1781,
+      "y": 16600
+    },
+    "charcoal_s3g1s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Only her customers. No rep filter. The Filter button lists her customers, statuses and dates.",
+      "w": 640,
+      "x": -1781,
+      "y": 21160
+    },
+    "charcoal_s3g1t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Rep quotes",
+      "w": 240,
+      "x": -1781,
+      "y": 20640
+    },
+    "charcoal_s3g2s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Own customers only. No Rep column and no rep filter.",
+      "w": 640,
+      "x": -1781,
+      "y": 22380
+    },
+    "charcoal_s3g2t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Rep customers",
+      "w": 240,
+      "x": -1781,
+      "y": 21860
+    },
+    "charcoal_s3g3s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Own numbers only. No Rep leaderboard tab, no rep or team filter.",
+      "w": 640,
+      "x": -1781,
+      "y": 23600
+    },
+    "charcoal_s3g3t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "My Analytics",
+      "w": 240,
+      "x": -1781,
+      "y": 23080
+    },
+    "charcoal_s3g4s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Margins, Profile and Notifications only. Margins cannot go below the organization floor.",
+      "w": 640,
+      "x": -1781,
+      "y": 24820
+    },
+    "charcoal_s3g4t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Rep settings",
+      "w": 240,
+      "x": -1781,
+      "y": 24300
+    },
+    "charcoal_s4g1s": {
+      "maxH": 300,
+      "page": "charcoal",
+      "text": "Querent lives on Herrick's own site and is a quoting tool, not a replacement for it. Visitors who are not logged in get the base box as the whole page. Logged in, it is the same box with two buttons (Orders and My rep) and a notification bell. The bell is where customers find a new or updated quote, and opening one shows the quote with Accept, Request changes and Decline. The Herrick site around it is a placeholder.",
+      "w": 640,
+      "x": -1438,
+      "y": 27700
+    },
+    "charcoal_s4g1t": {
+      "kind": "title1",
+      "maxW": 1600,
+      "page": "charcoal",
+      "size": 200,
+      "text": "Customer site",
+      "w": 240,
+      "x": -1781,
+      "y": 27320
+    },
+    "charcoal_sec1": {
+      "color": "green",
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "charcoal",
+      "size": 320,
+      "text": "1. SHARED: REP AND MANAGER",
+      "w": 240,
+      "x": -1781,
+      "y": -1400
+    },
+    "charcoal_sec1s": {
+      "fill": "green",
+      "maxH": 520,
+      "page": "charcoal",
+      "text": "Same pages and same layout for reps and managers. Reps only see their own customers and quotes. Drawn here in the manager view.",
+      "w": 1100,
+      "x": -1781,
+      "y": -940
+    },
+    "charcoal_sec2": {
+      "color": "purple",
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "charcoal",
+      "size": 320,
+      "text": "2. MANAGER ONLY",
+      "w": 240,
+      "x": -1781,
+      "y": 11800
+    },
+    "charcoal_sec2s": {
+      "fill": "purple",
+      "maxH": 520,
+      "page": "charcoal",
+      "text": "Drawn for the manager view. Reps get their own smaller Analytics and Settings (section 3). Teams and Reps does not exist for reps.",
+      "w": 1100,
+      "x": -1781,
+      "y": 12260
+    },
+    "charcoal_sec3": {
+      "color": "orange",
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "charcoal",
+      "size": 320,
+      "text": "3. REP VIEW",
+      "w": 240,
+      "x": -1781,
+      "y": 19300
+    },
+    "charcoal_sec3s": {
+      "fill": "orange",
+      "maxH": 520,
+      "page": "charcoal",
+      "text": "Drawn for Brandi Gallegos, who owns Canyon Ridge, Great Basin and Wasatch. Same look as the manager pages. Rail has no Teams and Reps, Analytics reads My Analytics, role reads Rep. Not redrawn because only the data changes: Orders, Stock, customer page, order page, quote editor and the caution and bell dropdowns. Rep numbers are placeholders. Open: role switch for reps who are managers.",
+      "w": 1100,
+      "x": -1781,
+      "y": 19760
+    },
+    "charcoal_sec4": {
+      "color": "blue",
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "charcoal",
+      "size": 320,
+      "text": "4. CUSTOMER VIEW",
+      "w": 240,
+      "x": -1781,
+      "y": 25980
+    },
+    "charcoal_sec4s": {
+      "fill": "blue",
+      "maxH": 520,
+      "page": "charcoal",
+      "text": "Querent on the customer's website: one query box for everyone, with previous orders and the rep's contact once logged in.",
+      "w": 1100,
+      "x": -1781,
+      "y": 26440
+    }
+  },
+  "order": [
+    "C_AN1.dc.html",
+    "C_AN2.dc.html",
+    "C_AN3.dc.html",
+    "C_AN4.dc.html",
+    "C_AN5.dc.html",
+    "C_AN6.dc.html",
+    "C_AN7.dc.html",
+    "C_AN8.dc.html",
+    "C_ANBase.dc.html",
+    "C_CU1.dc.html",
+    "C_CU2.dc.html",
+    "C_CU3.dc.html",
+    "C_CUBase.dc.html",
+    "C_OR1.dc.html",
+    "C_OR2.dc.html",
+    "C_ORBase.dc.html",
+    "C_QE1.dc.html",
+    "C_QE10.dc.html",
+    "C_QE11.dc.html",
+    "C_QE2.dc.html",
+    "C_QE3.dc.html",
+    "C_QE4.dc.html",
+    "C_QE5.dc.html",
+    "C_QE6.dc.html",
+    "C_QE7.dc.html",
+    "C_QE8.dc.html",
+    "C_QE9.dc.html",
+    "C_QEBase.dc.html",
+    "C_QOB1.dc.html",
+    "C_QOB2.dc.html",
+    "C_QOB3.dc.html",
+    "C_QOB4.dc.html",
+    "C_QOB5.dc.html",
+    "C_QOB6.dc.html",
+    "C_QOB7.dc.html",
+    "C_QOB8.dc.html",
+    "C_QOB9.dc.html",
+    "C_QOBoard.dc.html",
+    "C_QOT1.dc.html",
+    "C_QOT2.dc.html",
+    "C_QOT3.dc.html",
+    "C_QOT4.dc.html",
+    "C_QOT5.dc.html",
+    "C_QOT6.dc.html",
+    "C_QOT7.dc.html",
+    "C_QOTable.dc.html",
+    "C_RAN1.dc.html",
+    "C_RAN2.dc.html",
+    "C_RAN3.dc.html",
+    "C_RAN4.dc.html",
+    "C_RAN5.dc.html",
+    "C_RCU1.dc.html",
+    "C_RCUBase.dc.html",
+    "C_RQB1.dc.html",
+    "C_RQB2.dc.html",
+    "C_RQBoard.dc.html",
+    "C_RQTable.dc.html",
+    "C_RS1.dc.html",
+    "C_RS2.dc.html",
+    "C_RS3.dc.html",
+    "C_RS4.dc.html",
+    "C_S1.dc.html",
+    "C_S2.dc.html",
+    "C_S3.dc.html",
+    "C_S4.dc.html",
+    "C_S5.dc.html",
+    "C_S6.dc.html",
+    "C_S7.dc.html",
+    "C_S8.dc.html",
+    "C_ST1.dc.html",
+    "C_ST2.dc.html",
+    "C_ST3.dc.html",
+    "C_STBase.dc.html",
+    "C_TR1.dc.html",
+    "C_TR2.dc.html",
+    "C_TR3.dc.html",
+    "C_TR4.dc.html",
+    "C_TR5.dc.html",
+    "C_TR6.dc.html",
+    "C_TR7.dc.html",
+    "C_TRBase.dc.html",
+    "C_S1a.dc.html",
+    "C_S1b.dc.html",
+    "C_CVE0.dc.html",
+    "C_CVL1.dc.html",
+    "C_CVL2.dc.html",
+    "C_CVL3.dc.html",
+    "C_CVL4.dc.html",
+    "C_CVL5.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "charcoal",
+      "name": "New UI (Charcoal)"
+    }
+  ],
+  "title": "Querent New UI"
+}
