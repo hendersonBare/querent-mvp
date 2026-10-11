@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 
 // The quote detail's ⋯ menu (task 3.5; spec §4, §5.4; docs/design/screens/06): Duplicate quote
-// makes a new ready_for_review quote and opens it (keeping ?customer=), Reset sample quote restores
+// makes a new ready_for_review quote and opens it (carrying no ?customer=, task U1), Reset sample quote restores
 // Q-24817 to its seed state, and Open customer in ERP is disabled with the tooltip "Available after
 // ERP integration". "Reassign to another rep" is the manager's (Brandi, task D2; e2e/rep-reassign.spec.ts).
 //
@@ -75,9 +75,9 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({ path });
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
-/** Waits for the copy of `from` to open (keeping ?customer=wasatch) and returns its number. */
+/** Waits for the copy of `from` to open (with no ?customer=: links never carry it, task U1) and returns its number. */
 async function copyOpened(page: Page, from: string) {
-  await page.waitForURL((url) => /^\/rep\/quotes\/Q-\d+$/.test(url.pathname) && !url.pathname.endsWith(`/${from}`) && url.search === "?customer=wasatch");
+  await page.waitForURL((url) => /^\/rep\/quotes\/Q-\d+$/.test(url.pathname) && !url.pathname.endsWith(`/${from}`) && url.search === "");
   return page.url().match(/Q-\d+/)![0];
 }
 async function inViewport(page: Page, locator: Locator) {
@@ -128,7 +128,7 @@ test("screen 06 at 1440px: Duplicate, Reassign (the manager's), Open customer in
   await expect(moreButton(page)).toBeFocused();
 });
 
-test("Duplicate creates a new ready_for_review quote from the latest draft, opens it keeping ?customer=, and lists it", async ({ page }, testInfo) => {
+test("Duplicate creates a new ready_for_review quote from the latest draft, opens it, and lists it", async ({ page }, testInfo) => {
   await openQuote(page);
   const unread = await badge(page);
   // An edit still saving when Duplicate is chosen is in the copy.
@@ -154,7 +154,7 @@ test("Duplicate creates a new ready_for_review quote from the latest draft, open
   // The rep made it, so the badge doesn't move, and it is in their Quotes list.
   expect(await badge(page)).toBe(unread);
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Quotes" }).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?customer=wasatch$/);
+  await expect(page).toHaveURL(/\/rep\/quotes$/);
   const row = page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: copy, exact: true }) });
   await expect(row).toContainText("Draft ready");
   await expect(row.getByRole("rowheader")).not.toHaveText(/^Unread: /);

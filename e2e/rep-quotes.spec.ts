@@ -230,7 +230,10 @@ test("phone (390px): each quote is a card, the note wraps, and nothing scrolls s
   await page.setViewportSize({ width: 390, height: 844 });
   await signInAsBrandi(page);
   const changes = quote(page, made.changes_requested);
-  await expect(changes.getByText("Can you make the gloves 6 cases, and hold it for pickup at SLC instead?")).toBeInViewport();
+  // The manager's rep and team filters sit above the list (task U1), so scroll the note into view first.
+  const note = changes.getByText("Can you make the gloves 6 cases, and hold it for pickup at SLC instead?");
+  await note.scrollIntoViewIfNeeded();
+  await expect(note).toBeInViewport({ ratio: 1 });
   await expect(quote(page, SAMPLE).getByText("Requested Sep 23")).toBeVisible();
   await expect(quote(page, SAMPLE).getByText("32.2% margin")).toBeVisible();
   await noSidewaysScroll(page);

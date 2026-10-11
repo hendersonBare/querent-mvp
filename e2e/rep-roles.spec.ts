@@ -47,8 +47,9 @@ async function signInAsMara(browser: Browser, testInfo: TestInfo) {
   return context.newPage();
 }
 const settingsTabs = (page: Page) => page.getByRole("navigation", { name: "Settings sections" });
+/** A quote's Status cell on the manager's list: her rows start with the checkbox and carry a Rep cell (tasks D2, U1). */
 const quoteStatus = (page: Page, number: string) =>
-  page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) }).getByRole("cell").nth(2);
+  page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) }).getByRole("cell").nth(4);
 async function noSidewaysScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 }
