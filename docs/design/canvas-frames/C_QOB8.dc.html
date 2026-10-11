@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Board Reorder Columns Charcoal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;800&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+a{color:inherit;text-decoration:none}
+*{scrollbar-width:thin;scrollbar-color:#C4C7C5 transparent}
+*::-webkit-scrollbar{height:8px;width:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:#C4C7C5;border-radius:8px}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; display: flex; flex-wrap: nowrap; align-items: stretch; font-family: 'Albert Sans', sans-serif; background: #E9EBEA; color: #1B1F1D; font-size: 14.5px">
+  <aside style="flex: 0 0 216px; align-self: stretch; background: #1F2422">
+    <div style="position: sticky; top: 0; height: 900px; box-sizing: border-box; padding: 20px 14px; display: flex; flex-direction: column; gap: 3px">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+        <svg width="40" height="40" viewBox="10 10 80 80" fill="none" stroke="#FFFFFF" stroke-width="7.5" stroke-linecap="round" role="img" aria-label="Querent"><circle cx="49" cy="49" r="28.5"></circle><path d="M60 60 81 82"></path></svg>
+        <span style="font-weight: 800; font-size: 20px; letter-spacing: -0.03em; color: #fff">Querent</span>
+      </div>
+      <div style="padding: 6px 8px 22px; font-size: 13px; font-weight: 800; white-space: nowrap; color: #E6E8E7">Herrick Industrial Supply</div>
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="7">
+        <a href="#" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: {{n.bg}}; color: {{n.fg}}; font-weight: {{n.w}}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+          <span style="font-size: 14px; white-space: nowrap">{{n.label}}</span>
+        </a>
+      </sc-for>
+      <div style="flex: 1 1 auto"></div>
+      <div style="border-top: 1px solid #343A37; padding: 14px 8px 0; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <div style="width: 38px; height: 38px; border-radius: 50%; background: #fff; color: #1F2422; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">BG</div>
+          <div><div style="font-weight: 700; color: #fff">Brian G.</div><div style="font-size: 12.5px; color: #A9AEAB">Manager</div></div>
+        </div>
+        <button style="height: 36px; border-radius: 9px; border: 1px solid #4A514D; background: transparent; color: #fff; font-weight: 600">Sign out</button>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex: 1 1 auto; min-width: 0; box-sizing: border-box; padding: 24px 32px 40px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px">
+      <h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.035em">Quotes</h1>
+      <div style="width: 320px; max-width: 100%; box-sizing: border-box; height: 42px; border-radius: 10px; background: #fff; border: 1px solid #D6D9D7; display: flex; align-items: center; gap: 10px; padding: 0 14px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#585F5B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m20 20-4-4"></path></svg>
+        <span style="font-weight: 600">All customers</span>
+      </div>
+      <button style="height: 40px; padding: 0 14px; border: 1px solid #D6D9D7; background: #fff; border-radius: 10px; font-weight: 600; display: flex; align-items: center; gap: 8px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4L3 5z"></path></svg>Filter</button>
+      <div style="display: flex; background: #fff; border: 1px solid #D6D9D7; border-radius: 10px; padding: 3px">
+        <button style="height: 32px; padding: 0 14px; border: 0; border-radius: 7px; background: {{accent}}; color: #fff; font-weight: 700">Board</button>
+        <button style="height: 32px; padding: 0 14px; border: 0; border-radius: 7px; background: transparent; color: #585F5B; font-weight: 600">Table</button>
+      </div>
+      <div style="position: relative; display: flex; align-items: center; gap: 10px; margin-left: auto">
+        <button aria-label="Needs attention, 2 items" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #E8A8A0; background: #FFEDEA; color: #C92A1C; display: flex; align-items: center; justify-content: center">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"></path><path d="M12 10v4M12 17.5v.01"></path></svg>
+        </button>
+        <button aria-label="Notifications" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #D6D9D7; background: #fff; color: #585F5B; display: flex; align-items: center; justify-content: center">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 17v-6a6 6 0 1 1 12 0v6l1.5 2h-15L6 17z"></path><path d="M10 21a2 2 0 0 0 4 0"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 14px; overflow-x: auto; padding: 24px 0 14px; align-items: flex-start">
+      <sc-for list="{{cols}}" as="col" hint-placeholder-count="6">
+        <section style="flex: 1 0 236px; background: #F0F1F0; border-radius: 12px; overflow: hidden; box-shadow: {{col.sh}}; transform: {{col.tf}}; outline: {{col.ol}}; outline-offset: 3px; position: relative; z-index: {{col.z}}">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #E8EAE9; color: #3A403D">
+            <div style="font-weight: 800"><span style="color: #9DA29F">:: </span>{{col.label}}</div>
+            <span style="font-family: 'Geist Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.08); padding: 1px 8px; border-radius: 999px">{{col.n}}</span>
+          </div>
+          <div style="padding: 10px">
+          <sc-for list="{{col.cards}}" as="c" hint-placeholder-count="3">
+            <div style="background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; border: 1px solid #DDDFDE">
+              <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 800">{{c.id}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 11.5px; color: #767D79">{{c.date}}</span></div>
+              <div style="font-size: 13.5px; color: #3A403D; margin-top: 4px">{{c.cust}}</div>
+              <sc-if value="{{c.note}}" hint-placeholder-val="{{ false }}"><button style="width: 100%; margin-top: 8px; height: 30px; border: 0; border-radius: 7px; background: #FBE7A1; color: #5C4300; font-weight: 700; font-size: 12.5px; text-align: left; padding: 0 10px">View note</button></sc-if>
+              <div style="display: flex; justify-content: space-between; margin-top: 10px"><span style="font-weight: 800; font-variant-numeric: tabular-nums">{{c.total}}</span><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #585F5B">{{c.margin}}</span></div>
+              <sc-if value="{{c.flag}}" hint-placeholder-val="{{ false }}"><div style="margin-top: 8px; font-size: 12.5px; font-weight: 700; color: #C92A1C">{{c.flag}}</div></sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{col.more}}" hint-placeholder-val="{{ false }}"><button style="width: 100%; height: 36px; border: 1px dashed #9DA29F; background: transparent; border-radius: 9px; color: #343A37; font-weight: 700">{{col.more}}</button></sc-if>
+          <sc-if value="{{col.empty}}" hint-placeholder-val="{{ false }}"><div style="padding: 18px 8px; text-align: center; font-size: 13px; color: #767D79">No quotes here</div></sc-if>
+          </div>
+        </section>
+      </sc-for>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#14803C"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const W = 'Wasatch Mechanical Contractors', CR = 'Canyon Ridge Builders', BE = 'Bonneville Electric Supply', SP = 'Summit Plumbing and Heating', RR = 'Red Rock Excavation', TC = 'Teton Concrete Works';
+    const pool = [W, CR, BE, SP, RR, TC, W];
+    const q = (id, date, cust, total, margin, flag, note) => ({ id, date, cust, total, margin, flag: flag || '', note: note || '' });
+    const aT = ['$1,846.20', '$412.90', '$3,205.75', '$788.00', '$154.60', '$2,019.35', '$967.45', '$5,120.00', '$233.10', '$1,402.80', '$689.55', '$2,774.90', '$318.25', '$1,095.40', '$842.70', '$4,391.15', '$571.60'];
+    const aM = ['33.1%', '36.0%', '31.4%', '34.8%', '38.2%', '32.7%', '35.5%', '29.9%', '37.1%', '33.6%', '34.2%', '30.8%', '39.4%', '32.3%', '35.9%', '31.1%', '34.4%'];
+    const aD = ['Sep 8', 'Sep 5', 'Sep 3', 'Aug 30', 'Aug 28', 'Aug 26', 'Aug 22', 'Aug 20', 'Aug 18', 'Aug 15', 'Aug 13', 'Aug 11', 'Aug 8', 'Aug 6', 'Aug 4', 'Jul 31', 'Jul 29'];
+    const acc = [q('Q-24816', 'Sep 23', W, '$655.25', '28.9%'), q('Q-24763', 'Sep 21', CR, '$2,482.58', '33.9%'), q('Q-24814', 'Sep 9', W, '$291.15', '34.5%')].concat(aT.map((t, i) => q('Q-' + (24813 - i), aD[i], pool[i % 7], t, aM[i])));
+    const eId = ['Q-24796', 'Q-24795', 'Q-24794', 'Q-24793', 'Q-24792', 'Q-24788'], eT = ['$208.40', '$1,310.00', '$97.85', '$642.30', '$2,055.10', '$430.75'], eM = ['38.0%', '31.9%', '44.1%', '35.2%', '30.4%', '36.6%'], eD = ['Aug 27', 'Aug 21', 'Aug 14', 'Aug 9', 'Aug 2', 'Jul 26'];
+    const exp = [q('Q-24815', 'Sep 18', W, '$322.80', '42.8%')].concat(eId.map((id, i) => q(id, eD[i], pool[(i + 2) % 7], eT[i], eM[i])));
+    const cols = [
+      { label: 'Draft ready', n: 1, more: '', empty: false, cards: [q('Q-24817', 'Oct 9', W, '$1,122.40', '32.2%', 'Overdue. 1 line below floor')] },
+      { label: 'Changes requested', n: 1, more: '', empty: false, cards: [q('Q-24790', 'Oct 8', W, '$1,164.00', '34.9%', 'Overdue', true)] },
+      { label: 'Sent', n: 2, more: '', empty: false, cards: [q('Q-24791', 'Oct 9', W, '$96.00', '35.4%'), q('Q-24789', 'Oct 6', W, '$360.80', '34.5%', 'Aging')] },
+      { label: 'Accepted', n: 20, more: 'Show 13 more', empty: false, cards: acc.slice(0, 7) },
+      { label: 'Expired', n: 7, more: 'Show 2 more', empty: false, cards: exp.slice(0, 5) },
+      { label: 'Declined', n: 0, more: '', empty: true, cards: [] }
+    ];
+    cols.forEach((c, i) => { c.sh = i === 1 ? '0 24px 40px rgba(20,24,22,0.35)' : 'none'; c.tf = i === 1 ? 'rotate(2.5deg) translateY(-8px)' : 'none'; c.ol = i === 3 ? '3px dashed #14803C' : 'none'; c.z = i === 1 ? 5 : 1; });
+    const alerts = [
+      { id: 'Q-24790', tag: 'Overdue', body: 'Dana Ortiz asked to move pickup to Ogden.' },
+      { id: 'Q-24817', tag: 'Overdue', body: 'Draft has 1 line below the margin floor.' },
+      { id: 'Q-24789', tag: 'Aging', body: 'Sent Oct 6, no reply yet.' }
+    ];
+    const items = [['Quotes', 'M6 3h9l4 4v14H6V3z M14 3v5h5 M9 13h7 M9 17h5'], ['Customers', 'M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M4 21c1-4 4-6 8-6s7 2 8 6'], ['Orders', 'M3 8l9-5 9 5v9l-9 5-9-5V8z M3 8l9 5 9-5 M12 13v9'], ['Stock', 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z'], ['Analytics', 'M4 20V10 M10 20V4 M16 20v-8 M22 20H2'], ['Teams and Reps', 'M9 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z M17 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z M2 20c.8-3.5 3.3-5 7-5s6.2 1.5 7 5 M17 14c3 0 4.7 1.4 5 4'], ['Settings', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M19 5l-2 2 M7 17l-2 2']];
+    const nav = items.map((n, i) => ({ label: n[0], d: n[1], bg: i === 0 ? '#14803C' : 'transparent', fg: i === 0 ? '#fff' : '#A9AEAB', w: i === 0 ? 700 : 500 }));
+    return { accent: this.props.accent ?? '#14803C', cols, alerts, nav };
+  }
+}
+</script>
+</body>
+</html>

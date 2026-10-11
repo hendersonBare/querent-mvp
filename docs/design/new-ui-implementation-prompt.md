@@ -1,10 +1,24 @@
 # New UI: what changed, and the prompt to build it
 
-Source of truth for the design: the canvas page **New UI (Charcoal)** (final palette) at https://claude.ai/artifact/X1xFhCZjpdF2vBH9Nnb597, with the earlier **New UI** page as the green reference. Rules and tokens: `docs/design/new-ui-style-guide.md`. Requirements the design was built from: `UI and Feature Changes (1).pdf`. The scripts that generate every frame are in `docs/design/canvas-build/`.
+Source of truth for the design: the 89 frames in `docs/design/canvas-frames/` (copy of canvas **New UI (Charcoal)**, https://claude.ai/artifact/9JknKAyWrdWdjZpgvLAnHj). The old link X1xFhCZjpdF2vBH9Nnb597 is the earlier version. Rules and tokens: `docs/design/new-ui-style-guide.md`. Requirements the design was built from: `UI and Feature Changes (1).pdf`. The scripts that generate every frame are in `docs/design/canvas-build/`.
 
 "Current" below means what the repo does today (read from `src/`). Where I inferred behaviour from code comments rather than running it, it says so. Nothing here has been implemented yet.
 
 Part 1 lists every change with its logic. Part 2 is the decisions (two made, two recommended, the rest open). The appendices give the frame index, permissions, data model, API, copy rules, unchanged areas, placeholder data and a test checklist. Part 3 is the prompt to paste.
+
+---
+
+## Decisions made (override Part 2 and Part 3 below)
+
+The prompt to use is `docs/design/new-ui-refactor-prompt.md`; Part 3 here is superseded.
+- Route renames: `/rep/items` -> `/rep/stock`, `/rep/team` -> `/rep/teams`, with redirects (decision 6).
+- Bulk reassign lives on Teams and Reps, not the Quotes table (decision 5).
+- Parent team is grouping only, no permission inheritance (decision 7).
+- Feature flags are environment variables (decision 8).
+- Customer login, embed and auth are out of scope; Supabase auth comes later (decision 9). Keep the current demo auth. Build the customer UI against the existing session.
+- No phone or tablet layouts (decision 3 dropped). Verify at 1920 x 1080.
+- Hover, focus and loading states are built quietly (decision 10), per the style guide.
+- Send blockers: as recommended (decision 4).
 
 ---
 

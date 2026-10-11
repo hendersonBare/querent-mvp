@@ -14,7 +14,9 @@ The visual source of truth for Querent v2 ("Query to Quote"). The spec, plan and
 | `screens/07-send-dialog.png` | Approve & send dialog |
 | `screens/08-quote-detail-mobile.png` | Quote detail at 390px |
 
-Brand: "Querent green" is the mockup's teal primary (Approve & send button, margin bar). Fonts: Archivo (headings), IBM Plex Sans (body), IBM Plex Mono (SKUs).
+> **Superseded for visuals.** The new UI (charcoal) in `canvas-frames/` replaces this mockup for every screen it covers. Palette, type and sizes: `new-ui-style-guide.md`. Build instructions and the frame-to-route map: `new-ui-refactor-prompt.md`. The mockup remains only for flows the new frames do not redraw.
+
+Old mockup brand (retired by the new UI): "Querent green" teal primary, Archivo / IBM Plex Sans / IBM Plex Mono. New: accent `#14803C`, Albert Sans / Geist Mono.
 
 ## Intentional differences from the mockup
 
