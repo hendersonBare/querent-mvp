@@ -6,7 +6,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 52. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
-| U0 | | in review |
+| U0 | #52 | in review |
 | U1 | | not started |
 | U2 | | not started |
 | U3 | | not started |
