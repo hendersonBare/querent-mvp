@@ -7,7 +7,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
-| U1 | | in review ([#53](https://github.com/hendersonBare/querent-mvp/pull/53)) |
+| U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | fix round 1 (verifier FAIL: rep analytics counted by customer, not quote owner) |
 | U2 | | not started |
 | U3 | | not started |
 | U4 | | not started |
@@ -16,7 +16,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
-| U10 | | not started |
+| U10 | | in progress (`task/U10-customer-site`) |
 | U11 | | not started |
 
 ### No frame
