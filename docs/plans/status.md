@@ -25,6 +25,7 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | What | Task | Why it exists | Asked |
 |---|---|---|---|
 | Blocked-send state: disabled Approve and send with the first blocker named under it and "+N more" | U4 | Decision 44 | made (decision 44) |
+| Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
 | What | Task | Reason |
