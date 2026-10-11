@@ -9,7 +9,7 @@ Deferred work from the v3 decision log (decision 40). Each item is marked in cod
 | R-3 | Outreach: add idempotency and scheduling (when demo outreach is built, send once at quote creation) | `src/server/quotes/aging.ts` |
 | R-4 | Replace the demo cookie auth with a third-party auth service | `src/server/session.ts` |
 | R-5 | PII removal layer for chat transcripts and `query_logs` | `src/server/repository/chat.ts` (message and query log writers) |
-| R-6 | Stricter guards on `/api/test/*` routes before deployment | `src/app/api/test/reset/route.ts`, `src/app/api/test/rep-quotes/route.ts` |
+| R-6 | Stricter guards on `/api/test/*` routes before deployment | `src/app/api/test/reset/route.ts`, `src/app/api/test/rep-quotes/route.ts`, `src/app/test/ui/page.tsx` |
 | R-7 | Deferred reminders: email and SMS, scheduler, Apollo and Twilio integrations (item I) | `src/server/quotes/aging.ts` |
 | R-8 | Deferred lifecycle ideas: reminder ladders, digests, auto-reassignment, snooze, auto-drafted follow-ups | `src/server/quotes/aging.ts` |
 | R-9 | Diesel price endpoint if OilPriceAPI has none (diesel is $0 until then) | `src/server/freight/fuel-price.ts` |

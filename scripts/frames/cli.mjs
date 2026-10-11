@@ -10,7 +10,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
-import { FRAME_DIR, FRAME_SIZE, startFrameServer, openFrame, measureAll, diffMeasures, STYLE_PROPS } from "./lib.mjs";
+import { FRAME_DIR, FRAME_SIZE, FONT_USER_AGENT, startFrameServer, openFrame, measureAll, diffMeasures, STYLE_PROPS } from "./lib.mjs";
 
 const args = process.argv.slice(2);
 const flag = (k) => args.find((a) => a.startsWith(`--${k}=`))?.split("=").slice(1).join("=");
@@ -32,7 +32,7 @@ const srv = await startFrameServer();
 const browser = await chromium.launch(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {});
 const page = await browser.newPage({ viewport: { width: w, height: h } });
 if (cmd === "compare") {
-  const fp = await browser.newPage({ viewport: FRAME_SIZE });
+  const fp = await browser.newPage({ viewport: FRAME_SIZE, userAgent: FONT_USER_AGENT });
   await openFrame(fp, srv.base, id);
   const props = { root: flag("selector") ?? "body", props: STYLE_PROPS };
   const frame = await fp.evaluate(measureAll, props);
