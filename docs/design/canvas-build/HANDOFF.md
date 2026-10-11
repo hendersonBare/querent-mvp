@@ -48,3 +48,10 @@ Scripts build on each other with `exec`, so keep them in one folder and run them
 - Placeholder data, not from the product: Settings impact preview table; rep margins in the Settings rep review; roles and team names in Teams and Reps; the 17 accepted and 6 expired quotes in the board and table; weekly chart values before Sep 7; the Q-24817 chat replies; Stock last row SKU.
 - Not designed: the rep's own views ("My Analytics", rep Settings with margins and profile), the Quote list "Show 18 more" expanded table beyond what is drawn, a customer detail view of "View all quotes".
 - Next planned step: a consistency pass against `UI and Feature Changes (1).pdf`.
+
+## Added later on 2026-10-11
+- Final palette is the charcoal page ("New UI (Charcoal)"), generated from the green page by `mk_charcoal.py`. Run `mk_standard.py`, `mk_table_fix.py` and `mk_round2.py` after any rebuild to keep the audit standard, table alignment and editor widths.
+- Settings changes (flags, dropdown to filter, trimmed copy, Data sources removed): `mk_settings_round.py`, `mk_access_filter.py`.
+- Customer site frames: `mk_customer_embed.py` (base box) and `mk_customer_embed2.py` (logged in, bell, orders, my rep). `mk_customer.py`, `mk_customer_options.py` and `mk_customer_options2.py` built the earlier customer page and options, which were removed from the canvas; keep them only for reference. `mk_editor_colors.py` built the quote editor colour options.
+- `organize_canvas.py` lays out the page in four sections. Run it only on a freshly read canvas.json.
+- The full list of what changed, the data and API impact and the build prompt: `docs/design/new-ui-implementation-prompt.md`.

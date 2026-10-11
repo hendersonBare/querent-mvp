@@ -24,38 +24,48 @@ CLOCKP = '<path d="M6 3h9l4 4v14H6V3z"/><circle cx="12" cy="14" r="3"/><path d="
 
 
 def line(icon, text):
-    return ('<div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 8px; word-break: break-all">'
-            '<span style="color: #14803C; margin-top: 2px; flex: none">%s</span><span>%s</span></div>') % (ic(icon, 16), text)
+    return ('<div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 7px; overflow-wrap: anywhere; font-size: 13.5px; color: #151D18">'
+            '<span style="color: #14803C; margin-top: 2px; flex: none">%s</span><span>%s</span></div>') % (ic(icon, 15), text)
 
 
 def hours(t):
-    return '<div style="color: #6A7F73; font-size: 12.5px; margin: 4px 0 0 26px">%s</div>' % t
+    return '<div style="color: #6A7F73; font-size: 12px; margin: 3px 0 0 25px">%s</div>' % t
 
 
 def dept(name, phone, mail, hrs):
-    return '<div style="padding: 16px 20px; border-top: 1px solid #E3EAE5"><div style="font-weight: 800">%s</div>%s%s%s</div>' % (
+    return '<div style="padding: 14px 0; border-top: 1px solid #E3EAE5"><div style="font-weight: 800; color: #151D18">%s</div>%s%s%s</div>' % (
         name, line(PHONE, phone), line(MAIL, mail), hours(hrs))
 
 
 def branch(code, phone, hrs):
-    return ('<div style="display: flex; gap: 12px; margin-top: 12px"><span style="width: 62px; flex: none; height: 24px; border-radius: 6px; background: #E4EAE5; '
-            'color: #3A4A40; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">%s</span>'
-            '<div><div style="display: flex; gap: 8px; align-items: center; color: #14803C">%s<span>%s</span></div>'
-            '<div style="color: #6A7F73; font-size: 12.5px; margin-top: 3px">%s</div></div></div>') % (code, ic(PHONE, 16), phone, hrs)
+    return ('<div style="display: flex; gap: 10px; margin-top: 10px"><span style="width: 58px; flex: none; height: 22px; border-radius: 6px; background: #E4EAE5; '
+            'color: #3A4A40; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center">%s</span>'
+            '<div><div style="display: flex; gap: 8px; align-items: center; color: #151D18; font-size: 13.5px"><span style="color: #14803C; display: flex">%s</span><span>%s</span></div>'
+            '<div style="color: #6A7F73; font-size: 12px; margin-top: 2px">%s</div></div></div>') % (code, ic(PHONE, 15), phone, hrs)
 
 
-QUOTES = [('Q-24791', 'Oct 9', '$96.00', 'Sent'), ('Q-24817', 'Oct 9', '', 'Awaiting rep'), ('Q-24790', 'Oct 8', '$1,164.00', 'Changes requested'),
-          ('Q-24789', 'Oct 6', '$360.80', 'Sent'), ('Q-24816', 'Sep 23', '$655.25', 'Accepted'), ('Q-24815', 'Sep 18', '$322.80', 'Expired'),
-          ('Q-24814', 'Sep 9', '$291.15', 'Accepted'), ('Q-24813', 'Sep 4', '$131.45', 'Expired')]
+GROUPS = [('Sent', 2, [('Q-24791', 'Oct 9', '$96.00'), ('Q-24789', 'Oct 6', '$360.80')], ''),
+          ('Awaiting rep', 1, [('Q-24817', 'Oct 9', '')], ''),
+          ('Changes requested', 1, [('Q-24790', 'Oct 8', '$1,164.00')], ''),
+          ('Accepted', 16, [('Q-24816', 'Sep 23', '$655.25'), ('Q-24814', 'Sep 9', '$291.15')], 'Show 14 more'),
+          ('Expired', 8, [('Q-24815', 'Sep 18', '$322.80'), ('Q-24813', 'Sep 4', '$131.45')], 'Show 6 more')]
 
 
-def qrow(i, d, tot, st):
-    col = '#14803C' if st in ('Sent', 'Accepted') else '#4B5E52'
-    amount = '<div style="margin-top: 3px; font-weight: 800; font-variant-numeric: tabular-nums">%s</div>' % tot if tot else ''
-    return ('<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 18px; border-top: 1px solid #E3EAE5">'
-            '<div><div style="display: flex; gap: 10px; align-items: baseline"><span style="font-weight: 800; font-family: \'Geist Mono\', monospace; font-size: 13.5px">%s</span>'
-            '<span style="color: #6A7F73; font-size: 13px">%s</span></div>%s</div>'
-            '<span style="font-weight: 700; color: %s; font-size: 13.5px; text-align: right">%s</span></div>') % (i, d, amount, col, st)
+def qcard(i, d, tot):
+    amount = '<div style="margin-top: 8px; font-weight: 800; font-variant-numeric: tabular-nums">%s</div>' % tot if tot else '<div style="margin-top: 8px; color: #6A7F73; font-size: 13px">Brandi is pricing this quote</div>'
+    return ('<div style="background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; border: 1px solid #D5DED8">'
+            '<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 800">%s</span>'
+            '<span style="font-family: \'Geist Mono\', monospace; font-size: 11.5px; color: #70847A">%s</span></div>%s</div>') % (i, d, amount)
+
+
+def qgroup(label, n, cards, more):
+    head = ('<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #E4EAE5; color: #3A4A40">'
+            '<div style="font-weight: 800"><span style="color: #8DA195">:: </span>%s</div>'
+            '<span style="font-family: \'Geist Mono\', monospace; font-size: 12px; background: rgba(0,0,0,0.08); padding: 1px 8px; border-radius: 999px">%d</span></div>') % (label, n)
+    body = ''.join(qcard(*c) for c in cards)
+    if more:
+        body += ('<button style="width: 100%%; height: 34px; border: 1px dashed #8FA699; background: transparent; border-radius: 9px; color: #2F4A3A; font-weight: 700">%s</button>' % more)
+    return '<section style="background: #EEF3EF; border-radius: 12px; overflow: hidden; margin-bottom: 14px">%s<div style="padding: 10px">%s</div></section>' % (head, body)
 
 
 CHIPS = ['Do you have 1/2 in grade 8 hex bolts in stock?', 'What did we pay for nitrile gloves last time?', 'Has our last order shipped?', "What's our open balance?"]
@@ -66,32 +76,59 @@ def chip(t):
             'min-height: 22px; display: flex; align-items: center">%s</div>') % t
 
 
-def card(title, body, extra=''):
-    return ('<section style="background: #fff; border-radius: 14px; overflow: hidden"><div style="display: flex; align-items: center; gap: 10px; padding: 12px 20px; '
-            'background: #1F4A39; color: #fff"><span style="font-weight: 800; font-size: 15.5px">%s</span>%s</div>%s</section>') % (title, extra, body)
+def label(t):
+    return '<div style="font-size: 11.5px; font-weight: 800; letter-spacing: 0.1em; color: #14803C; margin: 18px 0 4px">%s</div>' % t
 
 
-rep = ('<div style="padding: 18px 20px"><div style="display: flex; align-items: center; gap: 14px"><div style="width: 48px; height: 48px; border-radius: 50%; '
-       'background: #1F4A39; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">BG</div>'
-       '<div><div style="font-weight: 800; font-size: 17px">Brandi Gallegos</div><div style="color: #4B5E52">Inside Sales</div></div></div>'
-       + line(PHONE, '(801) 111-2222') + line(MAIL, 'brandi.gallegos@herrickindustrial.com') + '</div>')
-contacts = (dept('Customer Service', '(801) 555-0110', 'customerservice@herrickindustrial.com', 'Mon-Fri 7:00 AM-5:00 PM')
-            + dept('Accounts Receivable / Finance', '(801) 555-0115', 'ar@herrickindustrial.com', 'Mon-Fri 8:00 AM-4:30 PM')
-            + '<div style="padding: 16px 20px; border-top: 1px solid #E3EAE5"><div style="font-weight: 800">Warehouse / Will-call</div>'
-            + branch('SLC', '(801) 555-0120', 'Mon-Fri 6:30 AM-5:00 PM') + branch('OGDEN', '(801) 555-0130', 'Mon-Fri 7:00 AM-4:30 PM')
-            + branch('PROVO', '(801) 555-0140', 'Mon-Fri 7:00 AM-4:30 PM') + '</div>')
+logo_w = lambda size: ('<svg width="%d" height="%d" viewBox="10 10 80 80" fill="none" stroke="#14803C" stroke-width="7.5" stroke-linecap="round" role="img" aria-label="Querent">'
+                       '<circle cx="49" cy="49" r="28.5"/><path d="M60 60 81 82"/></svg>') % (size, size)
 
-filt = ('<button style="margin-left: auto; height: 32px; padding: 0 12px; border: 1px solid #5E8C72; background: transparent; color: #fff; border-radius: 8px; '
-        'font-weight: 700; display: inline-flex; align-items: center; gap: 7px">%sFilter</button>') % ic(FILTER, 14)
-count = '<span style="font-family: \'Geist Mono\', monospace; font-size: 12px; background: rgba(255,255,255,0.16); padding: 1px 8px; border-radius: 999px">28</span>'
-more = ('<div style="padding: 14px 18px; border-top: 1px solid #E3EAE5; text-align: center"><button style="height: 36px; padding: 0 20px; border: 1px dashed #8FA699; '
-        'background: transparent; border-radius: 9px; color: #2F4A3A; font-weight: 700">Show 20 more</button></div>')
-quotes = card('Your quotes', ''.join(qrow(*q) for q in QUOTES) + more, count + filt)
+RAIL = ('<aside style="flex: 0 0 336px; align-self: stretch; background: #fff; border-right: 1px solid #E3EAE5; display: flex; flex-direction: column; height: 900px; box-sizing: border-box">'
+        '<div style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 20px 22px 0">'
+        '<div style="display: flex; align-items: center; gap: 10px"><span style="display: flex">' + logo_w(40) + '</span><span style="font-weight: 800; font-size: 20px; letter-spacing: -0.03em; color: #151D18">Querent</span></div>'
+        '<div style="padding: 6px 0 4px; font-size: 13px; font-weight: 800; color: #14803C">Herrick Industrial Supply</div>'
+        + label('YOUR REP') +
+        '<div style="display: flex; align-items: center; gap: 12px; margin-top: 6px"><div style="width: 44px; height: 44px; border-radius: 50%; background: #1F4A39; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none">BG</div>'
+        '<div><div style="font-weight: 800; color: #151D18; font-size: 16px">Brandi Gallegos</div><div style="color: #4B5E52; font-size: 13px">Inside Sales</div></div></div>'
+        + line(PHONE, '(801) 111-2222') + line(MAIL, 'brandi.gallegos@herrickindustrial.com')
+        + label('HERRICK CONTACTS') +
+        '<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px">'
+        + dept('Customer Service', '(801) 555-0110', 'customerservice@herrickindustrial.com', 'Mon-Fri 7:00 AM-5:00 PM')
+        + dept('Accounts Receivable / Finance', '(801) 555-0115', 'ar@herrickindustrial.com', 'Mon-Fri 8:00 AM-4:30 PM')
+        + '<div style="padding: 14px 0; border-top: 1px solid #E3EAE5"><div style="font-weight: 800; color: #151D18">Warehouse / Will-call</div>'
+        + branch('SLC', '(801) 555-0120', 'Mon-Fri 6:30 AM-5:00 PM') + branch('OGDEN', '(801) 555-0130', 'Mon-Fri 7:00 AM-4:30 PM')
+        + branch('PROVO', '(801) 555-0140', 'Mon-Fri 7:00 AM-4:30 PM') + '</div></div></div>'
+        '<div style="flex: none; background: #0F3B22; padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 12px">'
+        '<div style="display: flex; align-items: center; gap: 10px"><div style="width: 38px; height: 38px; border-radius: 50%; background: #fff; color: #0F3B22; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">WM</div>'
+        '<div><div style="font-weight: 700; color: #fff">Wasatch Mechanical</div><div style="font-size: 12.5px; color: #8FBFA0">Customer</div></div></div>'
+        '<button style="height: 36px; border-radius: 9px; border: 1px solid #3A7050; background: transparent; color: #fff; font-weight: 600">Sign out</button></div></aside>')
 
-BELL = ('<button aria-label="Notifications" style="position: relative; width: 38px; height: 38px; border-radius: 9px; border: 1px solid #3A7050; background: transparent; '
-        'color: #fff; display: flex; align-items: center; justify-content: center">' + ic(BELLP, 19)
-        + '<span style="position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; '
-        'background: #7FDBA0; color: #0F3B22; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span></button>')
+BELL = ('<button aria-label="Notifications" style="position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px solid #CBD7CF; background: #fff; '
+        'color: #4B5E52; display: flex; align-items: center; justify-content: center">' + ic(BELLP, 19)
+        + '<span style="position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; '
+        'background: #14803C; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span></button>')
+
+FILTBTN = ('<button style="height: 38px; padding: 0 14px; border: 1px solid #CBD7CF; background: #fff; border-radius: 9px; font-weight: 600; '
+           'display: flex; align-items: center; gap: 8px">%sFilter</button>') % ic(FILTER, 15)
+
+LIST = [('Q-24791', 'Oct 9', '$96.00', 'Sent'), ('Q-24817', 'Oct 9', '', 'Awaiting rep'), ('Q-24790', 'Oct 8', '$1,164.00', 'Changes requested'),
+        ('Q-24789', 'Oct 6', '$360.80', 'Sent'), ('Q-24816', 'Sep 23', '$655.25', 'Accepted'), ('Q-24815', 'Sep 18', '$322.80', 'Expired'),
+        ('Q-24814', 'Sep 9', '$291.15', 'Accepted'), ('Q-24813', 'Sep 4', '$131.45', 'Expired'), ('Q-24812', 'Aug 28', '$481.87', 'Accepted')]
+
+
+def qrow(i, d, tot, st):
+    col = '#14803C' if st in ('Sent', 'Accepted') else '#4B5E52'
+    amount = ('<div style="margin-top: 3px; font-weight: 800; font-variant-numeric: tabular-nums">%s</div>' % tot) if tot else '<div style="margin-top: 3px; color: #6A7F73; font-size: 13px">Brandi is pricing this quote</div>'
+    return ('<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-top: 1px solid #E3EAE5">'
+            '<div><div style="display: flex; gap: 10px; align-items: baseline"><span style="font-weight: 800">%s</span><span style="font-family: Geist Mono, monospace; font-size: 11.5px; color: #70847A">%s</span></div>%s</div>'
+            '<span style="font-weight: 700; color: %s; font-size: 13.5px; text-align: right">%s</span></div>') % (i, d, amount, col, st)
+
+
+QUOTES_PANEL = ('<aside style="flex: 0 0 360px; align-self: stretch; height: 900px; background: #fff; border-left: 1px solid #E3EAE5; display: flex; flex-direction: column">'
+                '<div style="display: flex; align-items: center; gap: 12px; padding: 24px 20px 16px"><span style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em">Your quotes</span>'
+                '<span style="font-family: Geist Mono, monospace; font-size: 12px; background: #E4EAE5; padding: 1px 8px; border-radius: 999px">28</span><span style="margin-left: auto">' + FILTBTN + '</span></div>'
+                '<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto">' + ''.join(qrow(*q) for q in LIST)
+                + '<div style="padding: 14px 20px; border-top: 1px solid #E3EAE5; text-align: center"><button style="height: 36px; padding: 0 20px; border: 1px dashed #8FA699; background: transparent; border-radius: 9px; color: #2F4A3A; font-weight: 700">Show 19 more</button></div></div></aside>')
 
 
 def logo(size, color):
@@ -174,6 +211,7 @@ VARIANTS = [
            btn('Decline', 'decline', True) + btn('Request changes', 'changes', True) + btn('Accept', 'accept', True), False)),
 ]
 
+
 TEMPLATE = '''<!doctype html>
 <html lang="en">
 <head>
@@ -194,42 +232,31 @@ button{font-family:inherit;cursor:pointer}
 *::-webkit-scrollbar-thumb{background:#B4C5BA;border-radius:8px}
 </style>
 </helmet>
-<div style="position: relative; width: 1440px; height: 900px; overflow: hidden; display: flex; flex-direction: column; font-family: 'Albert Sans', sans-serif; background: #D9E3DC; color: #151D18; font-size: 14.5px">
-  <header style="flex: none; height: 72px; box-sizing: border-box; padding: 0 32px; background: #0F3B22; display: flex; align-items: center; gap: 14px">
-    @@LOGO1@@
-    <span style="font-weight: 800; font-size: 19px; color: #fff; letter-spacing: -0.02em">Wasatch Mechanical Contractors</span>
-    <span style="color: #7FDBA0; font-weight: 700">via Querent</span>
-    <div style="margin-left: auto; display: flex; align-items: center; gap: 18px">
-      <div style="text-align: right"><span style="display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px; background: #E3F1E8; color: #14803C; font-weight: 800"><span style="width: 8px; height: 8px; border-radius: 50%; background: #14803C"></span>Connected</span><div style="color: #8FBFA0; font-size: 12.5px; margin-top: 3px">Last updated 01:38:46 AM</div></div>
-      @@BELL@@
-      <button style="height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid #3A7050; background: transparent; color: #fff; font-weight: 600">Switch workspace</button>
-      <button style="height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid #3A7050; background: transparent; color: #fff; font-weight: 600">Sign out</button>
+<div style="position: relative; width: 1440px; height: 900px; overflow: hidden; display: flex; font-family: 'Albert Sans', sans-serif; background: #D9E3DC; color: #151D18; font-size: 14.5px">
+  @@RAIL@@
+  <main style="flex: 1 1 auto; min-width: 0; height: 900px; box-sizing: border-box; background: #D9E3DC; padding: 24px 32px 20px; display: flex; flex-direction: column">
+    <div style="display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 12px 20px">
+      <div><h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.035em">Wasatch Mechanical Contractors</h1>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px; color: #4B5E52">via Querent<span style="display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: #fff; border: 1px solid #CBD7CF; color: #14803C; font-weight: 800; font-size: 12.5px"><span style="width: 7px; height: 7px; border-radius: 50%; background: #14803C"></span>Connected</span><span style="color: #6A7F73; font-size: 12.5px">Last updated 01:38:46 AM</span></div></div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-left: auto"><button style="height: 40px; padding: 0 18px; border: 0; background: #14803C; color: #fff; border-radius: 10px; font-weight: 800; display: flex; align-items: center; gap: 8px; white-space: nowrap">@@DOC@@Request a quote</button>@@BELL@@</div>
     </div>
-  </header>
-  <div style="flex: 1 1 auto; min-height: 0; display: flex; gap: 20px; padding: 20px 32px 24px; box-sizing: border-box">
-    <aside style="flex: 0 0 310px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px">
-      @@REP@@
-      @@HERRICK@@
-    </aside>
-    <main style="flex: 1 1 auto; min-width: 0; background: #fff; border-radius: 14px; display: flex; flex-direction: column; padding: 24px 32px 20px; box-sizing: border-box">
-      <div style="display: flex; justify-content: flex-end; gap: 12px"><button style="height: 40px; padding: 0 18px; border: 0; background: #14803C; color: #fff; border-radius: 10px; font-weight: 800; display: flex; align-items: center; gap: 8px">@@DOC@@Request a quote</button><button style="height: 40px; padding: 0 16px; border: 1px solid #CBD7CF; background: #fff; border-radius: 10px; font-weight: 600; display: flex; align-items: center; gap: 8px">@@PLUS@@New conversation</button></div>
-      <div style="flex: 1 1 auto; min-height: 0; padding: 0 40px; display: flex; flex-direction: column; justify-content: center; max-width: 880px">
+    <div style="flex: 1 1 auto; min-height: 0; margin-top: 20px; background: #fff; border-radius: 14px; display: flex; flex-direction: column; padding: 16px 40px 20px; box-sizing: border-box">
+      <div style="display: flex; justify-content: flex-end"><button style="height: 38px; padding: 0 14px; border: 1px solid #CBD7CF; background: #fff; border-radius: 9px; font-weight: 600; display: flex; align-items: center; gap: 8px; white-space: nowrap">@@PLUS@@New conversation</button></div>
+      <div style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; max-width: 880px; width: 100%; margin: 0 auto">
         @@LOGO2@@
-        <div style="margin-top: 26px; font-size: 13px; font-weight: 800; letter-spacing: 0.14em; color: #14803C">HERRICK INDUSTRIAL SUPPLY</div>
-        <h1 style="margin: 10px 0 0; font-size: 56px; line-height: 1.02; font-weight: 800; letter-spacing: -0.04em">Your business.<br>Your answers.</h1>
-        <div style="margin-top: 16px; font-size: 18px; color: #4B5E52">Ask about stock, pricing, orders and quotes.</div>
-        <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px">@@CHIPS@@</div>
+        <div style="margin-top: 22px; font-size: 13px; font-weight: 800; letter-spacing: 0.14em; color: #14803C">HERRICK INDUSTRIAL SUPPLY</div>
+        <h2 style="margin: 10px 0 0; font-size: 52px; line-height: 1.02; font-weight: 800; letter-spacing: -0.04em">Your business.<br>Your answers.</h2>
+        <div style="margin-top: 14px; font-size: 18px; color: #4B5E52">Ask about stock, pricing, orders and quotes.</div>
+        <div style="margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px">@@CHIPS@@</div>
       </div>
-      <div style="flex: none; border: 1px solid #CBD7CF; border-radius: 14px; height: 64px; box-sizing: border-box; padding: 0 12px 0 22px; display: flex; align-items: center; gap: 12px; background: #fff">
+      <div style="flex: none; border: 1px solid #CBD7CF; border-radius: 14px; height: 64px; box-sizing: border-box; padding: 0 12px 0 22px; display: flex; align-items: center; gap: 12px; background: #fff; max-width: 880px; width: 100%; margin: 0 auto">
         <span style="flex: 1; color: #6A7F73; font-size: 16px">Ask about stock, pricing, orders...</span>
         <button aria-label="Send" style="width: 44px; height: 44px; border: 0; border-radius: 11px; background: #14803C; color: #fff; display: flex; align-items: center; justify-content: center">@@SEND@@</button>
       </div>
       <div style="text-align: center; color: #6A7F73; font-size: 12.5px; margin-top: 10px">Customer data, finally customer-facing.</div>
-    </main>
-    <aside style="flex: 0 0 360px; overflow-y: auto">
-      @@QUOTES@@
-    </aside>
-  </div>
+    </div>
+  </main>
+  @@QUOTES@@
   @@OVERLAY@@
 </div>
 </x-dc>
@@ -244,9 +271,8 @@ class Component extends DCLogic {
 
 for name, ttl, overlay in VARIANTS:
     html = TEMPLATE
-    for k, v in [('OVERLAY', overlay), ('TITLE', ttl), ('BELL', BELL), ('DOC', ic(DOCP, 17)), ('LOGO1', logo(36, '#7FDBA0')), ('LOGO2', logo(56, '#14803C')),
-                 ('REP', card('Your rep', rep)), ('HERRICK', card('Herrick Industrial Supply', contacts)), ('CHIPS', ''.join(chip(c) for c in CHIPS)),
-                 ('PLUS', ic(PLUS, 16)), ('SEND', ic(SEND, 20)), ('QUOTES', quotes)]:
+    for k, v in [('OVERLAY', overlay), ('TITLE', ttl), ('BELL', BELL), ('DOC', ic(DOCP, 17)), ('LOGO2', logo(52, '#14803C')), ('RAIL', RAIL),
+                 ('CHIPS', ''.join(chip(c) for c in CHIPS)), ('PLUS', ic(PLUS, 16)), ('SEND', ic(SEND, 20)), ('QUOTES', QUOTES_PANEL)]:
         html = html.replace('@@%s@@' % k, v)
     assert '@@' not in html
     open(os.path.join(OUT, name + '.dc.html'), 'w', encoding='utf-8', newline='\n').write(html)
