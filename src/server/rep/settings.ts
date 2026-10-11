@@ -178,7 +178,7 @@ export function assignRep(managerId:string,input:unknown,{now=new Date().toISOSt
 
 /**
  * Customer access: PUT {customer_id, category, enabled}. customer_id null sets the category for
- * every customer (the picker's All customers). The chat tools read these on every call (spec §6.3).
+ * every customer (All customers). The chat tools read these on every call (spec §6.3).
  */
 export function updateAccess(input:unknown):AccessSettings{
   const request=body(input,'Invalid setting.');

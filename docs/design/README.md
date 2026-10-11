@@ -23,7 +23,7 @@ Old mockup brand (retired by the new UI): "Querent green" teal primary, Archivo 
 The build follows the mockup except where the spec decided otherwise. Verifiers: these are **not** defects.
 
 **Rep portal**
-- Nav is `Quotes / Customers / Orders / Items / Analytics / Settings`. The **customer picker** ("Viewing") stays in the header. The rep is **Brandi Gallegos (BG)**, not "JP"/Jordan.
+- Nav is `Quotes / Customers / Orders / Items / Analytics / Settings`. There is no header customer picker (task U1): scope is role based, and pages that need a customer filter it themselves with `?customer=`. The rep is **Brandi Gallegos (BG)**, not "JP"/Jordan.
 - Each line has a **price-basis dropdown** (Contract / Customer / List / Last paid / Custom) showing each option's dollar value. Querent's pick is **bold**. The rep can type any price.
 - A **red warning sits directly above the price field** when a line is below the floor for (quote rep × product category). It never blocks.
 - Each line has a collapsed **"Why this price?"** row with Querent's explanation, including "+$X GP vs customer price". The quote shows "Querent found +$Y GP".
@@ -43,7 +43,7 @@ The build follows the mockup except where the spec decided otherwise. Verifiers:
 - Export menu: there is no "File downloads aren't available in this view" note. The mockup ran in a sandbox, and downloads work in the app.
 - Activity logs what happens to the quote: the request, matching, the draft, edits, sends and the customer's answers. It does not log the rep opening it. The mockup adds "You opened the quote" on every load, so its sample shows **4 events** where the build's shows **3**.
 - Phone (390px): the Quotes list's status filter (All, Draft ready, Changes requested, ...) is a strip that scrolls sideways inside its own box, like the section nav. The page itself never scrolls sideways.
-- Phone (390px, screen 08): the section nav is a scrolling strip under the logo, with the Viewing picker below it. Each line is a card that keeps its price, price basis, margin, total and remove button, so a rep can price a quote on a phone. The mockup's phone view shows only the item and qty.
+- Phone (390px, screen 08): the section nav is a scrolling strip under the logo. Each line is a card that keeps its price, price basis, margin, total and remove button, so a rep can price a quote on a phone. The mockup's phone view shows only the item and qty.
 
 **Sample data, not layout**
 - The seeded Q-24817 is priced by the pricing engine (task 1.1), so its numbers differ from the mockup's hand-made sample: **$1,122.40** instead of **$1,109.50** (bolts $31.50 last paid, straps $22.95). **Awaiting Henderson's decision**: keep the engine's prices, or change the seed so the demo matches the mockup. Two more numbers follow from the same prices, and would change with that decision:

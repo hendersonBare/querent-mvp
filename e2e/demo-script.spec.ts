@@ -106,11 +106,15 @@ test("Act 2: Brandi opens it, uses View full chat, sees the aging quotes, the Ne
   await brandi.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes$/);
 
-  // The red badge counts overdue quotes only, and opens Needs attention: red first, then amber.
+  // The red badge counts overdue quotes only (every rep's: Brandi is the manager, task U1), and opens
+  // Needs attention: red first, then amber.
   const badge = brandi.getByRole("banner").getByRole("link", { name: /^Needs attention:/ });
-  await expect(badge).toHaveAccessibleName("Needs attention: 2 overdue quotes");
+  await expect(badge).toHaveAccessibleName(/^Needs attention: \d+ overdue quotes$/);
+  const overdue = Number((await badge.getAttribute("aria-label"))!.match(/\d+/)![0]);
+  expect(overdue).toBeGreaterThanOrEqual(2);
   await badge.click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?attention=1$/);
+  await expect(brandi.getByRole("table").locator('[data-level="red"]')).toHaveCount(overdue);
   await expect(brandi.getByRole("navigation", { name: "Filter by status" }).getByRole("link", { name: /^Needs attention/ })).toHaveAttribute("aria-current", "page");
   await expect(quoteRow(brandi, "Q-24790").locator('[data-level="red"]')).toHaveText(/^Overdue/);
   await expect(quoteRow(brandi, "Q-24789").locator('[data-level="amber"]')).toHaveText(/^Aging/);
@@ -180,14 +184,15 @@ test("Act 4: Brandi compares Mara and Eli on Team, drills into the decline reaso
   await expect(declines.getByRole("list", { name: "Other reasons in their words" })).toContainText(OTHER_NOTE);
   await screenshot(brandi, testInfo, "act4-decline-reasons");
   await declines.getByRole("link", { name: "6 declined quotes" }).click();
-  await expect(brandi).toHaveURL(/\/rep\/quotes\?scope=all&.*status=declined/);
+  await expect(brandi).toHaveURL(/\/rep\/quotes\?(rep=[^&]+&)?from=.+status=declined/);
+  expect(brandi.url()).not.toContain("scope=");
   await expect(brandi.getByRole("table").getByRole("rowheader")).toHaveCount(6);
   await screenshot(brandi, testInfo, "act4-declined-quotes");
 
   // Mara's overdue quotes, from her row: move her overdue draft to Eli.
   await brandi.goto("/rep/team");
   await repRow(brandi, "Mara Jensen").getByRole("link", { name: "2 overdue" }).click();
-  await expect(brandi).toHaveURL(/\/rep\/quotes\?scope=all&.*aging=red/);
+  await expect(brandi).toHaveURL(/\/rep\/quotes\?rep=mara&.*aging=red/);
   const draft = brandi.getByRole("table").getByRole("rowgroup").filter({ hasText: "Draft ready" });
   await expect(draft).toHaveCount(1);
   const number = (await draft.getByRole("rowheader").getByRole("link").textContent())!.match(/Q-\d+/)![0];

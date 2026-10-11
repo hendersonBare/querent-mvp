@@ -49,7 +49,7 @@ export function parseStatus(value:string|null|undefined):QuoteStatus|null{
 
 export interface RepQuoteRow {
   id:string;quote_number:string;
-  /** The quote's current rep (the All reps scope's Rep column, task D2). */
+  /** The quote's current rep (the manager's Rep column, task D2). */
   rep_id:string;rep_name:string;
   /** The last sent revision (0 = never sent). */
   revision:number;
