@@ -15,14 +15,18 @@ import {analyticsScope,repAnalytics} from './service';
 useSeededDatabase();
 
 const NOW=`${SEED_DATE}T18:00:00.000Z`;
-/** Brandi's own book (her customers, as a rep reads it); the manager's whole-organization scope is tested under scope. */
-const brandi=(customerId:string|null=null,now=NOW)=>repAnalytics('brandi',{customerId,now});
+/**
+ * Brandi's Wasatch book as a rep reads it: the seed's 28 Wasatch quotes, all hers. With null, every
+ * quote she owns (her 3 Canyon Ridge quotes too, task U1). The manager's whole-organization scope
+ * is tested under scope.
+ */
+const brandi=(customerId:string|null='wasatch',now=NOW)=>repAnalytics('brandi',{customerId,now});
 
-describe('scope: the signed-in rep\'s customers, or every customer for the manager, narrowed by the page\'s filter (task U1)',()=>{
+describe('scope: the signed-in rep\'s own quotes and customers, or the whole organization for the manager, narrowed by the page\'s filter (task U1)',()=>{
   const rep=(repId:string)=>({repId,manager:false});
   it('covers every customer of the rep for All customers, one of them when filtered, and ignores another rep\'s',()=>{
-    expect(analyticsScope(rep('brandi'),null)).toEqual({customer:null,customer_ids:['great-basin','wasatch']});
-    expect(analyticsScope(rep('brandi'),'wasatch')).toMatchObject({customer:{id:'wasatch',name:'Wasatch Mechanical Contractors'},customer_ids:['wasatch']});
+    expect(analyticsScope(rep('brandi'),null)).toEqual({customer:null,customer_ids:['great-basin','wasatch'],rep_id:'brandi'});
+    expect(analyticsScope(rep('brandi'),'wasatch')).toMatchObject({customer:{id:'wasatch',name:'Wasatch Mechanical Contractors'},customer_ids:['wasatch'],rep_id:'brandi'});
     expect(analyticsScope(rep('brandi'),'canyon-ridge')).toEqual(analyticsScope(rep('brandi'),null));
     expect(analyticsScope(rep('brandi'),'nobody')).toEqual(analyticsScope(rep('brandi'),null));
     expect(analyticsScope(rep('mara'),null).customer_ids).toEqual(['canyon-ridge']);
@@ -30,8 +34,8 @@ describe('scope: the signed-in rep\'s customers, or every customer for the manag
   });
   it('covers the whole organization for the manager, and any one customer',()=>{
     const manager={repId:'brandi',manager:true};
-    expect(analyticsScope(manager,null).customer_ids).toEqual(customers().map(c=>c.id));
-    expect(analyticsScope(manager,'canyon-ridge')).toMatchObject({customer:{id:'canyon-ridge',rep_name:'Mara Jensen'},customer_ids:['canyon-ridge']});
+    expect(analyticsScope(manager,null)).toEqual({customer:null,customer_ids:customers().map(c=>c.id),rep_id:null});
+    expect(analyticsScope(manager,'canyon-ridge')).toMatchObject({customer:{id:'canyon-ridge',rep_name:'Mara Jensen'},customer_ids:['canyon-ridge'],rep_id:null});
   });
 });
 
@@ -39,7 +43,8 @@ describe('the five stat cards on the seed',()=>{
   it('median time from request to sent: 93 minutes over the 27 sent quotes',()=>{
     // First sends (history.ts sendMinutes), sorted: ... 85, 90 | 95, 95 ... averaged 92.5; the three aging quotes' 93 sit in the middle.
     expect(brandi().turnaround).toEqual({median_minutes:93,quotes:27,fastest_minutes:35,slowest_minutes:260});
-    expect(brandi('wasatch').turnaround).toEqual(brandi().turnaround);
+    // Under All customers her own quotes include her 3 accepted Canyon Ridge quotes (Mara's customer).
+    expect(brandi(null).turnaround.quotes).toBe(30);
   });
 
   it('win rate: 17 of 24 decided, 71%, with the sample and the three aging quotes open (task 1.5 carry-forward)',()=>{
@@ -159,8 +164,8 @@ describe('placeholder and other reps\' customers',()=>{
 
   it('ignores another rep\'s customer for a rep: the numbers are their own customers\', and name no one else (task U1)',()=>{
     const result=brandi('canyon-ridge');
-    expect(result.scope).toEqual({customer:null,customer_ids:['great-basin','wasatch']});
-    expect(result.win_rate).toEqual(brandi().win_rate);
+    expect(result.scope).toEqual({customer:null,customer_ids:['great-basin','wasatch'],rep_id:'brandi'});
+    expect(result.win_rate).toEqual(brandi(null).win_rate);
   });
 
   it('shows zeros for a rep whose customers have no data',()=>{
@@ -175,7 +180,7 @@ describe('live changes (these write to the database, so they run last)',()=>{
     expect(explainQuoteGp(sample.lines)).toBe('Querent found +$11.50 GP');
     await sendQuote('Q-24817',{repId:'brandi',now:'2026-09-23T17:00:00.000Z'}); // 46 minutes after Dana asked
     acceptQuote('wasatch','Q-24817',{revision:1,fulfillmentTime:'2026-09-24T15:00:00.000Z',customerPo:'7781',now:'2026-09-24T14:00:00.000Z'});
-    const after=brandi(null,'2026-09-24T18:00:00.000Z');
+    const after=brandi('wasatch','2026-09-24T18:00:00.000Z');
     expect(after.extra_gp).toEqual({amount:21.7,lines:4,quotes:3,accepted_quotes:18});
     expect(Math.round(after.extra_gp.amount*100)).toBe(1020+Math.round(querentFoundGp(sample.lines)*100));
     expect(after.win_rate).toEqual({rate:18/25,won:18,lost:7,open:3});
@@ -186,25 +191,25 @@ describe('live changes (these write to the database, so they run last)',()=>{
   });
 
   it('keeps margin vs floor on the prices the customer was sent while the rep reworks a quote after a change request',async()=>{
-    const before=brandi(null,'2026-09-24T18:00:00.000Z').margin;
+    const before=brandi('wasatch','2026-09-24T18:00:00.000Z').margin;
     const copy=duplicateQuote('Q-24806',{repId:'brandi',now:'2026-09-24T18:00:00.000Z'}); // 4 gloves at $78.00, 2 glasses at $29.40
     await sendQuote(copy.id,{repId:'brandi',now:'2026-09-24T18:30:00.000Z'});
-    const sent=brandi(null,'2026-09-24T19:00:00.000Z').margin;
+    const sent=brandi('wasatch','2026-09-24T19:00:00.000Z').margin;
     expect(sent.overall.lines).toBe(before.overall.lines+2);
     expect(Math.round(sent.overall.revenue*100)).toBe(Math.round((before.overall.revenue+4*78+2*29.4)*100));
     requestChanges('wasatch',copy.id,{revision:1,note:'Can you do better on the gloves?',now:'2026-09-24T19:30:00.000Z'});
     const gloves=quote(copy.id)!.lines.find(l=>l.sku==='GLV-N8-L-1000')!;
     updateQuoteLine(copy.id,gloves.id,{unitPrice:40,priceBasis:'custom'},'2026-09-24T19:45:00.000Z'); // a draft far under the 30% floor
-    expect(brandi(null,'2026-09-24T20:00:00.000Z').margin).toEqual(sent);
+    expect(brandi('wasatch','2026-09-24T20:00:00.000Z').margin).toEqual(sent);
   });
 
   it('stores the expiry of an overdue sent quote before counting it as lost',async()=>{
     const copy=duplicateQuote('Q-24816',{repId:'brandi',now:'2026-09-24T18:00:00.000Z'});
     await sendQuote(copy.id,{repId:'brandi',now:'2026-09-24T19:00:00.000Z'}); // valid until Oct 8
     // Open: this copy, the reworked copy of Q-24806 from the test above (changes requested, so it never expires) and the three aging quotes.
-    expect(brandi(null,'2026-10-08T23:00:00.000Z').win_rate).toMatchObject({won:18,lost:7,open:5});
+    expect(brandi('wasatch','2026-10-08T23:00:00.000Z').win_rate).toMatchObject({won:18,lost:7,open:5});
     expect(quote(copy.id)!.status).toBe('sent');
-    expect(brandi(null,'2026-10-09T00:00:00.000Z').win_rate).toEqual({rate:18/26,won:18,lost:8,open:4});
+    expect(brandi('wasatch','2026-10-09T00:00:00.000Z').win_rate).toEqual({rate:18/26,won:18,lost:8,open:4});
     expect(quote(copy.id)!.status).toBe('expired');
   });
 });

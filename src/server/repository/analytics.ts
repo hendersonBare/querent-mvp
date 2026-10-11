@@ -7,14 +7,23 @@ import {customerIds} from './accounts';
 import {all,bool,list} from './sql';
 
 // Analytics reads (spec §4). `scope` is a customer id, a list of customer ids (a rep's customers,
-// task 6.2), or null for every customer. An empty list matches no customer.
+// task 6.2), or null for every customer. An empty list matches no customer. The quote reads also
+// take a QuoteScope: those customers' quotes owned by one rep (quotes.rep_id, the current owner),
+// or by any rep with repId null. A rep's analytics are their own quotes (task U1, OA-67).
 
 export type CustomerScope=string|readonly string[]|null;
+/** Quotes for these customers owned by this rep (null: any rep). */
+export interface QuoteScope {customers:CustomerScope;repId:string|null}
 
 /** The scope as a list of customer ids. */
 const scopeIds=(scope:CustomerScope):string[]=>scope===null?customerIds():typeof scope==='string'?[scope]:[...scope];
 /** Binds the scope for `customer_id IN (SELECT value FROM json_each(?))`. */
 const bindScope=(scope:CustomerScope)=>list(scopeIds(scope));
+
+const asQuoteScope=(scope:CustomerScope|QuoteScope):QuoteScope=>scope!==null&&typeof scope==='object'&&'customers' in scope?scope:{customers:scope,repId:null};
+/** The quotes a QuoteScope covers (`q` is the quotes table); bind with bindQuotes. */
+const QUOTES_IN="q.customer_id IN (SELECT value FROM json_each(?)) AND (? IS NULL OR q.rep_id=?)";
+const bindQuotes=(scope:CustomerScope|QuoteScope)=>{const {customers,repId}=asQuoteScope(scope);return [bindScope(customers),repId,repId] as const;};
 
 /**
  * Chat log rows that are questions. The item pop-up's Request quote is logged as a chat turn too
@@ -48,18 +57,18 @@ export function questionOutcomes(scope:CustomerScope):Record<string,number>{
 }
 
 /** One row per quote with its send and response times and last sent total: turnaround, win rate, $ quoted vs accepted. */
-export function quoteFacts(scope:CustomerScope):QuoteFact[]{
+export function quoteFacts(scope:CustomerScope|QuoteScope):QuoteFact[]{
   return all<Omit<QuoteFact,'is_sample'>&{is_sample:number}>(`SELECT q.id,q.quote_number,q.customer_id,q.rep_id,q.status,q.is_sample,q.requested_at,
       (SELECT min(v.sent_at) FROM quote_revisions v WHERE v.quote_id=q.id) first_sent_at,(SELECT max(v.sent_at) FROM quote_revisions v WHERE v.quote_id=q.id) last_sent_at,q.responded_at,q.valid_until,
       (SELECT count(*) FROM quote_revisions v WHERE v.quote_id=q.id) revisions,(SELECT v.total FROM quote_revisions v WHERE v.quote_id=q.id ORDER BY v.revision DESC LIMIT 1) sent_total
-    FROM quotes q WHERE q.customer_id IN (SELECT value FROM json_each(?)) ORDER BY q.requested_at,q.quote_number`,bindScope(scope)).map(row=>({...row,is_sample:bool(row.is_sample)}));
+    FROM quotes q WHERE ${QUOTES_IN} ORDER BY q.requested_at,q.quote_number`,...bindQuotes(scope)).map(row=>({...row,is_sample:bool(row.is_sample)}));
 }
 
 /** Internal: every quote line with its cost, Querent's suggestion and the floor for (quote rep x category): margin vs floor, GP Querent found. */
-export function quoteLineFacts(scope:CustomerScope){
+export function quoteLineFacts(scope:CustomerScope|QuoteScope){
   return all<QuoteLineFact>(`SELECT l.quote_id,q.status,l.item_id,i.sku,i.category_id,l.qty,l.unit_price,l.price_basis,l.suggested_price,l.suggested_basis,l.customer_price,l.unit_cost,f.margin_floor,l.added_by
     FROM quote_lines l JOIN quotes q ON q.id=l.quote_id JOIN items i ON i.id=l.item_id LEFT JOIN rep_category_floors f ON f.rep_id=q.rep_id AND f.category_id=i.category_id
-    WHERE q.customer_id IN (SELECT value FROM json_each(?)) ORDER BY q.requested_at,q.quote_number,l.line_no`,bindScope(scope));
+    WHERE ${QUOTES_IN} ORDER BY q.requested_at,q.quote_number,l.line_no`,...bindQuotes(scope));
 }
 
 /**
@@ -70,20 +79,20 @@ export function quoteLineFacts(scope:CustomerScope){
  * recovery (OA-10), so the recovery of the quote line the cost comes from (the same match) is taken
  * off, as the internal worksheet does. The snapshot itself carries no recovery field.
  */
-export function sentLineFacts(scope:CustomerScope):SentLineFact[]{
+export function sentLineFacts(scope:CustomerScope|QuoteScope):SentLineFact[]{
   const rows=all<SentLineFact&{freight_recovery:number|null}>(`SELECT q.id quote_id,v.revision,i.id item_id,i.sku,i.category_id,json_extract(l.value,'$.qty') qty,json_extract(l.value,'$.unit_price') unit_price,
       coalesce((SELECT d.unit_cost FROM quote_lines d WHERE d.quote_id=q.id AND d.item_id=i.id ORDER BY d.line_no LIMIT 1),i.cost) unit_cost,f.margin_floor,
       (SELECT d.freight_recovery FROM quote_lines d WHERE d.quote_id=q.id AND d.item_id=i.id ORDER BY d.line_no LIMIT 1) freight_recovery
     FROM quotes q JOIN quote_revisions v ON v.quote_id=q.id AND v.revision=(SELECT max(r.revision) FROM quote_revisions r WHERE r.quote_id=q.id)
     JOIN json_each(v.snapshot,'$.lines') l JOIN items i ON i.sku=json_extract(l.value,'$.sku')
     LEFT JOIN rep_category_floors f ON f.rep_id=q.rep_id AND f.category_id=i.category_id
-    WHERE q.customer_id IN (SELECT value FROM json_each(?)) ORDER BY q.requested_at,q.quote_number,l.key`,bindScope(scope));
+    WHERE ${QUOTES_IN} ORDER BY q.requested_at,q.quote_number,l.key`,...bindQuotes(scope));
   return rows.map(({freight_recovery:recovery,...row})=>recovery?{...row,unit_price:roundDollars(row.unit_price-fromCents(recovery))}:row);
 }
 
 /** Items on the most quotes (then the most qty). */
-export function topRequestedItems(scope:CustomerScope,limit=10){
+export function topRequestedItems(scope:CustomerScope|QuoteScope,limit=10){
   return all<RequestedItem>(`SELECT l.item_id,i.sku,i.description,count(DISTINCT l.quote_id) quote_count,sum(l.qty) total_qty
-    FROM quote_lines l JOIN quotes q ON q.id=l.quote_id JOIN items i ON i.id=l.item_id WHERE q.customer_id IN (SELECT value FROM json_each(?))
-    GROUP BY l.item_id ORDER BY quote_count DESC,total_qty DESC,i.sku LIMIT ?`,bindScope(scope),limit);
+    FROM quote_lines l JOIN quotes q ON q.id=l.quote_id JOIN items i ON i.id=l.item_id WHERE ${QUOTES_IN}
+    GROUP BY l.item_id ORDER BY quote_count DESC,total_qty DESC,i.sku LIMIT ?`,...bindQuotes(scope),limit);
 }

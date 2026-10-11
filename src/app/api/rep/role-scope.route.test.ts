@@ -81,14 +81,15 @@ describe('GET /api/rep/quotes/<id> and its reads',()=>{
 describe('GET /api/rep/analytics',()=>{
   const analytics=async(query:string,persona:string)=>json((await import('./analytics/route')).GET(get(`/api/rep/analytics${query}`,persona)));
 
-  it('a rep’s numbers cover only their own customers; another rep’s customer is ignored',async()=>{
-    expect((await analytics('','mara')).body.scope).toEqual({customer:null,customer_ids:['canyon-ridge']});
-    expect((await analytics('?customer=wasatch','mara')).body.scope).toEqual({customer:null,customer_ids:['canyon-ridge']});
+  it('a rep’s numbers cover only their own quotes and customers; another rep’s customer is ignored',async()=>{
+    expect((await analytics('','mara')).body.scope).toEqual({customer:null,customer_ids:['canyon-ridge'],rep_id:'mara'});
+    expect((await analytics('?customer=wasatch','mara')).body.scope).toEqual({customer:null,customer_ids:['canyon-ridge'],rep_id:'mara'});
     expect((await analytics('?scope=all','eli')).body.scope.customer_ids.sort()).toEqual(['utah-valley-electric','weber-basin']);
   });
 
   it('the manager’s numbers cover the whole organization, and any one customer',async()=>{
     expect((await analytics('','supplier')).body.scope.customer_ids.sort()).toEqual(EVERY_CUSTOMER);
+    expect((await analytics('','supplier')).body.scope.rep_id).toBeNull();
     const one=(await analytics('?customer=canyon-ridge','supplier')).body.scope;
     expect(one).toMatchObject({customer:{id:'canyon-ridge'},customer_ids:['canyon-ridge']});
   });

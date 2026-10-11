@@ -104,7 +104,11 @@ test("Scope is role based: Mara reads only her own records, Brandi the whole org
   await mara.goto("/rep/orders/SO-51223");
   await expect(mara.getByRole("heading", { name: "There’s no order with that number" })).toBeVisible();
   const api = mara.request;
-  expect((await (await api.get("/api/rep/analytics?customer=wasatch")).json()).scope).toEqual({ customer: null, customer_ids: ["canyon-ridge"] });
+  expect((await (await api.get("/api/rep/analytics?customer=wasatch")).json()).scope).toEqual({ customer: null, customer_ids: ["canyon-ridge"], rep_id: "mara" });
+  // Her Analytics count the quotes she owns, the same as her Quotes list (OA-67).
+  const { win_rate: winRate, quoted } = await (await api.get("/api/rep/analytics")).json();
+  const { counts } = await (await api.get("/api/rep/quotes")).json();
+  expect({ quotes: winRate.won + winRate.lost + winRate.open, won: winRate.won, accepted: quoted.accepted_count }).toEqual({ quotes: counts.all, won: counts.accepted, accepted: counts.accepted });
   expect((await api.get("/api/rep/badges?scope=all")).status()).toBe(200);
   expect((await api.get("/api/rep/quotes/Q-24817")).status()).toBe(404);
   await screenshot(mara, testInfo, "mara-customers-scope");

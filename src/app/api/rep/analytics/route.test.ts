@@ -15,8 +15,8 @@ it("returns the analytics for every customer the rep may read, never cached",asy
   const response=await get('supplier');
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toMatch(/no-store/);
-  expect((await response.json()).scope).toEqual({customer:null,customer_ids:['canyon-ridge','great-basin','uinta-facility','utah-valley-electric','wasatch','weber-basin']});
-  expect((await (await get('mara')).json()).scope).toEqual({customer:null,customer_ids:['canyon-ridge']});
+  expect((await response.json()).scope).toEqual({customer:null,customer_ids:['canyon-ridge','great-basin','uinta-facility','utah-valley-electric','wasatch','weber-basin'],rep_id:null});
+  expect((await (await get('mara')).json()).scope).toEqual({customer:null,customer_ids:['canyon-ridge'],rep_id:'mara'});
   const body=await (await get('supplier','?customer=wasatch')).json();
   expect(body.scope).toMatchObject({customer:{id:'wasatch'},customer_ids:['wasatch']});
   expect(body.win_rate).toMatchObject({won:17,lost:7});
@@ -31,7 +31,7 @@ it('follows the page\'s own ?customer=: a placeholder customer reads zero, anoth
   expect(greatBasin.hours_saved.quotes_sent).toBe(0);
   expect(greatBasin.queries.total_queries).toBe(0);
   const canyon=await (await get('eli','?customer=canyon-ridge')).json();
-  expect(canyon.scope).toEqual({customer:null,customer_ids:['utah-valley-electric','weber-basin']});
+  expect(canyon.scope).toEqual({customer:null,customer_ids:['utah-valley-electric','weber-basin'],rep_id:'eli'});
   const unknown=await (await get('supplier','?customer=nobody')).json();
   expect(unknown.scope.customer).toBeNull();
   const all=await (await get('mara','?customer=all')).json();

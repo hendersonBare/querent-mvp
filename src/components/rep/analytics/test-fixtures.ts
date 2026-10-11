@@ -29,7 +29,7 @@ const categories=['items_stock','pricing','orders_quotes','account'] as const;
 export function seedAnalytics(customer:CustomerListItem|null=null):RepAnalytics{
   return {
     as_of:'2026-09-23T18:00:00.000Z',
-    scope:{customer,customer_ids:customer?[customer.id]:['great-basin','wasatch']},
+    scope:{customer,customer_ids:customer?[customer.id]:['great-basin','wasatch'],rep_id:'brandi'},
     turnaround:{median_minutes:92.5,quotes:24,fastest_minutes:35,slowest_minutes:260},
     win_rate:{rate:17/24,won:17,lost:7,open:1},
     quoted:{quoted:9045.35,accepted:7008.05,quoted_count:24,accepted_count:17,share:7008.05/9045.35},
@@ -60,7 +60,7 @@ export function seedAnalytics(customer:CustomerListItem|null=null):RepAnalytics{
 export function emptyAnalytics(customer:CustomerListItem):RepAnalytics{
   return {
     as_of:'2026-09-23T18:00:00.000Z',
-    scope:{customer,customer_ids:[customer.id]},
+    scope:{customer,customer_ids:[customer.id],rep_id:'brandi'},
     turnaround:{median_minutes:null,quotes:0,fastest_minutes:null,slowest_minutes:null},
     win_rate:{rate:null,won:0,lost:0,open:0},
     quoted:{quoted:0,accepted:0,quoted_count:0,accepted_count:0,share:null},
