@@ -2,12 +2,12 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 52. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
-| U0 | #52 | in review |
-| U1 | | not started |
+| U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
+| U1 | | in review ([#53](https://github.com/hendersonBare/querent-mvp/pull/53)) |
 | U2 | | not started |
 | U3 | | not started |
 | U4 | | not started |

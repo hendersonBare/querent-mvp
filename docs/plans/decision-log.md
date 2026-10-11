@@ -119,6 +119,9 @@ Source: the product owner's lane U prompt (10/11). The frames in `docs/design/ca
 50. Fidelity: every UI change traces to a frame id in the map. Exact values and copy come from the frame's own styles; no em-dashes, no added descriptions, helper text, icons or buttons. A screen, state or control without a frame gets the minimum needed to function in the same tokens and is listed under "No frame" in `docs/plans/status.md`. Placeholder data in the frames (Appendix G) is never copied into code. "FEATURE FLAG: HIDDEN" badges and dashed outlines are design markers and never render.
 51. Viewport: frames are drawn at 1440 x 900; the product is built and verified at 1920 x 1080. The rail stays 216px and sticky at 100vh; the page area is fluid. Fixed widths in a frame stay fixed; flex and grid widths grow; no max-widths and no type scaling.
 52. Hover, focus, loading and disabled states are built quietly per "States not drawn" in `docs/design/new-ui-style-guide.md`. Empty and error states are one plain line. Nothing else is built without a frame.
+53. The demo workspace chooser moves, unchanged, from `/` (with no session) to `/demo`. From the stand-in header in C_CVE0 only the "Sign in" button is built; it links to `/demo`. Rail Sign out returns to `/`, which shows the visitor box. (Product owner, 10/11.)
+54. The caution button border is `#E8A8A0` on every page. The nine Quotes table frames draw `#F1BEB8`; that one difference is explained by this decision. (Product owner, 10/11.)
+55. Filter panel field boxes follow their own frame: transparent where the frame draws them transparent, white where it draws them white. (Product owner, 10/11.)
 
 ## TODO registry contents
 | ID | TODO |

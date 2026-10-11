@@ -53,7 +53,7 @@ The table is authoritative. Lanes A, B, C and E start after T1; D starts after A
 | U10 | U | U0 |
 | U11 | U | every other U task |
 
-Lane U (the new UI, decisions 41 to 52) is detailed in its own part at the end of this file.
+Lane U (the new UI, decisions 41 to 55) is detailed in its own part at the end of this file.
 
 ---
 
@@ -191,7 +191,7 @@ Lane U (the new UI, decisions 41 to 52) is detailed in its own part at the end o
 
 # Lane U: the new UI (charcoal canvas)
 
-Reproduce the approved design canvas. Do not improve or reinterpret it. Decisions 41 to 52 in `docs/plans/decision-log.md` govern this lane; the decision log wins over everything except the product owner's answers in chat.
+Reproduce the approved design canvas. Do not improve or reinterpret it. Decisions 41 to 55 in `docs/plans/decision-log.md` govern this lane; the decision log wins over everything except the product owner's answers in chat.
 
 ## Sources, in order of authority
 
@@ -328,7 +328,7 @@ Reproduce the approved design canvas. Do not improve or reinterpret it. Decision
 
 ## U10: Customer site
 
-- **Scope:** `/` builds only the Querent box, sheets and bell (the Herrick header and page around it are a stand-in). Visitor (no session): the base box with the public starter questions; it submits to the R-14 stub that always replies "Sign in to continue." and never calls the model or a tool (decision 49, R-14). Logged-in customer: the same box with Orders and My rep buttons opening side sheets, and a notification bell with an unread count; a quote notification opens the existing quote preview with Accept, Request changes and Decline (decision 41). Remove the contacts and quotes sidebars and the three-pane layout. Add `GET /api/query/customer/orders` and customer notifications (derived from quote activity and order status, read state per customer, polled) with a mark-read route. Keep `QuoteNoticeCard` in the chat. Demo auth, cookies and the persona chooser behaviour stay (decision 49).
+- **Scope:** `/` builds only the Querent box, sheets and bell (the Herrick header and page around it are a stand-in). Visitor (no session): the base box with the public starter questions; it submits to the R-14 stub that always replies "Sign in to continue." and never calls the model or a tool (decision 49, R-14). Logged-in customer: the same box with Orders and My rep buttons opening side sheets, and a notification bell with an unread count; a quote notification opens the existing quote preview with Accept, Request changes and Decline (decision 41). Remove the contacts and quotes sidebars and the three-pane layout. Add `GET /api/query/customer/orders` and customer notifications (derived from quote activity and order status, read state per customer, polled) with a mark-read route. Keep `QuoteNoticeCard` in the chat. Demo auth and cookies stay (decision 49). The workspace chooser moves unchanged to `/demo`, and the frame's "Sign in" button (the only part of the stand-in header that is built) links to it (decision 53).
 - **Frames (acceptance):** C_CVE0 (visitor), C_CVL1 to C_CVL5 (customer).
 - **Blocked by:** U0. **Lane:** U.
 - **Files:** `src/components/App.tsx`, `src/features/chat/*`, `src/components/customer/*`, `src/app/customer.css`, `src/app/api/query/customer/orders/route.ts` (new), `.../notifications/**` (new), the stub route (new, `TODO(R-14)`), next migration if a read marker table is used, `docs/todo-registry.md` (R-14), `src/todo-registry.test.ts` (R-1 to R-14), `e2e/frames-customer.spec.ts` (new), `e2e/customer-layout.spec.ts`, `e2e/mobile-flow.spec.ts` (deleted with the phone layout).
