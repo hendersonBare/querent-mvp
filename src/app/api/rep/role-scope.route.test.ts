@@ -92,6 +92,61 @@ describe('GET /api/rep/analytics',()=>{
     const one=(await analytics('?customer=canyon-ridge','supplier')).body.scope;
     expect(one).toMatchObject({customer:{id:'canyon-ridge'},customer_ids:['canyon-ridge']});
   });
+
+  // A rep's quote numbers are the quotes they own (quotes.rep_id), the same quotes as their Quotes
+  // list, whoever the customer is assigned to (Appendix B "own data"; OA-67). The seed has the
+  // fixture: Brandi owns 3 accepted and Eli 2 open quotes on Mara's customer Canyon Ridge.
+  const list=async(query:string,persona:string)=>(await json((await import('./quotes/route')).GET(get(`/api/rep/quotes${query}`,persona)))).body;
+  type ListRow=Row&{status:string;total:number|null};
+  const cents=(n:number)=>Math.round(n*100);
+  /** The analytics for `persona` (and `query`) count exactly the quotes in their Quotes list for the same query. */
+  const expectOwnNumbers=async(persona:string,query='')=>{
+    const quotes=await list(query,persona),numbers=(await analytics(query,persona)).body;
+    const accepted=quotes.rows.filter((r:ListRow)=>r.status==='accepted');
+    const {won,lost,open}=numbers.win_rate;
+    expect({quotes:won+lost+open,won,lost}).toEqual({quotes:quotes.counts.all,won:quotes.counts.accepted,lost:quotes.counts.expired+quotes.counts.declined});
+    expect(numbers.quoted.accepted_count).toBe(quotes.counts.accepted);
+    expect(cents(numbers.quoted.accepted)).toBe(accepted.reduce((sum:number,r:ListRow)=>sum+cents(r.total!),0));
+    return {quotes,numbers};
+  };
+
+  it('a rep’s win rate, quotes and accepted revenue are the quotes they own, matching their Quotes list',async()=>{
+    const mara=await expectOwnNumbers('mara');
+    expect(mara.quotes.counts).toMatchObject({all:18,accepted:9});
+    // Brandi's 3 accepted Canyon Ridge quotes are hers, not Mara's.
+    expect(mara.numbers.win_rate.won).toBe(9);
+    // Eli's 2 Canyon Ridge quotes are his: they count for him, though the customer is Mara's.
+    const eli=await expectOwnNumbers('eli');
+    expect(eli.quotes.counts.all).toBe(26);
+    expect(eli.quotes.rows.filter((r:ListRow)=>r.customer_id==='canyon-ridge')).toHaveLength(2);
+    // The page's own customer filter narrows the rep's own quotes.
+    await expectOwnNumbers('mara','?customer=canyon-ridge');
+    await expectOwnNumbers('eli','?customer=weber-basin');
+  });
+
+  it('the manager’s numbers count every rep’s quotes',async()=>{
+    const all=await expectOwnNumbers('supplier');
+    expect(all.quotes.counts.all).toBe(ALL);
+    await expectOwnNumbers('supplier','?customer=canyon-ridge');
+  });
+
+  it('a quote reassigned to a rep for another rep’s customer counts for its new owner, not the customer’s rep',async()=>{
+    const {quotes:repoQuotes,setQuoteRep}=await import('@/server/repository');
+    const moved=repoQuotes({repId:'brandi',customerId:'wasatch'}).find(q=>q.status==='accepted')!;
+    const brandiAccepted=(await list('?rep=brandi','supplier')).counts.accepted;
+    expect(setQuoteRep(moved.id,'mara')).toBe(true);
+    try{
+      const mara=await expectOwnNumbers('mara');
+      expect(mara.quotes.counts).toMatchObject({all:19,accepted:10});
+      expect(mara.quotes.rows.some((r:ListRow)=>r.customer_id==='wasatch')).toBe(true);
+      // Wasatch is still Brandi's customer: Mara's filter can't name it, so it reads as All customers.
+      expect((await analytics('?customer=wasatch','mara')).body.win_rate).toEqual(mara.numbers.win_rate);
+      expect((await list('?rep=brandi','supplier')).counts.accepted).toBe(brandiAccepted-1);
+      await expectOwnNumbers('supplier');
+    }finally{
+      setQuoteRep(moved.id,'brandi');
+    }
+  });
 });
 
 describe('GET /api/rep/badges',()=>{

@@ -111,6 +111,33 @@ describe('the trends on the seed',()=>{
   });
 });
 
+describe('whose quotes: a rep\'s own (quotes.rep_id), every rep\'s for the manager (task U1, OA-67)',()=>{
+  const cents=(n:number)=>Math.round(n*100);
+  it('counts the quotes a rep owns, not every quote for their customers',()=>{
+    // Brandi owns 3 accepted quotes on Mara's customer Canyon Ridge; Mara owns 18 quotes, 9 accepted.
+    const mara=repAnalytics('mara',{now:NOW});
+    expect(mara.scope).toEqual({customer:null,customer_ids:['canyon-ridge'],rep_id:'mara'});
+    expect(mara.win_rate.won+mara.win_rate.lost+mara.win_rate.open).toBe(18);
+    expect(mara.extra_gp.accepted_quotes).toBe(9);
+    expect(mara.quoted.accepted_count).toBe(9);
+  });
+
+  it('the reps\' own numbers add up to the manager\'s organization-wide numbers',()=>{
+    const reps=['brandi','mara','eli','nora'].map(repId=>repAnalytics(repId,{now:NOW}));
+    const org=repAnalytics('brandi',{manager:true,now:NOW});
+    expect(org.scope.rep_id).toBeNull();
+    const sum=(pick:(r:typeof org)=>number)=>reps.reduce((total,r)=>total+pick(r),0);
+    for(const key of ['won','lost','open'] as const)expect(sum(r=>r.win_rate[key])).toBe(org.win_rate[key]);
+    expect(sum(r=>cents(r.quoted.quoted))).toBe(cents(org.quoted.quoted));
+    expect(sum(r=>cents(r.quoted.accepted))).toBe(cents(org.quoted.accepted));
+    expect(sum(r=>r.hours_saved.quotes_sent)).toBe(org.hours_saved.quotes_sent);
+    expect(sum(r=>r.extra_gp.lines)).toBe(org.extra_gp.lines);
+    expect(sum(r=>r.margin.overall.lines)).toBe(org.margin.overall.lines);
+    expect(sum(r=>cents(r.margin.overall.revenue))).toBe(cents(org.margin.overall.revenue));
+    expect(sum(r=>r.turnaround.quotes)).toBe(org.turnaround.quotes);
+  });
+});
+
 describe('placeholder and other reps\' customers',()=>{
   const empty={
     turnaround:{median_minutes:null,quotes:0,fastest_minutes:null,slowest_minutes:null},
