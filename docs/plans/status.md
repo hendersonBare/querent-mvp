@@ -6,8 +6,8 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 52. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
-| U0 | | not started |
-| U1 | | not started |
+| U0 | | in progress (`task/U0-tokens-and-primitives`) |
+| U1 | | in progress (`task/U1-scope-and-roles`) |
 | U2 | | not started |
 | U3 | | not started |
 | U4 | | not started |
