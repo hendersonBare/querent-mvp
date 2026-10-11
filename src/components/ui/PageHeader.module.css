@@ -1,0 +1,21 @@
+/* The page header (C_QOBoard, C_QOTable): title, then the page's own controls, then caution and bell. */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.title {
+  margin: 0;
+  font-size: var(--q-text-title);
+  font-weight: 800;
+  letter-spacing: var(--q-title-tracking);
+  line-height: normal;
+  color: inherit;
+}
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}

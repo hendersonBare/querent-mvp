@@ -1,0 +1,14 @@
+/* Status as plain text, one signal per row (C_QOTable status cell, C_ORBase "Shipped"). */
+.status {
+  font-weight: 600;
+}
+.positive {
+  font-weight: 800;
+  color: var(--q-accent);
+}
+.flag {
+  margin-top: 3px;
+  font-size: var(--q-text-table-head);
+  font-weight: 700;
+  color: var(--q-red);
+}

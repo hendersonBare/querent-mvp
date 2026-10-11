@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
-import { FRAME_SIZE, STYLE_PROPS, diffMeasures, measureAll, openFrame, startFrameServer } from "../scripts/frames/lib.mjs";
+import { FONT_USER_AGENT, FRAME_SIZE, STYLE_PROPS, diffMeasures, measureAll, openFrame, startFrameServer } from "../scripts/frames/lib.mjs";
 
 // Frame proof for plan U0 (tokens and primitives), at the component level. The page-level proof of
 // these frames is U3's (e2e/frames-quotes.spec.ts).
@@ -16,13 +16,13 @@ const COOKIE = "querent-persona";
 const APP_SIZE = { width: 1920, height: 1080 };
 const SEED_DATE = "2026-09-23";
 
-test.describe.configure({ mode: "serial" });
-
 let frames: { base: string; close: () => void };
 let framePage: Page;
 test.beforeAll(async ({ browser }) => {
   frames = await startFrameServer();
-  framePage = await (await browser.newContext({ viewport: FRAME_SIZE })).newPage();
+  // The frames fetch their fonts from Google with the same user agent next/font used, so both sides
+  // render byte-identical font files (see FONT_USER_AGENT in scripts/frames/lib.mjs).
+  framePage = await (await browser.newContext({ viewport: FRAME_SIZE, userAgent: FONT_USER_AGENT })).newPage();
 });
 test.afterAll(async () => frames.close());
 
@@ -68,6 +68,7 @@ const EXTRA_PROPS = ["width", "height", "boxSizing", "transform", "outlineStyle"
 
 /** Computed styles of a located element (STYLE_PROPS plus the extras). */
 async function styleAt(page: Page, at: Locate, label: string) {
+  if (page === appPage) await restMouse();
   expect(await mark(page, at, label), `${label}: element not found ${JSON.stringify(at)}`).toBe(true);
   return page.evaluate(({ label, props }) => {
     const el = document.querySelector(`[data-m="${label}"]`)!;
@@ -96,6 +97,7 @@ const LOOK = STYLE_PROPS.filter((p: string) => p !== "display" && p !== "textAli
  */
 async function subtreeDiff(frame: Locate, app: Locate, alias: Record<string, string> = {}) {
   expect(await mark(framePage, frame, "f-root"), `frame root not found ${JSON.stringify(frame)}`).toBe(true);
+  await restMouse();
   expect(await mark(appPage, app, "a-root"), `app root not found ${JSON.stringify(app)}`).toBe(true);
   const f = await framePage.evaluate(measureAll, { root: '[data-m="f-root"]', props: STYLE_PROPS });
   const a = (await appPage.evaluate(measureAll, { root: '[data-m="a-root"]', props: STYLE_PROPS }))
@@ -104,6 +106,8 @@ async function subtreeDiff(frame: Locate, app: Locate, alias: Record<string, str
 }
 
 let appPage: Page;
+/** Hover is a state the frames do not draw: park the pointer on the empty page corner before measuring. */
+const restMouse = () => appPage.mouse.move(1, 1);
 async function openFixture(browser: Browser, testInfo: TestInfo, persona?: string) {
   const context = await browser.newContext({ viewport: APP_SIZE });
   if (persona) await context.addCookies([{ name: COOKIE, value: persona, url: String(testInfo.project.use.baseURL) }]);
@@ -118,8 +122,13 @@ const fixture = (id: string) => appPage.getByTestId(id);
 
 test("fonts: Albert Sans and Geist Mono load through next/font", async ({ browser }, testInfo) => {
   await openFixture(browser, testInfo);
-  expect(await appPage.evaluate(() => [400, 500, 600, 700, 800].map((w) => document.fonts.check(`${w} 16px "Albert Sans"`)))).toEqual([true, true, true, true, true]);
-  expect(await appPage.evaluate(() => [400, 500].map((w) => document.fonts.check(`${w} 16px "Geist Mono"`)))).toEqual([true, true]);
+  // Each weight has its own face: loading it must find one and leave it loaded.
+  const load = (family: string, weights: number[]) => appPage.evaluate(async ({ family, weights }) => Promise.all(weights.map(async (w) => {
+    const faces = await document.fonts.load(`${w} 16px "${family}"`);
+    return faces.some((f) => f.family.replace(/"/g, "") === family && f.status === "loaded") && document.fonts.check(`${w} 16px "${family}"`);
+  })), { family, weights });
+  expect(await load("Albert Sans", [400, 500, 600, 700, 800])).toEqual([true, true, true, true, true]);
+  expect(await load("Geist Mono", [400, 500])).toEqual([true, true]);
   await frame("QOTable");
   expect(await pair("sans", { selector: "h1" }, { selector: "[data-token=font-sans]" }, ["fontFamily"])).toEqual([]);
   expect(await pair("mono", { text: "35.4%" }, { selector: "[data-token=font-mono]" }, ["fontFamily"])).toEqual([]);
@@ -162,11 +171,11 @@ const TOKENS: [string, string, Locate, string, string?][] = [
   ["close", "QOB5", { text: "x" }, "backgroundColor"],
   ["count-bg", "QOTable", { selector: 'button[aria-label="Choose columns"]' }, "backgroundColor"],
   ["button-text", "QOTable", { text: "Filter" }, "color", "backgroundColor"],
-  ["backdrop-sheet", "QOB5", { text: "Q-24790", up: 3, prev: true }, "backgroundColor"],
+  ["backdrop-sheet", "QOB5", { selector: "aside div", text: "Q-24790", up: 3, prev: true }, "backgroundColor"],
   ["backdrop-dialog", "QOB6", { text: "Note on Q-24790", up: 3, prev: true }, "backgroundColor"],
   ["shadow-popover", "QOB2", { text: "Filter quotes", up: 1 }, "boxShadow"],
   ["shadow-picker", "QOB1", { text: "Showing 5 of 14. Scroll to see more or type to search.", up: 1 }, "boxShadow"],
-  ["shadow-sheet", "QOB5", { text: "Q-24790", up: 3 }, "boxShadow"],
+  ["shadow-sheet", "QOB5", { selector: "aside div", text: "Q-24790", up: 3 }, "boxShadow"],
   ["shadow-lane-drag", "QOB8", { selector: "section", nth: 1 }, "boxShadow"],
   ["shadow-header-drag", "QOT6", { text: ":: Status" }, "boxShadow"],
   ["text-body", "QOBoard", { selector: "main" }, "fontSize"],
@@ -343,7 +352,7 @@ test("C_QOT6 header drag: lifted header and drop line; C_QOB8 lane drag", async 
     ...(await pair("lane-drop", { selector: "section", nth: 3 }, { selector: "[data-testid=lanes] section", nth: 3 }, [...lane, ...outline])),
     ...(await pair("lane-head", { selector: "section > div", nth: 0 }, { selector: "[data-testid=lanes] section > div", nth: 0 }, STYLE_PROPS, { size: ["h"] })),
     ...(await pair("lane-handle", { text: "::", selector: "section span", nth: 0 }, { selector: "[data-testid=lanes] section [data-ui=handle]", nth: 0 }, STYLE_PROPS)),
-    ...(await pair("lane-count", { text: "1", selector: "section span", nth: 0 }, { selector: "[data-testid=lanes] section [data-ui=count]", nth: 0 }, STYLE_PROPS, { size: ["h"] })),
+    ...(await pair("lane-count", { text: "1", selector: "section span", nth: 0, up: 1 }, { selector: "[data-testid=lanes] section [data-ui=count]", nth: 0 }, STYLE_PROPS, { size: ["h"] })),
   ];
   expect(diffs).toEqual([]);
 });
@@ -401,10 +410,10 @@ test("C_QOB3 and C_QOB4 dropdowns, C_S4 toggles, C_QOB5 sheet", async ({ browser
   await fixture("sheet").getByRole("button", { name: "Open sheet" }).click();
   await expect(appPage.getByRole("dialog", { name: "Q-24790" })).toBeVisible();
   diffs = [
-    ...(await pair("sheet", { text: "Q-24790", up: 3 }, { selector: "[data-ui=sheet]" }, STYLE_PROPS, { size: ["w"] })),
-    ...(await pair("sheet-backdrop", { text: "Q-24790", up: 3, prev: true }, { selector: "[data-ui=sheet-backdrop]" }, STYLE_PROPS)),
-    ...(await pair("sheet-title", { text: "Q-24790" }, { selector: "[data-ui=sheet] h2" }, LOOK, { size: ["h"] })),
-    ...(await pair("sheet-subtitle", { text: "Wasatch Mechanical Contractors" }, { selector: "[data-ui=sheet] [data-ui=subtitle]" }, STYLE_PROPS, { size: ["h"] })),
+    ...(await pair("sheet", { selector: "aside div", text: "Q-24790", up: 3 }, { selector: "[data-ui=sheet]" }, STYLE_PROPS, { size: ["w"] })),
+    ...(await pair("sheet-backdrop", { selector: "aside div", text: "Q-24790", up: 3, prev: true }, { selector: "[data-ui=sheet-backdrop]" }, STYLE_PROPS)),
+    ...(await pair("sheet-title", { selector: "aside div", text: "Q-24790" }, { selector: "[data-ui=sheet] h2" }, LOOK, { size: ["h"] })),
+    ...(await pair("sheet-subtitle", { selector: "aside div", text: "Wasatch Mechanical Contractors" }, { selector: "[data-ui=sheet] [data-ui=subtitle]" }, STYLE_PROPS, { size: ["h"] })),
     ...(await pair("sheet-close", { text: "x" }, { selector: "[data-ui=sheet] [data-ui=close]" }, LOOK, { size: ["w", "h"] })),
   ];
   expect(diffs).toEqual([]);

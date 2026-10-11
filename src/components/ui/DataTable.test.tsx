@@ -97,7 +97,7 @@ describe('DataTable',()=>{
   });
 
   it('starts from the user\'s saved prefs',()=>{
-    renderTable({initialPrefs:{column_order:['customer','quote','status','total','margin','rep'],hidden_columns:['total']}});
+    renderTable({initialPrefs:{column_order:['customer','quote','status','total','margin','rep'],hidden_columns:['total','rep']}});
     expect(headers()).toEqual([':: Customer',':: Quote',':: Status',':: Margin']);
   });
 });

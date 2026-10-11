@@ -9,10 +9,10 @@ import {useSeededDatabase} from '@/server/repository/test-db';
 useSeededDatabase();
 
 type Persona='supplier'|'mara'|'eli'|'customer'|null;
-async function call(method:'GET'|'PUT',{table,body,persona='mara'}:{table?:string;body?:unknown;persona?:Persona}={}){
+async function call(method:'GET'|'PUT',{table,query,body,persona='mara'}:{table?:string;query?:string;body?:unknown;persona?:Persona}={}){
   const headers:Record<string,string>={'Content-Type':'application/json'};
   if(persona)headers.cookie=`querent-persona=${persona}`;
-  const url=`http://127.0.0.1/api/rep/table-prefs${table===undefined?'':`?table=${encodeURIComponent(table)}`}`;
+  const url=`http://127.0.0.1/api/rep/table-prefs${query??(table===undefined?'':`?table=${encodeURIComponent(table)}`)}`;
   const request=new NextRequest(url,{method,headers,body:body===undefined?undefined:typeof body==='string'?body:JSON.stringify(body)});
   const route=await import('./route');
   const response=method==='GET'?await route.GET(request):await route.PUT(request);
@@ -54,8 +54,8 @@ describe('GET and PUT /api/rep/table-prefs',()=>{
     const attempt=await call('PUT',{persona:'mara',body:{...PREFS,user_id:'eli',column_order:['status']}});
     expect(attempt).toMatchObject({status:400,json:{detail:expect.stringMatching(/user_id/)}});
     expect((await call('GET',{table:'quotes',persona:'eli'})).json.prefs.column_order).toEqual(['quote']);
-    const query=await call('GET',{table:'quotes&user_id=eli',persona:'mara'});
-    expect(query.json.prefs.column_order).toEqual(PREFS.column_order);
+    const asked=await call('GET',{query:'?table=quotes&user_id=eli',persona:'mara'});
+    expect(asked.json.prefs.column_order).toEqual(PREFS.column_order);
   });
 
   it('refuses a missing or malformed table id, column lists that are not lists of ids, and non-JSON',async()=>{
