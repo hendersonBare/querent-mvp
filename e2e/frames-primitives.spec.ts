@@ -389,22 +389,26 @@ test("C_QOB3 and C_QOB4 dropdowns, C_S4 toggles, C_QOB5 sheet", async ({ browser
   expect(diffs).toEqual([]);
 
   await frame("S4");
-  const knob = ["backgroundColor", "borderRadius"];
   diffs = [
     ...(await pair("toggle-on", { where: "toggle-on" }, { selector: "[data-testid=toggles] [role=switch][aria-checked=true]" }, STYLE_PROPS, { size: ["w", "h"] })),
     ...(await pair("toggle-off", { where: "toggle-off" }, { selector: "[data-testid=toggles] [role=switch][aria-checked=false]" }, STYLE_PROPS, { size: ["w", "h"] })),
   ];
   expect(diffs).toEqual([]);
-  const knobs = async (page: Page, sel: string) => page.evaluate((sel) => [...document.querySelectorAll(sel)].map((t) => {
-    const k = t.firstElementChild!; const cs = getComputedStyle(k); const r = k.getBoundingClientRect(); const tr = t.getBoundingClientRect();
-    return { bg: cs.backgroundColor, radius: cs.borderRadius, w: r.width, h: r.height, top: r.top - tr.top, inset: Math.min(r.left - tr.left, tr.right - r.right) };
-  }).slice(0, 1), sel);
-  expect(knob.length).toBe(2);
-  expect(await knobs(appPage, "[data-testid=toggles] [role=switch]")).toEqual(await framePage.evaluate(() => {
-    const t = [...document.querySelectorAll("span")].find((e) => Math.round(e.getBoundingClientRect().width) === 40 && Math.round(e.getBoundingClientRect().height) === 22)!;
-    const k = t.firstElementChild!; const cs = getComputedStyle(k); const r = k.getBoundingClientRect(); const tr = t.getBoundingClientRect();
-    return [{ bg: cs.backgroundColor, radius: cs.borderRadius, w: r.width, h: r.height, top: r.top - tr.top, inset: Math.min(r.left - tr.left, tr.right - r.right) }];
-  }));
+  // The knob: colour, shape, size and where it sits in the track (right when on, left when off).
+  const knob = async (page: Page, at: Locate, name: string) => {
+    expect(await mark(page, at, name)).toBe(true);
+    return page.evaluate((name) => {
+      const track = document.querySelector(`[data-m="${name}"]`)!;
+      const k = track.firstElementChild!;
+      const cs = getComputedStyle(k);
+      const r = k.getBoundingClientRect(), t = track.getBoundingClientRect();
+      return { bg: cs.backgroundColor, radius: cs.borderRadius, w: r.width, h: r.height, top: r.top - t.top, left: r.left - t.left, right: t.right - r.right };
+    }, name);
+  };
+  for (const state of ["on", "off"] as const) {
+    expect(await knob(appPage, { selector: `[data-testid=toggles] [role=switch][aria-checked=${state === "on"}]` }, `a-knob-${state}`))
+      .toEqual(await knob(framePage, { where: `toggle-${state}` }, `f-knob-${state}`));
+  }
 
   await frame("QOB5");
   await fixture("sheet").getByRole("button", { name: "Open sheet" }).click();
