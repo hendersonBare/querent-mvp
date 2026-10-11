@@ -4,7 +4,7 @@ import type {ClarifyPayload,QuoteNotice} from '@/domain';
 import type {API,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
 import {onOpenQuote} from '@/components/customer/open-quote';
 import {QUOTES_CHANGED_EVENT} from '@/components/customer/quotes-changed';
-import {sidebarRoutes} from '@/components/customer/test-fixtures';
+import {siteRoutes} from '@/components/customer/test-fixtures';
 import {CustomerChat} from './Chat';
 
 // "Quote … is ready" in the customer chat (spec §3, task 5.1): the messages Approve & send posted
@@ -21,7 +21,7 @@ const HISTORY=[turn({id:'t1',question:'Do you have bolts?',answer:'Yes, 64 at SL
 
 function makeApi({history=HISTORY,notices=()=>[] as QuoteNotice[]}:{history?:ChatTurn[];notices?:()=>QuoteNotice[]}={}){
   const get=vi.fn(async(path:string):Promise<unknown>=>{
-    if(path in sidebarRoutes)return sidebarRoutes[path as keyof typeof sidebarRoutes];
+    if(path in siteRoutes)return siteRoutes[path as keyof typeof siteRoutes];
     if(path===`customer/history/${CONVERSATION}`)return history;
     if(path===`customer/notices/${CONVERSATION}`)return notices();
     throw new Error(`unexpected get ${path}`);
@@ -57,12 +57,12 @@ describe('quote notices in the chat',()=>{
       fireEvent.click(within(card).getByRole('button',{name:'View quote'}));
     }finally{stop();}
     expect(opened).toHaveBeenCalledWith({id:'q-24818',quote_number:'Q-24818',revision:1});
-    // The layout's modal (the one the sidebar opens) loads that revision.
+    // The site's modal (the one the bell opens) loads that revision.
     expect(await screen.findByRole('dialog',{name:'Quote Q-24818'})).toBeInTheDocument();
     expect(get).toHaveBeenCalledWith('customer/quotes/q-24818?rev=1');
   });
 
-  it('shows a quote sent while the chat is open without a reload, after the turns on screen, and refreshes the quotes sidebar',async()=>{
+  it('shows a quote sent while the chat is open without a reload, after the turns on screen, and tells the site its quotes changed',async()=>{
     let sent:QuoteNotice[]=[];
     const {api,get}=makeApi({notices:()=>sent});
     const changed=vi.fn();
@@ -90,7 +90,7 @@ describe('quote notices in the chat',()=>{
     const pending:((value:QuoteNotice[])=>void)[]=[];
     let polling=false;
     const get=vi.fn((path:string):Promise<unknown>=>{
-      if(path in sidebarRoutes)return Promise.resolve(sidebarRoutes[path as keyof typeof sidebarRoutes]);
+      if(path in siteRoutes)return Promise.resolve(siteRoutes[path as keyof typeof siteRoutes]);
       if(path===`customer/history/${CONVERSATION}`)return Promise.resolve(HISTORY);
       if(path===`customer/notices/${CONVERSATION}`){
         if(!polling){polling=true;return Promise.resolve([]);}
@@ -136,7 +136,7 @@ describe('quote notices in the chat',()=>{
     render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
     await screen.findByRole('article',{name:/is ready/});
     fireEvent.change(screen.getByLabelText('Ask a question'),{target:{value:'Thanks'}});
-    fireEvent.click(screen.getByLabelText('Send question'));
+    fireEvent.click(screen.getByLabelText('Send'));
     await screen.findByText('Answered.');
     expect(order()).toEqual(['turn:Do you have bolts?','turn:What is our balance?','notice:Quote Q-24818 is ready: $531.00, valid until Oct 7','turn:Thanks']);
   });

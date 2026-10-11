@@ -2,11 +2,11 @@ import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import type {ItemPopupPayload} from '@/domain';
 import type {API,ChatAnswer,ChatTurn,ItemPopupContext,Principal,QuoteRequestResult} from '@/lib/contracts';
-import {sidebarRoutes} from '@/components/customer/test-fixtures';
+import {siteRoutes} from '@/components/customer/test-fixtures';
 import {CustomerChat,quoteRequestedAfter} from './Chat';
 
 // The item pop-up in the customer chat (task 2.3): it opens when Querent's reply carries the
-// matched list, Request quote adds the confirmation, and the quotes sidebar reloads.
+// matched list, Request quote adds the confirmation, and the bell reads its notifications again (plan U10).
 
 const user:Principal={user_id:'u1',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 const PAYLOAD:ItemPopupPayload={fulfillment:'will_call',branch_id:'slc',lines:[{sku:'HCS-12-13-2G8',qty:10},{sku:'CW-45-045-T1',qty:6}]};
@@ -28,7 +28,7 @@ const turn=(t:Partial<ChatTurn>&Pick<ChatTurn,'id'|'question'|'answer'>):ChatTur
 
 function makeApi(history:ChatTurn[]=[]){
   const get=vi.fn(async(path:string):Promise<unknown>=>{
-    if(path in sidebarRoutes)return sidebarRoutes[path as keyof typeof sidebarRoutes];
+    if(path in siteRoutes)return siteRoutes[path as keyof typeof siteRoutes];
     if(path.startsWith('customer/history/'))return history;
     if(path.startsWith('customer/item-popup?'))return CONTEXT;
     throw new Error(`unexpected get ${path}`);
@@ -40,17 +40,17 @@ function makeApi(history:ChatTurn[]=[]){
   });
   return {api:{get,send} as unknown as API,get,send};
 }
-const quoteLoads=(get:ReturnType<typeof vi.fn>)=>get.mock.calls.filter(([path])=>path==='customer/quotes').length;
+const quoteLoads=(get:ReturnType<typeof vi.fn>)=>get.mock.calls.filter(([path])=>path==='customer/notifications').length;
 
 beforeEach(()=>{localStorage.clear();});
 
 describe('the item pop-up in the chat',()=>{
-  it('opens when the list arrives; Request quote confirms in the chat and reloads the quotes',async()=>{
+  it('opens when the list arrives; Request quote confirms in the chat and the bell reads again',async()=>{
     const {api,get,send}=makeApi();
     render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
     const box=await screen.findByLabelText('Ask a question');
     fireEvent.change(box,{target:{value:'Type 1'}});
-    fireEvent.click(screen.getByLabelText('Send question'));
+    fireEvent.click(screen.getByLabelText('Send'));
 
     const dialog=await screen.findByRole('dialog',{name:'Review your list'});
     expect(await within(dialog).findByText('64 at SLC')).toBeInTheDocument();
