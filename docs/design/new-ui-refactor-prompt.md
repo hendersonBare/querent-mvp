@@ -10,7 +10,13 @@ Source frames: `docs/design/canvas-frames/C_<id>.dc.html` (89 files plus `canvas
 You are refactoring the whole Querent UI to match a finished design canvas. The design is done and approved. Your job is to reproduce it, not to improve or reinterpret it.
 
 SOURCES, in order of authority
-1. Canvas frames: docs/design/canvas-frames/C_<id>.dc.html, indexed by canvas.json. Each file is plain HTML with inline styles inside <x-dc> (the support.js runtime is not included). The runtime is committed as docs/design/canvas-frames/support.js, so a frame opens from any static server. Reference PNGs of all 89 frames at 1440x900 are already in docs/design/canvas-frames/png/<id>.png (for example QEBase.png). Re-render with `npm run frames -- QEBase QOB3` (no ids = all; add PW_CHANNEL=chrome to use installed Chrome, otherwise run `npx playwright install chromium` once). Read the HTML for exact values and the PNG for the look. Do not work from the prose docs alone.
+1. Canvas frames: docs/design/canvas-frames/C_<id>.dc.html, indexed by canvas.json. Each file is plain HTML with inline styles inside <x-dc> (the support.js runtime is not included). The runtime is committed as docs/design/canvas-frames/support.js, so a frame opens in a real browser from any static server. There are NO screenshots: read the live DOM with Playwright (Chromium is installed; `npx playwright install chromium` if missing). Tools, all in scripts/frames/:
+   - `npm run frames -- list` lists frame ids.
+   - `npm run frames -- dump QEBase [--text="Approve and send"] [--selector=aside]` prints JSON for every element with text, a fill or a border: tag, text, rect (x, y, w, h) and computed style (color, background, font family, size, weight, padding, radius, border, gap, and more). This is the exact value source for sizes, colours and copy.
+   - `npm run frames -- compare QOB3 http://localhost:3000/rep/quotes --cookie=<name>=<value>` loads the frame at 1440x900 and the live app at 1920x1080, matches elements by tag and text, and prints missing elements and each computed-style or height difference. Widths and positions are ignored by default because the viewport differs; add --width for fixed-width controls.
+   - In tests, import startFrameServer, openFrame, measureAll, diffMeasures and STYLE_PROPS from scripts/frames/lib.mjs and assert against the frame's live values rather than hard-coded numbers.
+   The frames are static: they have no click handlers, and every opened button is its own frame. To check an opened state, drive the running app with Playwright to that state (click the same control) and then run compare against that state's frame (for example QOB3 after opening the caution dropdown).
+   Do not work from the prose docs alone.
 2. docs/design/new-ui-implementation-prompt.md Parts 1 and 2 and Appendices A to H: behaviour, roles, data model, API, copy rules. Part 3 of that file is superseded by this prompt.
 3. docs/design/new-ui-refactor-prompt.md (this file): the frame-to-route map. It is the only mapping you may use.
 4. docs/design/new-ui-style-guide.md is the charcoal token sheet read from the frames. Where it conflicts with a frame, the frame wins; fix the guide.
@@ -18,7 +24,7 @@ SOURCES, in order of authority
 
 FIDELITY RULES (anti-drift)
 - Every UI change is traced to a frame id from the map. If a screen, state or control has no frame, do not invent it: build the minimum needed to function in the same tokens, list it in docs/plans/status.md under "No frame", and ask me.
-- Take exact values (px, hex, font size and weight, radius, gaps, column widths, copy) from the frame's own inline styles. Do not eyeball from screenshots and do not substitute Tailwind or library defaults.
+- Take exact values (px, hex, font size and weight, radius, gaps, column widths, copy) from the frame's own inline styles. Do not eyeball and do not substitute Tailwind or library defaults.
 - Copy is literal. Use the frame's labels and wording. No em-dashes. No added descriptions, helper text, icons or buttons.
 - Placeholder data in frames (Appendix G: rep analytics numbers, impact preview table, rep margins, board counts, weekly chart, Provo hours, Herrick site, notification and order samples) is NOT product data. Wire real data. Never copy a placeholder number into code.
 - "FEATURE FLAG: HIDDEN" badges and dashed outlines are design markers. Do not render them. Sections C_S5 and C_S6 render only when their flag is on.
@@ -32,7 +38,7 @@ FIDELITY RULES (anti-drift)
 PROCESS
 - Run /querent-task-loop as orchestrator. First add lane "U" to docs/plans/plan.md using the task list below. Each task lists its frame ids as acceptance criteria. Add any new rule to docs/plans/decision-log.md before coding it. Update docs/plans/spec.md and docs/design/README.md ("Intentional differences") where they describe the old UI.
 - One worktree and branch per task (task/U<n>-<slug>), tests first, merge only when every gate passes and the verifier approves.
-- Verifier gate for every UI task: run the app, open the page at 1920x1080 as the right role, and compare it frame by frame with the mapped frames (the committed PNG at 1440x900). Because the viewport differs, compare the rail, header, card title bars, controls, table rows and type by measured px and colour, and check that extra width goes to the fluid regions only. Record per frame: PASS, or each measured difference with the frame value and the app value. A task with an unexplained difference fails. Then run typecheck, unit tests, build and Playwright.
+- Verifier gate for every UI task: run the app, open the page at 1920x1080 as the right role, and drive it into each mapped frame's state and run `npm run frames -- compare <id> <url>` for every mapped frame, in a Playwright test where possible so the check is repeatable. Because the viewport differs, widths are ignored by default; also assert the rail is 216px and that extra width goes to the fluid regions only. Screenshots are not evidence. Record per frame: PASS (zero unexplained diffs and no missing elements), or each measured difference with the frame value and the app value. A task with an unexplained difference fails. Then run typecheck, unit tests, build and Playwright.
 - DECISIONS ARE MADE. Record each in docs/plans/decision-log.md as the first commit, then do not ask again:
   1. Customer quote actions: notification bell, quote opens with Accept, Request changes, Decline.
   2. Role switch for reps who are managers: dropped.

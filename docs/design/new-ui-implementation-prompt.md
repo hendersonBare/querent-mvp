@@ -244,7 +244,7 @@ Rep Analytics numbers. The Settings impact preview table. Rep margins in the rev
 - Hidden feature-flag sections never render while their flag is off.
 - The anonymous query route cannot return prices, orders, quotes or account data.
 - Customer notifications: a sent quote, a revised quote and a shipped order each create one; opening a quote from the bell can Accept, Request changes or Decline; unread count updates.
-- Playwright: one pass per role (visitor, customer, rep, manager) across the pages in Appendix A; a screenshot compared against each canvas frame for layout, spacing and the standards in Part 1 section 2.
+- Playwright: one pass per role (visitor, customer, rep, manager) across the pages in Appendix A; computed styles compared against each canvas frame with `npm run frames -- compare` (see docs/design/new-ui-refactor-prompt.md) for layout, spacing and the standards in Part 1 section 2.
 - Accessibility: every icon-only button has a label, dropdowns and sheets trap and restore focus, `::` drag handles have a keyboard alternative (move left and right).
 
 ---
