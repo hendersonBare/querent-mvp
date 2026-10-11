@@ -82,6 +82,18 @@ export async function setRepFixture(repId:string,values:{role?:string;active?:nu
   if(db().prepare(`UPDATE reps SET ${columns.map(c=>`${c}=?`).join(',')} WHERE id=?`).run(...columns.map(c=>values[c]),repId).changes!==1)throw new Error(`No rep ${repId}`);
 }
 
+/**
+ * Tests only: sets an order's status and ship date (and optionally its fulfillment and quote), as a
+ * future ERP sync would (spec §6.2), so the customer bell's shipped notices can be tested (plan U10).
+ */
+export async function setOrderStatusFixture(orderId:string,status:'open'|'shipped'|'closed',shippedOn:string|null,{fulfillment,quoteId}:{fulfillment?:'will_call'|'delivery';quoteId?:string|null}={}){
+  const {db}=await import('../db');
+  const sets=['status=?','shipped_on=?'],values:unknown[]=[status,shippedOn];
+  if(fulfillment!==undefined){sets.push('fulfillment=?');values.push(fulfillment);}
+  if(quoteId!==undefined){sets.push('quote_id=?');values.push(quoteId);}
+  if(db().prepare(`UPDATE orders SET ${sets.join(',')} WHERE id=?`).run(...values,orderId).changes!==1)throw new Error(`No order ${orderId}`);
+}
+
 export function useSeededDatabase(seedDate=SEED_DATE){
   let root='';
   beforeAll(()=>{

@@ -26,10 +26,9 @@ describe('customerOrderList',()=>{
   it("never lists another customer's orders",async()=>{
     const {customerOrderList}=await import('./orders');
     const {allOrders}=await import('@/server/repository');
-    const wasatch=new Set(customerOrderList('wasatch').map(o=>o.id));
-    const others=allOrders().filter(o=>o.customer_id!=='wasatch');
-    expect(others.length).toBeGreaterThan(0);
-    expect(others.filter(o=>wasatch.has(o.id))).toEqual([]);
-    expect(customerOrderList('nobody')).toEqual([]);
+    const every=allOrders();
+    expect(customerOrderList('wasatch').map(o=>o.id)).toEqual(every.filter(o=>o.customer_id==='wasatch').map(o=>o.id));
+    for(const other of ['great-basin','canyon-ridge','nobody'])
+      expect(customerOrderList(other).map(o=>o.id),other).toEqual(every.filter(o=>o.customer_id===other).map(o=>o.id));
   });
 });
