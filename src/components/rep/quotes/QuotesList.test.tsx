@@ -33,7 +33,7 @@ const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 function renderList(initial:RepQuoteList,query=''){
   nav.query=query;
   served=initial;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:2,attention:0}}><QuotesList initial={initial}/></RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={{quotes:2,attention:0}}><QuotesList initial={initial}/></RepShell>);
 }
 const table=()=>screen.getByRole('table');
 const quoteBlock=(number:string)=>within(table()).getAllByRole('rowgroup').find(g=>within(g).queryByRole('link',{name:number}))!;
@@ -92,17 +92,17 @@ describe('the table',()=>{
     expect(within(quoteBlock('Q-24817')).getAllByRole('row')).toHaveLength(1);
   });
 
-  it('opens a quote from its number, keeping the picked customer, without prefetching it (opening marks it read)',()=>{
+  it('opens a quote from its number, without carrying the page’s ?customer= filter (task U1) or prefetching it (opening marks it read)',()=>{
     renderList(quoteList({customer:WASATCH}),'customer=wasatch');
     const link=within(table()).getByRole('link',{name:'Q-24817'});
-    expect(link).toHaveAttribute('href','/rep/quotes/Q-24817?customer=wasatch');
+    expect(link).toHaveAttribute('href','/rep/quotes/Q-24817');
     expect(link).toHaveAttribute('data-prefetch','false');
     expect(screen.getByText('Viewing Wasatch Mechanical Contractors · 2 unread quotes')).toBeInTheDocument();
   });
 });
 
 describe('the status filter',()=>{
-  it('counts every status and links each one, keeping the picked customer',()=>{
+  it('counts every status and links each one, keeping the page’s own ?customer= filter',()=>{
     renderList(quoteList({customer:WASATCH}),'customer=wasatch');
     const filter=screen.getByRole('navigation',{name:'Filter by status'});
     const links=within(filter).getAllByRole('link');
@@ -148,11 +148,12 @@ describe('empty states',()=>{
     expect(screen.getByText('Viewing Great Basin Fabrication')).toBeInTheDocument();
   });
 
-  it("another rep's customer: says whose customer it is, and links back to all your quotes",()=>{
-    renderList(quoteList({scope:[],customer:CUSTOMERS[0],other_rep:true}),'customer=canyon-ridge');
-    expect(screen.getByRole('heading',{name:'Canyon Ridge Builders is Mara Jensen’s customer'})).toBeInTheDocument();
-    expect(screen.getByText(/shows quotes for your own customers/)).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Show all your quotes'})).toHaveAttribute('href','/rep/quotes');
+  // Another rep's customer never reaches the list (task U1): the server ignores a ?customer= the rep
+  // can't read (src/app/api/rep/role-scope.route.test.ts), so there is no "whose customer" state.
+  it('has no "another rep’s customer" state',()=>{
+    renderList(quoteList({scope:[],customer:CUSTOMERS[0]}),'customer=canyon-ridge');
+    expect(screen.getByRole('heading',{name:'No quotes for Canyon Ridge Builders yet'})).toBeInTheDocument();
+    expect(screen.queryByText(/customer$/,{selector:'h2'})).toBeNull();
   });
 
   it('a rep with no quotes at all',()=>{

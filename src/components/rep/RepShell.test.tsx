@@ -1,9 +1,9 @@
 import type {AnchorHTMLAttributes,ReactNode} from 'react';
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import type {CustomerListItem} from '@/domain';
 
-// The rep portal frame (task 3.1): nav, the "Viewing" picker in ?customer=, the Quotes badge.
+// The rep portal frame (task 3.1): nav and the Quotes badge. Scope is role based on the server
+// (task U1): there is no "Viewing" picker, and no nav link carries ?customer= or ?scope=.
 
 const nav=vi.hoisted(()=>({pathname:'/rep/quotes',query:'',replace:vi.fn()}));
 vi.mock('next/navigation',()=>({
@@ -15,22 +15,16 @@ vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<
 
 const {RepShell}=await import('./RepShell');
 const {RepPageHeader}=await import('./RepPage');
-const {useRepPortal,useRepScope}=await import('./context');
+const {useRepPortal}=await import('./context');
 
-/** A page in the shell that shows what the shell gives it: the picked customer and the unread quotes. */
+/** A page in the shell that shows what the shell gives it: the unread quotes. */
 function ScopedPage(){
-  const scope=useRepScope();
   const {badges}=useRepPortal();
-  return <RepPageHeader title="Quotes" description={<>Viewing {scope.label}{badges.quotes>0&&<> · {badges.quotes} unread {badges.quotes===1?'quote':'quotes'}</>}</>}/>;
+  return <RepPageHeader title="Quotes" description={<>{badges.quotes>0&&<>{badges.quotes} unread {badges.quotes===1?'quote':'quotes'}</>}</>}/>;
 }
 const {SettingsSection}=await import('./SettingsSection');
 const {settingsFixture}=await import('./settings/test-fixtures');
 
-const customers:CustomerListItem[]=[
-  {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen'},
-  {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos'},
-  {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos'},
-];
 const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'};
 
 let badgeCount=1,attentionCount=0;
@@ -43,7 +37,7 @@ const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
 });
 
 function renderShell(children:ReactNode=<ScopedPage/>,initialBadges={quotes:1,attention:0}){
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={customers} initialBadges={initialBadges}>{children}</RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={initialBadges}>{children}</RepShell>);
 }
 const at=(pathname:string,query='')=>{nav.pathname=pathname;nav.query=query;};
 const portalNav=()=>screen.getByRole('navigation',{name:'Rep portal'});
@@ -67,7 +61,7 @@ describe('header',()=>{
 
   it('gives the manager a Team section after Analytics, current on /rep/team; a rep never sees it (v3 spec §6, task D3)',()=>{
     at('/rep/team');
-    const {unmount}=render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" customers={customers} initialBadges={{quotes:0,attention:0}}><ScopedPage/></RepShell>);
+    const {unmount}=render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:0,attention:0}}><ScopedPage/></RepShell>);
     const links=within(portalNav()).getAllByRole('link');
     expect(links.map(l=>l.textContent)).toEqual(['Quotes','Customers','Orders','Items','Analytics','Team','Settings']);
     expect(within(portalNav()).getByRole('link',{name:'Team'})).toHaveAttribute('href','/rep/team');
@@ -97,7 +91,7 @@ describe('Quotes unread badge',()=>{
     expect(within(portalNav()).getByRole('link',{name:'Quotes 1 unread'})).toBeInTheDocument();
     expect(await within(portalNav()).findByRole('link',{name:'Quotes 3 unread'})).toBeInTheDocument();
     expect(screen.getByRole('link',{name:'Notifications: 3 unread quotes'})).toHaveAttribute('href','/rep/quotes');
-    expect(screen.getByText(/Viewing All customers · 3 unread quotes/)).toBeInTheDocument();
+    expect(screen.getByText('3 unread quotes')).toBeInTheDocument();
     expect(requested()).toContain('/api/rep/badges');
   });
 
@@ -123,14 +117,14 @@ describe('Quotes unread badge',()=>{
 
 describe('Needs attention badge (v3 spec §3, §6; task A2)',()=>{
   const badge=()=>screen.queryByRole('link',{name:/^Needs attention/});
-  it('counts red quotes only, beside the unread badge (OA-8), and opens the Needs attention filter for the picked customer',async()=>{
+  it('counts red quotes only, beside the unread badge (OA-8), and opens the Needs attention filter without carrying ?customer=',async()=>{
     attentionCount=2;
     at('/rep/analytics','customer=wasatch');
     renderShell(undefined,{quotes:1,attention:2});
     expect(badge()).toHaveAccessibleName('Needs attention: 2 overdue quotes');
     expect(badge()).toHaveTextContent('2');
     expect(badge()).toHaveTextContent('Needs attention');
-    expect(badge()).toHaveAttribute('href','/rep/quotes?attention=1&customer=wasatch');
+    expect(badge()).toHaveAttribute('href','/rep/quotes?attention=1');
     expect(badge()!.querySelector('svg')).not.toBeNull();
     expect(within(portalNav()).getByRole('link',{name:'Quotes 1 unread'})).toBeInTheDocument();
   });
@@ -148,45 +142,27 @@ describe('Needs attention badge (v3 spec §3, §6; task A2)',()=>{
   });
 });
 
-describe('"Viewing" customer picker',()=>{
-  it('lists All customers then every customer, and starts on All customers',()=>{
+describe('no "Viewing" picker and no All reps scope (task U1)',()=>{
+  it('has no customer picker',()=>{
     renderShell();
-    const picker=screen.getByLabelText('Viewing');
-    expect(within(picker).getAllByRole('option').map(o=>o.textContent)).toEqual(['All customers','Canyon Ridge Builders','Great Basin Fabrication','Wasatch Mechanical Contractors']);
-    expect(picker).toHaveValue('all');
+    expect(screen.queryByLabelText('Viewing')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 
-  it('reads ?customer=, shows the account and rep, and keeps it on every nav link and the bell',()=>{
-    at('/rep/analytics','customer=wasatch');
-    renderShell();
-    expect(screen.getByLabelText('Viewing')).toHaveValue('wasatch');
-    expect(screen.getByText('WAS-1142')).toBeInTheDocument();
-    expect(screen.getByRole('banner')).toHaveTextContent('Rep Brandi Gallegos');
+  it('keeps no ?customer= or ?scope= on any nav link or the bell, whatever the page’s own URL says',()=>{
+    at('/rep/analytics','customer=wasatch&scope=all');
+    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><ScopedPage/></RepShell>);
     expect(within(portalNav()).getAllByRole('link').map(l=>l.getAttribute('href'))).toEqual(
-      ['quotes','customers','orders','items','analytics','settings'].map(s=>`/rep/${s}?customer=wasatch`));
-    expect(screen.getByRole('link',{name:/Notifications/})).toHaveAttribute('href','/rep/quotes?customer=wasatch');
-    expect(screen.getByText(/Viewing Wasatch Mechanical Contractors/)).toBeInTheDocument();
+      ['quotes','customers','orders','items','analytics','team','settings'].map(s=>`/rep/${s}`));
+    expect(screen.getByRole('link',{name:/Notifications/})).toHaveAttribute('href','/rep/quotes');
+    expect(nav.replace).not.toHaveBeenCalled();
   });
 
-  it('changes the scope in the URL, keeping the page and its other params',()=>{
-    at('/rep/settings','tab=access');
-    renderShell();
-    fireEvent.change(screen.getByLabelText('Viewing'),{target:{value:'great-basin'}});
-    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=access&customer=great-basin',{scroll:false});
-  });
-
-  it('goes back to All customers by dropping ?customer=',()=>{
-    at('/rep/items','customer=wasatch');
-    renderShell();
-    fireEvent.change(screen.getByLabelText('Viewing'),{target:{value:'all'}});
-    expect(nav.replace).toHaveBeenLastCalledWith('/rep/items',{scroll:false});
-  });
-
-  it('treats an unknown customer as All customers and drops it from the URL',()=>{
-    at('/rep/orders','customer=nobody');
-    renderShell();
-    expect(screen.getByLabelText('Viewing')).toHaveValue('all');
-    expect(nav.replace).toHaveBeenCalledWith('/rep/orders',{scroll:false});
+  it('reads the badges without ?scope=, for the manager too: the server scopes them by role',async()=>{
+    at('/rep/quotes','scope=all');
+    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><ScopedPage/></RepShell>);
+    await waitFor(()=>expect(requested()).toContain('/api/rep/badges'));
+    expect(requested().filter(u=>u.startsWith('/api/rep/badges'))).toEqual(requested().filter(u=>u==='/api/rep/badges'));
   });
 });
 
@@ -209,16 +185,15 @@ describe('account menu',()=>{
   });
 });
 
-// Analytics follows the picker too: src/components/rep/analytics/AnalyticsPage.test.tsx (task 6.2).
-describe('sections follow the picker',()=>{
-  it('Settings opens Rep assignments by default, with every section as a tab that keeps the picker',()=>{
+describe('Settings in the shell',()=>{
+  it('Settings opens Rep assignments by default, with every section as a tab; no tab carries ?customer=',()=>{
     at('/rep/settings','customer=great-basin');
     renderShell(<SettingsSection initial={settingsFixture('great-basin')}/>);
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
     // Brandi is the manager: Reps and Aging are hers alone (task D1).
     expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Reps','Customer access','Margin floors','Pricing & delivery','Aging','Data sources']);
     expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
-    expect(within(tabs).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources&customer=great-basin');
+    expect(within(tabs).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources');
     expect(screen.getByRole('combobox',{name:'Rep for Great Basin Fabrication'})).toHaveValue('brandi');
     expect(screen.queryByText('Data browser')).not.toBeInTheDocument();
   });
@@ -243,10 +218,17 @@ describe('sections follow the picker',()=>{
     expect(screen.getByRole('heading',{name:'Reps'})).toBeInTheDocument();
   });
 
-  it('Settings > Customer access is for the picked customer',()=>{
+  it('Settings > Customer access picks its customer on the page (?customer= is the page’s own filter)',()=>{
     at('/rep/settings','tab=access&customer=wasatch');
     renderShell(<SettingsSection initial={settingsFixture('wasatch')}/>);
-    expect(screen.getByText('Viewing Wasatch Mechanical Contractors',{selector:'p'})).toBeInTheDocument();
+    const picker=screen.getByRole('combobox',{name:'Customer'});
+    expect(picker).toHaveValue('wasatch');
+    expect(within(picker).getAllByRole('option').map(o=>o.textContent)).toEqual(['All customers','Canyon Ridge Builders','Great Basin Fabrication','Uinta Facility Services','Wasatch Mechanical Contractors']);
+    expect(screen.getByText(/What Querent answers in chat for Wasatch Mechanical Contractors/)).toBeInTheDocument();
     expect(screen.getByRole('switch',{name:'Pricing'})).toBeChecked();
+    fireEvent.change(picker,{target:{value:'great-basin'}});
+    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=access&customer=great-basin',{scroll:false});
+    fireEvent.change(picker,{target:{value:''}});
+    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=access',{scroll:false});
   });
 });
