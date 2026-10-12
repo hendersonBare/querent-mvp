@@ -3,8 +3,8 @@ import { expect, test, type APIRequest, type Browser, type BrowserContext, type 
 // The demo script (v3 decision 38; docs/demo-script.md; task F1): the five acts, in order, in scripted
 // LLM mode on a fresh reset.
 //   1. Dana chats, sees two or more suggestions in the item pop-up, and requests a quote.
-//   2. Brandi sees an amber and a red quote in the header caution's Needs attention dropdown and the
-//      list's Needs attention filter, opens Dana's quote from the bell, uses View full chat, and sends it.
+//   2. Brandi sees an amber and a red quote in the header caution's Needs attention dropdown and in the
+//      Quotes filter's Only show Overdue and Aging, opens Dana's quote from the bell, uses View full chat, and sends it.
 //   3. Dana declines a different quote and picks a reason.
 //   4. Brandi (the manager) opens Teams and Reps, compares Mara and Eli, drills into the decline reasons, and
 //      reassigns one of Mara's overdue quotes to Eli.
@@ -56,8 +56,9 @@ async function ask(page: Page, text: string): Promise<Locator> {
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
-const quoteRow = (page: Page, number: string) =>
-  page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) });
+/** A quote's card on the Quotes board (plan U3). */
+const quoteCard = (page: Page, number: string) => page.getByRole("article", { name: number, exact: true });
+const laneCards = (page: Page, label: string) => page.locator(`section[data-lane][aria-label="${label}"] [role=article]`);
 const repDetail = (number: string) => brandi.evaluate((n) => fetch(`/api/rep/quotes/${n}`).then((r) => r.json()), number);
 const leaderboard = (page: Page) => page.getByRole("table", { name: /Leaderboard/ });
 const repRow = (page: Page, name: string) => leaderboard(page).getByRole("row").filter({ has: page.getByRole("rowheader", { name }) });
@@ -101,7 +102,7 @@ test("Act 1: Dana chats, sees two or more suggestions in the pop-up, and request
   expect(quoteNumber).toBe("Q-24818");
 });
 
-test("Act 2: Brandi sees the aging quotes in the caution dropdown and the Needs attention filter, opens it from the bell, uses View full chat, and sends it", async ({}, testInfo) => {
+test("Act 2: Brandi sees the aging quotes in the caution dropdown and Only show Overdue and Aging, opens it from the bell, uses View full chat, and sends it", async ({}, testInfo) => {
   // The chooser offers the rep personas next to Brandi, each with its role.
   await expect(brandi.getByRole("button", { name: /Herrick Industrial Supply.*Manager/ })).toBeVisible();
   const reps = brandi.getByRole("group", { name: "Herrick reps" });
@@ -127,12 +128,17 @@ test("Act 2: Brandi sees the aging quotes in the caution dropdown and the Needs 
   await screenshot(brandi, testInfo, "act2-caution");
   await brandi.keyboard.press("Escape");
 
-  // The list's Needs attention filter holds the same quotes: red first, then amber.
-  await brandi.getByRole("navigation", { name: "Filter by status" }).getByRole("link", { name: /^Needs attention/ }).click();
-  await expect(brandi).toHaveURL(/\/rep\/quotes\?attention=1$/);
-  await expect(brandi.getByRole("table").locator('[data-level="red"]')).toHaveCount(overdue);
-  await expect(quoteRow(brandi, "Q-24790").locator('[data-level="red"]')).toHaveText(/^Overdue/);
-  await expect(quoteRow(brandi, "Q-24789").locator('[data-level="amber"]')).toHaveText(/^Aging/);
+  // The Quotes filter's Only show Overdue and Aging holds the same quotes (plan U3: the old Needs attention view).
+  await brandi.locator("header [data-ui=filter] > button").click();
+  const panel = brandi.getByRole("dialog", { name: "Filter quotes" });
+  await panel.locator("label").filter({ hasText: /^Overdue$/ }).click();
+  await panel.locator("label").filter({ hasText: /^Aging$/ }).click();
+  await panel.getByRole("button", { name: "Apply filters" }).click();
+  await expect(brandi).toHaveURL(/\/rep\/quotes\?only=overdue%2Caging$/);
+  const shown = await brandi.evaluate(() => fetch("/api/rep/quotes?only=overdue,aging").then((r) => r.json()));
+  expect(shown.rows.filter((r: { aging: { level: string } }) => r.aging.level === "red")).toHaveLength(overdue);
+  await expect(quoteCard(brandi, "Q-24790")).toContainText(/Overdue$/);
+  await expect(quoteCard(brandi, "Q-24789")).toContainText(/Aging$/);
   await screenshot(brandi, testInfo, "act2-needs-attention");
 
   // Dana's new quote, unread: the bell lists it and opens it.
@@ -210,23 +216,26 @@ test("Act 4: Brandi compares Mara and Eli on Teams and Reps, drills into the dec
   await declines.getByRole("link", { name: "6 declined quotes" }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?(rep=[^&]+&)?from=.+status=declined/);
   expect(brandi.url()).not.toContain("scope=");
-  await expect(brandi.getByRole("table").getByRole("rowheader")).toHaveCount(6);
+  await expect(laneCards(brandi, "Declined")).toHaveCount(6);
   await screenshot(brandi, testInfo, "act4-declined-quotes");
 
-  // Mara's overdue quotes, from her row: move her overdue draft to Eli.
+  // Mara's overdue quotes, from her row: open her overdue draft and move it to Eli from the quote page
+  // (the Quotes page has no bulk reassign, decision 45; Teams and Reps gets it, plan U7).
   await brandi.goto("/rep/teams");
   await repRow(brandi, "Mara Jensen").getByRole("link", { name: "2 overdue" }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?rep=mara&.*aging=red/);
-  const draft = brandi.getByRole("table").getByRole("rowgroup").filter({ hasText: "Draft ready" });
+  const draft = laneCards(brandi, "Draft ready");
   await expect(draft).toHaveCount(1);
-  const number = (await draft.getByRole("rowheader").getByRole("link").textContent())!.match(/Q-\d+/)![0];
-  await brandi.getByRole("checkbox", { name: `Select ${number}` }).check();
-  await brandi.getByRole("region", { name: "Selected quotes" }).getByRole("button", { name: "Reassign…" }).click();
-  const dialog = brandi.getByRole("dialog", { name: /^Reassign / });
+  const number = (await draft.getAttribute("aria-label"))!;
+  await draft.getByRole("button", { name: number, exact: true }).click();
+  await brandi.getByRole("dialog", { name: number, exact: true }).getByRole("link", { name: "Open quote" }).click();
+  await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${number}$`));
+  await brandi.getByRole("region", { name: "Read only" }).getByRole("button", { name: "Reassign…" }).click();
+  const dialog = brandi.getByRole("dialog", { name: `Reassign ${number}` });
   await dialog.getByRole("combobox", { name: "New rep" }).selectOption("eli");
   await screenshot(brandi, testInfo, "act4-reassign");
   await dialog.getByRole("button", { name: "Reassign" }).click();
-  await expect(brandi.getByRole("status", { name: "Reassignment" })).toContainText("Eli Porter");
+  await expect(brandi.getByRole("region", { name: "Read only" })).toContainText("Eli Porter’s quote");
   const moved = await repDetail(number);
   expect(moved.quote).toMatchObject({ rep_id: "eli", original_rep_id: "mara" });
   expect(JSON.stringify(moved)).toContain(`Brandi Gallegos reassigned ${number} from Mara Jensen to Eli Porter`);

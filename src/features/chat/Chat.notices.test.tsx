@@ -1,6 +1,6 @@
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-import type {ClarifyPayload,QuoteNotice} from '@/domain';
+import type {ChatNotice,ClarifyPayload,QuoteNotice} from '@/domain';
 import type {API,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
 import {onOpenQuote} from '@/components/customer/open-quote';
 import {QUOTES_CHANGED_EVENT} from '@/components/customer/quotes-changed';
@@ -19,7 +19,7 @@ const notice=(id:string,created_at:string,extra:Partial<QuoteNotice>={}):QuoteNo
 const HISTORY=[turn({id:'t1',question:'Do you have bolts?',answer:'Yes, 64 at SLC.',timestamp:'2026-09-23T16:00:00.000Z'}),
   turn({id:'t2',question:'What is our balance?',answer:'Your open balance is $18,420.00.',timestamp:'2026-09-23T18:00:00.000Z'})];
 
-function makeApi({history=HISTORY,notices=()=>[] as QuoteNotice[]}:{history?:ChatTurn[];notices?:()=>QuoteNotice[]}={}){
+function makeApi({history=HISTORY,notices=()=>[] as ChatNotice[]}:{history?:ChatTurn[];notices?:()=>ChatNotice[]}={}){
   const get=vi.fn(async(path:string):Promise<unknown>=>{
     if(path in siteRoutes)return siteRoutes[path as keyof typeof siteRoutes];
     if(path===`customer/history/${CONVERSATION}`)return history;
@@ -45,6 +45,16 @@ describe('quote notices in the chat',()=>{
     render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
     await screen.findByRole('article',{name:/Quote Q-24818 is ready/});
     expect(order()).toHaveLength(3);
+  });
+
+  it("shows the rep's reply to a change request among the turns, as plain text with no button (decision 63)",async()=>{
+    const {api}=makeApi({notices:()=>[{kind:'rep_reply',id:'r1',conversation_id:CONVERSATION,created_at:'2026-09-23T17:00:00.000Z',
+      quote_id:'q-24790',quote_number:'Q-24790',rep_name:'Brandi Gallegos',text:'Yes, we can hold them at Ogden.\n**Brandi**'}]});
+    render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
+    const card=await screen.findByRole('article',{name:'Brandi Gallegos replied about Q-24790'});
+    expect(order()).toEqual(['turn:Do you have bolts?','notice:Brandi Gallegos replied about Q-24790','turn:What is our balance?']);
+    expect(card.querySelector('.qn-text')!.textContent).toBe('Yes, we can hold them at Ogden.\n**Brandi**');
+    expect(within(card).queryByRole('button')).toBeNull();
   });
 
   it('View quote opens the preview modal on that revision',async()=>{

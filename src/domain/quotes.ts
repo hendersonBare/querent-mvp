@@ -75,6 +75,8 @@ export interface Quote extends QuoteHeader {lines:QuoteLine[]}
 export interface QuoteListRow {
   id:string;quote_number:string;customer_id:string;customer_name:string;rep_id:string;rep_name:string;status:QuoteStatus;revision:number;
   requested_at:string;created_at:string;updated_at:string;sent_at:string|null;responded_at:string|null;valid_until:string|null;fulfillment:Fulfillment;change_request_note:string|null;
+  /** The quote's contact (the purchasing agent), or null for a quote with none. */
+  contact_name:string|null;
   unread_for_rep:boolean;is_sample:boolean;line_count:number;subtotal:number;cost_total:number;margin:number|null;freight_override:number|null;
   /** Total of the last sent revision, or null if never sent. */
   sent_total:number|null;

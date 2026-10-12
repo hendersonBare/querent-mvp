@@ -53,6 +53,11 @@ const calls:Record<keyof typeof customer,()=>unknown>={
       valid_until:'2026-09-24',headline:'Quote Q-24816 is ready: $655.25, valid until Sep 24',attach_pdf:true,pdf_url:'/api/quotes/q-24816/pdf?variant=customer&rev=1',unit_cost:1,internal_notes:'x'}});
     return customer.quoteNotices('wasatch');
   },
+  repReplyNotices:()=>{
+    // The seed has no rep_reply message: post one as Send reply does (decision 63), with internal-looking extras it must drop.
+    customer.addMessage('wasatch','conv-q-24817',{role:'system',kind:'rep_reply',content:'Friday works.',payload:{quote_id:'q-24816',quote_number:'Q-24816',rep_name:'Brandi Gallegos',unit_cost:1,margin:0.3}});
+    return customer.repReplyNotices('wasatch');
+  },
   notificationReads:()=>{customer.saveNotificationReads('wasatch',['order:so-51223:shipped'],'2026-09-23T18:00:00.000Z');return customer.notificationReads('wasatch');},
   quoteNews:()=>customer.quoteNews('wasatch'),
   saveNotificationReads:()=>customer.saveNotificationReads('wasatch',['quote:q-24816:rev:1'],'2026-09-23T18:00:00.000Z'),

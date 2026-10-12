@@ -239,10 +239,14 @@ test("Request changes at 1440px: a required note, the centered Confirm, and Bran
   const detail = await repDetail(number);
   expect(detail.quote).toMatchObject({ status: "changes_requested", change_request_note: NOTE, unread_for_rep: true, branch_code: "SLC" });
   expect(detail.editable).toBe(true);
+  // The Quotes board (plan U3): the quote in the Changes requested lane, its note behind View note (C_QOB6).
   await brandi.goto("/rep/quotes");
-  const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: number, exact: true }) });
-  await expect(row).toHaveAttribute("data-status", "changes_requested");
-  await expect(row.getByText(NOTE)).toBeVisible();
+  const card = brandi.locator('section[data-lane][aria-label="Changes requested"]').getByRole("article", { name: number, exact: true });
+  await card.getByRole("button", { name: "View note" }).click();
+  const note = brandi.getByRole("dialog", { name: `Note on ${number}` });
+  await expect(note).toContainText(NOTE);
+  await brandi.keyboard.press("Escape");
+  await expect(note).toHaveCount(0);
 });
 
 test("what a crafted request can't do: change branch or pickup, answer twice, an older revision, an expired quote or another customer's quote", async () => {
