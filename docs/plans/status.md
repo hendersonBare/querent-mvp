@@ -2,7 +2,7 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 67. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 68. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
@@ -14,7 +14,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 67. Started 2026-10-11.
 | U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | [#60](https://github.com/hendersonBare/querent-mvp/pull/60) | merged |
-| U8 | | in progress (`task/U8-manager-settings`) |
+| U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | in review |
 | U9 | | not started |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
 | U11 | | not started |
