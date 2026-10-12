@@ -39,7 +39,7 @@ async function call(name:Name,method:Method,{body,query='',persona='supplier'}:{
 const SEEDED_ORG=[['fasteners',0.2],['abrasives',0.2],['safety',0.2],['material-handling',0.2],['tools',0.18],['janitorial',0.2]];
 
 describe('GET /api/rep/settings',()=>{
-  it("gives the manager her four tabs' data and her flags, never cached",async()=>{
+  it("gives the manager her four tabs' data, her flags and her own profile (decision 69), never cached",async()=>{
     const {status,cache,json}=await call('','GET');
     expect(status).toBe(200);
     expect(cache).toMatch(/no-store/);
@@ -47,7 +47,8 @@ describe('GET /api/rep/settings',()=>{
     expect(json.own).toBeNull();
     expect(json.rep_id).toBe('brandi');
     const m=json.manager;
-    expect(Object.keys(m).sort()).toEqual(['access','accessTable','aging','delivery','flags','orgFloors','pricing','repMargins']);
+    expect(Object.keys(m).sort()).toEqual(['access','accessTable','aging','delivery','flags','orgFloors','pricing','profile','repMargins']);
+    expect(m.profile).toEqual({name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',picture_url:null});
     expect(m.access.map((r:{category:string;enabled:boolean})=>[r.category,r.enabled])).toEqual([['items_stock',true],['pricing',true],['orders_quotes',true],['account',true]]);
     expect(m.accessTable).toBeNull();
     expect(m.orgFloors.map((f:{category_id:string;floor:number})=>[f.category_id,f.floor])).toEqual(SEEDED_ORG);
