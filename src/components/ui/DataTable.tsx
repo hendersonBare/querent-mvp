@@ -51,6 +51,10 @@ export interface DataTableProps<Row> {
   initialPrefs?:TablePrefs|null;
   onPrefsChange?:(prefs:TablePrefs)=>void;
   onRowClick?:(row:Row)=>void;
+  /** The last track, which holds the columns picker in the header (C_QOTable 28px; C_STBase 124px, wide enough for a row action). */
+  pickerTrack?:string;
+  /** A per-row control in that last track, under the columns picker (C_STBase "Add to quote"). */
+  rowEnd?:(row:Row)=>ReactNode;
   className?:string;
   style?:CSSProperties;
 }
@@ -58,7 +62,7 @@ export interface DataTableProps<Row> {
 const PICKER_TRACK='28px';
 
 export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreLabel,lessLabel,layout='card',divider='default',gap=16,splitGap=14,
-  minWidth,initialPrefs=null,onPrefsChange,onRowClick,className,style}:DataTableProps<Row>){
+  minWidth,initialPrefs=null,onPrefsChange,onRowClick,pickerTrack=PICKER_TRACK,rowEnd,className,style}:DataTableProps<Row>){
   const [prefs,setPrefs]=useState(()=>{const r=resolveColumns(columns,initialPrefs);return {column_order:r.order,hidden_columns:r.hidden};});
   const [expanded,setExpanded]=useState(false);
   const [picking,setPicking]=useState(false);
@@ -70,7 +74,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
   const {order,hidden}=resolveColumns(columns,prefs);
   const visible=order.filter(id=>!hidden.includes(id)).map(id=>byId.get(id)!);
   const visibleIds=visible.map(c=>c.id);
-  const template=[...visible.map(c=>c.track),PICKER_TRACK].join(' ');
+  const template=[...visible.map(c=>c.track),pickerTrack].join(' ');
   const grid:CSSProperties={gridTemplateColumns:template,gap};
 
   function update(next:TablePrefs){
@@ -115,6 +119,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
   const bodyRows=shownRows.map(row=><div key={rowKey(row)} role="row" className={cx(s.row,divider==='soft'&&s.soft,onRowClick&&s.clickable)} style={grid}
     onClick={onRowClick?()=>onRowClick(row):undefined}>
     {visible.map(column=><div key={column.id} role="cell" className={column.align==='right'?s.right:undefined}>{column.render(row)}</div>)}
+    {rowEnd&&<div role="cell" className={s.rowEnd}>{rowEnd(row)}</div>}
   </div>);
   const foot=remaining>0&&<div className={cx(s.foot,divider==='soft'&&s.soft,layout==='card'?s.cardFoot:s.splitFoot)}>
     <ShowMoreButton onClick={()=>setExpanded(!expanded)}>{expanded?lessLabel:moreLabel(remaining)}</ShowMoreButton>

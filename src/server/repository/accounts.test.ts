@@ -108,7 +108,8 @@ describe('customer directory (rep Customers list, task 3.8)',()=>{
 
   it('counts open quotes (Draft ready, Changes requested, Sent) for the Has open quotes filter, only the rep\'s own for a rep (plan U5)',()=>{
     const open=(rows:{id:string;open_quote_count:number}[])=>Object.fromEntries(rows.map(r=>[r.id,r.open_quote_count]));
-    expect(open(customerDirectory({repId:'mara'}))).toEqual({'canyon-ridge':7});
+    // Canyon Ridge has 7 open quotes in all (above); 5 of them are Mara's own (the others were reassigned to Eli in the seed).
+    expect(open(customerDirectory({repId:'mara'}))).toEqual({'canyon-ridge':5});
     expect(open(customerDirectory({repId:'brandi'}))).toEqual({'great-basin':0,wasatch:4});
   });
 

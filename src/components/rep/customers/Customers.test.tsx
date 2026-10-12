@@ -68,7 +68,7 @@ describe('CustomersList, manager (C_CUBase)',()=>{
   it('filter applied (C_CU2): the badge, the count, a chip per group with x, and Clear all',()=>{
     render(<CustomersList rows={DIRECTORY} manager/>);
     openFilter();
-    fireEvent.click(within(panel()).getByRole('checkbox',{name:'Brandi Gallegos'}));
+    fireEvent.click(within(panel()).getByRole('checkbox',{name:/^Brandi Gallegos/}));
     fireEvent.click(within(panel()).getByRole('button',{name:'Apply filters'}));
     expect(screen.getByRole('button',{name:'Filter, 1 applied'})).toBeInTheDocument();
     expect(screen.getByText('2 customers')).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('CustomerDetail (C_CU3)',()=>{
     expect(screen.queryByRole('button',{name:'Choose columns'})).toBeNull();
     expect(screen.queryByRole('button',{name:/^Filter/})).toBeNull();
     // Only the two "View all" links carry a customer filter (task U1).
-    expect(screen.getAllByRole('link').map(l=>l.getAttribute('href')!).filter(h=>h.includes('customer='))).toEqual(['/rep/quotes?customer=wasatch','/rep/orders?customer=wasatch']);
+    expect(screen.getAllByRole('link').map(l=>l.getAttribute('href')!).filter(h=>h.includes('customer='))).toEqual(['/rep/orders?customer=wasatch','/rep/quotes?customer=wasatch']);
   });
 
   it('shows the account facts, credit used, ship-to, the rep and the contacts',()=>{

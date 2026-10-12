@@ -12,9 +12,13 @@ const NOW='2026-09-23T18:00:00.000Z';
 describe('addToQuoteTargets',()=>{
   it('lists the rep\'s own editable quotes, newest request first, with customer, status, lines and the draft total',async()=>{
     const brandi=await addToQuoteTargets('brandi',{now:NOW});
-    expect(brandi.map(t=>t.quote_number)).toEqual(['Q-24817','Q-24790']);
-    expect(brandi[0]).toEqual({quote_number:'Q-24817',customer_name:'Wasatch Mechanical Contractors',status:'ready_for_review',line_count:4,total:1122.4});
-    expect(brandi[1]).toMatchObject({quote_number:'Q-24790',status:'changes_requested'});
+    // The seed's aging quotes (Q-24790) are dated from the reset time, so the order follows the clock.
+    const {quotes}=await import('@/server/repository');
+    const newestFirst=quotes({repId:'brandi',statuses:['ready_for_review','changes_requested']}).map(q=>q.quote_number);
+    expect(brandi.map(t=>t.quote_number)).toEqual(newestFirst);
+    expect([...newestFirst].sort()).toEqual(['Q-24790','Q-24817']);
+    expect(brandi.find(t=>t.quote_number==='Q-24817')).toEqual({quote_number:'Q-24817',customer_name:'Wasatch Mechanical Contractors',status:'ready_for_review',line_count:4,total:1122.4});
+    expect(brandi.find(t=>t.quote_number==='Q-24790')).toMatchObject({status:'changes_requested'});
   });
 
   it('offers a rep only their own drafts, never another rep\'s',async()=>{

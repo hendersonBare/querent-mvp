@@ -1,92 +1,105 @@
-import type {ReactNode} from 'react';
+import type {CSSProperties,ReactNode} from 'react';
 import Link from 'next/link';
 import type {OrderStatus,QuoteStatus} from '@/domain';
-import {HeaderAlertsBar} from '../HeaderAlerts';
-import page from '../RepPage.module.css';
+import ph from '@/components/ui/PageHeader.module.css';
+import {cx} from '@/components/ui/cx';
+import {HeaderAlerts} from '../HeaderAlerts';
+import {RepPageHeader} from '../RepPage';
 import {REP_STATUS} from '../quotes/labels';
 import {ORDER_STATUS} from './format';
-import s from './Reference.module.css';
+import s from './Records.module.css';
 
-// Building blocks for the rep's Customers, Orders and Items pages (task 3.8). No hooks: the pages
-// are Server Components, so they read their own ?customer= filter from searchParams and pass it
-// down. Links never carry it to another page (task U1).
-
-/** A list page's own ?customer= filter as the page read it: the customer's id (null for All customers) and its label. */
-export interface Viewing {customerId:string|null;label:string}
-
-/** "Customers / WAS-1142": the section link, then where you are. */
-export function Crumbs({section,href,current}:{section:string;href:string;current:string}){
-  return <nav className={s.crumbs} aria-label="Breadcrumb">
-    <Link href={href}>{section}</Link><span aria-hidden="true">/</span><span aria-current="page">{current}</span>
-  </nav>;
-}
+// Building blocks of the Customers, Orders and Stock pages (plan U5). No hooks, so the detail pages stay
+// Server Components. Every look comes from the frames (./Records.module.css). Links never carry the
+// page's own ?customer= to another page (task U1), except "View all" on a customer page.
 
 /**
- * A detail page's title block (mockup .qtop/.qtitle): the record's name with an optional status
- * chip beside it, and one line of facts, with the shell's caution and bell on the right (plan U2).
- * List pages use RepPageHeader. U5 rebuilds these pages on PageHeader (C_CU3, C_OR2, C_ST2).
+ * A detail page's header (C_CU3, C_OR2, C_ST2): the record's name (in Geist Mono for an order number),
+ * an optional status chip beside it, the facts line under it, and the shell's caution and bell on the
+ * right, in the page header's layout (src/components/ui/PageHeader).
  */
-export function DetailHeader({title,chip,meta}:{title:string;chip?:ReactNode;meta?:ReactNode}){
-  return <div className={page.top}>
+export function DetailHeader({title,mono=false,chip,subtitle}:{title:string;mono?:boolean;chip?:ReactNode;subtitle:ReactNode}){
+  const heading=<h1 className={cx(ph.title,mono&&s.monoTitle)}>{title}</h1>;
+  return <header className={cx('ui-root',ph.header)} data-ui="page-header">
     <div>
-      <div className={s.titleRow}><h1 className={page.title}>{title}</h1>{chip}</div>
-      {meta&&<p className={page.meta}>{meta}</p>}
+      {chip?<div className={s.titleRow}>{heading}{chip}</div>:heading}
+      <div className={s.subtitle}>{subtitle}</div>
     </div>
-    <HeaderAlertsBar/>
-  </div>;
+    <div className={ph.right}><HeaderAlerts/></div>
+  </header>;
 }
 
-/** A card with an uppercase heading (mockup .itoolbar h3), optional meta and a link on the right. */
-export function Panel({id,title,meta,action,children,flush=false}:{id:string;title:string;meta?:ReactNode;action?:{href:string;label:string};children:ReactNode;
-  /** Tables run edge to edge; text gets padding. */
-  flush?:boolean}){
-  return <section className={s.panel} aria-labelledby={id}>
-    <header className={s.panelHead}>
-      <h2 id={id}>{title}</h2>
-      {meta!==undefined&&<span className={s.panelMeta}>{meta}</span>}
-      {action&&<Link className={s.panelAction} href={action.href}>{action.label}</Link>}
-    </header>
-    {flush?children:<div className={s.panelBody}>{children}</div>}
+/** A white card with the charcoal title bar (C_CU3, C_OR2, C_ST2): title, optional meta, optional link at the right. */
+export function Card({id,title,meta,action,children}:{id:string;title:string;meta?:string;action?:{href:string;label:string};children:ReactNode}){
+  return <section className={s.card} aria-labelledby={id}>
+    <div className={s.cardHead}>
+      <h2 id={id} className={s.cardTitle}>{title}</h2>
+      {meta&&<span className={s.cardMeta}>{meta}</span>}
+      {action&&<Link className={s.cardAction} href={action.href} prefetch={false}>{action.label}</Link>}
+    </div>
+    {children}
   </section>;
 }
 
-/** What a list says when it has nothing to show, and why. */
-export function Empty({heading,children}:{heading:string;children?:ReactNode}){
-  return <div className={s.empty}><h3>{heading}</h3>{children&&<p>{children}</p>}</div>;
+export interface DetailColumn {label:string;align?:'right'}
+/**
+ * A table inside a card (C_CU3 Recent quotes, C_OR2 Items, C_ST2 Stock by branch and Recent orders): the
+ * gray header with a "::" on each label, then the rows. Detail tables have no filter and no columns picker.
+ */
+export function DetailTable({label,tracks,columns,children}:{label:string;tracks:string;columns:readonly DetailColumn[];children:ReactNode}){
+  return <div role="table" aria-label={label}>
+    <div role="row" className={s.detailHead} style={{gridTemplateColumns:tracks}}>
+      {columns.map(c=><div key={c.label} role="columnheader" className={c.align==='right'?s.right:undefined}>{`:: ${c.label}`}</div>)}
+    </div>
+    {children}
+  </div>;
+}
+export function DetailRow({tracks,className,children}:{tracks:string;className?:string;children:ReactNode}){
+  return <div role="row" className={cx(s.detailRow,className)} style={{gridTemplateColumns:tracks}}>{children}</div>;
+}
+export function Cell({align,className,style,children}:{align?:'right';className?:string;style?:CSSProperties;children?:ReactNode}){
+  return <div role="cell" className={cx(align==='right'&&s.right,className)||undefined} style={style}>{children}</div>;
 }
 
-/**
- * A detail page's not-found.tsx. Its back link drops the picked customer: not-found UI can't read
- * searchParams, and All customers always holds the record list.
- */
+/** C_CU3 "No orders yet": a heading and one line under it. */
+export function EmptyBlock({title,children}:{title:string;children?:ReactNode}){
+  return <div className={s.emptyBlock}><div className={s.emptyTitle}>{title}</div>{children&&<div className={s.emptyBody}>{children}</div>}</div>;
+}
+
+/** Label and value rows (C_OR2 Order details, C_ST2 Item details): the value bold and dark, or a green link. */
+export function Fact({label,href,mono=false,children}:{label:string;href?:string;mono?:boolean;children:ReactNode}){
+  return <div className={s.fact}>
+    <dt>{label}</dt>
+    {href?<dd className={s.valueLink}><Link href={href} prefetch={false}>{children}</Link></dd>
+      :<dd className={s.value}>{mono?<span className={s.mono}>{children}</span>:children}</dd>}
+  </div>;
+}
+
+/** A quote's status as plain text (C_CU3 "Draft ready"), in the Quotes list's words. */
+export function QuoteStatusText({status}:{status:QuoteStatus}){
+  return <div className={s.semibold}>{REP_STATUS[status].label}</div>;
+}
+
+/** An order's status in a table (C_ORBase): Shipped in green, Closed muted. */
+export function OrderStatusText({status}:{status:OrderStatus}){
+  return <span className={s[status]}>{ORDER_STATUS[status]}</span>;
+}
+/** An order's status beside its number (C_OR2 "SHIPPED"). */
+export function OrderStatusChip({status}:{status:OrderStatus}){
+  return <span className={cx(s.chipStatus,status==='closed'&&s.chipClosed,status==='open'&&s.chipOpen)}>{ORDER_STATUS[status]}</span>;
+}
+
+/** A detail page's not-found.tsx (no frame: decision 52, one plain line and the way back). */
 export function RecordNotFound({title,heading,body,back}:{title:string;heading:string;body:string;back:{href:string;label:string}}){
   return <>
-    <div className={page.top}><h1 className={page.title}>{title}</h1><HeaderAlertsBar/></div>
-    <section className={page.card} aria-labelledby="record-not-found">
-      <div className={page.empty}>
-        <h2 id="record-not-found">{heading}</h2>
-        <p>{body}</p>
-        <Link href={back.href}>{back.label}</Link>
-      </div>
+    <RepPageHeader title={title}/>
+    <section className={cx('ui-root',s.notFound)} aria-labelledby="record-not-found">
+      <h2 id="record-not-found">{heading}</h2>
+      <p>{body}</p>
+      <Link href={back.href}>{back.label}</Link>
     </section>
   </>;
 }
 
-/** A quote's status chip, in the Quotes list's words and tones (REP_STATUS, task 3.2). */
-export function QuoteStatusChip({status}:{status:QuoteStatus}){
-  const {label,tone}=REP_STATUS[status];
-  return <span className={s.chip} data-tone={tone}>{label}</span>;
-}
-
-export function OrderStatusChip({status}:{status:OrderStatus}){
-  const {label,tone}=ORDER_STATUS[status];
-  return <span className={s.chip} data-tone={tone}>{label}</span>;
-}
-
-/** Available stock at one branch, red at zero, with what's on order. */
-export function Stock({available,onOrder=0}:{available:number;onOrder?:number}){
-  return <span className={s.stock} data-out={available<=0||undefined}>{available}{onOrder>0&&<span className={s.onOrder}>+{onOrder} on order</span>}</span>;
-}
-
-// Server Components import CSS modules directly: a value re-exported from a 'use client' module (RepPage's repPageStyles) is only a client reference there.
-export {s as referenceStyles,page as pageStyles};
+// Server Components import CSS modules directly: a value re-exported from a 'use client' module is only a client reference there.
+export {s as recordStyles};

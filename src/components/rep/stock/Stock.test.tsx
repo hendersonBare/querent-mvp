@@ -92,11 +92,11 @@ describe('Add to quote (C_ST3)',()=>{
     expect(d.getByText(', Box of 50, list price $38.95, 94 in stock',{exact:false})).toHaveTextContent('HCS-12-13-2G8, Box of 50, list price $38.95, 94 in stock');
     expect(d.getByText('Which quote?')).toBeInTheDocument();
     const choices=d.getAllByRole('radio');
-    expect(choices.map(c=>c.closest('label')!.textContent)).toEqual([
+    expect(choices.map(c=>c.textContent)).toEqual([
       'Q-24817, Wasatch Mechanical ContractorsDraft ready, 4 lines$1,122.40','Q-24790, Wasatch Mechanical ContractorsChanges requested, 3 linesNot sent','+Start a new quote',
     ]);
     expect(choices[0]).toBeChecked();
-    expect(d.getByRole('spinbutton',{name:'Quantity'})).toHaveValue(1);
+    expect(d.getByRole('textbox',{name:'Quantity'})).toHaveValue('1');
     expect(d.getByText('The customer price applies once it is on the quote. You can change it there.')).toBeInTheDocument();
     expect(d.getByRole('button',{name:'Cancel'})).toBeInTheDocument();
     expect(d.getByRole('button',{name:'Add to Q-24817'})).toBeEnabled();
@@ -107,7 +107,7 @@ describe('Add to quote (C_ST3)',()=>{
   it('adds the item at the quantity through the add-line route, then opens the quote',async()=>{
     fetchMock.mockResolvedValue(new Response(JSON.stringify({line_id:'l-9'}),{status:201}));
     const d=open();
-    fireEvent.change(d.getByRole('spinbutton',{name:'Quantity'}),{target:{value:'3'}});
+    fireEvent.change(d.getByRole('textbox',{name:'Quantity'}),{target:{value:'3'}});
     await act(async()=>{fireEvent.click(d.getByRole('button',{name:'Add to Q-24817'}));});
     expect(fetchMock).toHaveBeenCalledWith('/api/rep/quotes/Q-24817/lines',expect.objectContaining({method:'POST'}));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({itemId:'HCS-12-13-2G8',qty:3});
@@ -131,12 +131,13 @@ describe('Add to quote (C_ST3)',()=>{
   it('with no drafts, Start a new quote is the only choice',()=>{
     render(<StockList list={ITEM_LIST} category={null} targets={[]}/>);
     fireEvent.click(within(bodyRows()[0]).getByRole('button',{name:'Add to quote'}));
-    expect(within(dialog()).getAllByRole('radio').map(c=>c.closest('label')!.textContent)).toEqual(['+Start a new quote']);
+    expect(within(dialog()).getAllByRole('radio').map(c=>c.textContent)).toEqual(['+Start a new quote']);
+    expect(within(dialog()).getByRole('radio')).toBeChecked();
   });
 
   it('a whole quantity of at least 1; Cancel and Escape close it',()=>{
     const d=open();
-    fireEvent.change(d.getByRole('spinbutton',{name:'Quantity'}),{target:{value:'0'}});
+    fireEvent.change(d.getByRole('textbox',{name:'Quantity'}),{target:{value:'0'}});
     expect(d.getByRole('button',{name:'Add to Q-24817'})).toBeDisabled();
     fireEvent.click(d.getByRole('button',{name:'Cancel'}));
     expect(screen.queryByRole('dialog',{name:'Add to quote'})).toBeNull();
