@@ -111,20 +111,20 @@ export function MarginVsFloor({margin}:{margin:MarginData}){
   return <Card title="Average margin vs floor">
     <div className={s.cardBody}>
       {!overall.lines?<div>No quotes sent yet.</div>:<>
-        <div><b>{formatMargin(overall.margin)}</b> average margin against a {formatMargin(overall.floor)} average floor. {overall.below_floor?`${plural(overall.below_floor,'line')} of ${overall.lines} under the floor.`:'No lines under the floor.'}</div>
+        <div><b>{formatMargin(overall.margin)}</b>{` average margin against a ${formatMargin(overall.floor)} average floor. ${plural(overall.below_floor,'line')} of ${overall.lines} under the floor.`}</div>
         <ul className={s.list}>
           {categories.map(c=><li key={c.category_id} className={s.marginRow}>
             <div className={s.marginLabel}>
               <span>{c.name}</span>
-              <span><b className={s.tabular}>{formatMargin(c.margin)}</b> <span className={s.floorNote}>floor {formatFloor(c.floor??0)}</span></span>
+              <span><b className={s.tabular}>{formatMargin(c.margin)}</b> <span className={s.floorNote}>{`floor ${formatFloor(c.floor??0)}`}</span></span>
             </div>
             <div className={s.track}><div className={s.fill} style={{width:widthOf(c.margin,scale)}}/><div className={s.floorMark} style={{left:widthOf(c.floor,scale)}}/></div>
-            {c.below_floor>0&&<div className={s.belowNote}>{plural(c.below_floor,'line')} under the {formatFloor(c.floor??0)} floor</div>}
+            {c.below_floor>0&&<div className={s.belowNote}>{`${plural(c.below_floor,'line')} under the ${formatFloor(c.floor??0)} floor`}</div>}
           </li>)}
         </ul>
         <div className={s.scale}>
           <span className={s.scaleKey}><span className={s.keyFill}/>Average margin</span>
-          <span className={s.scaleKey}><span className={s.keyMark}/>Your floor. Bars run from 0 to {formatPercent(scale)}.</span>
+          <span className={s.scaleKey}><span className={s.keyMark}/>{`Your floor. Bars run from 0 to ${formatPercent(scale)}.`}</span>
         </div>
       </>}
     </div>
@@ -142,7 +142,7 @@ export function TopItems({items}:{items:RequestedItem[]}){
             <div><span className={s.sku}>{i.sku}</span> <span className={s.muted}>{i.description}</span></div>
             <div className={s.itemBar}>
               <div className={s.itemTrack}><div className={s.fill} style={{width:`${((i.total_qty/most)*100).toFixed(1)}%`}}/></div>
-              <span className={s.itemValue}><b>{plural(i.quote_count,'quote')}</b>, qty {formatCount(i.total_qty)}</span>
+              <span className={s.itemValue}><b>{plural(i.quote_count,'quote')}</b>{`, qty ${formatCount(i.total_qty)}`}</span>
             </div>
           </li>)}
         </ol>}

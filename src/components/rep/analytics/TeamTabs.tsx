@@ -81,7 +81,7 @@ export function Leaderboard({groups,window,period,onPeriod,custom,prefs}:{
     const together=at>=0&&OPEN_IDS.every((id,i)=>visible[at+i]===id);
     return <div className={s.groupHead} style={grid} aria-hidden="true">{together&&<div className={s.groupLabel} style={{gridColumn:`${at+1} / span 3`}}>Open</div>}</div>;
   };
-  return <Card title="Leaderboard" note={<span className={s.barNote}>Quotes created {windowLabel(window)}, counted under the rep who owns them now</span>}
+  return <Card title="Leaderboard" note={<span className={s.barNote}>{`Quotes created ${windowLabel(window)}, counted under the rep who owns them now`}</span>}
     right={<span className={s.barRight}><BarSegments label="Created" options={PERIOD_OPTIONS} value={period} onChange={onPeriod}/></span>}>
     <div className={s.boardNote}>Rates use the quotes created in the window. Open quotes are shown on their own. Pick a count to see its quotes.</div>
     {custom}
@@ -115,13 +115,14 @@ export function DeclineReasons({groups,window,manager,prefs}:{groups:GroupMetric
     {declined?<Link className={s.barStrong} href={drillHref(window,total.rep_ids,{status:'declined',customer:total.customer_id})} prefetch={false}>{count}</Link>:<span className={s.barStrong}>{count}</span>} in the window. Expired quotes are counted apart.
   </span>}>
     <div className={s.declineBody}>
-      <GridTable tableId="analytics-declines" label="Decline reasons" columns={columns} rows={reasons} rowKey={r=>r.bucket} gap={14} wrapClass={s.declineTable} className={s.boxed} initialPrefs={prefs}/>
+      <GridTable tableId="analytics-declines" label="Decline reasons" columns={columns} rows={reasons} rowKey={r=>r.bucket} gap={14} wrapClass={`${s.declineTable} ${s.boxed}`} initialPrefs={prefs}/>
+      {/* The box is the flex item, as drawn, so its border counts in its basis. No columns picker here. */}
       <div className={s.notes}>
         <div id="decline-notes" className={s.strong}>Other, in the customer&apos;s words</div>
         {groups.other_notes.length?<ul className={s.noteList} aria-labelledby="decline-notes">
           {groups.other_notes.map(n=><li key={n.quote_id} className={s.note}>
-            <div className={s.noteText}>&quot;{n.note}&quot;</div>
-            <div className={s.noteMeta}><Link className={s.quoteLink} href={`/rep/quotes/${encodeURIComponent(n.quote_number)}`} prefetch={false}>{n.quote_number}</Link>, {manager?n.rep_name:n.customer_name}{n.declined_at?`, ${noteDay(n.declined_at)}`:''}</div>
+            <div className={s.noteText}>{`"${n.note}"`}</div>
+            <div className={s.noteMeta}><Link className={s.quoteLink} href={`/rep/quotes/${encodeURIComponent(n.quote_number)}`} prefetch={false}>{n.quote_number}</Link>{`, ${manager?n.rep_name:n.customer_name}${n.declined_at?`, ${noteDay(n.declined_at)}`:''}`}</div>
           </li>)}
         </ul>:<div className={s.noteMeta}>No customer chose Other.</div>}
       </div>
@@ -136,11 +137,11 @@ const UNTOUCHED_TRACKS=['1fr','1.2fr','1.4fr','1.1fr','1.3fr','1.2fr'];
 export function UntouchedTable({groups,manager,prefs}:{groups:GroupMetricRows;manager:boolean;prefs?:TablePrefs|null}){
   const {rows,total}=lines(groups);
   const columns:GridColumn<Line>[]=[
-    {id:'name',label:manager?NAME[groups.dimension]:'Whose quotes',track:'1.4fr',align:'left',header:true,alwaysShown:true,cellClass:s.strong,render:r=>manager?r.name:'Your quotes'},
+    {id:'name',label:manager?NAME[groups.dimension]:'Whose quotes',track:'1.4fr',headAlign:'left',header:true,alwaysShown:true,cellClass:s.strong,render:r=>manager?r.name:'Your quotes'},
     ...UNTOUCHED_REASONS.map(({id,label},i):GridColumn<Line>=>({id:id.replace(/_/g,'-'),label,track:UNTOUCHED_TRACKS[i],align:'right',render:r=><Count n={r.untouched[id]}/>})),
   ];
-  // C_AN8's totals row is plain text, its first cell not aligned.
-  const totals:GridColumn<Line>[]=[{...columns[0],align:undefined,cellClass:undefined,render:r=>r.name},...UNTOUCHED_REASONS.map(({id}):GridColumn<Line>=>({...columns.find(c=>c.id===id.replace(/_/g,'-'))!,render:r=>r.untouched[id]}))];
+  // C_AN8's totals row is plain text.
+  const totals:GridColumn<Line>[]=[{...columns[0],cellClass:undefined,render:r=>r.name},...UNTOUCHED_REASONS.map(({id}):GridColumn<Line>=>({...columns.find(c=>c.id===id.replace(/_/g,'-'))!,render:r=>r.untouched[id]}))];
   return <Card title="Why quotes went untouched">
     <div className={s.untouchedBody}>
       <div className={s.lede}>Read from what happened to each quote, never typed by a rep. Open quotes count once they are aging or overdue.</div>

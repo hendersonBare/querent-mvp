@@ -17,19 +17,19 @@ import s from './Analytics.module.css';
 const CATEGORY_LABELS:Record<Category,string>={items_stock:'Items and stock',pricing:'Pricing',orders_quotes:'Orders and quotes',account:'Account'};
 
 export function QuestionsCard({questions:q}:{questions:QuestionsAnswered}){
+  // With no questions yet the card still reads "0 of 0", its pattern (C_AN2) filled with zeros.
   return <Card title="Questions answered without a rep">
-    {!q.total?<div className={s.cardBody}>No customer questions yet.</div>:
       <div className={s.questions}>
         <div>
-          <div className={s.bigRow}><span className={s.big}>{formatCount(q.answered)}</span><span className={s.unit}>of {formatCount(q.total)}</span></div>
-          <div className={s.muted}>{formatPercent(q.rate)} answered without a rep</div>
+          <div className={s.bigRow}><span className={s.big}>{formatCount(q.answered)}</span><span className={s.unit}>{`of ${formatCount(q.total)}`}</span></div>
+          <div className={s.muted}>{`${formatPercent(q.rate??0)} answered without a rep`}</div>
           <div className={s.answerBar}><div className={s.answerFill} style={{width:`${(q.rate??0)*100}%`}}/></div>
         </div>
         <div>
           {([['Answered with live data',q.with_data],['Answered, nothing matched',q.no_match],['Needed a rep',q.needed_rep]] as const).map(([label,n])=>
             <div key={label} className={s.breakdownRow}><span>{label}</span><span className={s.strong}>{formatCount(n)}</span></div>)}
         </div>
-      </div>}
+      </div>
   </Card>;
 }
 
@@ -72,7 +72,7 @@ export function QueryAnalytics({queries,access,manager,manageHref,prefs}:{querie
         <div className={s.insightTitle}>Answers for customers.<br/>Time for your team.</div>
         <div className={s.insightText}>Let customers find the information they need, while your team focuses on the work that needs a person.</div>
         {access.length>0&&<div className={s.insightStat}>
-          <span className={s.insightFigure}>{enabled} of {access.length}</span>
+          <span className={s.insightFigure}>{`${enabled} of ${access.length}`}</span>
           <div className={s.insightNote}>categories fully enabled</div>
         </div>}
         {manager&&<Link className={s.manage} href={manageHref} prefetch={false}>Manage customer access</Link>}

@@ -18,8 +18,10 @@ export interface GridColumn<Row> {
   id:string;label:string;
   /** The grid track: a fraction for fluid columns, px for fixed ones. */
   track:string;
-  /** right: numbers; left: written out (C_AN6 and C_AN8 set text-align: left on the first column). */
+  /** right: numbers; left: written out (C_AN6 sets text-align: left on its first column). */
   align?:'left'|'right';
+  /** The header cell's alignment, where it differs from the cells' (C_AN8: the header left, the cells unset). */
+  headAlign?:'left'|'right';
   /** The row's name (its rowheader). */
   header?:boolean;
   /** The cell's own look where the frame styles the cell itself (C_AN3's bold week, C_AN7's bold reason). */
@@ -111,7 +113,7 @@ export function GridTable<Row>({tableId,label,columns,rows,rowKey,gap,picker=fal
           const drop=slot&&(slot.to<slot.from?(slot.to===0&&i===0?'before':i===slot.to-1?'after':null):(i===slot.to?'after':null));
           const {ref,...drag}=header.itemProps(c.id);
           return <div key={c.id} ref={ref} role="columnheader" tabIndex={0} aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
-            className={cx(s.headCell,align(c),drop==='after'&&s.dropAfter,drop==='before'&&s.dropBefore)} {...drag}>{':: '}{c.label}</div>;
+            className={cx(s.headCell,align({...c,align:c.headAlign??c.align}),drop==='after'&&s.dropAfter,drop==='before'&&s.dropBefore)} {...drag}>{':: '}{c.label}</div>;
         })}
         {picker&&<div ref={pickerCell} className={s.pickerCell}>
           <button type="button" aria-label="Choose columns" aria-expanded={picking} aria-haspopup="dialog" className={s.columnsButton} onClick={openPicker}>
