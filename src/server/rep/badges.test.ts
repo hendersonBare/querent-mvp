@@ -3,7 +3,7 @@ import type {NewQuote} from '@/domain';
 import {createQuote,markQuoteRead,quote,saveQuoteTransition} from '@/server/repository';
 import {acceptQuote,declineQuote,requestChanges,sendQuote} from '@/server/quotes/service';
 import {useSeededDatabase} from '@/server/repository/test-db';
-import {askedLine,customerShortName,repBadges} from './badges';
+import {askedLine,repBadges} from './badges';
 import {repQuoteList} from './quotes';
 
 // The rep portal's Quotes badge (task 3.1) against the seed pinned to the mockup's day.
@@ -131,13 +131,7 @@ describe('askedLine: a change request as one short line (C_QOB3 "Dana Ortiz aske
   });
 });
 
-describe('customerShortName: the customer as C_QOB4 names it ("accepted by Canyon Ridge")',()=>{
-  it('keeps the first two words of the customer\'s name',()=>{
-    expect(customerShortName('Canyon Ridge Builders')).toBe('Canyon Ridge');
-    expect(customerShortName('Wasatch Mechanical Contractors')).toBe('Wasatch Mechanical');
-    expect(customerShortName('Herrick')).toBe('Herrick');
-  });
-
+describe('repBadges: the caution holds the Needs attention quotes',()=>{
   it('holds the same quotes as the Quotes list\'s Needs attention view: the rep\'s own, or every rep\'s for the manager (task U1)',async()=>{
     // The demo books' aging quotes are seeded relative to the reset time (task F1), so read them now.
     const now=new Date().toISOString();
@@ -165,7 +159,7 @@ describe('repBadges: the bell dropdown (Notifications, C_QOB4)',()=>{
     const after=repBadges('brandi',{now:'2026-09-24T18:00:00.000Z'}).bell;
     expect(after.map(b=>[b.kind,b.label,b.at])).toEqual([
       ['quote_declined',`${declined.quote_number} declined by Dana Ortiz`,'2026-09-24T17:00:00.000Z'],
-      ['quote_accepted',`${accepted.quote_number} accepted by Wasatch Mechanical`,'2026-09-24T16:00:00.000Z'],
+      ['quote_accepted',`${accepted.quote_number} accepted by Wasatch Mechanical Contractors`,'2026-09-24T16:00:00.000Z'],
       ['change_requested',`Dana Ortiz replied on ${changes.quote_number}`,LATER],
       ['quote_requested','Q-24817 requested by Dana Ortiz','2026-09-23T16:14:00.000Z'],
     ]);
@@ -174,12 +168,22 @@ describe('repBadges: the bell dropdown (Notifications, C_QOB4)',()=>{
     expect(repBadges('brandi',{now:'2026-09-24T18:00:00.000Z'}).bell.map(b=>b.id)).toEqual(['q-24817']);
   });
 
-  it('names whom C_QOB4 names: the contact who replied, the customer who accepted; the contact for events it does not sample (decision 58)',async()=>{
+  it('names whom C_QOB4 names: the contact who replied, the customer who accepted, by its full name (decision 59); the contact for events it does not sample (decision 58)',async()=>{
     const accepted=request();
     await sendQuote(accepted.id,{repId:'brandi',now:SENT});
     acceptQuote('wasatch',accepted.id,{revision:1,fulfillmentTime:'2026-09-25',customerPo:'7781',now:LATER});
-    expect(repBadges('brandi',{now:LATER}).bell.find(b=>b.id===accepted.id)?.label).toBe(`${accepted.quote_number} accepted by Wasatch Mechanical`);
+    expect(repBadges('brandi',{now:LATER}).bell.find(b=>b.id===accepted.id)?.label).toBe(`${accepted.quote_number} accepted by Wasatch Mechanical Contractors`);
     markQuoteRead(accepted.id,'rep');
+  });
+
+  it('names the customer by its full name when the quote has no contact (decision 59), in the bell and the caution',async()=>{
+    const q=request({contactId:null});
+    await sendQuote(q.id,{repId:'brandi',now:SENT});
+    requestChanges('wasatch',q.id,{revision:1,note:'Can you move pickup to Ogden?',now:LATER});
+    const {bell,caution}=repBadges('brandi',{now:'2026-09-24T20:00:00.000Z'});
+    expect(bell.find(b=>b.id===q.id)?.label).toBe(`Wasatch Mechanical Contractors replied on ${q.quote_number}`);
+    expect(caution.find(c=>c.id===q.id)?.line).toBe('Wasatch Mechanical Contractors asked to move…');
+    markQuoteRead(q.id,'rep');
   });
 
   it('prints an expired row\'s date only, the day it expired, as C_QOB4 does ("Q-24815 expired", "Sep 18")',async()=>{

@@ -109,9 +109,6 @@ export function askedLine(who:string,note:string){
   return fit(verb?`${who} asked to `:`${who} asked for changes: `,lowerFirst(rest));
 }
 
-/** The customer as C_QOB4 names it, "Q-24763 accepted by Canyon Ridge": the first two words of its name. */
-export const customerShortName=(name:string)=>name.split(',')[0]!.trim().split(/\s+/).slice(0,2).join(' ');
-
 type CautionRow=ReturnType<typeof attentionQuotes>[number];
 
 /**
@@ -125,7 +122,7 @@ type CautionRow=ReturnType<typeof attentionQuotes>[number];
 function cautionLine(row:CautionRow,now:string){
   switch(row.status){
     case 'changes_requested':{
-      const who=quote(row.id)?.contact_name??customerShortName(row.customer_name);
+      const who=quote(row.id)?.contact_name??row.customer_name;
       return askedLine(who,row.change_request_note??'');
     }
     case 'ready_for_review':{
@@ -138,16 +135,17 @@ function cautionLine(row:CautionRow,now:string){
 
 /**
  * The bell's words for an unread quote, as C_QOB4 words its rows: "Dana Ortiz replied on Q-24790"
- * (the contact, as the frame names a person), "Q-24763 accepted by Canyon Ridge" (the customer),
- * "Q-24815 expired" over its day only ("Sep 18"). Events the frame does not sample name the contact
- * (decision 58): "Q-24818 requested by Dana Ortiz", "Q-24791 declined by Dana Ortiz".
+ * (the contact, as the frame names a person), "Q-24763 accepted by Canyon Ridge Builders" (the customer,
+ * by its full name: decision 59), "Q-24815 expired" over its day only ("Sep 18"). Events the frame does
+ * not sample name the contact (decision 58): "Q-24818 requested by Dana Ortiz", "Q-24791 declined by
+ * Dana Ortiz". A quote with no contact names the customer by its full name.
  */
 function bellSummary(e:UnreadQuoteEvent,now:string):BadgeSummary{
   const base={id:e.id,quote_number:e.quote_number,tag:null,line:null};
-  const contact=e.contact_name??customerShortName(e.customer_name),responded=e.responded_at??e.requested_at;
+  const contact=e.contact_name??e.customer_name,responded=e.responded_at??e.requested_at;
   switch(e.status){
     case 'changes_requested':return {...base,kind:'change_requested',label:`${contact} replied on ${e.quote_number}`,at:responded};
-    case 'accepted':return {...base,kind:'quote_accepted',label:`${e.quote_number} accepted by ${customerShortName(e.customer_name)}`,at:responded};
+    case 'accepted':return {...base,kind:'quote_accepted',label:`${e.quote_number} accepted by ${e.customer_name}`,at:responded};
     case 'declined':return {...base,kind:'quote_declined',label:`${e.quote_number} declined by ${contact}`,at:responded};
     case 'expired':{
       // When it expired: as its valid_until day ended (lifecycle expiresAt).

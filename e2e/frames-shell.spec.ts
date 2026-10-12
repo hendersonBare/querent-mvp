@@ -226,7 +226,7 @@ const CAUTION_LINES = {
 const DRAFT_WAITING = /^Requested [A-Z][a-z]{2} \d{1,2}, not sent yet\.$/;
 /**
  * C_QOB4's row titles, as its three samples word them: "Dana Ortiz replied on Q-24790" (the contact),
- * "Q-24763 accepted by Canyon Ridge" (the customer), "Q-24815 expired"; and its times: "Oct 9, 4:12 PM", or
+ * "Q-24763 accepted by Canyon Ridge" (the customer: the app prints its full name, decision 59), "Q-24815 expired"; and its times: "Oct 9, 4:12 PM", or
  * the day only for an expired quote ("Sep 18").
  */
 const BELL_TITLES = { replied: /^(.+) replied on (Q-\d+)$/, accepted: /^(Q-\d+) accepted by (.+)$/, expired: /^(Q-\d+) expired$/ };
@@ -350,9 +350,9 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   await page.mouse.move(1919, 1079);
   const served = await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()));
   // Q-24817's request was read when an earlier test opened it, so these four are the unread ones. The reply
-  // names the contact and the acceptance the customer, as C_QOB4 does; declines name the contact (decision 58).
+  // names the contact and the acceptance the customer by its full name (decision 59); declines name the contact (decision 58).
   expect(served.bell.map((b: { label: string }) => b.label)).toEqual([
-    `${made[3]} accepted by Wasatch Mechanical`, `${made[2]} declined by Dana Ortiz`, `${made[1]} declined by Dana Ortiz`, `Dana Ortiz replied on ${made[0]}`]);
+    `${made[3]} accepted by Wasatch Mechanical Contractors`, `${made[2]} declined by Dana Ortiz`, `${made[1]} declined by Dana Ortiz`, `Dana Ortiz replied on ${made[0]}`]);
   const before = page.url();
   await page.locator(BELL).click();
   await page.mouse.move(1919, 1079);
@@ -370,7 +370,7 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   expect(shown.filter((_, i) => i % 2 === 1)).toEqual(served.bell.map((b: { label: string }) => b.label));
   for (const when of shown.filter((_, i) => i > 0 && i % 2 === 0)) expect(when).toMatch(BELL_TIME);
   // The frame's samples follow these patterns, and the app's reply and acceptance rows fill them the same way:
-  // the contact who replied, the customer (its name's first two words, "Canyon Ridge") who accepted.
+  // the contact who replied, the customer who accepted, by its full name (decision 59).
   const frameShown = f.filter((m) => m.text).map((m) => m.text);
   expect(frameShown[1]).toMatch(BELL_TITLES.replied);
   expect(frameShown[3]).toMatch(BELL_TITLES.accepted);
@@ -378,7 +378,12 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   expect([frameShown[2], frameShown[4]]).toEqual([expect.stringMatching(BELL_TIME), expect.stringMatching(BELL_TIME)]);
   expect(frameShown[6]).toMatch(BELL_DAY);
   expect(shown).toContain(`Dana Ortiz replied on ${made[0]}`);
-  expect(shown.find((t) => BELL_TITLES.accepted.test(t))?.match(BELL_TITLES.accepted)?.[2]).toBe("Wasatch Mechanical");
+  expect(shown.find((t) => BELL_TITLES.accepted.test(t))?.match(BELL_TITLES.accepted)?.[2]).toBe("Wasatch Mechanical Contractors");
+  // Each title is one row tall, as each of the frame's is, with the longest seeded customer name.
+  const titleHeights = (list: Measure[]) => list.filter((m) => m.text).filter((_, i) => i % 2 === 1).map((m) => m.rect.h);
+  const frameTitle = titleHeights(f)[0]!;
+  expect(titleHeights(f).every((h) => h === frameTitle)).toBe(true);
+  expect(titleHeights(a).filter((h) => h !== frameTitle)).toEqual([]);
   // The frame's heading is literal; rows pair by place (real data, Appendix G "notification samples").
   // The frame draws three rows; the app's first three rows pair with them (the fourth has the same structure).
   expectSame("C_QOB4 panel", rewrite(f, (m) => (m.text === "Notifications" ? m.text : byPlace(m))), rewrite(a.slice(0, f.length), (m) => (m.text === "Notifications" ? m.text : byPlace(m))));
