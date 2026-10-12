@@ -84,7 +84,7 @@ export function setAssignedRep(customerId:string,repId:string){
     ON CONFLICT(customer_id) DO UPDATE SET rep_id=excluded.rep_id`,customerId,repId).changes>0;
 }
 
-// ---- Roles, team labels and inactive reps (v3 spec §1.2 "006" row, §8; decisions 20, 21; task D1) ----
+// ---- Roles, teams and inactive reps (v3 spec §1.2 "006" row, §8; decisions 20, 21; tasks D1, U7) ----
 
 /** The rep's stored role and active flag: every rep request checks it (src/server/rep/access.ts). Undefined for an unknown rep. */
 export function repStanding(repId:string):RepStanding|undefined{
@@ -92,15 +92,15 @@ export function repStanding(repId:string):RepStanding|undefined{
   return row&&{role:row.role,active:bool(row.active)};
 }
 
-/** The manager's Reps card: every rep by name with role, team label, active flag and customer count. */
+/**
+ * Every rep by name with role, team, active flag and customer count (Teams and Reps, Analytics' filter).
+ * The team is the rep's team entity (011_teams, plan U7): its name and id, null for a rep in none.
+ */
 export function teamReps():TeamRep[]{
-  return all<Omit<TeamRep,'active'>&{active:number}>(`SELECT r.id,r.name,r.initials,r.title,r.role,r.team,r.active,
+  return all<Omit<TeamRep,'active'>&{active:number}>(`SELECT r.id,r.name,r.initials,r.title,r.role,t.name team,t.id team_id,r.active,
       (SELECT count(*) FROM customer_rep cr WHERE cr.rep_id=r.id) customer_count
-    FROM reps r ORDER BY r.name`).map(row=>({...row,active:bool(row.active)}));
+    FROM reps r LEFT JOIN team_members m ON m.rep_id=r.id LEFT JOIN teams t ON t.id=m.team_id ORDER BY r.name`).map(row=>({...row,active:bool(row.active)}));
 }
-
-/** Sets or clears (null) the rep's team label, already checked by the caller. False for an unknown rep. */
-export function setRepTeam(repId:string,team:string|null){return run('UPDATE reps SET team=? WHERE id=?',team,repId).changes>0;}
 
 /**
  * Marks the rep active or inactive. Deactivation is refused while any customer has the rep in

@@ -5,7 +5,7 @@ import {seedDemoQuotes} from './demo';
 import {at} from './dates';
 import {seedHistory} from './history';
 import {backfillOriginalReps,inserter} from './insert';
-import {seedFuelPrices,seedReference,seedRepRoles} from './reference';
+import {seedFuelPrices,seedReference,seedRepRoles,seedTeams} from './reference';
 import {seedSampleQuote} from './sample-quote';
 
 export {seedSampleQuote,SAMPLE_QUOTE} from './sample-quote';
@@ -24,6 +24,7 @@ export function seedDatabase(database:Database.Database,{anchor,now=new Date().t
   database.transaction(()=>{
     seedReference(context);
     seedRepRoles(database);
+    seedTeams(database);
     seedFuelPrices(database,anchor);
     seedHistory(context);
     seedChatLogs(context);

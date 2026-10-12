@@ -62,6 +62,18 @@ export function seedRepRoles(database:Database.Database){
   for(const r of REPS)update.run(r.role,r.team,r.id);
 }
 
+/**
+ * The teams (011_teams; plan U7): one per team label, in the reps' order, each rep a member of theirs, as
+ * the migration turns labels into teams on an existing database. A database built at the v4 schema (the
+ * adoption test's fixture) has no such table yet: there 011's own backfill runs.
+ */
+export function seedTeams(database:Database.Database){
+  if(!database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='teams'").get())return;
+  const team=database.prepare('INSERT INTO teams(name) VALUES(?) ON CONFLICT(name) DO NOTHING');
+  const member=database.prepare('INSERT INTO team_members(rep_id,team_id) SELECT ?,id FROM teams WHERE name=?');
+  for(const r of REPS)if(r.team){team.run(r.team);member.run(r.id,r.team);}
+}
+
 /** The seeded fuel price (v3 spec §4.3, OA-4): UT gasoline at $3.40/gal, so the offline demo and CI never need OilPriceAPI. */
 export const SEED_FUEL_PRICES=[{state:'UT',fuel:'gasoline',price_cents:340}] as const;
 

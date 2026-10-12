@@ -19,4 +19,5 @@ export * from './quotes';
 export * from './settings';
 export * from './table-prefs';
 export * from './team';
+export * from './teams';
 export {inTransaction} from './sql';
