@@ -302,12 +302,12 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - No phone or tablet layout (decision 43): the old app bar, its scrolling nav strip and its breakpoints are gone.
 - Type (U0): every rep page renders in Albert Sans (UI) and Geist Mono (numbers, codes), loaded once by `next/font` in the root layout; Archivo and IBM Plex are gone. The layouts stay as they are until their lane U task rebuilds them on the shared primitives in `src/components/ui/` and the tokens in `src/app/tokens.css`.
 
-### Rep: Quote detail (`/rep/quotes/[id]`)
-- `RequestPanel`: "View full chat" button with "N messages", opening a side drawer: customer messages emphasised, assistant turns collapsed to one line each (expand on click), pages of 50 with "Load earlier" (B1).
-- Declined quotes show the reason and the Other note in the header and Activity (A1).
-- Aging marker in the header (A2).
-- "Why this price?" freight recovery line and header recovery chip (C2).
-- Manager viewing another rep's quote: read-only banner "Read only: Mara Jensen's quote. Reassign it to edit." with Reassign, and every edit control disabled (D2).
+### Rep: Quote editor (`/rep/quotes/[id]`; U4, frames C_QEBase and C_QE1 to C_QE11)
+- Minimal header (C_QEBase): the customer as the title with the caution and bell, then Quote, Status (with Overdue or Aging), Purchasing agent, Requested and Valid until. No breadcrumb, status banners, request box or recovery chip: what the banners said (the change request note, the decline reason and Other note (A1), the accepted PO and pickup) is in Quote details, Activity.
+- Items card: Show cost and stock (off by default; on, Available and Cost appear between Qty and Unit price, C_QE7), the lines with fixed columns Qty 60, Unit price 118, Margin 78, Total 82 and a 34px centre line, each line's price-basis dropdown (C_QE10) and Line details (C_QE9, three columns, with the freight recovery line when the quote carries recovery, C2), then + Add item with its results dropdown (C_QE8: Add, or "Already on quote"). Suggested by Querent below (C_QE5).
+- Total column: the total box (total before tax, gross profit, margin with the floor, **Approve and send**), the Save draft (C_QE11), Export (C_QE2), Chat (C_QE6, the "Full chat" drawer of B1) and More (C_QE3) icon buttons, and Quote details (C_QE4: Customer, Pickup or delivery, Quote terms, Internal notes, Activity), closed by default.
+- Send blockers (decision 44): Approve and send is disabled while `sendBlockers()` finds anything; the first blocker is named under it in red with "+N more", and clicking it jumps to the line's field, opens Quote details at the section, or scrolls to + Add item. Stock short at the branch and a match below 0.75 show as inline notes on their line and never block. The server still refuses a blocked send (422 `send_blocked`). The checks box is gone.
+- Manager viewing another rep's quote (D2, decision 22): read-only, one line under Approve and send "Read only: Mara Jensen's quote. Reassign it to edit.", every edit control off, Reassign in More actions.
 
 ### Rep: Settings (`/rep/settings`)
 - Pricing & delivery: free delivery pricing card (toggle, impact preview, ramp schedule), cost-model inputs, fuel price status and warnings, pool panel (C3, manager-only).

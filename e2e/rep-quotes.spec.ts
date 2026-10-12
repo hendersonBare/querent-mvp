@@ -188,7 +188,7 @@ test("scope: the manager's list is every rep's quotes; the Rep filter and ?custo
   // Brandi is the manager: opening another rep's quote shows it read-only (task D2;
   // e2e/rep-reassign.spec.ts covers it, and another rep's not-found).
   await page.goto(`/rep/quotes/${made.other_rep}`);
-  await expect(page.getByRole("region", { name: "Read only" })).toContainText("Mara Jensen’s quote");
+  await expect(page.getByText("Read only: Mara Jensen's quote. Reassign it to edit.", { exact: true })).toBeVisible();
 });
 
 test("empty: a placeholder customer has no quotes yet, and every lane says so", async ({ page }) => {
@@ -234,6 +234,10 @@ test("unread: opening a quote from the preview clears its row in the bell", asyn
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
   await expect.poll(() => bellRows(page)).toEqual([made.changes_requested]);
   await expect(quotesNavLink(page)).toHaveAttribute("aria-current", "page");
+
+  // Back to the list from the rail (the editor has no breadcrumb, plan U4).
+  await quotesNavLink(page).click();
+  await expect(page).toHaveURL(/\/rep\/quotes$/);
 
   // From the table: a click anywhere on the row opens the preview.
   await page.goto(`${MINE}&view=table`);

@@ -3,8 +3,9 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 // Reassignment and role-based scope (v3 spec §5, §6 Quotes list and Quote detail, §8; decisions
 // 21, 22; tasks D2, U1):
 //   - Brandi (the manager) sees every rep's quotes by default (no All reps switch) and opens Mara's
-//     quote: a read-only banner, every edit control disabled. She reassigns it to herself and can
-//     edit it after; Activity says who moved it.
+//     quote in the editor (plan U4): "Read only: …" under Approve and send, every edit control
+//     disabled. She reassigns it to herself from More actions and can edit it after; Activity says
+//     who moved it.
 //   - Bulk reassign is gone from the Quotes page (decision 45; it moves to Teams and Reps, plan U7), and
 //     POST /api/rep/quotes/reassign still moves two quotes to Eli at once; the rep filter shows them as Eli's.
 //   - Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees only her own quotes.
@@ -66,27 +67,29 @@ test("Brandi opens Mara's quote read-only, reassigns it to herself, and can edit
   await quoteCard(page, fixture.other_rep).getByRole("button", { name: fixture.other_rep, exact: true }).click();
   await page.getByRole("dialog", { name: fixture.other_rep, exact: true }).getByRole("link", { name: "Open quote" }).click();
   await expect(page).toHaveURL(new RegExp(`/rep/quotes/${fixture.other_rep}$`));
-  const banner = page.getByRole("region", { name: "Read only" });
-  await expect(banner).toHaveText(/Read only: Mara Jensen’s quote\. Reassign it to edit\./);
-  for (const name of ["Save draft", "Approve & send"]) await expect(page.getByRole("button", { name })).toBeDisabled();
+  const banner = page.getByText("Read only: Mara Jensen's quote. Reassign it to edit.", { exact: true });
+  await expect(banner).toBeVisible();
+  for (const name of ["Save draft", "Approve and send"]) await expect(page.getByRole("button", { name })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add item" })).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Unit price for GLV-N8-L-1000" })).toBeDisabled();
   await screenshot(page, testInfo, "read-only");
 
-  await banner.getByRole("button", { name: "Reassign…" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menu", { name: "More actions" }).getByRole("menuitem", { name: "Reassign to another rep" }).click();
   const dialog = page.getByRole("dialog", { name: `Reassign ${fixture.other_rep}` });
   await expect(dialog.getByRole("combobox", { name: "New rep" })).toHaveValue("brandi");
   await dialog.getByRole("button", { name: "Reassign" }).click();
   await expect(banner).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Approve & send" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Approve and send" })).toBeEnabled();
 
   // Hers now: she edits a price, and it saves.
   const price = page.getByRole("textbox", { name: "Unit price for GLV-N8-L-1000" });
   await price.fill("84");
   await price.press("Tab");
   await expect(page.getByRole("status").filter({ hasText: "All changes saved" })).toBeVisible();
-  const activity = page.getByRole("group", { name: "Activity" });
-  await activity.locator("summary").click();
-  const entries = activity.getByRole("list", { name: "Activity, newest first" }).getByRole("listitem");
+  await page.getByRole("button", { name: /^Quote details/ }).click();
+  const activity = page.getByRole("region", { name: "Quote details" }).getByRole("region", { name: "Activity", exact: true });
+  const entries = activity.locator('[data-ui="activity-message"]');
   // Newest first: her price change, then the move.
   await expect(entries.nth(0)).toContainText("Brandi changed Nitrile disposable gloves");
   await expect(entries.nth(1)).toContainText(`Brandi Gallegos reassigned ${fixture.other_rep} from Mara Jensen to Brandi Gallegos`);
@@ -151,7 +154,7 @@ test("Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees
 
   // Brandi's quote is not found for her, and Rep assignments is read-only.
   await page.goto("/rep/quotes/Q-24817");
-  await expect(page.getByRole("button", { name: "Approve & send" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approve and send" })).toHaveCount(0);
   await page.goto("/rep/settings");
   await expect(page.getByRole("heading", { name: "Rep assignments" })).toBeVisible();
   await expect(page.getByText("Only a manager can change rep assignments.")).toBeVisible();

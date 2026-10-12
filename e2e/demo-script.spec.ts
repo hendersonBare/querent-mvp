@@ -4,7 +4,7 @@ import { expect, test, type APIRequest, type Browser, type BrowserContext, type 
 // LLM mode on a fresh reset.
 //   1. Dana chats, sees two or more suggestions in the item pop-up, and requests a quote.
 //   2. Brandi sees an amber and a red quote in the header caution's Needs attention dropdown and in the
-//      Quotes filter's Only show Overdue and Aging, opens Dana's quote from the bell, uses View full chat, and sends it.
+//      Quotes filter's Only show Overdue and Aging, opens Dana's quote from the bell, reads the full chat, and sends it.
 //   3. Dana declines a different quote and picks a reason.
 //   4. Brandi (the manager) opens Teams and Reps, compares Mara and Eli, drills into the decline reasons, and
 //      reassigns one of Mara's overdue quotes to Eli.
@@ -102,7 +102,7 @@ test("Act 1: Dana chats, sees two or more suggestions in the pop-up, and request
   expect(quoteNumber).toBe("Q-24818");
 });
 
-test("Act 2: Brandi sees the aging quotes in the caution dropdown and Only show Overdue and Aging, opens it from the bell, uses View full chat, and sends it", async ({}, testInfo) => {
+test("Act 2: Brandi sees the aging quotes in the caution dropdown and Only show Overdue and Aging, opens it from the bell, reads the full chat, and sends it", async ({}, testInfo) => {
   // The chooser offers the rep personas next to Brandi, each with its role.
   await expect(brandi.getByRole("button", { name: /Herrick Industrial Supply.*Manager/ })).toBeVisible();
   const reps = brandi.getByRole("group", { name: "Herrick reps" });
@@ -147,16 +147,17 @@ test("Act 2: Brandi sees the aging quotes in the caution dropdown and Only show 
   await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${quoteNumber}$`));
   await expect(brandi.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 
-  const viewChat = brandi.getByRole("button", { name: /^View full chat, \d+ messages$/ });
+  // The Chat button under the total box (plan U4, C_QEBase) opens the full chat (C_QE6).
+  const viewChat = brandi.getByRole("button", { name: /^Customer chat, \d+ messages$/ });
   await viewChat.click();
   const drawer = brandi.getByRole("dialog", { name: "Full chat" });
   await expect(drawer.locator('[data-role="customer"]').first()).toContainText(REQUEST);
   await screenshot(brandi, testInfo, "act2-full-chat");
   await drawer.getByRole("button", { name: "Close chat" }).click();
   await expect(drawer).toHaveCount(0);
-  await expect(brandi.getByRole("row").filter({ hasText: "HN-12-13-G8" })).toContainText("Chat suggestion");
+  await expect(brandi.getByRole("row").filter({ hasText: "HN-12-13-G8" })).toContainText("CHAT SUGGESTION");
 
-  await brandi.getByRole("button", { name: "Approve & send" }).click();
+  await brandi.getByRole("button", { name: "Approve and send" }).click();
   const send = brandi.getByRole("dialog", { name: "Send quote to Dana Ortiz" });
   await send.getByRole("button", { name: "Send quote" }).click();
   const confirm = brandi.getByRole("alertdialog", { name: "Confirm send" });
@@ -230,12 +231,14 @@ test("Act 4: Brandi compares Mara and Eli on Teams and Reps, drills into the dec
   await draft.getByRole("button", { name: number, exact: true }).click();
   await brandi.getByRole("dialog", { name: number, exact: true }).getByRole("link", { name: "Open quote" }).click();
   await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${number}$`));
-  await brandi.getByRole("region", { name: "Read only" }).getByRole("button", { name: "Reassign…" }).click();
+  // Reassign is in the editor's More actions (plan U4, C_QE1).
+  await brandi.getByRole("button", { name: "More actions" }).click();
+  await brandi.getByRole("menu", { name: "More actions" }).getByRole("menuitem", { name: "Reassign to another rep" }).click();
   const dialog = brandi.getByRole("dialog", { name: `Reassign ${number}` });
   await dialog.getByRole("combobox", { name: "New rep" }).selectOption("eli");
   await screenshot(brandi, testInfo, "act4-reassign");
   await dialog.getByRole("button", { name: "Reassign" }).click();
-  await expect(brandi.getByRole("region", { name: "Read only" })).toContainText("Eli Porter’s quote");
+  await expect(brandi.getByText("Read only: Eli Porter's quote. Reassign it to edit.", { exact: true })).toBeVisible();
   const moved = await repDetail(number);
   expect(moved.quote).toMatchObject({ rep_id: "eli", original_rep_id: "mara" });
   expect(JSON.stringify(moved)).toContain(`Brandi Gallegos reassigned ${number} from Mara Jensen to Eli Porter`);

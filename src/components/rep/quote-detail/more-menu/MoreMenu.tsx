@@ -2,11 +2,13 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {ActionMenu,type MenuItem} from '../ActionMenu';
+import {MoreIcon} from '../icons';
 import {setQuoteFlash,takeQuoteFlash} from './flash';
 import {QuoteToast,type ToastMessage} from './QuoteToast';
 import {reloadPage} from './reload';
 
-// The quote detail's ⋯ menu (spec §4, docs/design/screens/06; task 3.5), in the mockup's order:
+// The quote editor's More actions menu (plan U4, C_QE3; spec §4; task 3.5), under the More icon button,
+// in the frame's order:
 //   Duplicate quote       a new ready_for_review copy (POST /api/rep/quotes/<id>/duplicate),
 //                         then the copy's page opens;
 //   Reassign to another rep  the manager only (task D2): opens the page's Reassign dialog;
@@ -104,7 +106,7 @@ export function MoreMenu({quote,flush,buttonClassName,readOnly=false,onReassign}
   ];
 
   return <>
-    <ActionMenu buttonClassName={buttonClassName} label="More actions" menuLabel="More actions" items={items} emptyNote="">⋯</ActionMenu>
+    <ActionMenu buttonClassName={buttonClassName} label="More actions" menuLabel="More actions" items={items} align="right"><MoreIcon/></ActionMenu>
     <QuoteToast message={toast} onDismiss={dismiss}/>
   </>;
 }

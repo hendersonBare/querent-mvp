@@ -1,12 +1,12 @@
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {TranscriptMessage} from './api';
-import {ViewFullChat} from './ViewFullChat';
+import {ChatButton} from './ViewFullChat';
 
-// "View full chat" (B1, decision 26, spec §6, §9): the button under the customer's request shows the
-// message count and opens the side drawer. Customer messages are emphasised, assistant turns are one
-// line until expanded, notices (item pop-up, quote requested or sent) are one muted line, and
-// "Load earlier" fetches the next page of 50. Escape and the X close it. fetch fakes
+// The Chat icon button and the chat drawer (plan U4, C_QE6; B1, decision 26, spec §6, §9): the button's
+// name carries the message count, and it opens the side drawer. Customer messages are emphasised,
+// assistant turns are one line until expanded, notices (item pop-up, quote requested or sent) are one
+// muted line, and "Load earlier" fetches the next page of 50. Escape and the x close it. fetch fakes
 // GET /api/rep/quotes/<id>/messages.
 
 const REQUEST='Do you have the 1/2 in grade 8 hex bolts in stock? Need 10 boxes plus the usual cut-off wheels and gloves.';
@@ -35,20 +35,20 @@ beforeEach(()=>{
 });
 afterEach(()=>vi.unstubAllGlobals());
 
-const renderButton=()=>render(<ViewFullChat quoteId="q-24817" customer="Dana Ortiz"/>);
+const renderButton=()=>render(<ChatButton quoteId="q-24817" customer="Dana Ortiz" hasChat/>);
 async function openDrawer(){
   renderButton();
-  const button=await screen.findByRole('button',{name:/View full chat, 5 messages/});
+  const button=await screen.findByRole('button',{name:/Customer chat, 5 messages/});
   fireEvent.click(button);
   return screen.getByRole('dialog',{name:'Full chat'});
 }
 
-describe('View full chat',()=>{
+describe('the chat button and drawer',()=>{
   it('shows the message count on the button, from the first page',async()=>{
     renderButton();
-    const button=await screen.findByRole('button',{name:'View full chat, 5 messages'});
-    expect(button).toHaveTextContent('View full chat');
-    expect(button).toHaveTextContent('5 messages');
+    const button=await screen.findByRole('button',{name:'Customer chat, 5 messages'});
+    // An icon button (C_QEBase): the count is in its name.
+    expect(button).toHaveTextContent('');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toBe('/api/rep/quotes/q-24817/messages');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -57,21 +57,21 @@ describe('View full chat',()=>{
   it('says "1 message" for one',async()=>{
     pages={'':{total:1,messages:[SAMPLE[0]],next_before:null}};
     renderButton();
-    expect(await screen.findByRole('button',{name:'View full chat, 1 message'})).toBeInTheDocument();
+    expect(await screen.findByRole('button',{name:'Customer chat, 1 message'})).toBeInTheDocument();
   });
 
   it('opens a drawer with focus inside it, the customer emphasised, assistant turns on one line and notices muted',async()=>{
     const drawer=await openDrawer();
     expect(drawer).toHaveAttribute('aria-modal','true');
     expect(drawer.contains(document.activeElement)).toBe(true);
-    expect(within(drawer).getByText(/Dana Ortiz · 5 messages/)).toBeInTheDocument();
+    expect(within(drawer).getByText('Dana Ortiz, 5 messages, via Querent chat')).toBeInTheDocument();
     // No AI summary: only the messages.
     expect(within(drawer).queryByText(/summary/i)).not.toBeInTheDocument();
     const items=within(drawer).getAllByRole('listitem');
     expect(items).toHaveLength(5);
     // The customer's words in full, emphasised.
     expect(items[0]).toHaveAttribute('data-role','customer');
-    expect(within(items[0]).getByText(REQUEST).tagName).toBe('STRONG');
+    expect(within(items[0]).getByText(REQUEST)).toHaveAttribute('data-role','customer');
     expect(within(items[0]).getByText('Dana Ortiz')).toBeInTheDocument();
     expect(items[2]).toHaveAttribute('data-role','customer');
     // The assistant's turn: its first line only, with an ellipsis, until expanded.
@@ -96,8 +96,8 @@ describe('View full chat',()=>{
     expect(turn).toHaveAttribute('aria-expanded','false');
     expect(within(drawer).queryByText(/30 ft with flat hooks/)).not.toBeInTheDocument();
     // A native button: Enter clicks it.
-    expect(turn.tagName).toBe('BUTTON');
-    expect(turn).toHaveAttribute('type','button');
+    fireEvent.keyDown(turn,{key:'Enter'});
+    expect(turn).toHaveAttribute('aria-expanded','true');
   });
 
   it('loads earlier pages of 50, oldest at the top, until there are none',async()=>{
@@ -105,7 +105,7 @@ describe('View full chat',()=>{
     const oldest=Array.from({length:10},(_,i)=>msg(`o-${i+1}`,'customer',`Oldest ${i+1}`,'text',-200+i));
     pages={'':{total:65,messages:SAMPLE,next_before:'m-1'},'m-1':{total:65,messages:older,next_before:'o-11'},'o-11':{total:65,messages:oldest,next_before:null}};
     renderButton();
-    fireEvent.click(await screen.findByRole('button',{name:'View full chat, 65 messages'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Customer chat, 65 messages'}));
     const drawer=screen.getByRole('dialog',{name:'Full chat'});
     expect(within(drawer).getAllByRole('listitem')).toHaveLength(5);
     fireEvent.click(within(drawer).getByRole('button',{name:'Load earlier'}));
@@ -121,7 +121,7 @@ describe('View full chat',()=>{
   it('says so when a page doesn’t load, and lets the rep retry',async()=>{
     pages={'':{total:65,messages:SAMPLE,next_before:'m-1'}};
     renderButton();
-    fireEvent.click(await screen.findByRole('button',{name:'View full chat, 65 messages'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Customer chat, 65 messages'}));
     const drawer=screen.getByRole('dialog',{name:'Full chat'});
     fireEvent.click(within(drawer).getByRole('button',{name:'Load earlier'}));
     expect(await within(drawer).findByRole('alert')).toHaveTextContent('The chat didn’t load. Try again.');
@@ -130,7 +130,7 @@ describe('View full chat',()=>{
 
   it('closes on Escape and on the X, and gives focus back to the button',async()=>{
     await openDrawer();
-    const button=screen.getByRole('button',{name:/View full chat/});
+    const button=screen.getByRole('button',{name:/Customer chat/});
     act(()=>{fireEvent.keyDown(document,{key:'Escape'});});
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(document.activeElement).toBe(button);

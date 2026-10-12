@@ -37,7 +37,7 @@ async function signInAsDana(page: Page) {
   await expect(page.getByLabel("Ask a question")).toBeVisible();
 }
 
-/** Approve & send as Brandi (POST /api/rep/quotes/<n>/send, task 3.7), confirming the revision and total the send check shows. */
+/** Approve and send as Brandi (POST /api/rep/quotes/<n>/send, task 3.7), confirming the revision and total the send check shows. */
 async function send(number: string, message: string, attachPdf: boolean) {
   const result = await brandi.evaluate(
     async ({ number, message, attachPdf }) => {
