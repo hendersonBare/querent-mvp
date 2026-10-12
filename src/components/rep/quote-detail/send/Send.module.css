@@ -191,10 +191,12 @@
 }
 
 /* ---- Confirm send and Reassign (no frame): the same dialog, 440 wide, buttons in the middle ---- */
+/* Centered on screen (spec §3: Confirm is centered, away from the first dialog's button). */
 .confirm {
   width: 440px;
   margin-left: -220px;
-  top: 160px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .head h2 {
   margin: 0;

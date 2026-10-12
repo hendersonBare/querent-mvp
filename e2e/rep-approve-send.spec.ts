@@ -71,8 +71,8 @@ async function sendSample(page: Page, testInfo: TestInfo, label: string) {
   const dialog = sendDialog(page);
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(`4 items, ${total} before tax. Will call at SLC`);
-  await expect(dialog.getByText(/^Still open:/)).toContainText("Nitrile disposable gloves: 26.6% margin, below Brandi's 30% Safety & PPE floor");
-  await expect(dialog.getByText(/^Still open:/)).toContainText("You can send anyway.");
+  await expect(dialog.getByText("Still open:", { exact: true }).locator("..")).toContainText("Nitrile disposable gloves: 26.6% margin, below Brandi's 30% Safety & PPE floor");
+  await expect(dialog.getByText("Still open:", { exact: true }).locator("..")).toContainText("You can send anyway.");
   const via = dialog.getByRole("group", { name: "Send by" });
   await expect(via.getByRole("checkbox", { name: "Querent chat" })).toBeChecked();
   await expect(via.getByRole("checkbox", { name: "Querent chat" })).toBeDisabled();

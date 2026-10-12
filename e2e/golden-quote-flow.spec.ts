@@ -253,11 +253,11 @@ test(
       await basis().click();
       const list = brandi.getByRole("listbox", { name: `Price basis for ${SKU}` });
       const options = list.getByRole("option");
-      await expect(options).toHaveText([/^Contract/, /^Customer.*\$\d/, /^List.*\$\d/, /^Last paid.*\$\d/, /^Custom/]);
-      // Querent's pick is bold, and it is the only bold option.
-      const pick = options.filter({ has: brandi.locator("strong") });
+      // The price sources with a price (C_QE10): Wasatch has no contract on the bolts, so none is offered.
+      await expect(options).toHaveText([/^Customer.*\$\d/, /^List.*\$\d/, /^Last paid.*\$\d/, /^Custom/]);
+      // Querent's pick is marked, on one option only.
+      const pick = options.filter({ hasText: "QUERENT'S PICK" });
       await expect(pick).toHaveCount(1);
-      await expect(pick).toContainText("Querent’s pick");
       // Switch to another basis (List, unless List is already the line's basis).
       const current = (await basis().innerText()).trim();
       const target = options.filter({ hasText: current === "List" ? /^Customer/ : /^List/ });
@@ -314,7 +314,7 @@ test(
       const dialog = brandi.getByRole("dialog", { name: "Send quote to Dana Ortiz" });
       await expect(dialog).toContainText(`2 items, ${total} before tax. Will call at SLC`);
       // The below-floor bolts only warn: Send quote stays enabled.
-      await expect(dialog.getByText(/^Still open:/)).toContainText("below Brandi's 20% Fasteners floor");
+      await expect(dialog.getByText("Still open:", { exact: true }).locator("..")).toContainText("below Brandi's 20% Fasteners floor");
       const via = dialog.getByRole("group", { name: "Send by" });
       await expect(via.getByRole("checkbox")).toHaveCount(2);
       await expect(via.getByRole("checkbox", { name: "Querent chat" })).toBeChecked();
