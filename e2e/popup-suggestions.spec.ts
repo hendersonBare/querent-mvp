@@ -28,7 +28,7 @@ async function signIn(browser: Browser, baseURL: string, workspace: RegExp) {
   const context = await browser.newContext({ baseURL });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: workspace }).click();
   return page;
 }

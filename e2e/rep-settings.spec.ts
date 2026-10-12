@@ -35,7 +35,7 @@ test.beforeAll(async ({ playwright }, testInfo) => resetDemo(playwright.request,
 test.afterAll(async ({ playwright }, testInfo) => resetDemo(playwright.request, testInfo));
 
 async function signInAsBrandi(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }
@@ -43,7 +43,7 @@ async function signInAsBrandi(page: Page) {
 async function signInAsDana(browser: Browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
   return page;

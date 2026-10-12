@@ -25,7 +25,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsDana(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(page.getByLabel("Ask a question")).toBeVisible();
 }

@@ -41,7 +41,7 @@ async function newPage(browser: Browser, testInfo: TestInfo) {
   const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL, viewport: { width: 1440, height: 1000 } });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   return page;
 }
 async function ask(page: Page, text: string): Promise<Locator> {
@@ -157,7 +157,7 @@ test("Act 3: Dana declines a different quote and picks a reason", async ({}, tes
   await screenshot(dana, testInfo, "act3-decline");
   await dialog.getByRole("button", { name: "Decline", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+  await expect(modal.locator(".qp-state")).toHaveText("Declined");
   await modal.getByRole("button", { name: "Close" }).click();
   await expect(sidebar.getByRole("button").filter({ hasText: "Q-24791" }).locator(".cx-chip")).toHaveText("Declined");
   expect((await repDetail("Q-24791")).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", unread_for_rep: true });

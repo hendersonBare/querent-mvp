@@ -27,7 +27,7 @@ async function newPage(browser: Browser, baseURL: string, viewport = { width: 14
   const context = await browser.newContext({ baseURL, viewport });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   return page;
 }
 
@@ -84,7 +84,7 @@ test("before Brandi sends: the Awaiting rep quote opens a preview that says she 
   await quotes.getByRole("button").filter({ hasText: SAMPLE }).click();
   const modal = preview(dana, SAMPLE);
   await expect(modal).toBeVisible();
-  await expect(modal.locator(".cx-chip")).toHaveText("Awaiting rep");
+  await expect(modal.locator(".qp-state")).toHaveText("Awaiting rep");
   await expect(modal).toContainText("Brandi is pricing this quote");
   await expect(modal.getByRole("document")).toHaveCount(0);
   await expect(modal.getByRole("link", { name: "Download" })).toHaveCount(0);
@@ -138,7 +138,7 @@ test("View quote opens the preview: the customer PDF inline, Download at the top
   await expect(pdf).toContainText(`${SAMPLE} rev 1`);
   await expect(pdf).toContainText(sentTotal);
   await expect(modal.locator(".qp-facts")).toContainText(`Total${sentTotal}`);
-  await expect(modal.locator(".cx-chip")).toHaveText("Sent");
+  await expect(modal.locator(".qp-state")).toHaveText("Sent");
   const download = modal.getByRole("link", { name: "Download" });
   const d = (await download.boundingBox())!;
   const m = (await modal.boundingBox())!;
@@ -183,7 +183,7 @@ test("an expired quote from the sidebar: its PDF, no way to respond, and why", a
   const number = (await expired.locator(".cx-quote-number").textContent())!;
   await expired.click();
   const modal = preview(dana, number);
-  await expect(modal.locator(".cx-chip")).toHaveText("Expired");
+  await expect(modal.locator(".qp-state")).toHaveText("Expired");
   await expect(modal.getByRole("document")).toHaveAttribute("data-state", "ready");
   await expect(modal.getByRole("button", { name: "Accept" })).toBeDisabled();
   await expect(modal.getByRole("group", { name: "Respond to this quote" })).toContainText(/This quote expired: it was valid until .+\. Ask Brandi for a new one\./);

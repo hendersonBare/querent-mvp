@@ -24,7 +24,7 @@ async function newPage(browser: Browser, baseURL: string, viewport = { width: 14
   const context = await browser.newContext({ baseURL, viewport });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   return page;
 }
 
@@ -138,7 +138,7 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await expect(dialog.getByRole("radio", { name: "Price too high" })).not.toBeChecked();
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Sent");
+    await expect(modal.locator(".qp-state")).toHaveText("Sent");
     expect((await repDetail(number)).quote.status).toBe("sent");
   });
 
@@ -147,7 +147,7 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await dialog.getByRole("radio", { name: "Price too high" }).check();
     await dialog.getByRole("button", { name: "Decline", exact: true }).click();
     await expect(dialog).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+    await expect(modal.locator(".qp-state")).toHaveText("Declined");
     await expect(bar(modal)).toContainText("You declined rev 1. Ask Brandi for a new quote if you still need these items.");
     for (const name of ["Decline", "Request changes", "Accept"]) await expect(bar(modal).getByRole("button", { name, exact: true })).toBeDisabled();
     await expect(sidebarChip(number)).toHaveText("Declined");
@@ -190,7 +190,7 @@ test("Decline with Other at 390px: the 250-character note reaches Brandi only", 
     await screenshot(dana, testInfo, "a1-decline-other-390");
     await dialog.getByRole("button", { name: "Decline", exact: true }).click();
     await expect(dialog).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+    await expect(modal.locator(".qp-state")).toHaveText("Declined");
     await expect(bar(modal).getByRole("button", { name: "Decline" })).toBeDisabled();
     await expect(modal).not.toContainText(NOTE);
     // What Dana's own API says about the quote never carries the note or the reason.
@@ -216,7 +216,7 @@ test("Decline with no reason is recorded; a second decline and an expired quote 
   const modal = await openPreview(dana, number);
   await bar(modal).getByRole("button", { name: "Decline" }).click();
   await dana.getByRole("alertdialog", { name: "Decline quote" }).getByRole("button", { name: "Decline", exact: true }).click();
-  await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+  await expect(modal.locator(".qp-state")).toHaveText("Declined");
   await modal.getByRole("button", { name: "Close" }).click();
   expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: null, decline_note: null, unread_for_rep: true });
   expect(await decline(number, { revision: 1, reason: "price_too_high" })).toMatchObject({ status: 409, json: { code: "illegal_transition", detail: `You already declined ${number}.` } });

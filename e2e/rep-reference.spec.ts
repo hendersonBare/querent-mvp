@@ -24,7 +24,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsBrandi(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }
@@ -286,7 +286,7 @@ async function personaCookie(browser: Browser, baseURL: string, workspace: RegEx
   const context = await browser.newContext({ baseURL });
   try {
     const page = await context.newPage();
-    await page.goto("/");
+    await page.goto("/demo");
     await page.getByRole("button", { name: workspace }).click();
     await signedIn(page);
     const cookie = (await context.cookies()).find((c) => c.name === "querent-persona");
@@ -354,7 +354,7 @@ test("access: every reference route answers a customer or no session with a redi
 });
 
 test("access: in the browser, Dana and a visitor with no session are sent back to / from every route", async ({ page, browser }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
   for (const [path] of ROUTES) {

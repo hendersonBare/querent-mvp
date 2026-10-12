@@ -47,7 +47,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsBrandi(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }

@@ -27,7 +27,7 @@ async function newPage(browser: Browser, baseURL: string, viewport = { width: 14
   const context = await browser.newContext({ baseURL, viewport });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   return page;
 }
 async function signInAsDana(page: Page) {
@@ -195,7 +195,7 @@ test("Accept at 1440px: the action bar, the form with branch and pickup locked, 
     await form.getByRole("button", { name: "Review and accept" }).click();
     await confirm.getByRole("button", { name: "Send", exact: true }).click();
     await expect(confirm).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Accepted");
+    await expect(modal.locator(".qp-state")).toHaveText("Accepted");
     await expect(bar(modal)).toContainText(`You accepted rev 1 with PO ${PO}: pickup ${when} at SLC.`);
     await expect(bar(modal).getByRole("button", { name: "Accept" })).toBeDisabled();
     const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: SAMPLE });
@@ -233,7 +233,7 @@ test("Request changes at 1440px: a required note, the centered Confirm, and Bran
   await screenshot(dana, testInfo, "5.2-changes-confirm-1440");
   await confirm.getByRole("button", { name: "Send", exact: true }).click();
   await expect(confirm).toBeHidden();
-  await expect(modal.locator(".cx-chip")).toHaveText("Changes requested");
+  await expect(modal.locator(".qp-state")).toHaveText("Changes requested");
   await expect(bar(modal).locator(".qp-said")).toHaveText(NOTE);
   await modal.getByRole("button", { name: "Close" }).click();
 
@@ -285,7 +285,7 @@ test("what a crafted request can't do: change branch or pickup, answer twice, an
 
   await test.step("an expired quote: the bar is off and says why, and the server refuses", async () => {
     const modal = await openPreview(dana, made.overdue);
-    await expect(modal.locator(".cx-chip")).toHaveText("Expired");
+    await expect(modal.locator(".qp-state")).toHaveText("Expired");
     await expect(bar(modal).getByRole("button", { name: "Accept" })).toBeDisabled();
     await expect(bar(modal).getByRole("button", { name: "Request changes" })).toBeDisabled();
     await expect(bar(modal)).toContainText(/This quote expired: it was valid until .+\. Ask Brandi for a new one\./);

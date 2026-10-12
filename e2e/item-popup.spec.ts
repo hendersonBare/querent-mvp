@@ -34,7 +34,7 @@ async function ask(page: Page, text: string): Promise<Locator> {
 
 /** Dana signs in, asks for the bolts and wheels, and answers "Type 1": the pop-up opens. */
 async function openPopup(page: Page): Promise<Locator> {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(page.getByLabel("Ask a question")).toBeVisible();
   await expect(await ask(page, REQUEST)).toContainText("Type 1 or Type 27 cut-off wheels?");
