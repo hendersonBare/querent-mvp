@@ -4,9 +4,12 @@ const CENTS=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 const DOLLARS=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
 const COUNT=new Intl.NumberFormat('en-US');
 
-/** "35 min", "1 h 33 min", "2.3 days"; "—" for none. */
+/** No value (nothing to divide by): a hyphen, as C_AN6 draws it (no em-dashes, Appendix E). */
+export const NONE='-';
+
+/** "35 min", "1 h 33 min", "2.3 days"; "-" for none. */
 export function formatDuration(minutes:number|null):string{
-  if(minutes===null)return '—';
+  if(minutes===null)return NONE;
   if(minutes<0.5)return '<1 min';
   const whole=Math.round(minutes);
   if(whole<60)return `${whole} min`;
@@ -14,8 +17,11 @@ export function formatDuration(minutes:number|null):string{
   return `${(minutes/1440).toFixed(1)} days`;
 }
 
-/** "71%"; "—" when there is no rate (nothing to divide by). */
-export const formatPercent=(rate:number|null)=>rate===null?'—':`${Math.round(rate*100)}%`;
+/** The same with a short day unit: "4.6 d" (C_AN6's "In sent" column). */
+export const formatShortDays=(minutes:number|null)=>minutes!==null&&Math.round(minutes)>=1440?`${(minutes/1440).toFixed(1)} d`:formatDuration(minutes);
+
+/** "71%"; "-" when there is no rate (nothing to divide by). */
+export const formatPercent=(rate:number|null)=>rate===null?NONE:`${Math.round(rate*100)}%`;
 
 /** A dollar figure for a stat card: to the cent under $1,000 ("$10.20"), whole dollars above ("$9,045"). */
 export const formatMoneyFigure=(amount:number)=>Math.abs(amount)<999.995?CENTS.format(amount):DOLLARS.format(amount);

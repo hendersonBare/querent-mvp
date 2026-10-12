@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import type {TeamQuoteFact,TeamStatusEvent} from '@/domain';
 import {AGING_DEFAULTS} from '@/server/quotes';
-import {UNTOUCHED_REASONS,teamMetricRows,type MetricsRep} from './metrics';
+import {UNTOUCHED_REASONS,groupMetricRows,metricGroups,teamMetricRows,type MetricsRep} from './metrics';
 
 // The Team metrics (v3 spec §7, §7.3; decisions 24, 25; OA-13, OA-15; task D3) on a fixed fixture:
 // every metric per rep and in the totals row, null denominators, declined and expired kept apart,
@@ -10,7 +10,7 @@ import {UNTOUCHED_REASONS,teamMetricRows,type MetricsRep} from './metrics';
 const NOW='2026-10-10T12:00:00.000Z';
 const REPS:MetricsRep[]=[{id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},{id:'eli',name:'Eli Porter',team:'Outside Sales',active:true}];
 
-const base:Omit<TeamQuoteFact,'id'|'quote_number'|'rep_id'|'status'|'created_at'>={sent_at:null,responded_at:null,valid_until:null,fulfillment:'will_call',
+const base:Omit<TeamQuoteFact,'id'|'quote_number'|'rep_id'|'status'|'created_at'>={customer_id:'canyon-ridge',customer_name:'Canyon Ridge Builders',sent_at:null,responded_at:null,valid_until:null,fulfillment:'will_call',
   last_rep_touch_at:null,customer_viewed_at:null,decline_reason:null,decline_note:null,declined_at:null,sent_total:null,draft_total:null,
   priced_subtotal:0,priced_cost:0,recovered_cents:0,modelled_freight_cents:null,suggestion_lines:0,upsell_lines:0,suggestions_offered:0};
 const fact=(id:string,rep_id:string,status:TeamQuoteFact['status'],created_at:string,more:Partial<TeamQuoteFact>={}):TeamQuoteFact=>
@@ -143,7 +143,7 @@ describe('decline reasons and Other notes',()=>{
     expect(row('mara').declines).toEqual({price_too_high:0,found_other_source:0,need_sooner:0,wrong_items:0,other:1,none:0});
     expect(row('eli').declines).toEqual({price_too_high:0,found_other_source:0,need_sooner:0,wrong_items:0,other:0,none:1});
     expect(row(null).declines).toMatchObject({other:1,none:1});
-    expect(result.other_notes).toEqual([{quote_id:'m2',quote_number:'Q-m2',rep_id:'mara',rep_name:'Mara Jensen',note:'Went with a local shop',declined_at:at('10-03',2)}]);
+    expect(result.other_notes).toEqual([{quote_id:'m2',quote_number:'Q-m2',rep_id:'mara',rep_name:'Mara Jensen',customer_id:'canyon-ridge',customer_name:'Canyon Ridge Builders',note:'Went with a local shop',declined_at:at('10-03',2)}]);
   });
 });
 
@@ -194,5 +194,48 @@ describe('null denominators',()=>{
     const {rows,totals}=teamMetricRows([REPS[0]],FACTS,EVENTS,{now:NOW,thresholds:AGING_DEFAULTS});
     expect(rows.map(r=>r.rep_id)).toEqual(['mara']);
     expect(totals.created).toBe(5);
+  });
+});
+
+// Analytics' "Break the numbers down by" (plan U6): the same metrics, grouped by rep, team or customer.
+// The definitions (decisions 23 to 25) are the row's own; only the grouping changes.
+describe('groupMetricRows',()=>{
+  const WITH_NORA:MetricsRep[]=[...REPS,{id:'nora',name:'Nora Chen',team:'Outside Sales',active:true},{id:'solo',name:'Sol Ortega',team:null,active:true}];
+  const customers=[{id:'canyon-ridge',name:'Canyon Ridge Builders'},{id:'weber-basin',name:'Weber Basin Fabricators'}];
+  const facts=FACTS.map(f=>f.rep_id==='eli'?{...f,customer_id:'weber-basin',customer_name:'Weber Basin Fabricators'}:f);
+  const options={now:NOW,thresholds:AGING_DEFAULTS};
+
+  it('by rep (also the whole organization): one row per rep, exactly the old rows',()=>{
+    for(const dimension of ['org','rep'] as const){
+      const grouped=groupMetricRows(metricGroups(dimension,REPS,customers),facts,EVENTS,options);
+      expect(grouped.dimension).toBe('rep');
+      expect(grouped.rows.map(r=>[r.key,r.name,r.rep_id,r.rep_ids])).toEqual([['mara','Mara Jensen','mara',['mara']],['eli','Eli Porter','eli',['eli']]]);
+      const old=teamMetricRows(REPS,facts,EVENTS,options);
+      expect(grouped.rows.map(({key:_k,rep_ids:_r,customer_id:_c,...row})=>row)).toEqual(old.rows);
+      expect(grouped.totals).toEqual(old.totals);
+    }
+  });
+
+  it('by team: one row per team label of the reps, by name, then the reps with no team; members of a team add up',()=>{
+    const groups=metricGroups('team',WITH_NORA,customers);
+    expect(groups.map(g=>[g.key,g.name,g.rep_ids])).toEqual([['team:Inside Sales','Inside Sales',['mara']],['team:Outside Sales','Outside Sales',['eli','nora']],['team:','No team',['solo']]]);
+    const grouped=groupMetricRows(groups,facts,EVENTS,options);
+    expect(grouped.dimension).toBe('team');
+    const byRep=teamMetricRows(WITH_NORA,facts,EVENTS,options);
+    const outside=grouped.rows.find(r=>r.key==='team:Outside Sales')!;
+    expect(outside).toMatchObject({rep_id:null,team:'Outside Sales',created:4});
+    expect(outside.statuses).toEqual(byRep.rows.find(r=>r.rep_id==='eli')!.statuses);
+    expect(grouped.rows.find(r=>r.key==='team:')!.created).toBe(0);
+    expect(grouped.totals).toEqual(byRep.totals);
+  });
+
+  it('by customer: one row per customer given, by the order given; the totals are every selected rep\'s quotes',()=>{
+    const grouped=groupMetricRows(metricGroups('customer',REPS,customers),facts,EVENTS,options);
+    expect(grouped.dimension).toBe('customer');
+    expect(grouped.rows.map(r=>[r.key,r.name,r.customer_id,r.created])).toEqual([['customer:canyon-ridge','Canyon Ridge Builders','canyon-ridge',5],['customer:weber-basin','Weber Basin Fabricators','weber-basin',4]]);
+    expect(grouped.rows[1].rep_ids).toEqual(['mara','eli']);
+    expect(grouped.rows[0].declines.other).toBe(1);
+    expect(grouped.totals.created).toBe(9);
+    expect(grouped.other_notes).toEqual(teamMetricRows(REPS,facts,EVENTS,options).other_notes);
   });
 });

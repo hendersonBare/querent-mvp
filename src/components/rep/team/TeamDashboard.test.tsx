@@ -21,7 +21,7 @@ const REPS:MetricsRep[]=[
 ];
 const TEAMS=['Inside Sales','Outside Sales'];
 const NOW=new Date(2026,9,10,15,0);
-const base={sent_at:null,responded_at:null,valid_until:null,fulfillment:'will_call' as const,last_rep_touch_at:null,customer_viewed_at:null,decline_reason:null,decline_note:null,
+const base={customer_id:'canyon-ridge',customer_name:'Canyon Ridge Builders',sent_at:null,responded_at:null,valid_until:null,fulfillment:'will_call' as const,last_rep_touch_at:null,customer_viewed_at:null,decline_reason:null,decline_note:null,
   declined_at:null,sent_total:null,draft_total:null,priced_subtotal:0,priced_cost:0,recovered_cents:0,modelled_freight_cents:null,suggestion_lines:0,upsell_lines:0,suggestions_offered:0};
 const FACTS:TeamQuoteFact[]=[
   {...base,id:'q1',quote_number:'Q-1',rep_id:'mara',status:'accepted',created_at:'2026-10-01T15:00:00.000Z',sent_total:100,priced_subtotal:100,priced_cost:70},

@@ -45,7 +45,7 @@ describe('teamMetrics',()=>{
     expect(mara.rates).toEqual({quote_to_order:0,unaccepted:0.5,decided_win:0});
     expect(result.rows.find(r=>r.rep_id==='eli')!.statuses.ready_for_review).toBe(1);
     expect(result.totals.created).toBe(3);
-    expect(result.other_notes).toEqual([{quote_id:declined.id,quote_number:declined.quote_number,rep_id:'mara',rep_name:'Mara Jensen',note:'Bought them at the hardware store',declined_at:at(3,14)}]);
+    expect(result.other_notes).toEqual([{quote_id:declined.id,quote_number:declined.quote_number,rep_id:'mara',rep_name:'Mara Jensen',customer_id:'canyon-ridge',customer_name:'Canyon Ridge Builders',note:'Bought them at the hardware store',declined_at:at(3,14)}]);
     expect(result.selected).toEqual({rep_ids:['eli','mara'],team:null});
     expect(result.options.reps.map(r=>r.id)).toEqual(['brandi','eli','mara','nora']);
     expect(result.options.teams).toEqual(['Inside Sales','Outside Sales']);
