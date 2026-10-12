@@ -103,7 +103,7 @@ test("Brandi moves Wasatch to Mara: Dana's rep follows, Brandi's existing quotes
 
   const customers = await expand(page, "Mara Jensen");
   await expect(customers.getByRole("listitem")).toHaveText(["Canyon Ridge Builders CRB-3318x"]);
-  await customers.getByRole("button", { name: "+Connect a customer" }).click();
+  await customers.getByRole("button", { name: /Connect a customer$/ }).click();
   await page.getByRole("searchbox", { name: "Search customers" }).fill("wasatch");
   await page.getByRole("option", { name: /Wasatch Mechanical Contractors/ }).click();
   const confirm = page.getByRole("dialog", { name: "Wasatch Mechanical Contractors is with Brandi Gallegos" });
@@ -200,7 +200,7 @@ test("Mara can be marked inactive only after Canyon Ridge has another rep; react
   await page.reload();
   await expect(repRow(page, "Mara Jensen").getByRole("switch", { name: "Mara Jensen active" })).toHaveAttribute("aria-checked", "true");
   const maraCustomers = await expand(page, "Mara Jensen");
-  await maraCustomers.getByRole("button", { name: "+Connect a customer" }).click();
+  await maraCustomers.getByRole("button", { name: /Connect a customer$/ }).click();
   await page.getByRole("option", { name: /Canyon Ridge Builders/ }).click();
   const confirm = page.getByRole("dialog", { name: "Canyon Ridge Builders is with Eli Porter" });
   await confirm.getByRole("checkbox", { name: /^Also move this customer's open quotes \(\d+ quotes?\)$/ }).check({ force: true });

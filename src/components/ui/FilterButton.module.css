@@ -28,6 +28,22 @@
 .active {
   border: 2px solid var(--q-accent);
 }
+/* On a card's dark title bar (C_TRBase "Filter"): 38px, transparent, a #5A615D line, white bold text. */
+.bar {
+  height: var(--q-control-height);
+  border: 1px solid var(--q-titlebar-line);
+  background: transparent;
+  border-radius: var(--q-radius-button);
+  color: #fff;
+  font-weight: 700;
+}
+/* No frame: hover on the dark bar darkens it one step, as the rail's items do. */
+.bar:hover {
+  background: var(--q-rail-border);
+}
+.bar.active {
+  border: 2px solid var(--q-accent);
+}
 .count {
   font-family: var(--q-font-mono);
   font-size: 12px;
@@ -40,6 +56,10 @@
   top: 48px;
   left: 0;
   padding: 18px;
+}
+.panelRight {
+  left: auto;
+  right: 0;
 }
 .title {
   font-weight: 800;

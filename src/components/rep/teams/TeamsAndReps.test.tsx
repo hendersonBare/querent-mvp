@@ -58,7 +58,7 @@ describe('customers under a rep (C_TR1, C_TR2)',()=>{
     expect(within(repRow('Eli Porter')).getByRole('button',{name:'Hide customers'})).toHaveAttribute('aria-expanded','true');
     expect(within(list).getAllByRole('listitem').map(i=>i.textContent)).toEqual(['Utah Valley Electric UVE-5126x','Weber Basin Fabricators WBF-6074x']);
     expect(within(list).getByRole('button',{name:'Disconnect Utah Valley Electric'})).toBeInTheDocument();
-    expect(within(list).getByRole('button',{name:'+Connect a customer'})).toBeInTheDocument();
+    expect(within(list).getByRole('button',{name:/Connect a customer$/})).toBeInTheDocument();
     fireEvent.click(within(repRow('Eli Porter')).getByRole('button',{name:'Hide customers'}));
     expect(within(reps()).queryByRole('group',{name:'Customers for Eli Porter'})).toBeNull();
   });
@@ -103,7 +103,7 @@ describe('connect a customer (C_TR3, C_TR4)',()=>{
   it('searches the other customers, each with its rep, then asks to confirm a move with the open quotes that would move',async()=>{
     render(<TeamsAndReps initial={BOARD}/>);
     fireEvent.click(within(repRow('Eli Porter')).getByRole('button',{name:'2 customers'}));
-    fireEvent.click(screen.getByRole('button',{name:'+Connect a customer'}));
+    fireEvent.click(screen.getByRole('button',{name:/Connect a customer$/}));
     const pick=within(screen.getByRole('listbox',{name:'Connect a customer to Eli Porter'}));
     expect(pick.getAllByRole('option').map(o=>o.textContent)).toEqual([
       'Canyon Ridge Builders CRB-3318With Mara Jensen','Great Basin Fabrication GBF-2207With Brandi Gallegos',
@@ -126,7 +126,7 @@ describe('connect a customer (C_TR3, C_TR4)',()=>{
     fetchMock.mockImplementation(()=>json({detail:'Eli Porter is inactive. Choose an active rep.'},400));
     render(<TeamsAndReps initial={BOARD}/>);
     fireEvent.click(within(repRow('Eli Porter')).getByRole('button',{name:'2 customers'}));
-    fireEvent.click(screen.getByRole('button',{name:'+Connect a customer'}));
+    fireEvent.click(screen.getByRole('button',{name:/Connect a customer$/}));
     fireEvent.click(screen.getByRole('option',{name:/Uinta Facility Services/}));
     await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Move to Eli Porter'}));});
     expect(await screen.findByRole('alert')).toHaveTextContent('Eli Porter is inactive. Choose an active rep.');

@@ -290,7 +290,7 @@ const CASES: Case[] = [
     id: "TR3", setup: "expanded",
     drive: async (page) => {
       await expandMara(page);
-      await page.getByRole("button", { name: "+Connect a customer" }).click();
+      await page.getByRole("button", { name: /Connect a customer$/ }).click();
       await rest(page);
     },
     drop: [MARA_ROW], rewrites: [FOUR_REPS, NORA_ROLE, ...AS_BRANDI],
@@ -300,7 +300,7 @@ const CASES: Case[] = [
     id: "TR4", setup: "expanded",
     drive: async (page) => {
       await expandMara(page);
-      await page.getByRole("button", { name: "+Connect a customer" }).click();
+      await page.getByRole("button", { name: /Connect a customer$/ }).click();
       await page.getByRole("option", { name: /Utah Valley Electric/ }).click();
       await rest(page);
     },
@@ -382,7 +382,7 @@ test("C_TR3: the connect list opens under its button, the button's width, with t
   await frame("TR3");
   const page = await appAs(browser, testInfo, "expanded");
   await expandMara(page);
-  await page.getByRole("button", { name: "+Connect a customer" }).click();
+  await page.getByRole("button", { name: /Connect a customer$/ }).click();
   await rest(page);
   const under = (p: Page, list: string) => p.evaluate((sel) => {
     const button = [...document.querySelectorAll("main button")].find((b) => b.textContent?.includes("Connect a customer"))!.getBoundingClientRect();

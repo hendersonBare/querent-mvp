@@ -235,18 +235,23 @@ export interface MetricGroup {
 export interface GroupRow extends TeamRow {key:string;rep_ids:string[];customer_id:string|null}
 export interface GroupMetricRows {dimension:GroupDimension;rows:GroupRow[];totals:TeamRow;other_notes:OtherNote[]}
 
+/** A team as the breakdown reads it (plan U7): its name and every rep it counts, the members of the teams inside it too (decision 47). */
+export interface MetricsTeam {name:string;rep_ids:readonly string[]}
+
 /**
- * The rows for a breakdown over the selected reps: one per rep (in the order given); one per team
- * label of those reps, by name, then the reps with no team; or one per customer given, in that order.
+ * The rows for a breakdown over the selected reps: one per rep (in the order given); one per team with
+ * any of those reps, in the teams' order (a parent counting the reps of the teams inside it, so a rep can
+ * sit in more than one row; the totals still count each quote once), then the reps with no team; or one
+ * per customer given, in that order. Without `teams`, each rep's team name stands for a team of its members.
  */
-export function metricGroups(breakdown:Breakdown,reps:readonly MetricsRep[],customers:readonly {id:string;name:string}[]):MetricGroup[]{
+export function metricGroups(breakdown:Breakdown,reps:readonly MetricsRep[],customers:readonly {id:string;name:string}[],teams?:readonly MetricsTeam[]):MetricGroup[]{
   if(breakdown==='team'){
-    const labels=[...new Set(reps.flatMap(r=>r.team?[r.team]:[]))].sort((a,b)=>a.localeCompare(b));
-    const team=(label:string|null):MetricGroup=>{
-      const members=reps.filter(r=>r.team===label);
-      return {key:`team:${label??''}`,dimension:'team',name:label??NO_TEAM,team:label,active:true,rep_id:null,customer_id:null,rep_ids:members.map(r=>r.id),members};
-    };
-    return [...labels.map(team),...(reps.some(r=>!r.team)?[team(null)]:[])];
+    const listed=teams??[...new Set(reps.flatMap(r=>r.team?[r.team]:[]))].sort((a,b)=>a.localeCompare(b)).map(name=>({name,rep_ids:reps.filter(r=>r.team===name).map(r=>r.id)}));
+    const group=(name:string|null,members:MetricsRep[]):MetricGroup=>
+      ({key:`team:${name??''}`,dimension:'team',name:name??NO_TEAM,team:name,active:true,rep_id:null,customer_id:null,rep_ids:members.map(r=>r.id),members});
+    const rows=listed.map(t=>group(t.name,reps.filter(r=>t.rep_ids.includes(r.id)))).filter(g=>g.members.length);
+    const none=reps.filter(r=>!r.team);
+    return [...rows,...(none.length?[group(null,none)]:[])];
   }
   if(breakdown==='customer')return customers.map(c=>({key:`customer:${c.id}`,dimension:'customer',name:c.name,team:null,active:true,rep_id:null,customer_id:c.id,rep_ids:reps.map(r=>r.id),members:reps}));
   return reps.map(r=>({key:r.id,dimension:'rep',name:r.name,team:r.team,active:r.active,rep_id:r.id,customer_id:null,rep_ids:[r.id],members:[r]}));

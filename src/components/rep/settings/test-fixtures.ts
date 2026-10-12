@@ -11,8 +11,8 @@ const floors=(values:number[])=>CATEGORIES.map(([category_id,category_name],i)=>
 const rule=(category:'items_stock'|'pricing'|'orders_quotes'|'account',enabled:boolean|null,one=true)=>({category,enabled,rep_id:one?'brandi':null,mixed_rep:!one,
   rep_name:one?'Brandi Gallegos':'Multiple reps',phone:one?'(801) 111-2222':null,email:one?'brandi.gallegos@herrickindustrial.com':null});
 
-const team=(id:string,name:string,initials:string,title:string,role:'rep'|'manager',teamLabel:string|null,customer_count:number,active=true)=>({id,name,initials,title,role,team:teamLabel,active,customer_count});
-/** The manager's Reps card on the seed (task D1): Brandi manages; Mara and Nora have a customer each, Eli none. */
+const team=(id:string,name:string,initials:string,title:string,role:'rep'|'manager',teamLabel:string|null,customer_count:number,active=true)=>({id,name,initials,title,role,team:teamLabel,team_id:teamLabel==='Inside Sales'?1:teamLabel?2:null,active,customer_count});
+/** Every rep on the seed (tasks D1, U7): Brandi manages; Mara and Nora have a customer each, Eli none. */
 export const TEAM=[
   team('brandi','Brandi Gallegos','BG','Inside Sales','manager','Inside Sales',2),team('eli','Eli Porter','EP','Outside Sales','rep','Outside Sales',0),
   team('mara','Mara Jensen','MJ','Inside Sales','rep','Inside Sales',1),team('nora','Nora Chen','NC','Account Manager','rep','Outside Sales',1),

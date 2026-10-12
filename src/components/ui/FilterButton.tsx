@@ -27,19 +27,25 @@ export interface FilterButtonProps<T> {
   width?:number;
   titleGap?:number;
   actionsGap?:number;
+  /** bar: the button on a card's dark title bar (C_TRBase: 38px, transparent, a #5A615D line, white text). */
+  tone?:'default'|'bar';
+  /** right: the panel opens under the button's right edge (a button at the page's right end). */
+  align?:'left'|'right';
+  /** For the wrapper, so a page can place it (C_TRBase pushes it right with margin-left: auto). */
+  className?:string;
 }
 
-export function FilterButton<T>({title,description,value,empty,count,onApply,children,width=390,titleGap,actionsGap=14}:FilterButtonProps<T>){
+export function FilterButton<T>({title,description,value,empty,count,onApply,children,width=390,titleGap,actionsGap=14,tone='default',align='left',className}:FilterButtonProps<T>){
   const [open,setOpen]=useState(false);
   const [draft,setDraft]=useState(value);
   const wrap=useRef<HTMLDivElement>(null);
   const toggle=()=>{if(!open)setDraft(value);setOpen(!open);};
-  return <div ref={wrap} className={s.wrap} data-ui="filter">
-    <button type="button" className={cx(s.button,(open||count>0)&&s.active)} aria-expanded={open} aria-haspopup="dialog"
+  return <div ref={wrap} className={cx(s.wrap,className)} data-ui="filter">
+    <button type="button" className={cx(s.button,tone==='bar'&&s.bar,(open||count>0)&&s.active)} aria-expanded={open} aria-haspopup="dialog"
       aria-label={count>0?`Filter, ${count} applied`:undefined} onClick={toggle}>
       <Icon name="filter" size={15}/>Filter{count>0&&<span data-ui="count" className={s.count}>{count}</span>}
     </button>
-    <Popover open={open} label={title} onClose={()=>setOpen(false)} ignore={wrap} className={s.panel} style={{width}}>
+    <Popover open={open} label={title} onClose={()=>setOpen(false)} ignore={wrap} className={cx(s.panel,align==='right'&&s.panelRight)} style={{width}}>
       <div className={cx(s.title,description&&s.titleTight)} style={titleGap===undefined?undefined:{marginBottom:titleGap}}>{title}</div>
       {description&&<div className={s.description}>{description}</div>}
       {children(draft,setDraft)}

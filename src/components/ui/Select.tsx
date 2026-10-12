@@ -10,8 +10,10 @@ export interface SelectOption<V extends string> {value:V;label:string}
  * keys move, Enter or a click picks, Escape closes (and only the list, not the panel around it).
  * `filled` gives the box a white background, as some frames draw it (C_CU1).
  */
-export function Select<V extends string>({label,labelledBy,value,options,onChange,filled=false}:{
+export function Select<V extends string>({label,labelledBy,value,options,onChange,filled=false,className}:{
   label:string;labelledBy?:string;value:V;options:readonly SelectOption<V>[];onChange:(value:V)=>void;filled?:boolean;
+  /** Added to the box, for a field drawn in another frame's type (C_TR6 "Inside another team": the body size). */
+  className?:string;
 }){
   const [open,setOpen]=useState(false);
   const [active,setActive]=useState(0);
@@ -43,7 +45,7 @@ export function Select<V extends string>({label,labelledBy,value,options,onChang
     }
   }
   return <div ref={wrap} className={s.wrap}>
-    <button ref={button} type="button" className={cx(s.box,filled&&s.filled)} aria-haspopup="listbox" aria-expanded={open}
+    <button ref={button} type="button" className={cx(s.box,filled&&s.filled,className)} aria-haspopup="listbox" aria-expanded={open}
       aria-label={`${label}: ${current?.label??''}`} aria-describedby={labelledBy}
       onClick={()=>{setActive(Math.max(0,options.indexOf(current)));setOpen(!open);}}>{current?.label}</button>
     {open&&<div ref={list} role="listbox" tabIndex={-1} aria-label={label} className={s.list} onKeyDown={key}
