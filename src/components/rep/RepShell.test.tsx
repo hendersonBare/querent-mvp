@@ -252,38 +252,42 @@ describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
 });
 
 describe('Settings in the shell',()=>{
-  it('Settings opens Rep assignments by default, with every section as a tab; no tab carries ?customer=',()=>{
+  it('Settings opens Customer access by default, with every section as a tab (Rep assignments and Reps moved to Teams and Reps, plan U7); no tab carries ?customer=',()=>{
     at('/rep/settings','customer=great-basin');
     renderShell(brandi,<SettingsSection initial={settingsFixture('great-basin')}/>);
     expect(screen.getByRole('heading',{level:1,name:'Settings'})).toBeInTheDocument();
     expect(cautionButton()).toBeInTheDocument();
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-    // Brandi is the manager: Reps and Aging are hers alone (task D1).
-    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Reps','Customer access','Margin floors','Pricing & delivery','Aging','Data sources']);
-    expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
+    // Brandi is the manager: Aging is hers alone (task D1).
+    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Customer access','Margin floors','Pricing & delivery','Aging','Data sources']);
+    expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
     expect(within(tabs).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources');
-    expect(screen.getByRole('combobox',{name:'Rep for Great Basin Fabrication'})).toHaveValue('brandi');
+    expect(screen.queryByRole('combobox',{name:'Rep for Great Basin Fabrication'})).toBeNull();
     expect(screen.queryByText('Data browser')).not.toBeInTheDocument();
   });
 
-  it('a rep (not the manager) gets no Reps or Aging tab, and ?tab=aging opens Rep assignments (task D1)',()=>{
-    at('/rep/settings','tab=aging');
-    renderShell(mara,<SettingsSection initial={settingsFixture(null,{manager:false})}/>);
-    const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Customer access','Margin floors','Pricing & delivery','Data sources']);
-    expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
-    expect(screen.queryByRole('heading',{name:'Aging thresholds'})).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading',{name:'Reps'})).not.toBeInTheDocument();
+  it('a rep (not the manager) gets no Aging tab, and ?tab=aging or the old ?tab=reps and ?tab=assignments open Customer access (task D1)',()=>{
+    for(const tab of ['aging','reps','assignments']){
+      at('/rep/settings',`tab=${tab}`);
+      const {unmount}=renderShell(mara,<SettingsSection initial={settingsFixture(null,{manager:false})}/>);
+      const tabs=screen.getByRole('navigation',{name:'Settings sections'});
+      expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Customer access','Margin floors','Pricing & delivery','Data sources']);
+      expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
+      expect(screen.queryByRole('heading',{name:'Aging thresholds'})).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading',{name:'Reps'})).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
-  it('the manager opens Aging and Reps from their tabs (task D1)',()=>{
+  it('the manager opens Aging from its tab (task D1); the old Reps tab is gone',()=>{
     at('/rep/settings','tab=aging');
     const {unmount}=renderShell(brandi,<SettingsSection initial={settingsFixture()}/>);
     expect(screen.getByRole('heading',{name:'Aging thresholds'})).toBeInTheDocument();
     unmount();
     at('/rep/settings','tab=reps');
     renderShell(brandi,<SettingsSection initial={settingsFixture()}/>);
-    expect(screen.getByRole('heading',{name:'Reps'})).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Reps'})).not.toBeInTheDocument();
+    expect(within(screen.getByRole('navigation',{name:'Settings sections'})).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
   });
 
   it('Settings > Customer access picks its customer on the page (?customer= is the page\'s own filter)',()=>{

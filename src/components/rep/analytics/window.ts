@@ -47,13 +47,6 @@ export function customWindow(start:string,end:string):{ok:true;window:TeamWindow
 /** A local day as a date input's value (YYYY-MM-DD). */
 export const dayInput=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 
-/** The query for GET /api/rep/team/metrics(.csv): the window, the ticked reps and the team label. */
-export function metricsQuery(window:TeamWindow,repIds:readonly string[],team:string|null){
-  const params=new URLSearchParams({from:window.from,to:window.to,reps:repIds.join(',')});
-  if(team)params.set('team',team);
-  return params.toString();
-}
-
 /** Where a count drills to: the Quotes list (every rep's for the manager, task U1) for these reps and the window, narrowed to a status, an aging level or a customer. */
 export function drillHref(window:TeamWindow,repIds:readonly string[],{status,aging,customer}:{status?:QuoteStatus;aging?:AgingLevel;customer?:string|null}={}){
   const params=new URLSearchParams();
