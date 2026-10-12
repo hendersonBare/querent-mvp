@@ -187,6 +187,19 @@ function expectSame(name: string, frameList: Measure[], appList: Measure[], { mi
   return forward.matched;
 }
 
+/**
+ * Over the whole page area: every kind of text the app draws (its tag and what it is, ROLES) is one the frame
+ * draws too, so nothing outside the regions compared one by one is added. The counts differ (real data).
+ */
+async function expectNothingAdded(name: string, page: Page, alias: Alias = {}) {
+  const key = (m: Measure) => `${m.tag} "${m.text}"`;
+  // Which statuses a table's rows show is data: every status word is the frames' own copy (the lanes, C_QOB2), in the status cell's span.
+  const statuses = ["Draft ready", "Changes requested", "Sent", "Accepted", "Expired", "Declined"].map((st) => `span "${st}"`);
+  const f = new Set([...paired(await measure(framePage, "main")).filter((m) => m.text).map(key), ...statuses]);
+  const a = new Set(paired(await measure(page, "main"), alias).filter((m) => m.text).map(key));
+  expect.soft([...a].filter((k) => !f.has(k)), `${name}: kinds of text the app adds that the frame lacks`).toEqual([]);
+}
+
 /** The rail is 216px, the page area takes the rest, and nothing in the page is wider than it (decision 51). */
 async function expectViewport(page: Page) {
   const box = await page.evaluate(() => {
@@ -292,6 +305,7 @@ test("C_QOBoard (manager): toolbar, six lanes with real counts, cards of every s
   const page = await appAs(browser, testInfo, "supplier");
   await expectToolbar(page);
   await expectLanes(page);
+  await expectNothingAdded("C_QOBoard", page);
   // Real counts (Appendix G: the frame's "20 accepted" is a placeholder): each lane counts the list's quotes of its status.
   const list = await page.evaluate(() => fetch("/api/rep/quotes").then((r) => r.json()));
   const counts = await page.locator("section[data-lane] [data-ui=count]").allTextContents();
@@ -533,6 +547,7 @@ test("C_QOTable (manager): the table's header, rows of every shape, Show N more 
   await frame("QOTable");
   const page = await appAs(browser, testInfo, "supplier", "/rep/quotes?view=table");
   await expectToolbar(page, { tableFrame: true });
+  await expectNothingAdded("C_QOTable", page);
   await sameStyle("table card", page, tableCard, "[data-ui=table]", { w: false, h: false });
   await sameStyle("table, under the toolbar", page, { ...tableCard }, "[data-ui=table]", { w: false, h: false, props: ["marginTop", "borderTopWidth", "borderTopColor", "borderRadius"] });
   const head: Locate = { text: ":: Quote", up: 1 };
@@ -669,6 +684,7 @@ test("C_RQBoard (rep): All my customers, the six lanes with Mara's counts, cards
   const page = await appAs(browser, testInfo, "mara");
   await expectToolbar(page, { picker: "All my customers" });
   await expectLanes(page);
+  await expectNothingAdded("C_RQBoard", page);
   const list = await page.evaluate(() => fetch("/api/rep/quotes").then((r) => r.json()));
   expect(list.rows.every((r: { rep_id: string }) => r.rep_id === "mara")).toBe(true);
   expect(await page.locator("section[data-lane] [data-ui=count]").allTextContents())
@@ -704,6 +720,7 @@ test("C_RQTable (rep): the table without a Rep column, Mara's quotes only", asyn
   await frame("RQTable");
   const page = await appAs(browser, testInfo, "mara", "/rep/quotes?view=table");
   await expectToolbar(page, { tableFrame: true, picker: "All my customers" });
+  await expectNothingAdded("C_RQTable", page);
   const head: Locate = { text: ":: Quote", up: 1 };
   expectSame("header row", paired(await measure(framePage, head)), paired(await measure(page, "[data-ui=table] [role=row]")));
   await page.getByRole("button", { name: "Choose columns" }).click();
