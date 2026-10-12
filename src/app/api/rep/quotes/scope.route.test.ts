@@ -59,6 +59,27 @@ describe('GET /api/rep/quotes (manager): every rep by default',()=>{
     expect(unknown).toMatchObject({rep_filter:null,team_filter:null,counts:{all:ALL}});
   });
 
+  it('a parent team takes in the reps of the teams inside it (decision 47); a team with no own members still filters',async()=>{
+    const {createTeam,deleteTeam,setTeamParent,teamList}=await import('@/server/repository');
+    const field=createTeam({name:'Field',parentId:null,repIds:[]});
+    if(!field.ok)throw new Error('createTeam refused');
+    const outside=teamList().find(t=>t.name==='Outside Sales')!;
+    expect(setTeamParent(outside.id,field.id)).toBe('ok');
+    try{
+      const body=await (await list(`?team=Field`)).json();
+      expect(body.manager.teams).toEqual(['Field','Inside Sales','Outside Sales']);
+      expect(body).toMatchObject({team_filter:'Field',counts:{all:SEEDED.eli+1}});
+      expect(new Set(body.rows.map((r:Row)=>r.rep_id))).toEqual(new Set(['eli','nora']));
+      // The child alone is unchanged, and a rep picked with the parent must be in it.
+      expect(new Set((await (await list(`?team=${encodeURIComponent('Outside Sales')}`)).json()).rows.map((r:Row)=>r.rep_id))).toEqual(new Set(['eli','nora']));
+      const both=await (await list('?team=Field&rep=eli,mara')).json();
+      expect(new Set(both.rows.map((r:Row)=>r.rep_id))).toEqual(new Set(['eli']));
+    }finally{
+      setTeamParent(outside.id,null);
+      deleteTeam(field.id);
+    }
+  });
+
   it('runs the Needs attention view over every rep, red first',async()=>{
     const body=await (await list('?attention=1')).json();
     const numbers=body.rows.map((r:Row)=>r.quote_number);
