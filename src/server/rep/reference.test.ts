@@ -134,7 +134,6 @@ describe('itemList',()=>{
   it('lists the whole catalog in category order with stock at SLC, Ogden and Provo',()=>{
     const list=itemList();
     expect(list.branches.map(b=>b.code)).toEqual(['SLC','Ogden','Provo']);
-    expect(list.category).toBeNull();
     expect(list.categories.map(c=>c.name)).toEqual(['Fasteners','Abrasives & Cutting','Safety & PPE','Material Handling & Tie-downs','Tools','Janitorial/MRO']);
     expect(list.categories.reduce((sum,c)=>sum+c.count,0)).toBe(list.items.length);
     expect(list.items.length).toBeGreaterThanOrEqual(60);
@@ -145,12 +144,11 @@ describe('itemList',()=>{
     expect(list.items.at(-1)?.category_id).toBe('janitorial');
   });
 
-  it('narrows to one category; an unknown category shows everything',()=>{
-    const abrasives=itemList({category:'abrasives'});
-    expect(abrasives.category).toEqual({id:'abrasives',name:'Abrasives & Cutting',sort_order:expect.any(Number)});
-    expect(abrasives.items.length).toBe(abrasives.categories.find(c=>c.id==='abrasives')!.count);
-    expect(new Set(abrasives.items.map(i=>i.category_id))).toEqual(new Set(['abrasives']));
-    expect(itemList({category:'nope'})).toEqual(itemList());
+  it('counts each category\'s items: the Stock filter narrows on the page (plan U5; filterItems in src/components/rep/reference/filters.ts)',()=>{
+    const list=itemList();
+    const abrasives=list.categories.find(c=>c.id==='abrasives')!;
+    expect(abrasives).toEqual({id:'abrasives',name:'Abrasives & Cutting',sort_order:expect.any(Number),count:list.items.filter(i=>i.category_id==='abrasives').length});
+    expect(abrasives.count).toBeGreaterThan(0);
   });
 
   it('never carries cost',()=>{

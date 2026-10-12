@@ -40,6 +40,9 @@
 .right {
   text-align: right;
 }
+.left {
+  text-align: left;
+}
 .dropAfter {
   border-right: 3px solid var(--q-accent);
   padding-right: 8px;
@@ -59,6 +62,11 @@
   transform: rotate(-3deg);
 }
 .pickerCell {
+  display: flex;
+  justify-content: flex-end;
+}
+/* A row's own control in the picker's track (C_STBase "Add to quote"), at the end like the picker. */
+.rowEnd {
   display: flex;
   justify-content: flex-end;
 }

@@ -10,9 +10,9 @@ const ORDER_COLUMNS=`o.id,o.order_number,o.po_number,o.order_date,o.status,o.ful
   o.subtotal,o.freight,o.tax,o.total,q.quote_number`;
 const ORDER_FROM=' FROM orders o JOIN branches b ON b.id=o.branch_id LEFT JOIN quotes q ON q.id=o.quote_id';
 const ORDER=`SELECT ${ORDER_COLUMNS}${ORDER_FROM}`;
-/** ORDER plus whose order it is (the rep portal's views cover every customer). */
-const CUSTOMER_COLUMNS=`${ORDER_COLUMNS},o.customer_id,cu.name customer_name,cu.account_number`;
-const CUSTOMER_FROM=`${ORDER_FROM} JOIN customers cu ON cu.id=o.customer_id`;
+/** ORDER plus whose order it is and the customer's assigned rep (the rep portal's views cover every customer; plan U5 shows the rep). */
+const CUSTOMER_COLUMNS=`${ORDER_COLUMNS},o.customer_id,cu.name customer_name,cu.account_number,cr.rep_id,r.name rep_name`;
+const CUSTOMER_FROM=`${ORDER_FROM} JOIN customers cu ON cu.id=o.customer_id LEFT JOIN customer_rep cr ON cr.customer_id=o.customer_id LEFT JOIN reps r ON r.id=cr.rep_id`;
 const NEWEST=' ORDER BY o.order_date DESC,o.order_number DESC';
 
 /** The customer's orders, newest first. */
