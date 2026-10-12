@@ -94,9 +94,11 @@ async function openSample(page: Page) {
   await page.getByRole("link", { name: SAMPLE, exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 }
-/** The red below-floor warnings on the quote detail, by SKU: the note directly above each line's price. */
-const floorNote = (page: Page, sku: string) =>
-  page.getByRole("rowheader", { name: new RegExp(sku) }).locator("xpath=ancestor::tbody[1]").getByRole("note");
+/** A line's unit price on the quote editor (plan U4): its red below-floor warning, directly above it, is its description. */
+const priceField = (page: Page, sku: string) => page.getByRole("textbox", { name: `Unit price for ${sku}` });
+/** The SKUs of the editor's lines whose price carries a below-floor warning. */
+const warnedLines = (page: Page) =>
+  page.locator('input[aria-label^="Unit price for "][aria-describedby]').evaluateAll((inputs) => inputs.map((i) => i.getAttribute("aria-label")!.replace("Unit price for ", "")));
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ path, fullPage: true });
@@ -167,7 +169,8 @@ test("floors: changing Brandi's floor changes the below-floor warning on her quo
   // ...and the quote detail drops the gloves' red warning.
   await openSample(page);
   await expect(page.getByRole("rowheader", { name: /GLV-N8-L-1000/ })).toBeVisible();
-  await expect(page.getByRole("note")).toHaveCount(0);
+  await expect(priceField(page, "GLV-N8-L-1000")).not.toHaveAttribute("aria-describedby");
+  expect(await warnedLines(page)).toEqual([]);
 
   // Raise Fasteners over the bolts' 32.1% and put PPE back: two lines below floor.
   await openSettings(page, "Margin floors");
@@ -178,9 +181,10 @@ test("floors: changing Brandi's floor changes the below-floor warning on her quo
   await screenshot(page, testInfo, "quotes-after-floor-change-1440");
   // The quote detail warns above both prices, each with the floor that applies (spec §5.2).
   await openSample(page);
-  await expect(page.getByRole("note")).toHaveCount(2);
-  await expect(floorNote(page, "HCS-12-13-2G8")).toHaveText("Below Brandi's 35% Fasteners floor");
-  await expect(floorNote(page, "GLV-N8-L-1000")).toHaveText("Below Brandi's 30% Safety & PPE floor");
+  await expect(priceField(page, "HCS-12-13-2G8")).toHaveAccessibleDescription("Below Brandi's 35% Fasteners floor");
+  await expect(priceField(page, "GLV-N8-L-1000")).toHaveAccessibleDescription("Below Brandi's 30% Safety & PPE floor");
+  expect(await warnedLines(page)).toEqual(["HCS-12-13-2G8", "GLV-N8-L-1000"]);
+  await expect(page.getByText(/^Below Brandi's/)).toHaveCount(2);
   await screenshot(page, testInfo, "quote-detail-after-floor-change-1440");
 
   // Saved floors survive a reload; 0.1 point is the precision.

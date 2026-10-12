@@ -352,7 +352,7 @@ test(
       await expect(brandi.getByText(`Sent ${flow.quoteNumber} rev 1 to Dana in Querent chat`)).toBeVisible();
       // The header's status (C_QEBase); the send is logged first in Quote details, Activity.
       await expect(repStatus()).toHaveText(/^Status\s*Sent$/);
-      await expect((await repActivity()).first()).toHaveText(new RegExp(`^Brandi sent ${flow.quoteNumber} rev 1 to Dana`));
+      await expect((await repActivity()).first()).toHaveText(new RegExp(`^Brandi Gallegos sent ${flow.quoteNumber} rev 1 to Dana`));
       await expect(brandi.getByRole("button", { name: "Approve and send" })).toBeDisabled();
       const detail = await brandi.evaluate((number) => fetch(`/api/rep/quotes/${number}`).then((r) => r.json()), flow.quoteNumber);
       expect(detail.quote).toMatchObject({ status: "sent", revision: 1 });

@@ -35,7 +35,7 @@ async function signInAsDana(page: Page) {
   await expect(page.getByLabel("Ask a question")).toBeVisible();
 }
 
-/** Approve & send as Brandi (task 3.7's route), confirming the revision and total the send check shows. */
+/** Approve and send as Brandi (task 3.7's route), confirming the revision and total the send check shows. */
 async function send(number: string) {
   const status = await brandi.evaluate(async (number) => {
     const detail = await fetch(`/api/rep/quotes/${number}`).then((r) => r.json());
@@ -207,9 +207,16 @@ test("Accept at 1440px: the action bar, the form with branch and pickup locked, 
     expect(detail.quote).toMatchObject({ status: "accepted", customer_po: PO, fulfillment: "will_call", branch_code: "SLC", unread_for_rep: true });
     expect(detail.editable).toBe(false);
     await brandi.goto(`/rep/quotes/${SAMPLE}`);
-    await expect(brandi.getByText(new RegExp(`with PO ${PO}, pickup ${when} at SLC\\.$`))).toBeVisible();
-    await expect(brandi.getByRole("group", { name: "Pickup or delivery" }).locator("summary")).toContainText(`Will call · SLC · ${when}`);
-    await expect(brandi.getByRole("group", { name: "Quote terms" }).locator("summary")).toContainText(`PO ${PO}`);
+    // The editor (plan U4): Accepted in the header; the PO and the pickup time in Quote details (C_QE4),
+    // each section's value beside its title, and what Dana sent in Activity.
+    await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Accepted$/);
+    const button = brandi.getByRole("button", { name: /^Quote details/ });
+    await button.click();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    const details = brandi.getByRole("region", { name: "Quote details" });
+    await expect(details.getByRole("region", { name: "Pickup or delivery", exact: true })).toContainText(`Will call, SLC, ${when}`);
+    await expect(details.getByRole("region", { name: "Quote terms", exact: true })).toContainText(`PO ${PO}`);
+    await expect(details.getByRole("region", { name: "Activity", exact: true }).locator('[data-ui="activity-message"]').first()).toContainText(`with PO ${PO}, pickup at SLC`);
   });
 });
 

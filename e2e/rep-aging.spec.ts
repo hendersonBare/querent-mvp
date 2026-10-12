@@ -143,15 +143,16 @@ test("header caution: its label counts red quotes only; its dropdown lists the a
   await context.close();
 });
 
-test("quote detail: the header shows the marker next to the status chip", async ({ page }) => {
+test("quote editor: the header's Status shows Overdue or Aging after the status (plan U4, C_QEBase)", async ({ page }) => {
   await signInAsBrandi(page);
   await page.goto("/rep/quotes/Q-24790");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
-  const header = page.getByRole("heading", { level: 1 }).locator("..");
-  await expect(header.getByText("Changes requested", { exact: true })).toBeVisible();
-  await expect(header.locator('[data-level="red"]')).toHaveText(/^Overdue/);
+  const status = page.getByRole("group", { name: "Status" });
+  await expect(status.getByText("Changes requested", { exact: true })).toBeVisible();
+  await expect(status.locator('[data-level="red"]')).toHaveText(/^Overdue/);
   await page.goto("/rep/quotes/Q-24789");
-  await expect(page.getByRole("heading", { level: 1 }).locator("..").locator('[data-level="amber"]')).toHaveAttribute("title", "Sent 4 days ago");
+  await expect(status.locator('[data-level="amber"]')).toHaveAttribute("title", "Sent 4 days ago");
   await page.goto("/rep/quotes/Q-24791");
-  await expect(page.getByRole("heading", { level: 1 }).locator("..").locator("[data-level]")).toHaveCount(0);
+  await expect(status).toBeVisible();
+  await expect(status.locator("[data-level]")).toHaveCount(0);
 });

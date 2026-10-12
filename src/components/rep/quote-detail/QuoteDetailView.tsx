@@ -147,7 +147,7 @@ function Facts({detail}:{detail:QuoteDetail}){
   return <div className={s.facts} role="group" aria-label="Quote facts">
     <Fact id={`${id}-q`} label="Quote"><span className={s.quoteNo}>{quote.quote_number}</span></Fact>
     <Fact id={`${id}-s`} label="Status"><span className={s.status}>{REP_STATUS[quote.status].label}</span>
-      {late&&<span className={s.aging} title={late.reason}>{AGING_LABELS[late.level as 'amber'|'red']}</span>}</Fact>
+      {late&&<span className={s.aging} data-level={late.level} title={late.reason}>{AGING_LABELS[late.level as 'amber'|'red']}</span>}</Fact>
     <Fact id={`${id}-a`} label="Purchasing agent">{quote.contact_name??'-'}</Fact>
     <Fact id={`${id}-r`} label="Requested">{requestedAt(quote.requested_at)}</Fact>
     <Fact id={`${id}-v`} label="Valid until">{day(detail.valid_until,detail.as_of)}</Fact>

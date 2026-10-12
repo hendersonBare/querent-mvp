@@ -28,8 +28,8 @@ export function UpsellsSection({editor,querentFound}:{editor:QuoteEditor;querent
   const onKey=(event:KeyboardEvent)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}};
 
   return <section className={s.card} aria-label="Suggested by Querent">
-    <div className={`${s.titlebar} ${s.suggestHead}`} role="button" tabIndex={editable?0:-1} aria-expanded={editable?open:undefined} aria-controls={editable?bodyId:undefined}
-      aria-disabled={!editable||undefined} onClick={toggle} onKeyDown={onKey}>
+    <div className={`${s.titlebar} ${s.suggestHead}`} role={editable?'button':undefined} tabIndex={editable?0:undefined} aria-expanded={editable?open:undefined}
+      aria-controls={editable?bodyId:undefined} onClick={toggle} onKeyDown={editable?onKey:undefined}>
       <div id={titleId} className={s.suggestTitle}>Suggested by Querent<span className={s.found} title={FOUND_NOTE}>{querentFound}</span></div>
       <div className={s.suggestMeta} role="status">{meta}</div>
     </div>

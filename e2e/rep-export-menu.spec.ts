@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { extractText, getDocumentProxy } from "unpdf";
 
-// The quote detail's Export menu (task 4.3; spec §4, §6.7; docs/design/screens/05): Customer
+// The quote editor's Export menu (task 4.3; plan U4, C_QE2; spec §4, §6.7): Customer
 // quote (PDF), Internal worksheet (PDF), Line items (CSV) and Copy quote summary. Each export
 // reads the quote as it is on screen: the draft while Brandi can edit it (ready_for_review, or
 // changes_requested: then the draft of the next revision), else the latest sent revision.
@@ -106,8 +106,8 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
 
-test("screen 05 at 1440px: the four exports with the mockup's hints, Copy set apart", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
+test("C_QE2 at 1920px: the four exports with their hints, Copy set apart", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openQuote(page);
   const menu = await openExport(page);
   const items = menu.getByRole("menuitem");
@@ -118,12 +118,12 @@ test("screen 05 at 1440px: the four exports with the mockup's hints, Copy set ap
     "Copy quote summaryPlain text for an email or text message",
   ]);
   // The divider sits between the files and Copy quote summary.
-  await expect(menu.locator("hr")).toHaveCount(1);
-  await expect(menu.locator("hr + [role=menuitem]")).toHaveText(/^Copy quote summary/);
+  await expect(menu.getByRole("separator")).toHaveCount(1);
+  await expect(menu.locator("[role=separator] + [role=menuitem]")).toHaveText(/^Copy quote summary/);
   await expect(items.first()).toBeFocused();
   await inViewport(page, menu);
   await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "export-menu-1440");
+  await screenshot(page, testInfo, "export-menu-1920");
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(page.getByRole("button", { name: "Export" })).toBeFocused();

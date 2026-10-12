@@ -120,10 +120,10 @@ describe('the section',()=>{
     const box=section();
     expect(box).toHaveTextContent('Suggested by QuerentQuerent found +$11.50 GP');
     expect(box).toHaveTextContent('Offered while the quote can be edited');
-    // Its title bar doesn't open.
-    fireEvent.click(head());
-    expect(head()).not.toHaveAttribute('aria-expanded');
-    expect(within(box).queryAllByRole('button',{name:/^(Add|Apply)/})).toEqual([]);
+    // Its title bar is not a control, and clicking it opens nothing.
+    expect(within(box).queryAllByRole('button')).toEqual([]);
+    fireEvent.click(within(box).getByText('Suggested by Querent'));
+    expect(within(box).queryAllByRole('listitem')).toEqual([]);
     expect(calls('GET',/\/upsells$/)).toHaveLength(0);
   });
 });

@@ -100,7 +100,8 @@ test("Dana adds a suggested nut from the pop-up, and Brandi sees it on the draft
     ]);
     await brandi.goto(`/rep/quotes/${quoteNumber}`);
     const nut = brandi.getByRole("row").filter({ hasText: "HN-12-13-G8" });
-    await expect(nut).toContainText("Chat suggestion");
+    // The line's tag beside its pack, in the editor's tag style (plan U4, C_QEBase's CONTRACT tag).
+    await expect(nut).toContainText("CHAT SUGGESTION");
   });
 });
 

@@ -1,10 +1,10 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-// "Suggested by Querent" on the rep's quote detail (task 3.6; spec §4, §5.5; mockup .sugbox,
-// screens 03-04 and 08). On the seeded sample Q-24817 the rules (task 1.6) offer five chips: the
+// "Suggested by Querent" on the rep's quote editor (task 3.6; plan U4, C_QEBase closed and C_QE5 open;
+// spec §4, §5.5). On the seeded sample Q-24817 the rules (task 1.6) offer five chips: the
 // nut and the washer for the Grade 8 bolts, flap discs bought with the wheels, the wheels bumped
 // to a full case, and safety glasses bought with the gloves. Scripted mode, so the wording is the
-// deterministic template. Taking a chip is an autosaved edit: the totals and "Querent found"
+// deterministic template. Taking a chip is an autosaved edit: the total and "Querent found"
 // follow, the chip goes, and Undo brings both back.
 //
 // Before each test the database is reset to the seed pinned to the mockup's day
@@ -36,10 +36,12 @@ async function openQuote(page: Page, number = "Q-24817") {
   await page.goto(`/rep/quotes/${number}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 }
-const suggested = (page: Page) => page.getByRole("group", { name: "Suggested by Querent" });
-const header = (page: Page) => suggested(page).locator("summary");
+const suggested = (page: Page) => page.getByRole("region", { name: "Suggested by Querent" });
+/** The title bar (C_QEBase): "Querent found" and the ideas; it opens and closes the chips (C_QE5). */
+const header = (page: Page) => suggested(page).getByRole("button", { name: /^Suggested by Querent/ });
 const chips = (page: Page) => suggested(page).getByRole("listitem");
-const items = (page: Page) => page.getByLabel("Quote totals");
+/** The quote total in the total box (C_QEBase); the sample is will call, so it is the items' total. */
+const total = (page: Page) => page.getByRole("region", { name: "Quote summary" }).getByText(/^\$[\d,]+\.\d\d$/).first();
 const saved = (page: Page) => expect(page.getByText("All changes saved")).toBeVisible();
 const qty = (page: Page, sku: string) => page.getByRole("textbox", { name: `Quantity for ${sku}` });
 async function noSidewaysScroll(page: Page) {
@@ -70,47 +72,47 @@ const FIVE = [
   "Safety glasses, clear anti-fog (box of 12)",
 ];
 
-test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bump, then Undo both", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1057 });
+test("Q-24817 at 1920px: the five chips from 1.6; take the nut and the wheels bump, then Undo both", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openQuote(page);
 
-  // Collapsed, as in screen 03: "Querent found" and the ideas.
+  // Closed, as in C_QEBase: "Querent found" and the ideas.
   await expect(header(page)).toContainText("Querent found +$11.50 GP");
-  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
+  await expect(header(page)).toContainText("5 ideas, up to +$162.95 gross profit");
   await expect(chips(page).first()).toBeHidden();
   await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "upsells-1440-collapsed");
+  await screenshot(page, testInfo, "upsells-1920-closed");
 
   await header(page).click();
   await expect(chips(page)).toHaveCount(5);
   for (const [i, title] of FIVE.entries()) await expect(chips(page).nth(i)).toContainText(title);
   await expect(chips(page).nth(0)).toContainText("Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500.");
-  await expect(chips(page).nth(0)).toContainText("HN-12-13-G8 · 5 at $18.15 · 46.0% margin · +$41.75 GP");
-  await expect(chips(page).nth(3)).toContainText("CW-45-045-T1 · 6 → 8 at $36.00 · 33.1% margin · +$23.80 GP");
+  await expect(chips(page).nth(0)).toContainText("HN-12-13-G8, 5 at $18.15, 46.0% margin, +$41.75 GP");
+  await expect(chips(page).nth(3)).toContainText("CW-45-045-T1, 6 to 8 at $36.00, 33.1% margin, +$23.80 GP");
   await suggested(page).scrollIntoViewIfNeeded();
-  await screenshot(page, testInfo, "upsells-1440-open");
+  await screenshot(page, testInfo, "upsells-1920-open");
 
-  // Take the nut: a new line, suggested by Querent; the totals and "Querent found" follow; the chip goes.
+  // Take the nut: a new line, suggested by Querent; the total and "Querent found" follow; the chip goes.
   await suggested(page).getByRole("button", { name: /^Add: Hex nut 1\/2-13/ }).click();
   const nut = page.getByRole("rowheader", { name: /HN-12-13-G8/ });
-  await expect(nut).toContainText("Suggested");
+  await expect(nut).toContainText("SUGGESTED");
   await expect(qty(page, "HN-12-13-G8")).toHaveValue("5");
-  await expect(items(page)).toContainText("Items$1,213.15");
+  await expect(total(page)).toHaveText("$1,213.15");
   await expect(header(page)).toContainText("Querent found +$19.75 GP");
   await expect(suggested(page).getByRole("button", { name: /^Add: Hex nut/ })).toHaveCount(0);
   await saved(page);
   // 5 boxes of nuts is a broken case (10 to a case), priced at customer + 10%: the full-case rule now offers the rest.
-  await expect(header(page)).toContainText("5 ideas · up to +$146.45 gross profit");
+  await expect(header(page)).toContainText("5 ideas, up to +$146.45 gross profit");
   await expect(chips(page).nth(2)).toContainText("Bump hex nuts to 10 boxes (1 full case)");
 
   // Apply the wheels bump: the qty moves at once, on its contract price.
   await suggested(page).getByRole("button", { name: /^Apply: Bump cut-off wheels/ }).click();
   await expect(qty(page, "CW-45-045-T1")).toHaveValue("8");
-  await expect(items(page)).toContainText("Items$1,285.15");
+  await expect(total(page)).toHaveText("$1,285.15");
   await saved(page);
-  await expect(header(page)).toContainText("4 ideas · up to +$122.65 gross profit");
+  await expect(header(page)).toContainText("4 ideas, up to +$122.65 gross profit");
   await expect(header(page)).toContainText("Querent found +$19.75 GP");
-  await screenshot(page, testInfo, "upsells-1440-taken");
+  await screenshot(page, testInfo, "upsells-1920-taken");
 
   // Both are saved.
   const detail = await api(page, "/api/rep/quotes/Q-24817");
@@ -118,25 +120,25 @@ test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bu
     ["HCS-12-13-2G8", 10, "querent"], ["CW-45-045-T1", 8, "querent"], ["GLV-N8-L-1000", 4, "querent"], ["RS-2-27-JH", 12, "querent"], ["HN-12-13-G8", 5, "upsell"],
   ]);
 
-  // Undo the bump, then the nut: the lines, the totals, "Querent found" and the five chips come back.
+  // Undo the bump, then the nut: the lines, the total, "Querent found" and the five chips come back.
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(qty(page, "CW-45-045-T1")).toHaveValue("6");
   await saved(page);
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(nut).toHaveCount(0);
-  await expect(items(page)).toContainText("Items$1,122.40");
+  await expect(total(page)).toHaveText("$1,122.40");
   await expect(header(page)).toContainText("Querent found +$11.50 GP");
-  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
+  await expect(header(page)).toContainText("5 ideas, up to +$162.95 gross profit");
   await expect(chips(page)).toHaveCount(5);
   await page.reload();
-  await expect(items(page)).toContainText("Items$1,122.40");
-  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
+  await expect(total(page)).toHaveText("$1,122.40");
+  await expect(header(page)).toContainText("5 ideas, up to +$162.95 gross profit");
 });
 
 test("Q-24817 at 1920px: take the flap disc chip; the full-case rule then offers the fourth box", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openQuote(page);
-  await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
+  await expect(header(page)).toContainText("5 ideas, up to +$162.95 gross profit");
   await header(page).click();
   await expect(chips(page)).toHaveCount(5);
   await suggested(page).getByRole("button", { name: /^Add: Flap disc/ }).click();
@@ -144,20 +146,20 @@ test("Q-24817 at 1920px: take the flap disc chip; the full-case rule then offers
   await saved(page);
   // 3 boxes of flap discs is a broken case (4 to a case): once saved, the full-case rule offers the fourth.
   await expect(chips(page).last()).toContainText("Bump flap discs to 4 boxes (1 full case)");
-  await expect(header(page)).toContainText("5 ideas · up to +$136.45 gross profit");
+  await expect(header(page)).toContainText("5 ideas, up to +$136.45 gross profit");
 });
 
 test("a chip that changed in another tab is refused with a note, and the chips and lines refresh (no stale apply)", async ({ page }) => {
   await openQuote(page);
   await header(page).click();
-  await expect(chips(page).first()).toContainText("HN-12-13-G8 · 5 at $18.15");
+  await expect(chips(page).first()).toContainText("HN-12-13-G8, 5 at $18.15");
   // Another tab takes the bolts to 20 boxes: the nut chip now means 10 boxes at $16.50 (a full case at customer price).
   expect((await api(page, "/api/rep/quotes/Q-24817/lines/q-24817-1", "PATCH", { qty: 20 })).status).toBe(200);
   await suggested(page).getByRole("button", { name: /^Add: Hex nut 1\/2-13/ }).click();
   await expect(suggested(page).getByRole("alert")).toContainText("That suggestion changed since it was shown. Check the updated suggestions and try again.");
   await expect(page.getByRole("rowheader", { name: /HN-12-13-G8/ })).toHaveCount(0);
   await expect(qty(page, "HCS-12-13-2G8")).toHaveValue("20");
-  await expect(chips(page).first()).toContainText("HN-12-13-G8 · 10 at $16.50");
+  await expect(chips(page).first()).toContainText("HN-12-13-G8, 10 at $16.50");
   expect((await api(page, "/api/rep/quotes/Q-24817")).body.lines).toHaveLength(4);
   // Taken as it reads now, it applies as it reads.
   await suggested(page).getByRole("button", { name: /^Add: Hex nut 1\/2-13/ }).click();

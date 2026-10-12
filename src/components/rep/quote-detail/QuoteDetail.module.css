@@ -885,10 +885,9 @@
 /* ---- Suggested by Querent (C_QEBase closed, C_QE5 open) ---- */
 .suggestHead {
   gap: 12px;
-  cursor: pointer;
 }
-.suggestHead[aria-disabled="true"] {
-  cursor: default;
+.suggestHead[role="button"] {
+  cursor: pointer;
 }
 .suggestTitle {
   display: flex;

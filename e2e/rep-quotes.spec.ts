@@ -165,7 +165,7 @@ test("scope: the manager's list is every rep's quotes; the Rep filter and ?custo
   // Brandi is the manager: opening another rep's quote shows it read-only (task D2;
   // e2e/rep-reassign.spec.ts covers it, and another rep's not-found).
   await page.goto(`/rep/quotes/${made.other_rep}`);
-  await expect(page.getByRole("region", { name: "Read only" })).toContainText("Mara Jensen’s quote");
+  await expect(page.getByText("Read only: Mara Jensen's quote. Reassign it to edit.", { exact: true })).toBeVisible();
 });
 
 test("empty state: a placeholder customer has no quotes yet", async ({ page }) => {
@@ -209,7 +209,7 @@ test("unread: opening a quote clears its dot and its row in the bell", async ({ 
   await expect.poll(() => bellRows(page)).toEqual([made.changes_requested]);
   await expect(quotesNavLink(page)).toHaveAttribute("aria-current", "page");
 
-  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Quotes" }).click();
+  await page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Quotes" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await page.goto(MINE);
   await expect(quote(page, SAMPLE).getByRole("rowheader")).not.toHaveText(/Unread/);
