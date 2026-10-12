@@ -41,7 +41,7 @@ describe('the page (C_TRBase)',()=>{
     expect(within(reps()).getByRole('button',{name:'Save'})).toBeInTheDocument();
     expect(within(teams()).getAllByRole('checkbox').map(c=>c.closest('label')!.textContent)).toEqual(['Inside Sales2 reps','Outside Sales2 reps']);
     expect(within(teams()).getByRole('button',{name:'Create team'})).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/—/);
+    expect(document.body.textContent).not.toMatch(/\u2014/);
   });
 
   it('nests a team inside its parent, whose count takes in the reps of the teams inside it',()=>{

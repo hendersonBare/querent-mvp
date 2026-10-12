@@ -40,10 +40,10 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 
 ## Act 4: Brandi compares reps, reads decline reasons, and reassigns a quote
 
-1. In Herrick's window open **Teams and Reps** in the rail (managers only). The 30-day preset is on.
-2. Untick Brandi Gallegos and Nora Chen to compare **Mara Jensen** and **Eli Porter**: one row each and a totals row, with created, open quotes by aging, status counts, rates, times, values, freight recovered and suggestions taken.
-3. **Decline reasons** lists every reason with each rep's share, and the Other note in the customer's words. Press the declined-quotes link to drill into exactly those quotes in the Quotes list.
-4. Back on Teams and Reps, press Mara's **overdue** count. Tick her overdue draft, press **Reassign…**, choose **Eli Porter** and **Reassign**. The list now shows it as Eli's, and its Activity says who moved it.
+1. In Herrick's window open **Analytics** in the rail and its **Rep leaderboard** tab (managers only; it moved from Teams and Reps). The 30-day window is on.
+2. In **Filter**, tick **Eli Porter** and **Mara Jensen** and press **Apply filters** to compare them: one row each and a totals row, with created, open quotes by aging, status counts, rates and times.
+3. The **Decline reasons** tab lists every reason with each rep's share, and the Other note in the customer's words. Press the declined-quotes link to drill into exactly those quotes in the Quotes list.
+4. Back on the Rep leaderboard, press Mara's **overdue** count. Tick her overdue draft, press **Reassign…**, choose **Eli Porter** and **Reassign**. The list now shows it as Eli's, and its Activity says who moved it. (Customers and all of a rep's open quotes move on **Teams and Reps**.)
 
 ## Act 5: Pricing & delivery, impact preview, free delivery and the ramp
 

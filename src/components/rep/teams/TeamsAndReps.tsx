@@ -279,7 +279,7 @@ function TeamsCard({board,team,onTeam,filter,onFilter,memberships,onCreate,onMem
         </div>}
       </div>;
     })}
-    {!teams.length&&<p className={s.problem} style={{color:'var(--q-text-2)',paddingBottom:14}}>No teams yet.</p>}
+    {!teams.length&&<p className={s.emptyLine}>{board.teams.length?'No teams match.':'No teams yet.'}</p>}
   </section>;
 }
 

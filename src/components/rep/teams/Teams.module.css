@@ -83,6 +83,13 @@
   padding: 0 16px;
 }
 
+/* A plain line in the card (decision 52): nothing to list, in the secondary colour. */
+.emptyLine {
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid var(--q-row-divider);
+  color: var(--q-text-2);
+}
 /* A plain line in the card: an error (decision 52). */
 .problem {
   margin: 0;
