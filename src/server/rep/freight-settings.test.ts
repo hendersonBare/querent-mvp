@@ -130,7 +130,7 @@ describe('the impact preview',()=>{
     // Starting rate 300 bp over 3 steps: 100 bp at step 1, 300 bp at full. 50 boxes at $31.50:
     // full 4,725¢ → 95¢ a box (301.6 bp → 302); step 1 1,575¢ → 32¢ a box (101.6 bp → 102).
     expect(preview).toEqual({deliveryQuotes:3,affected:1,step1Bp:100,fullBp:300,steps:3,windowDays:90,viewedAt:now,
-      categories:[{categoryId:'fasteners',categoryName:'Fasteners',lines:1,step1ChangeBp:102,fullChangeBp:302}]});
+      categories:[{categoryId:'fasteners',categoryName:'Fasteners',lines:1,step1ChangeBp:102,fullChangeBp:302,quotes:1,step1ChangeCents:32,fullChangeCents:95}]});
     expect(repo.freightPreviewViewedAt()).toBe(now);
     expect((await svc.freightSettingsView({now:before(-HOUR,now),source:null})).previewValid).toBe(true);
   });

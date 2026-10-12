@@ -23,9 +23,10 @@ describe('impactPreview',()=>{
       categories:[
         // Full: bolts +32¢ on $20 = 160 bp, nuts +10¢ on $2 = 500 bp, the contract line 0 → 220 bp.
         // Step 1: bolts +10¢ = 50 bp, nuts +3¢ = 150 bp, contract 0 → 66.7 → 67 bp.
-        {categoryId:'fasteners',categoryName:'Fasteners',lines:3,step1ChangeBp:67,fullChangeBp:220},
+        // In dollars (C_S7, plan U8): full (32¢ + 10¢ + 0) ÷ 3 = 14¢, step 1 (10¢ + 3¢ + 0) ÷ 3 = 4.3 → 4¢; in A and B.
+        {categoryId:'fasteners',categoryName:'Fasteners',lines:3,step1ChangeBp:67,fullChangeBp:220,quotes:2,step1ChangeCents:4,fullChangeCents:14},
         // Full: +$9.68 on $180 = 537.8 → 538 bp. Step 1: +$3.24 = 180 bp.
-        {categoryId:'power-tools',categoryName:'Power tools',lines:1,step1ChangeBp:180,fullChangeBp:538},
+        {categoryId:'power-tools',categoryName:'Power tools',lines:1,step1ChangeBp:180,fullChangeBp:538,quotes:1,step1ChangeCents:324,fullChangeCents:968},
       ],
     });
   });
@@ -33,7 +34,7 @@ describe('impactPreview',()=>{
   it('applies the per-line cap',()=>{
     // A $5.00 item (cost $1.00) alone at 1000 bp: target 50¢, capped at 8% = 40¢ → 800 bp.
     const only={carries:true,lines:[line(TOOLS,1,1,500,100)]};
-    expect(impactPreview({quotes:[only],step1Bp:1000,fullBp:1000,lineCapBp:800}).categories).toEqual([{categoryId:'power-tools',categoryName:'Power tools',lines:1,step1ChangeBp:800,fullChangeBp:800}]);
+    expect(impactPreview({quotes:[only],step1Bp:1000,fullBp:1000,lineCapBp:800}).categories).toEqual([{categoryId:'power-tools',categoryName:'Power tools',lines:1,step1ChangeBp:800,fullChangeBp:800,quotes:1,step1ChangeCents:40,fullChangeCents:40}]);
   });
 
   it('is empty when no quote would carry recovery, and at a 0 bp rate nothing changes',()=>{
