@@ -208,9 +208,29 @@ describe('the filter panel',()=>{
     expect(within(panel).getByRole('button',{name:'Customer: Any customer'})).toBeInTheDocument();
     fireEvent.click(within(panel).getByRole('checkbox',{name:'Accepted'}));
     fireEvent.click(within(panel).getByRole('checkbox',{name:'Overdue'}));
-    fireEvent.change(within(panel).getByLabelText('Requested from'),{target:{value:'2026-09-01'}});
+    // Requested from: a plain box (C_QOB2) that opens a list of days, newest first.
+    fireEvent.click(within(panel).getByRole('button',{name:'Requested from: Any day'}));
+    const days=within(panel).getAllByRole('option').map(o=>o.textContent);
+    expect(days.slice(0,3)).toEqual(['Any day','Sep 25','Sep 24']);
+    fireEvent.mouseDown(within(panel).getByRole('option',{name:'Sep 1'}));
+    expect(within(panel).getByRole('button',{name:'Requested from: Sep 1'})).toHaveTextContent(/^Sep 1$/);
     fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
     expect(nav.push).toHaveBeenCalledWith('/rep/quotes?view=table&status=ready_for_review%2Cchanges_requested%2Csent%2Cexpired%2Cdeclined&rep=mara&requested_from=2026-09-01&only=overdue',{scroll:false});
+  });
+
+  it('draws the Requested from and to fields as C_QOB2 does: a plain box with the day as "Sep 1", no native date input',()=>{
+    renderList(quoteList(),{query:'requested_from=2026-09-01'});
+    fireEvent.click(screen.getByRole('button',{name:'Filter, 1 applied'}));
+    const panel=screen.getByRole('dialog',{name:'Filter quotes'});
+    expect(panel.querySelector('input[type=date]')).toBeNull();
+    expect(within(panel).getByRole('button',{name:'Requested from: Sep 1'})).toHaveTextContent(/^Sep 1$/);
+    // The empty field (no frame) is the box with nothing in it: no mm/dd/yyyy, no placeholder.
+    expect(within(panel).getByRole('button',{name:'Requested to: Any day'})).toHaveTextContent(/^$/);
+    // Any day empties it again.
+    fireEvent.click(within(panel).getByRole('button',{name:'Requested from: Sep 1'}));
+    fireEvent.mouseDown(within(panel).getByRole('option',{name:'Any day'}));
+    fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes',{scroll:false});
   });
 
   it('shows the count badge for applied filters; Clear all and Apply drop them',()=>{
@@ -263,6 +283,31 @@ describe('the quote preview (C_QOB5, C_QOT3)',()=>{
     expect(within(sheet).queryByRole('button',{name:/^Reply/})).toBeNull();
     fireEvent.click(within(sheet).getByRole('button',{name:'Close'}));
     expect(screen.queryByRole('dialog',{name:'Q-24817'})).toBeNull();
+  });
+});
+
+describe("another rep's quote (decision 22: the manager reads it, read-only)",()=>{
+  const MARAS={...CHANGES,id:'q-24779',quote_number:'Q-24779',rep_id:'mara',rep_name:'Mara Jensen'};
+
+  it('has no Reply in the preview',()=>{
+    renderList(quoteList({scope:[MARAS]}));
+    fireEvent.click(within(card('Q-24779')).getByRole('button',{name:'Q-24779'}));
+    const sheet=screen.getByRole('dialog',{name:'Q-24779'});
+    expect(within(sheet).getByText('"Make it 12 boxes and deliver Friday."')).toBeInTheDocument();
+    expect(within(sheet).getByRole('link',{name:'Open quote'})).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button',{name:/^Reply/})).toBeNull();
+  });
+
+  it('shows the note with no reply box and no Send reply',()=>{
+    renderList(quoteList({scope:[MARAS]}),{view:'table'});
+    fireEvent.click(within(table()).getByRole('button',{name:'View note'}));
+    const note=screen.getByRole('dialog',{name:'Note on Q-24779'});
+    expect(note).toHaveTextContent('"Make it 12 boxes and deliver Friday."');
+    expect(within(note).queryByRole('textbox')).toBeNull();
+    expect(within(note).queryByText(/^Reply to/)).toBeNull();
+    expect(within(note).queryByRole('button',{name:'Send reply'})).toBeNull();
+    fireEvent.click(within(note).getAllByRole('button',{name:'Close'}).at(-1)!);
+    expect(screen.queryByRole('dialog',{name:'Note on Q-24779'})).toBeNull();
   });
 });
 
