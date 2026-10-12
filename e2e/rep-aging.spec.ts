@@ -122,8 +122,8 @@ test("header caution: its label counts red quotes only; its dropdown lists the a
   const list = page.getByRole("dialog", { name: `${attention} need your attention` });
   await expect(list.getByRole("button")).toHaveCount(attention);
   for (const [number, tag] of [["Q-24790", "Overdue"], ["Q-24817", "Overdue"], ["Q-24789", "Aging"]])
-    await expect(list.getByRole("button", { name: new RegExp(`^${number}${tag}`) })).toHaveCount(1);
-  await expect(list.getByRole("button", { name: /^Q-24789Aging/ })).toHaveText("Q-24789AgingSent 4 days ago.");
+    await expect(list.getByRole("button", { name: new RegExp(`^${number}\\s*${tag}`) })).toHaveCount(1);
+  await expect(list.getByRole("button", { name: /^Q-24789\s*Aging/ })).toHaveText("Q-24789AgingSent 4 days ago.");
   // Red first.
   const tags = await list.getByRole("button").evaluateAll((rows) => rows.map((r) => (r.textContent!.includes("Overdue") ? "red" : "amber")));
   expect(tags).toEqual([...tags].sort((a, b) => (a === "red" ? 0 : 1) - (b === "red" ? 0 : 1)));

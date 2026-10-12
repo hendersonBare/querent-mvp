@@ -97,9 +97,6 @@ async function openSample(page: Page) {
 /** The red below-floor warnings on the quote detail, by SKU: the note directly above each line's price. */
 const floorNote = (page: Page, sku: string) =>
   page.getByRole("rowheader", { name: new RegExp(sku) }).locator("xpath=ancestor::tbody[1]").getByRole("note");
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ path, fullPage: true });
@@ -323,32 +320,4 @@ test("pricing & delivery: the scarcity uplift is off by default and toggles; bro
   await expect(page.getByRole("switch", { name: "Scarcity uplift" })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("switch", { name: "Scarcity uplift" }).click();
   await expect(page.getByRole("switch", { name: "Scarcity uplift" })).toHaveAttribute("aria-checked", "false");
-});
-
-test("phone (390px): every Settings tab fits, the current tab is in view, and nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signInAsBrandi(page);
-  await portalNav(page).getByRole("link", { name: "Settings" }).click();
-  await expect(page).toHaveURL(/\/rep\/settings$/);
-  const slug: Record<(typeof TABS)[number], string> = {
-    "Rep assignments": "assignments",
-    Reps: "reps",
-    "Customer access": "access",
-    "Margin floors": "floors",
-    "Pricing & delivery": "pricing",
-    Aging: "aging",
-    "Data sources": "sources",
-  };
-  for (const tab of TABS) {
-    await page.goto(`/rep/settings?tab=${slug[tab]}`);
-    const link = settingsTabs(page).getByRole("link", { name: tab, exact: true });
-    await expect(link).toHaveAttribute("aria-current", "page");
-    await expect(link).toBeInViewport({ ratio: 1 });
-    await noSidewaysScroll(page);
-    await screenshot(page, testInfo, `settings-${slug[tab]}-390`);
-  }
-  await page.goto("/rep/settings?tab=floors");
-  await saveFloor(page, "Tools", "19");
-  await saveFloor(page, "Tools", "18");
-  await noSidewaysScroll(page);
 });

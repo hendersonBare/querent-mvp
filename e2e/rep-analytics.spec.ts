@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 // Analytics (task 6.2; spec §4): the five stat cards, the trends and the old query analytics,
-// for Brandi's customers and a placeholder customer, at desktop width and at 390px. Brandi is the
+// for Brandi's customers and a placeholder customer, at desktop width (no phone layout, decision 43). Brandi is the
 // manager, whose All customers is the whole organization (task U1), so the seed's figures are read
 // for Wasatch, her customer that holds all of her book's data, through the page's own ?customer=.
 //
@@ -198,34 +198,3 @@ for (const viewport of [{ width: 1440, height: 900 }]) {
     await expect(page.getByRole("tooltip")).toContainText("For each question Querent answered");
   });
 }
-
-test("phone (390px): the cards and charts fit, tooltips stay on screen, nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openAnalytics(page);
-  await expectSeedCards(page);
-  await noSidewaysScroll(page);
-  for (const name of ["Median time to send", "Extra GP Querent found", "Quotes and wins by week", "Average margin vs floor"]) {
-    const box = (await card(page, name).boundingBox())!;
-    expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(390);
-  }
-  await shoot(page, testInfo, "6.2-analytics-390-all");
-
-  // Tap the "i" on the right-hand card: the tip is clamped inside the screen.
-  const info = page.getByRole("button", { name: "How win rate is calculated" });
-  await info.click();
-  const tip = page.getByRole("tooltip");
-  await expect(tip).toBeVisible();
-  const box = (await tip.boundingBox())!;
-  expect(box.x).toBeGreaterThanOrEqual(16);
-  expect(box.x + box.width).toBeLessThanOrEqual(390 - 16);
-  await noSidewaysScroll(page);
-  await shoot(page, testInfo, "6.2-analytics-390-tooltip");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
-
-  await page.goto("/rep/analytics?customer=great-basin");
-  await expectEmpty(page);
-  await noSidewaysScroll(page);
-  await shoot(page, testInfo, "6.2-analytics-390-great-basin");
-});

@@ -115,9 +115,9 @@ test("Act 2: Brandi sees the aging quotes in the caution dropdown and the Needs 
   await caution.click();
   await expect(brandi).toHaveURL(/\/rep\/quotes$/);
   const attention = brandi.getByRole("dialog", { name: /need your attention$/ });
-  await expect(attention.getByRole("button", { name: /^Q-24790Overdue/ })).toHaveCount(1);
-  await expect(attention.getByRole("button", { name: /^Q-24817Overdue/ })).toHaveCount(1);
-  await expect(attention.getByRole("button", { name: /^Q-24789Aging/ })).toHaveCount(1);
+  await expect(attention.getByRole("button", { name: /^Q-24790\s*Overdue/ })).toHaveCount(1);
+  await expect(attention.getByRole("button", { name: /^Q-24817\s*Overdue/ })).toHaveCount(1);
+  await expect(attention.getByRole("button", { name: /^Q-24789\s*Aging/ })).toHaveCount(1);
   await expect(attention.getByRole("button").filter({ hasText: "Overdue" })).toHaveCount(overdue);
   await screenshot(brandi, testInfo, "act2-caution");
   await brandi.keyboard.press("Escape");

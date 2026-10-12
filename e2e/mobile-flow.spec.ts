@@ -62,7 +62,7 @@ async function reach(control: Locator) {
   await expect(control).toBeInViewport({ ratio: 1 });
   const box = (await control.boundingBox())!;
   expect(box.x, "starts on screen").toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width, "ends on screen").toBeLessThanOrEqual(PHONE.width);
+  expect(box.x + box.width, "ends on screen").toBeLessThanOrEqual(control.page().viewportSize()!.width);
   return control;
 }
 /** Nothing scrolls sideways: the page, and any open dialog or sheet. */
@@ -81,12 +81,13 @@ async function shoot(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({ path });
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
-/** A Confirm dialog: centered on the phone, with Cancel and Send both reachable. */
+/** A Confirm dialog: centered on the screen, with Cancel and Send both reachable. */
 async function expectConfirm(page: Page, confirm: Locator) {
   await expect(confirm).toBeVisible();
   const box = (await confirm.boundingBox())!;
-  expect(Math.abs(box.x + box.width / 2 - PHONE.width / 2)).toBeLessThan(2);
-  expect(Math.abs(box.y + box.height / 2 - PHONE.height / 2)).toBeLessThan(2);
+  const screen = page.viewportSize()!;
+  expect(Math.abs(box.x + box.width / 2 - screen.width / 2)).toBeLessThan(2);
+  expect(Math.abs(box.y + box.height / 2 - screen.height / 2)).toBeLessThan(2);
   await reach(confirm.getByRole("button", { name: "Cancel" }));
   await reach(confirm.getByRole("button", { name: "Send", exact: true }));
   await noSideways(page);
