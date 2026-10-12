@@ -27,7 +27,7 @@ test.beforeEach(async ({ playwright }, testInfo) => {
 });
 
 async function openQuote(page: Page, number = SAMPLE) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await page.goto(`/rep/quotes/${number}?customer=wasatch`);

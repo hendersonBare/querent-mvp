@@ -48,7 +48,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsBrandi(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }
@@ -114,6 +114,8 @@ test("Sign out asks first, then ends the session and returns to /", async ({ pag
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/$/);
+  // Signed out, / shows the visitor box; its Sign in opens the chooser (decision 53).
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
   // Without the supplier persona, the portal sends you back to /.
   await page.goto("/rep/settings");
   await expect(page).toHaveURL(/\/$/);

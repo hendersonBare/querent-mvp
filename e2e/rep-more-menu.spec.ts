@@ -38,7 +38,7 @@ test.beforeEach(async ({ playwright }, testInfo) => {
 });
 
 async function openQuote(page: Page, number = SAMPLE, query = "?customer=wasatch") {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await page.goto(`/rep/quotes/${number}${query}`);
@@ -275,7 +275,7 @@ test("rep-only: visitors 401, customers 403, another rep's quote 404, and only t
   const context = await browser.newContext({ baseURL });
   try {
     const dana = await context.newPage();
-    await dana.goto("/");
+    await dana.goto("/demo");
     await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
     await expect(dana.getByLabel("Ask a question")).toBeVisible();
     expect((await api(dana, `/api/rep/quotes/${SAMPLE}/duplicate`, "POST")).status).toBe(403);

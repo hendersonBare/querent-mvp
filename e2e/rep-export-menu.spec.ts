@@ -50,7 +50,7 @@ test.beforeEach(async ({ playwright }, testInfo) => {
 
 /** Signs in as Brandi and opens quote `number`. */
 async function openQuote(page: Page, number = SAMPLE) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await showQuote(page, number);
@@ -244,7 +244,7 @@ test("the CSV route is rep-only: visitors 401, customers 403, another rep's quot
   const eliContext = await browser.newContext({ baseURL });
   try {
     const eli = await eliContext.newPage();
-    await eli.goto("/");
+    await eli.goto("/demo");
     expect(await eli.evaluate(async () => (await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: "eli" }) })).status)).toBe(200);
     expect(await status(eli, `/api/rep/quotes/${made.other_rep}/lines.csv?rev=draft`)).toBe(404);
   } finally {
@@ -262,7 +262,7 @@ test("the CSV route is rep-only: visitors 401, customers 403, another rep's quot
   const context = await browser.newContext({ baseURL });
   try {
     const dana = await context.newPage();
-    await dana.goto("/");
+    await dana.goto("/demo");
     await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
     await expect(dana.getByLabel("Ask a question")).toBeVisible();
     expect(await status(dana, `/api/rep/quotes/${SAMPLE}/lines.csv?rev=draft`)).toBe(403);

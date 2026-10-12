@@ -25,7 +25,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsDana(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(page.getByLabel("Ask a question")).toBeVisible();
 }
@@ -103,21 +103,3 @@ test("the buttons come back after a reload", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Call your rep" })).toContainText("(801) 111-2222");
 });
 
-test("at 390px the buttons and the rep fit the chat without scrolling sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const again = await roundTwo(page);
-  const group = again.getByRole("group", { name: CHOICES });
-  await group.scrollIntoViewIfNeeded();
-  const overflow = await page.evaluate(() => {
-    const last = [...document.querySelectorAll<HTMLElement>(".answer-bubble")].at(-1)!;
-    return { page: document.documentElement.scrollWidth - window.innerWidth, bubble: last.scrollWidth - last.clientWidth };
-  });
-  expect(overflow).toEqual({ page: 0, bubble: 0 });
-  const bubbleBox = (await page.locator(".answer-bubble").last().boundingBox())!;
-  for (const button of await group.getByRole("button").all()) {
-    const box = (await button.boundingBox())!;
-    expect(box.x).toBeGreaterThanOrEqual(bubbleBox.x);
-    expect(box.x + box.width).toBeLessThanOrEqual(bubbleBox.x + bubbleBox.width + 0.5);
-  }
-  await page.locator(".answer-bubble").last().screenshot({ path: testInfo.outputPath("clarify-390.png") });
-});

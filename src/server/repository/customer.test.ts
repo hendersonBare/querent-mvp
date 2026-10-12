@@ -53,6 +53,10 @@ const calls:Record<keyof typeof customer,()=>unknown>={
       valid_until:'2026-09-24',headline:'Quote Q-24816 is ready: $655.25, valid until Sep 24',attach_pdf:true,pdf_url:'/api/quotes/q-24816/pdf?variant=customer&rev=1',unit_cost:1,internal_notes:'x'}});
     return customer.quoteNotices('wasatch');
   },
+  notificationReads:()=>{customer.saveNotificationReads('wasatch',['order:so-51223:shipped'],'2026-09-23T18:00:00.000Z');return customer.notificationReads('wasatch');},
+  quoteNews:()=>customer.quoteNews('wasatch'),
+  saveNotificationReads:()=>customer.saveNotificationReads('wasatch',['quote:q-24816:rev:1'],'2026-09-23T18:00:00.000Z'),
+  shippedOrders:()=>customer.shippedOrders('wasatch'),
   order:()=>customer.order('wasatch','SO-51223'),
   orderHistory:()=>customer.orderHistory('wasatch'),
   orders:()=>customer.orders('wasatch'),

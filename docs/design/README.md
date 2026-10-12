@@ -60,9 +60,11 @@ The build follows the mockup except where the spec decided otherwise. Verifiers:
 - **Stock** (was Items): the category filter is **one dropdown, "All categories" by default**, and it is the only way to filter by category (an item's page shows its category as plain text, not a link).
 - **Settings > Pricing & delivery:** the Pricing card lists the scarcity switch and the fixed broken-case rule (customer price + 10%). **Every delivery rate is editable** (base fee, per mile, minimum, free-delivery threshold, radius and the road-miles factor), with a worked example that follows the typing and one Save for all six.
 
-**Customer view (not in the mockup)**
-- **Left sidebar:** the assigned rep as its own section at the very top, then departments (Customer Service, AR/Finance, Warehouse/Will-call per branch). This is static seed data.
-- **Right sidebar:** quote buttons labelled "Quote · date · $total" with a status chip. Clicking one opens a **PDF preview modal** with Download at the top right and an **Accept / Request changes** action bar. Each action gets a **centered Confirm dialog** (red Cancel, Querent-green Send).
+**Customer view (lane U task U10: canvas frames C_CVE0 to C_CVL5 are the source; the old mockup does not apply)**
+- `/` is the Querent box on the supplier's site. Only the box, the Orders and My rep sheets, the bell and the account chip are built; the frames' Herrick header, nav and page are a stand-in. With no session it is the visitor box with the public starter questions and a **Sign in** button to the demo chooser at `/demo`; every visitor question is answered "Sign in to continue." (decision 49, R-14).
+- Signed in: **Orders** and **My rep** open side sheets; the **notification bell** with its unread count is how the customer finds a quote, and a quote notification opens the **PDF preview** with Decline, Request changes and Accept. Each action still gets its centered dialog (no frame).
+- The contacts and quotes sidebars, the three panes, the phone tabs, the ERP indicator and "Switch workspace" are gone, and there is no phone layout (decision 43).
+- Built with no frame (listed under "No frame" in `docs/plans/status.md`): the account chip's Sign out menu, the conversation once it has turns (and New conversation beside Orders), the expired-quote notification's wording, and one-line empty states.
 - The **item pop-up** before quoting shows matched items, qty, and stock at the branch, but **no prices**, plus a pickup/delivery and branch choice, and a **Request quote** button.
 
 **Exports**

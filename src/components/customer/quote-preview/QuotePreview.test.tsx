@@ -30,7 +30,7 @@ describe('QuotePreview',()=>{
     const modal=await dialog();
     expect(api.get).toHaveBeenCalledWith('customer/quotes/q-24817');
     expect(await within(modal).findByRole('document',{name:'Quote Q-24817, revision 1'})).toHaveAttribute('data-url','/api/quotes/q-24817/pdf?variant=customer&rev=1');
-    expect(within(modal).getByText('Sent',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(modal).getByText('Sent',{selector:'.qp-state'})).toBeInTheDocument();
     expect([...modal.querySelectorAll('.qp-facts > div')].map(d=>d.textContent)).toEqual(['Total$1,122.40','Valid untilOct 7','Revision1 of 1']);
     const download=within(modal).getByRole('link',{name:'Download'});
     expect(download).toHaveAttribute('href','/api/quotes/q-24817/pdf?variant=customer&rev=1');
@@ -56,7 +56,7 @@ describe('QuotePreview',()=>{
     open({'customer/quotes/q-24817':previews.awaiting});
     const modal=await dialog();
     expect(await within(modal).findByText('Brandi is pricing this quote')).toBeInTheDocument();
-    expect(within(modal).getByText('Awaiting rep',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(modal).getByText('Awaiting rep',{selector:'.qp-state'})).toBeInTheDocument();
     expect(within(modal).queryByRole('document')).toBeNull();
     expect(within(modal).queryByRole('link',{name:'Download'})).toBeNull();
     expect(within(modal).getByRole('link',{name:/\(801\) 111-2222/})).toHaveAttribute('href','tel:8011112222');
@@ -67,7 +67,7 @@ describe('QuotePreview',()=>{
     open({'customer/quotes/q-24817':previews.expired});
     const modal=await dialog();
     expect(await within(modal).findByRole('document')).toBeInTheDocument();
-    expect(within(modal).getByText('Expired',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(modal).getByText('Expired',{selector:'.qp-state'})).toBeInTheDocument();
     expect(within(modal).getByRole('button',{name:'Accept'})).toBeDisabled();
     expect(within(modal).getByText('This quote expired: it was valid until Oct 7. Ask Brandi for a new one.')).toBeInTheDocument();
   });

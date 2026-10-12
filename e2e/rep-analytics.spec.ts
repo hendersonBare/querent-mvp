@@ -32,7 +32,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 
 /** Signs Brandi in, opens Analytics from the nav, then narrows it to one customer (Wasatch by default, null for All customers). */
 async function openAnalytics(page: Page, customer: string | null = "wasatch") {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Analytics" }).click();

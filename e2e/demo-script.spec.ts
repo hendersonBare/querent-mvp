@@ -41,7 +41,7 @@ async function newPage(browser: Browser, testInfo: TestInfo) {
   const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL, viewport: { width: 1440, height: 1000 } });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   return page;
 }
 async function ask(page: Page, text: string): Promise<Locator> {
@@ -73,6 +73,11 @@ test.afterAll(async ({ playwright }, testInfo) => {
 });
 
 test("Act 1: Dana chats, sees two or more suggestions in the pop-up, and requests a quote", async ({}, testInfo) => {
+  // Step 1: / with no session is the visitor box; Sign in opens the chooser at /demo (decision 53).
+  await dana.goto("/");
+  await expect(await ask(dana, "Do you have 1/2 in grade 8 hex bolts in stock?")).toHaveText("Sign in to continue.");
+  await dana.getByRole("button", { name: "Sign in" }).click();
+  await expect(dana).toHaveURL(/\/demo$/);
   await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(dana.getByLabel("Ask a question")).toBeVisible();
   await expect(await ask(dana, REQUEST)).toContainText("Type 1 or Type 27 cut-off wheels?");
@@ -156,8 +161,11 @@ test("Act 2: Brandi sees the aging quotes in the caution dropdown and the Needs 
 });
 
 test("Act 3: Dana declines a different quote and picks a reason", async ({}, testInfo) => {
-  const sidebar = dana.getByRole("complementary", { name: "Quotes" });
-  await sidebar.getByRole("button").filter({ hasText: "Q-24791" }).click();
+  // The bell is how Dana finds a quote (plan U10, decision 41).
+  const bell = dana.getByRole("button", { name: "Notifications" });
+  const row = dana.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: "Q-24791" });
+  await bell.click();
+  await row.click();
   const modal = dana.getByRole("dialog", { name: "Quote Q-24791" });
   await expect(modal.getByRole("document")).toHaveAttribute("data-state", "ready");
   await modal.getByRole("group", { name: "Respond to this quote" }).getByRole("button", { name: "Decline" }).click();
@@ -167,9 +175,11 @@ test("Act 3: Dana declines a different quote and picks a reason", async ({}, tes
   await screenshot(dana, testInfo, "act3-decline");
   await dialog.getByRole("button", { name: "Decline", exact: true }).click();
   await expect(dialog).toBeHidden();
-  await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+  await expect(modal.locator(".qp-state")).toHaveText("Declined");
   await modal.getByRole("button", { name: "Close" }).click();
-  await expect(sidebar.getByRole("button").filter({ hasText: "Q-24791" }).locator(".cx-chip")).toHaveText("Declined");
+  await bell.click();
+  await expect(row).toHaveAttribute("data-read", "true");
+  await dana.keyboard.press("Escape");
   expect((await repDetail("Q-24791")).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", unread_for_rep: true });
 });
 

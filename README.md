@@ -8,7 +8,7 @@ The spec, decisions, tasks, and build status live in [`docs/plans/`](docs/plans/
 
 ## Personas and demo data
 
-The workspace chooser at `/` offers four personas. It is not a login (see [Security and known limitations](#security-and-known-limitations)).
+`/` is the customer site: with no session it shows the visitor box, whose **Sign in** opens the workspace chooser at `/demo`. The chooser offers four personas. It is not a login (see [Security and known limitations](#security-and-known-limitations)).
 
 | Persona | Who | Role | Where they work |
 |---|---|---|---|
@@ -37,10 +37,10 @@ These are steps 1–8 of the flowchart in `docs/design/querent-quote-flow.html`.
 4. **Querent builds the cart.** It matches each line to one SKU and asks a clarifying question when it isn't confident. After 2 rounds it shows the top 3 candidates as buttons, plus Brandi's contact details. When every line is matched, the **item pop-up** opens with items, quantities, and branch stock, but **no prices**. Dana picks pickup or delivery and a branch, then presses **Request quote**.
 5. **Querent prices the draft.** Each line gets a price basis, a "Why this price?" note, and the GP it adds over the customer price. The quote also gets distance-based freight and "Suggested by Querent" upsells. The quote is `ready_for_review`, and Brandi's Quotes badge lights up.
 6. **Brandi reviews it** in the rep portal. She can switch price bases, type any price (a red warning appears above a price that falls below her floor), add upsells, set freight, and edit terms and notes.
-7. **Brandi approves and sends it** with **Approve & send**, then the centered **Confirm send**. The quote arrives in Dana's chat and her quotes sidebar, and opens as a PDF preview.
+7. **Brandi approves and sends it** with **Approve & send**, then the centered **Confirm send**. The quote arrives in Dana's chat and her notification bell, and opens as a PDF preview.
 8. **Dana accepts** (with a pickup or delivery time and a PO) **or requests changes** (with a note), each after a centered Confirm dialog. After a change request, Brandi edits the quote and sends rev 2. Acceptance ends the MVP flow, and Brandi sees the quote as Accepted.
 
-`e2e/golden-quote-flow.spec.ts` walks this flow end to end with both personas. `e2e/mobile-flow.spec.ts` walks it again on 390×844 phones.
+`e2e/golden-quote-flow.spec.ts` walks this flow end to end with both personas. The app is built for 1920×1080 and has no phone layout (v3 decision 43).
 
 ## v3 features
 
@@ -166,10 +166,11 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 
 | Path | What it is |
 |---|---|
-| `src/app/page.tsx` → `src/components/App.tsx` | The workspace chooser, then the customer workspace |
+| `src/app/page.tsx` → `src/components/App.tsx` | The customer site: the visitor box with no session, the customer's box when signed in |
+| `src/app/demo/page.tsx` | The workspace chooser (`DemoChooser` in `src/components/App.tsx`) |
 | `src/app/rep/` | The rep portal: `quotes`, `quotes/[id]`, `customers`, `orders`, `stock`, `analytics`, `teams` (managers), `settings` (`/rep/items` and `/rep/team` redirect, `next.config.ts`) |
 | `src/app/api/` | API routes: `session` (and `session/personas` for the chooser), `query/customer/*` (customer), `rep/*` (rep; managers for `rep/team/*` and the manager-only settings), `quotes/[id]/pdf` (both), and `test/*` (E2E only) |
-| `src/components/customer/`, `src/features/chat/` | The customer layout, chat, item pop-up, and PDF preview modal |
+| `src/components/customer/`, `src/features/chat/` | The customer site (`customer/site/`: box, bell, Orders and My rep sheets), chat, item pop-up, and PDF preview modal |
 | `src/components/rep/` | The rep portal shell and screens |
 | `src/domain/` | Shared domain types |
 | `src/server/repository/` | All data access (below) |
@@ -225,15 +226,15 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 - **Settings:** Rep assignments (one rep per customer; managers change them), Reps (team labels and active flags, managers only), Customer access toggles, Margin floors, Pricing & delivery (delivery rates and the scarcity toggle; the free delivery pricing, cost-model and pool cards are managers' only), Aging thresholds (managers only), and Data sources.
 - **API:** every `/api/rep/*` route answers 401 without a session and 403 for the customer or an inactive rep, and takes the rep's id from the session, never from the request. They go through `repRoute`, and the manager-only ones through `managerRoute` (`src/server/rep/http.ts`), except `GET /api/rep/badges`, which makes the same check inline. Write routes refuse a quote the caller doesn't own, managers included.
 
-### Customer layout
+### Customer site
 
-`src/components/customer/CustomerLayout.tsx` has three columns:
+`/` is Querent's box on the supplier's own site (`src/components/customer/site/`, lane U task U10, frames C_CVE0 to C_CVL5):
 
-- **Left:** the assigned rep at the top, then Customer Service, AR / Finance, and Warehouse / Will-call for each branch (`ContactsSidebar`).
-- **Center:** the chat (`src/features/chat/Chat.tsx`).
-- **Right:** one button per quote, "Quote · date · $total", with a status chip (`QuotesSidebar`).
+- **No session:** the visitor box with four public starter questions. Every question goes to `POST /api/query/visitor/chat`, a stub that answers "Sign in to continue." and never calls the model or a tool (`TODO(R-14)`). **Sign in** opens the chooser at `/demo`.
+- **Signed in:** the same box with the chat (`src/features/chat/Chat.tsx`), **Orders** and **My rep** side sheets, the **notification bell** and the account chip (Sign out returns to the visitor box).
+- **The bell** lists notifications derived from quote activity and order status (sent, revised after a change request, expired, shipped) with a read state per customer (`customer_notification_reads`), and polls like the rep badges. A quote notification opens the **PDF preview modal** (`quote-preview/`), which has Download and a Decline / Request changes / Accept bar that opens centered dialogs.
 
-A quote button, or the chat's "View quote", opens the **PDF preview modal** (`quote-preview/`). The modal has Download, and a Decline / Request changes / Accept bar that opens centered dialogs. Below 960px the three columns become Chat / Contacts / Quotes tabs. The customer API (`/api/query/customer/*`) serves only the session's customer. The customer can see only revisions the rep sent, never a draft or the internal worksheet.
+The customer API (`/api/query/customer/*`) serves only the session's customer. The customer can see only revisions the rep sent, never a draft or the internal worksheet.
 
 ### ERP integration
 

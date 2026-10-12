@@ -19,7 +19,7 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 
 ## Act 1: Dana asks in chat and requests a quote
 
-1. Choose **Wasatch Mechanical Contractors** (Dana Ortiz).
+1. Open `/`: with no session it is the visitor box (ask anything: the answer is *Sign in to continue.*). Press **Sign in**, then choose **Wasatch Mechanical Contractors** (Dana Ortiz) in the chooser at `/demo`.
 2. Ask: *Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We'll pick up at SLC.*
 3. Querent asks *Type 1 or Type 27 cut-off wheels?* Answer *Type 1*. The item pop-up opens.
 4. Below the cart, **Frequently bought together** shows at least two suggestions (the matching Grade 8 nut and washer, flap discs), each with a reason and no price. Add the hex nut: it joins the cart at qty 1.
@@ -27,16 +27,16 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 
 ## Act 2: Brandi opens it, reads the chat, sees what needs attention, and sends it
 
-1. In the other window, choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
+1. In the other window, open `/demo` and choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
 2. Brandi is the manager, so her Quotes list shows every rep's quotes, with a Rep column. Press the red caution button at the top right of the page: the **Needs attention** dropdown lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue and aging quotes, red first. It opens in place; the list's **Needs attention** filter shows the same quotes.
 3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from **All**, where it is unread). In the Customer request box press **View full chat**: the drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
 4. The hex nut line is tagged **Chat suggestion**. Press **Approve & send**, then **Send quote**, then **Send**. The quote reads *Sent*.
 
 ## Act 3: Dana declines a different quote
 
-1. Back in Dana's window, open **Q-24791** from the Quotes sidebar (sent yesterday).
+1. Back in Dana's window, open the **notification bell** and press *Quote Q-24791 is ready to review* (sent yesterday). The quote opens with Decline, Request changes and Accept.
 2. Press **Decline**. The dialog offers five reasons and no "no response". Pick **Price too high** and press **Decline**.
-3. The chip reads **Declined**. Brandi's bell lists *Q-24791 declined by Dana Ortiz*, and the quote's header and Activity give the reason.
+3. The quote reads **Declined**, and its notification in Dana's bell is read. Brandi's bell lists *Q-24791 declined by Dana Ortiz*, and the quote's header and Activity give the reason.
 
 ## Act 4: Brandi compares reps, reads decline reasons, and reassigns a quote
 

@@ -16,7 +16,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 56. Started 2026-10-11.
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
-| U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | fix round 1 (verifier FAIL: delivery-quote accept e2e coverage dropped with the 390px test) |
+| U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
 | U11 | | not started |
 
 ### No frame
@@ -32,12 +32,18 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Caution and bell rows open their quote (`/rep/quotes/<number>`): C_QOB3 and C_QOB4 draw the rows as plain boxes, not links. Opening a dropdown never navigates | U2 | A list of quotes must lead to them | to ask |
 | Bell row wording for events C_QOB4 does not sample: "Q-24818 requested by Dana Ortiz" and "Q-24791 declined by Dana Ortiz", by analogy with its "Dana Ortiz replied on Q-24790" and "Q-24763 accepted by Canyon Ridge". Caution rows' line is the aging reason ("Sent 4 days ago, expires tomorrow."), where C_QOB3 samples sentences | U2 | The frames' rows are samples (Appendix G); the words come from real data | to ask |
 | Empty dropdowns: the caution shows only its heading ("0 need your attention"); the bell shows "No notifications" (decision 52: one plain line) | U2 | Minimum to function | to ask |
+| Customer account chip menu: the chip (C_CVL1) opens a one-item menu, Sign out, which returns to the visitor box | U10 | The customer has no other way to sign out once "Switch workspace" is gone | approved (decision 56) |
+| Customer conversation once it has turns: the turns in the box's column (scrolling), and New conversation beside Orders and My rep (the Orders button's tokens) | U10 | The frames draw the box before the first question only | approved (decision 56) |
+| Visitor conversation: the question and the stub's "Sign in to continue." in the same column | U10 | Minimum to show the R-14 stub's answer | to ask |
+| Bell copy for an expired quote ("Quote Q-24815 expired", "It was valid until Oct 3."), "N min ago" and "Today" time labels | U10 | The frames draw ready, updated and shipped notices only; the task asks for expired notices too | approved (decision 56) |
+| Empty and error lines in the bell, the Orders and My rep sheets ("No notifications yet.", "No orders yet.", "No rep is assigned yet.") | U10 | Decision 52: one plain line | not needed (decision 52) |
+| The strip that holds the bell, the account chip and Sign in: the frames' 72px header with its bottom rule, without the stand-in Herrick logo | U10 | The controls the task builds sit in it, and the sheets open under it (C_CVL2, C_CVL3) | approved (decision 56) |
 | Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
 | What | Task | Reason |
 |---|---|---|
-| Real anonymous query route (the visitor box answers "Sign in to continue." from a stub) | U10 | Decision 49, TODO(R-14) |
+| Real anonymous query route (the visitor box answers "Sign in to continue." from the stub `POST /api/query/visitor/chat`, which imports nothing) | U10 | Decision 49, TODO(R-14) in `src/app/api/query/visitor/chat/route.ts` |
 | Customer login, embed script, token handoff, SSO | none | Decision 49: comes with the Supabase work |
 
 ### Lane U frame ledger
@@ -130,12 +136,12 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_RS2 | U9 | pending |
 | C_RS3 | U9 | pending |
 | C_RS4 | U9 | pending |
-| C_CVE0 | U10 | pending |
-| C_CVL1 | U10 | pending |
-| C_CVL2 | U10 | pending |
-| C_CVL3 | U10 | pending |
-| C_CVL4 | U10 | pending |
-| C_CVL5 | U10 | pending |
+| C_CVE0 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
+| C_CVL1 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
+| C_CVL2 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
+| C_CVL3 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
+| C_CVL4 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
+| C_CVL5 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
 
 ## v3 (lanes T to F)
 

@@ -31,7 +31,7 @@ test.beforeEach(async ({ playwright }, testInfo) => {
 });
 
 async function openQuote(page: Page, number = SAMPLE, query = "") {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await page.goto(`/rep/quotes/${number}${query}`);
@@ -296,7 +296,7 @@ test("rep-only: customers get 403, another rep's quote is not found (the manager
   const eliContext = await browser.newContext({ baseURL });
   try {
     const eli = await eliContext.newPage();
-    await eli.goto("/");
+    await eli.goto("/demo");
     expect(await eli.evaluate(async () => (await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: "eli" }) })).status)).toBe(200);
     expect((await api(eli, `/api/rep/quotes/${made.other_rep}`)).status).toBe(404);
     await eli.goto(`/rep/quotes/${made.other_rep}`);
@@ -308,7 +308,7 @@ test("rep-only: customers get 403, another rep's quote is not found (the manager
   const context = await browser.newContext({ baseURL });
   try {
     const dana = await context.newPage();
-    await dana.goto("/");
+    await dana.goto("/demo");
     await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
     await expect(dana.getByLabel("Ask a question")).toBeVisible();
     expect((await api(dana, "/api/rep/quotes/Q-24817")).status).toBe(403);

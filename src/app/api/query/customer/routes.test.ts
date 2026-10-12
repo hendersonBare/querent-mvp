@@ -4,13 +4,16 @@ import {useSeededDatabase} from '@/server/repository/test-db';
 
 useSeededDatabase();
 
-// GET /api/query/customer/contacts and /api/query/customer/quotes (task 2.4): Dana's sidebars.
-// These static routes take precedence over the /api/query/[...path] catch-all.
+// GET /api/query/customer/contacts (the My rep sheet, C_CVL3), /api/query/customer/quotes (task 2.4),
+// /api/query/customer/orders (the Orders sheet, C_CVL2) and /api/query/customer/notifications (the
+// bell, C_CVL4; plan U10). These static routes take precedence over the /api/query/[...path] catch-all.
 
 const request=(path:string,persona?:'customer'|'supplier')=>new NextRequest(`http://127.0.0.1/api/query/customer/${path}`,{headers:persona?{cookie:`querent-persona=${persona}`}:{}});
 const routes={
   contacts:async()=>(await import('./contacts/route')).GET,
   quotes:async()=>(await import('./quotes/route')).GET,
+  orders:async()=>(await import('./orders/route')).GET,
+  notifications:async()=>(await import('./notifications/route')).GET,
 };
 
 describe.each(Object.keys(routes) as (keyof typeof routes)[])('GET customer/%s',path=>{
@@ -25,14 +28,43 @@ describe.each(Object.keys(routes) as (keyof typeof routes)[])('GET customer/%s',
   });
 });
 
-it("returns Dana's rep first, then the departments and will-call per branch",async()=>{
+it("returns Dana's rep only: the departments stay with the chat's answers (Appendix D)",async()=>{
   const GET=await routes.contacts();
   const response=await GET(request('contacts','customer'));
   expect(response.status).toBe(200);
   const body=await response.json();
-  expect(body.rep.name).toBe('Brandi Gallegos');
-  expect(body.departments.map((d:{name:string})=>d.name)).toEqual(['Customer Service','Accounts Receivable / Finance']);
-  expect(body.willCall.map((b:{code:string})=>b.code)).toEqual(['SLC','Ogden','Provo']);
+  expect(Object.keys(body)).toEqual(['rep']);
+  expect(body.rep).toEqual({id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'});
+});
+
+it("returns Wasatch's own orders, newest first, with no cost",async()=>{
+  const GET=await routes.orders();
+  const response=await GET(request('orders','customer'));
+  expect(response.status).toBe(200);
+  const body=await response.json();
+  expect(body[0]).toEqual({id:'so-51223',order_number:'SO-51223',order_date:'2026-09-09',status:'shipped',fulfillment:'delivery',branch_code:'SLC',total:698.22,quote_number:'Q-24816'});
+  expect(JSON.stringify(body)).not.toMatch(/cost|margin|subtotal/i);
+});
+
+it("returns Dana's notifications with the unread count, and marks them read",async()=>{
+  const GET=await routes.notifications();
+  const {POST}=await import('./notifications/read/route');
+  const body=await (await GET(request('notifications','customer'))).json();
+  expect(body.items.length).toBeGreaterThan(0);
+  expect(body.unread).toBe(body.items.filter((n:{read:boolean})=>!n.read).length);
+  expect(body.items.find((n:{id:string})=>n.id==='order:so-51223:shipped')).toMatchObject({title:'Order SO-51223 has shipped',body:'Delivery, SLC. From quote Q-24816.'});
+  const post=(payload:unknown,persona?:'customer'|'supplier')=>POST(new NextRequest('http://127.0.0.1/api/query/customer/notifications/read',{method:'POST',body:JSON.stringify(payload),
+    headers:{'content-type':'application/json',...(persona?{cookie:`querent-persona=${persona}`}:{})}}));
+  expect((await post({all:true})).status).toBe(401);
+  expect((await post({all:true},'supplier')).status).toBe(403);
+  for(const bad of [{},{ids:'x'},{ids:[1]},{all:false},{ids:Array(101).fill('x')}])expect((await post(bad,'customer')).status,JSON.stringify(bad)).toBe(400);
+  const one=body.items.find((n:{read:boolean})=>!n.read);
+  const marked=await post({ids:[one.id]},'customer');
+  expect(marked.status).toBe(200);
+  expect((await marked.json()).unread).toBe(body.unread-1);
+  const all=await (await post({all:true},'customer')).json();
+  expect(all.unread).toBe(0);
+  expect((await (await GET(request('notifications','customer'))).json()).unread).toBe(0);
 });
 
 it("returns Wasatch's quotes newest first, Q-24817 with no total yet",async()=>{

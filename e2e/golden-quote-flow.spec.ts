@@ -48,9 +48,19 @@ async function signIn(browser: Browser, baseURL: string, workspace: string) {
   const context = await browser.newContext({ baseURL });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: new RegExp(workspace) }).click();
   return page;
+}
+
+/** Dana's notification bell (plan U10, decision 41): how she finds and opens a quote. */
+const bell = () => dana.getByRole("button", { name: "Notifications" });
+const bellPanel = () => dana.getByRole("dialog", { name: "Notifications" });
+/** The bell's row for the flow's quote (one per quote: its latest news). It polls every 5 s. */
+const bellRow = () => bellPanel().locator("[data-read]", { hasText: flow.quoteNumber });
+async function openBell() {
+  if (!(await bellPanel().isVisible())) await bell().click();
+  await expect(bellPanel()).toBeVisible();
 }
 
 /** Sends one chat message as Dana and returns Querent's reply once it has arrived. */
@@ -88,7 +98,7 @@ test.afterAll(async () => {
 test("0. Setup: fresh seed on the mockup's day, scripted chat, both personas signed in", async () => {
   expect(reset).toEqual({ ok: true, seed_date: SEED_DATE, chat_mode: "scripted" });
   await expect(dana.getByLabel("Ask a question")).toBeVisible();
-  await expect(dana.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
+  await expect(dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ })).toContainText("Signed in");
   await expect(brandi.getByRole("complementary").first()).toContainText("BGBrandi G.Manager");
 });
 
@@ -193,11 +203,12 @@ test(
       await expect(answers.nth(before - 1)).toContainText(`Quote ${flow.quoteNumber} requested`);
     });
     await test.step("the quote waits for Brandi in ready_for_review", async () => {
-      const quotes = dana.getByRole("complementary", { name: "Quotes" });
-      const button = quotes.getByRole("button").filter({ hasText: flow.quoteNumber });
-      await expect(button).toContainText("Awaiting rep");
-      // Newest first.
-      await expect(quotes.getByRole("button").first()).toContainText(flow.quoteNumber);
+      // Dana's own view of it reads Awaiting rep (ready_for_review), and nothing is in her bell yet.
+      const mine = await dana.evaluate((n) => fetch(`/api/query/customer/quotes/${n}`).then((r) => r.json()), flow.quoteNumber);
+      expect(mine).toMatchObject({ quote_number: flow.quoteNumber, status: "ready_for_review", shown: null });
+      await openBell();
+      await expect(bellRow()).toHaveCount(0);
+      await dana.keyboard.press("Escape");
       // Brandi's unread count (the bell's rows) counts it (unread_for_rep).
       await expect.poll(badge).toBe(unread + 1);
     });
@@ -354,8 +365,6 @@ test(
     const headline = new RegExp(`^Quote ${flow.quoteNumber} is ready: ${escaped(flow.total)}, valid until [A-Z][a-z]{2} \\d{1,2}(, \\d{4})?$`);
     const notice = dana.getByRole("article", { name: headline });
     const preview = dana.getByRole("dialog", { name: `Quote ${flow.quoteNumber}` });
-    const quotes = dana.getByRole("complementary", { name: "Quotes" });
-    const button = quotes.getByRole("button").filter({ hasText: flow.quoteNumber });
 
     await test.step("the message arrives in Dana's chat without a reload: headline, Brandi's text, View quote", async () => {
       expect(flow.total, "step 6 (rep half) recorded the total it sent").toMatch(/^\$[\d,]+\.\d\d$/);
@@ -366,9 +375,11 @@ test(
       const articles = dana.locator(".turns > article");
       await expect(articles.last()).toContainText(`Quote ${flow.quoteNumber} is ready`);
       await expect(articles.nth((await articles.count()) - 2)).toContainText("Sent to Brandi for review.");
-      // The sidebar's button now reads Sent, with the total.
-      await expect(button).toContainText(flow.total);
-      await expect(button.locator(".cx-chip")).toHaveText("Sent");
+      // The bell has it too, unread: ready to review, with the total.
+      await openBell();
+      await expect(bellRow()).toContainText(`Quote ${flow.quoteNumber} is ready to review${flow.total}. Brandi sent it today.`);
+      await expect(bellRow()).toHaveAttribute("data-read", "false");
+      await dana.keyboard.press("Escape");
     });
 
     await test.step("View quote opens the PDF preview: the customer PDF inline, Download at the top right", async () => {
@@ -386,7 +397,8 @@ test(
       await expect(download).toBeVisible();
       const d = (await download.boundingBox())!;
       const p = (await preview.boundingBox())!;
-      expect(p.x + p.width - (d.x + d.width), "Download sits at the right edge").toBeLessThan(80);
+      // At the right edge, just before the close button (C_CVL5: 32px padding, the 40px close button, a 12px gap).
+      expect(p.x + p.width - (d.x + d.width), "Download sits at the right edge").toBeLessThan(90);
       expect(d.y - p.y, "Download sits at the top").toBeLessThan(60);
       // The action bar (5.2): Accept and Request changes are ready for steps 7 and 8.
       await expect(preview.getByRole("button", { name: "Accept" })).toBeEnabled();
@@ -401,10 +413,11 @@ test(
       expect(type).toBe("application/pdf");
     });
 
-    await test.step("the sidebar's button opens the same preview", async () => {
+    await test.step("the bell's notification opens the same preview", async () => {
       await preview.getByRole("button", { name: "Close" }).click();
       await expect(preview).toBeHidden();
-      await button.click();
+      await openBell();
+      await bellRow().click();
       await expect(preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 1` })).toHaveAttribute("data-state", "ready");
       await preview.getByRole("button", { name: "Close" }).click();
       await expect(preview).toBeHidden();
@@ -452,11 +465,11 @@ test(
   { tag: "@step7", annotation: { type: "task", description: "5.2 Accept / Request changes" } },
   async () => {
     const preview = dana.getByRole("dialog", { name: `Quote ${flow.quoteNumber}` });
-    const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: flow.quoteNumber });
     const unread = await repBadge();
 
-    await test.step("Dana requests changes with a note", async () => {
-      await button.click();
+    await test.step("Dana opens the quote from her bell and requests changes with a note", async () => {
+      await openBell();
+      await bellRow().click();
       await expect(preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 1` })).toHaveAttribute("data-state", "ready");
       await preview.getByRole("button", { name: "Request changes" }).click();
       const form = preview.getByRole("form", { name: `Request changes to ${flow.quoteNumber} rev 1` });
@@ -473,12 +486,15 @@ test(
       await expectCenteredConfirm(dana, confirm);
       await confirm.getByRole("button", { name: "Send", exact: true }).click();
       await expect(confirm).toBeHidden();
-      await expect(preview.locator(".cx-chip")).toHaveText("Changes requested");
+      await expect(preview.locator(".qp-state")).toHaveText("Changes requested");
       await expect(preview.getByRole("group", { name: "Respond to this quote" })).toContainText("You asked for changes to rev 1. Brandi is revising the quote.");
       await expect(preview.getByRole("button", { name: "Accept" })).toBeDisabled();
-      await expect(button.locator(".cx-chip")).toHaveText("Changes requested");
       await preview.getByRole("button", { name: "Close" }).click();
       await expect(preview).toBeHidden();
+      // Answered, so its notification reads as read.
+      await openBell();
+      await expect(bellRow()).toHaveAttribute("data-read", "true");
+      await dana.keyboard.press("Escape");
     });
 
     await test.step("Brandi edits the quote and sends rev 2", async () => {
@@ -513,11 +529,13 @@ test(
       await expect(brandi.locator("h1 + *")).toHaveText("Sent");
     });
 
-    await test.step("Dana's chat and sidebar show rev 2", async () => {
+    await test.step("Dana's chat and bell show rev 2", async () => {
       await expect(readyNotice()).toBeVisible();
       await expect(readyNotice().locator(".qn-text")).toHaveText("Hi Dana, 12 boxes of bolts on rev 2. Thanks, Brandi");
-      await expect(button).toContainText(flow.total);
-      await expect(button.locator(".cx-chip")).toHaveText("Sent");
+      await openBell();
+      await expect(bellRow()).toContainText(`Brandi updated ${flow.quoteNumber}The changes you asked for are in. Revision 2.`);
+      await expect(bellRow()).toHaveAttribute("data-read", "false");
+      await dana.keyboard.press("Escape");
     });
   },
 );
@@ -531,8 +549,9 @@ test(
     const when = `${weekdayDay(day)}, 10:00 AM`;
     const unread = await repBadge();
 
-    await test.step("Dana accepts with a pickup time and PO", async () => {
-      await readyNotice().getByRole("button", { name: "View quote" }).click();
+    await test.step("Dana opens rev 2 from her bell and accepts with a pickup time and PO", async () => {
+      await openBell();
+      await bellRow().click();
       await expect(preview.getByRole("document", { name: `Quote ${flow.quoteNumber}, revision 2` })).toHaveAttribute("data-state", "ready");
       await preview.getByRole("button", { name: "Accept" }).click();
       const form = preview.getByRole("form", { name: `Accept ${flow.quoteNumber} rev 2` });
@@ -555,12 +574,13 @@ test(
       await expectCenteredConfirm(dana, confirm);
       await confirm.getByRole("button", { name: "Send", exact: true }).click();
       await expect(confirm).toBeHidden();
-      await expect(preview.locator(".cx-chip")).toHaveText("Accepted");
+      await expect(preview.locator(".qp-state")).toHaveText("Accepted");
       await expect(preview.getByRole("group", { name: "Respond to this quote" })).toContainText(`You accepted rev 2 with PO ${PO}: pickup ${when} at SLC.`);
       await expect(preview.getByRole("button", { name: "Accept" })).toBeDisabled();
-      const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: flow.quoteNumber });
-      await expect(button.locator(".cx-chip")).toHaveText("Accepted");
       await preview.getByRole("button", { name: "Close" }).click();
+      await openBell();
+      await expect(bellRow()).toHaveAttribute("data-read", "true");
+      await dana.keyboard.press("Escape");
     });
 
     await test.step("Brandi sees Accepted", async () => {

@@ -68,11 +68,11 @@ const toggle = (page: Page) => page.getByRole("switch", { name: "Free delivery p
 test.beforeAll(async ({ browser, playwright }, testInfo) => {
   await resetDemo(playwright.request, testInfo);
   brandi = await newPage(browser, testInfo);
-  await brandi.goto("/");
+  await brandi.goto("/demo");
   await brandi.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes$/);
   dana = await newPage(browser, testInfo);
-  await dana.goto("/");
+  await dana.goto("/demo");
   await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(dana.getByLabel("Ask a question")).toBeVisible();
 });
