@@ -30,7 +30,7 @@ describe('repQuoteList: the seeded queue',()=>{
       status:'ready_for_review',requested_at:'2026-09-23T16:14:00.000Z',sent_at:null,unread:true,is_sample:true,line_count:4,change_request:null});
     const requested=list.rows.map(r=>r.requested_at);
     expect(requested).toEqual([...requested].sort().reverse());
-    expect(list).toMatchObject({customer:null,other_rep:false,status:null,unread:1,as_of:NOW});
+    expect(list).toMatchObject({customer:null,status:null,unread:1,as_of:NOW});
     expect(list.counts).toEqual({all:31,ready_for_review:1,sent:2,changes_requested:1,accepted:20,expired:7,declined:0});
   });
 
@@ -62,18 +62,17 @@ describe('repQuoteList: the seeded queue',()=>{
   });
 });
 
-describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
-  it('follows the picked customer',async()=>{
+describe('repQuoteList: the page\'s own customer filter and whose quotes (task U1)',()=>{
+  it('follows the filtered customer',async()=>{
     const wasatch=await repQuoteList('brandi',{now:NOW,customerId:'wasatch'});
     expect(wasatch.rows).toHaveLength(28);
     expect(wasatch.customer).toMatchObject({id:'wasatch',name:'Wasatch Mechanical Contractors',rep_id:'brandi'});
-    expect(wasatch.other_rep).toBe(false);
   });
 
   it('is empty for a placeholder customer, with nothing counted',async()=>{
     const greatBasin=await repQuoteList('brandi',{now:NOW,customerId:'great-basin'});
     expect(greatBasin.rows).toEqual([]);
-    expect(greatBasin).toMatchObject({other_rep:false,unread:0,customer:{name:'Great Basin Fabrication',account_number:'GBF-2207'}});
+    expect(greatBasin).toMatchObject({unread:0,customer:{name:'Great Basin Fabrication',account_number:'GBF-2207'}});
     expect(greatBasin.counts).toEqual({all:0,ready_for_review:0,sent:0,changes_requested:0,accepted:0,expired:0,declined:0});
   });
 
@@ -83,22 +82,30 @@ describe('repQuoteList: the "Viewing" picker and whose quotes',()=>{
     expect(list.rows).toHaveLength(31);
   });
 
-  it("shows only the signed-in rep's quotes: another rep's customer reads as theirs, not an empty queue",async()=>{
+  it("shows only the signed-in rep's quotes, and ignores another rep's customer like an unknown one",async()=>{
     const other=createQuote({customerId:'canyon-ridge',fulfillment:'will_call',branchId:'slc',at:T0,lines:[{itemId:'GLV-N8-L-1000',qty:2,unitPrice:82,priceBasis:'custom'}]});
     try{
       expect(other.rep_id).toBe('mara');
       const all=await repQuoteList('brandi',{now:NOW});
       expect(all.rows.map(r=>r.quote_number)).not.toContain(other.quote_number);
       expect(all.counts.all).toBe(31);
-      // Picking Mara's customer shows Brandi only the three quotes she covered for Mara (task F1).
+      // As a rep, Mara's customer isn't Brandi's to read: the filter is ignored, so no name or flag leaks out.
       const canyon=await repQuoteList('brandi',{now:NOW,customerId:'canyon-ridge'});
-      expect(canyon).toMatchObject({other_rep:true,customer:{name:'Canyon Ridge Builders',rep_name:'Mara Jensen'}});
-      expect(canyon.rows.map(r=>[r.rep_id,r.status])).toEqual([['brandi','accepted'],['brandi','accepted'],['brandi','accepted']]);
+      expect(canyon.customer).toBeNull();
+      expect(canyon.counts.all).toBe(31);
+      expect(canyon).not.toHaveProperty('other_rep');
+      // The manager reads every rep's quotes (task U1), Mara's new one included, and may filter by Mara's customer.
+      const manager=await repQuoteList('brandi',{now:NOW,manager:true});
+      expect(manager.scope).toBe('all');
+      expect(manager.rows.map(r=>r.quote_number)).toContain(other.quote_number);
+      const managerCanyon=await repQuoteList('brandi',{now:NOW,manager:true,customerId:'canyon-ridge'});
+      expect(managerCanyon.customer).toMatchObject({name:'Canyon Ridge Builders',rep_name:'Mara Jensen'});
+      expect(new Set(managerCanyon.rows.map(r=>r.rep_id))).toEqual(new Set(['brandi','eli','mara']));
       const mara=await repQuoteList('mara',{now:NOW});
       expect(mara.rows.map(r=>r.quote_number)).toContain(other.quote_number);
       expect(mara.rows.every(r=>r.rep_id==='mara')).toBe(true);
       // Her new demo draft and this one.
-      expect(mara).toMatchObject({unread:2,other_rep:false});
+      expect(mara).toMatchObject({unread:2});
     }finally{
       // Leave the queue as seeded for the tests below: Mara's quote never shows for Brandi anyway.
       openRepQuote('mara',other.id);

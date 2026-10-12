@@ -1,18 +1,19 @@
 import Link from 'next/link';
 import type {ItemDetail as ItemView} from '@/server/rep/reference';
 import {count,day,money} from '../reference/format';
-import {Crumbs,DetailHeader,Empty,hrefFor,Panel,referenceStyles as s,Stock,type Viewing} from '../reference/parts';
+import {Crumbs,DetailHeader,Empty,Panel,referenceStyles as s,Stock} from '../reference/parts';
 
 // One item (spec §4, task 3.8): list price, pack and category, stock at each branch with what's on
-// order, and its recent sales at the prices paid, read-only. Recent orders follow the "Viewing"
-// picker. No cost or margin.
+// order, and its recent sales at the prices paid, read-only. Recent orders are the rep's own
+// customers' (every customer's for the manager, task U1). No cost or margin.
 
-export function ItemDetail({view,viewing}:{view:ItemView;viewing:Viewing}){
+export function ItemDetail({view,allCustomers}:{view:ItemView;
+  /** The sales cover every customer (the manager), not only the rep's own. */
+  allCustomers:boolean}){
   const {item,branches,sales}=view;
-  const allCustomers=viewing.customerId===null;
   const onOrder=item.stock.reduce((sum,b)=>sum+b.on_order,0);
   return <>
-    <Crumbs section="Items" href={hrefFor(viewing,'/rep/items')} current={item.sku}/>
+    <Crumbs section="Items" href="/rep/items" current={item.sku}/>
     <DetailHeader title={item.description} meta={<><span className={s.mono}>{item.sku}</span> · {item.category_name} · {item.pack}</>}/>
     <div className={s.grid}>
       <div className={s.main}>
@@ -36,20 +37,20 @@ export function ItemDetail({view,viewing}:{view:ItemView;viewing:Viewing}){
             </tr></tfoot>
           </table></div>
         </Panel>
-        <Panel id="item-sales" title="Recent orders" meta={allCustomers?'All customers':viewing.label} flush>
+        <Panel id="item-sales" title="Recent orders" meta={allCustomers?'All customers':'Your customers'} flush>
           {sales.length?<div className={s.tableWrap}><table className={s.table}>
             <caption>Recent orders of {item.sku}, newest first, with the prices paid</caption>
             <thead><tr>
-              <th scope="col">Order</th>{allCustomers&&<th scope="col" className={s.wide}>Customer</th>}<th scope="col">Ordered</th><th scope="col" className={s.num}>Qty</th><th scope="col" className={s.num}>Price paid</th>
+              <th scope="col">Order</th><th scope="col" className={s.wide}>Customer</th><th scope="col">Ordered</th><th scope="col" className={s.num}>Qty</th><th scope="col" className={s.num}>Price paid</th>
             </tr></thead>
             <tbody>{sales.map((sale,i)=><tr key={`${sale.order_id}-${i}`}>
-              <th scope="row"><Link className={s.name} href={hrefFor(viewing,`/rep/orders/${encodeURIComponent(sale.order_number)}`)}>{sale.order_number}</Link></th>
-              {allCustomers&&<td className={s.wide}>{sale.customer_name}</td>}
+              <th scope="row"><Link className={s.name} href={`/rep/orders/${encodeURIComponent(sale.order_number)}`}>{sale.order_number}</Link></th>
+              <td className={s.wide}>{sale.customer_name}</td>
               <td className={s.date}>{day(sale.order_date)}</td>
               <td className={s.num}>{sale.qty}</td>
               <td className={s.num}>{money(sale.unit_price)}</td>
             </tr>)}</tbody>
-          </table></div>:<Empty heading={allCustomers?'No orders for this item yet':`${viewing.label} hasn’t ordered this item`}/>}
+          </table></div>:<Empty heading={allCustomers?'No orders for this item yet':'None of your customers has ordered this item yet'}/>}
         </Panel>
       </div>
       <aside className={s.rail} aria-label="Item details">

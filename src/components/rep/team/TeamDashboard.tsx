@@ -13,7 +13,7 @@ import s from './Team.module.css';
 // The Team dashboard (v3 spec §6 Team, §7; decisions 23–25; task D3), the manager's alone: pick
 // reps (any set, to compare or group them), a team label and a window (7 / 30 / 90 days or a custom
 // range, in the browser's time zone), then read the leaderboard with its totals row, the decline
-// reasons with the Other text, and why quotes went untouched. Every count drills into the All reps
+// reasons with the Other text, and why quotes went untouched. Every count drills into the manager's
 // Quotes list. Export CSV downloads the same rows. Not in the mockup: built like Analytics.
 
 export interface TeamRepOption {id:string;name:string;team:string|null;active:boolean}

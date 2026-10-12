@@ -26,12 +26,18 @@ export function order(customerId:string,orderIdOrNumber:string):Order|undefined{
   return header&&{...header,lines:orderLines(header.id)};
 }
 
-// ---- Rep portal: every customer (task 3.8) ----
+// ---- Rep portal: every customer (task 3.8), or one rep's book (task U1) ----
 
-/** Internal: every customer's orders (or one customer's), newest first, with the customer and line count: the rep's Orders list. */
-export function allOrders({customerId=null,limit=500}:{customerId?:string|null;limit?:number}={}){
+/** `repId` limits a read to that rep's customers (customer_rep); null reads every customer (the manager, task U1). */
+const BOOK='(@repId IS NULL OR o.customer_id IN (SELECT customer_id FROM customer_rep WHERE rep_id=@repId))';
+
+/**
+ * Internal: every customer's orders (or one customer's), newest first, with the customer and line
+ * count: the rep's Orders list. `repId` keeps only that rep's customers' orders.
+ */
+export function allOrders({customerId=null,repId=null,limit=500}:{customerId?:string|null;repId?:string|null;limit?:number}={}){
   return all<OrderListRow>(`SELECT ${CUSTOMER_COLUMNS},(SELECT count(*) FROM order_lines l WHERE l.order_id=o.id) line_count${CUSTOMER_FROM}
-    WHERE (@customerId IS NULL OR o.customer_id=@customerId)${NEWEST} LIMIT @limit`,{customerId,limit});
+    WHERE (@customerId IS NULL OR o.customer_id=@customerId) AND ${BOOK}${NEWEST} LIMIT @limit`,{customerId,repId,limit});
 }
 
 /** Internal: one order by id or order number, whoever the customer, with its lines: the rep's order detail. */
@@ -40,11 +46,11 @@ export function findOrder(orderIdOrNumber:string):CustomerOrder|undefined{
   return header&&{...header,lines:orderLines(header.id)};
 }
 
-/** Internal: the order lines for one item, newest first, optionally one customer's: an item's recent sales. */
-export function itemSales(itemId:string,{customerId=null,limit=20}:{customerId?:string|null;limit?:number}={}){
+/** Internal: the order lines for one item, newest first, optionally one customer's or one rep's customers': an item's recent sales. */
+export function itemSales(itemId:string,{customerId=null,repId=null,limit=20}:{customerId?:string|null;repId?:string|null;limit?:number}={}){
   return all<ItemSale>(`SELECT o.id order_id,o.order_number,o.order_date,o.customer_id,cu.name customer_name,l.qty,l.unit_price
     FROM order_lines l JOIN orders o ON o.id=l.order_id JOIN customers cu ON cu.id=o.customer_id
-    WHERE l.item_id=@itemId AND (@customerId IS NULL OR o.customer_id=@customerId)${NEWEST},l.line_no LIMIT @limit`,{itemId,customerId,limit});
+    WHERE l.item_id=@itemId AND (@customerId IS NULL OR o.customer_id=@customerId) AND ${BOOK}${NEWEST},l.line_no LIMIT @limit`,{itemId,customerId,repId,limit});
 }
 
 /** Order status by order number or PO number (ignoring case), or the latest order when no reference is given. */

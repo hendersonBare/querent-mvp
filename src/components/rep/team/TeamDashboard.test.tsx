@@ -115,14 +115,14 @@ describe('presets and a custom range',()=>{
 });
 
 describe('drill-down, decline reasons, untouched reasons and the CSV',()=>{
-  it('links counts and rows to the filtered All reps Quotes list',async()=>{
+  it('links counts and rows to the manager’s filtered Quotes list, with no ?scope=all',async()=>{
     renderDashboard();
     await waitFor(()=>expect(bodyRows()).toHaveLength(4));
     const window=`from=${encodeURIComponent(localMidnight(2026,9,11))}&to=${encodeURIComponent(localMidnight(2026,10,11))}`;
     const mara=bodyRows()[2];
-    expect(within(mara).getByRole('link',{name:'Mara Jensen'})).toHaveAttribute('href',`/rep/quotes?scope=all&rep=mara&${window}`);
-    expect(within(mara).getByRole('link',{name:'1 declined'})).toHaveAttribute('href',`/rep/quotes?scope=all&rep=mara&${window}&status=declined`);
-    expect(within(bodyRows()[3]).getByRole('link',{name:'Total'})).toHaveAttribute('href',`/rep/quotes?scope=all&rep=brandi%2Celi%2Cmara&${window}`);
+    expect(within(mara).getByRole('link',{name:'Mara Jensen'})).toHaveAttribute('href',`/rep/quotes?rep=mara&${window}`);
+    expect(within(mara).getByRole('link',{name:'1 declined'})).toHaveAttribute('href',`/rep/quotes?rep=mara&${window}&status=declined`);
+    expect(within(bodyRows()[3]).getByRole('link',{name:'Total'})).toHaveAttribute('href',`/rep/quotes?rep=brandi%2Celi%2Cmara&${window}`);
   });
 
   it('shows each decline reason with its count, and the Other text',async()=>{
@@ -133,7 +133,7 @@ describe('drill-down, decline reasons, untouched reasons and the CSV',()=>{
     expect(within(panel).getByRole('row',{name:/Other 1/})).toBeInTheDocument();
     const notes=within(panel).getByRole('list',{name:'Other reasons in their words'});
     expect(notes).toHaveTextContent('Found it cheaper online');
-    expect(within(notes).getByRole('link',{name:'Q-2'})).toHaveAttribute('href','/rep/quotes/Q-2?scope=all');
+    expect(within(notes).getByRole('link',{name:'Q-2'})).toHaveAttribute('href','/rep/quotes/Q-2');
   });
 
   it('shows the untouched reasons per rep and offers the CSV for the same filters',async()=>{

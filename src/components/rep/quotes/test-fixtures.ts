@@ -42,12 +42,13 @@ export const OVERDUE=quoteRow({...CHANGES,id:'q-24790',quote_number:'Q-24790',to
  * A list as the API returns it: counts and unread cover `scope`, rows are `scope` filtered by `status`,
  * or, with `attention`, the amber and red rows in the order given (the server sorts them).
  */
-export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,customer=null,other_rep=false,attention=false,sort='urgent',manager=null,reps='mine',rep_filter=null,team_filter=null}:
-  {scope?:RepQuoteRow[];status?:RepQuoteList['status'];customer?:CustomerListItem|null;other_rep?:boolean;attention?:boolean;sort?:RepQuoteList['sort'];
-    /** The manager's options (task D2), null for a rep; `reps` is the list's scope. */
-    manager?:ManagerListOptions|null;reps?:RepQuoteList['scope'];rep_filter?:string|null;team_filter?:string|null}={}):RepQuoteList{
+export function quoteList({scope=[CHANGES,SAMPLE,quoteRow(),OLD],status=null,customer=null,attention=false,sort='urgent',manager=null,rep_filter=null,team_filter=null}:
+  {scope?:RepQuoteRow[];status?:RepQuoteList['status'];customer?:CustomerListItem|null;attention?:boolean;sort?:RepQuoteList['sort'];
+    /** The manager's options (task D2), null for a rep. The list's scope follows: the whole organization for the manager (task U1). */
+    manager?:ManagerListOptions|null;rep_filter?:string|null;team_filter?:string|null}={}):RepQuoteList{
   const aged=scope.filter(r=>r.aging&&r.aging.level!=='ok');
-  return {as_of:AS_OF,customer,other_rep,status:attention?null:status,attention,sort,attention_count:aged.length,counts:counts(scope),unread:scope.filter(r=>r.unread).length,
+  const reps:RepQuoteList['scope']=manager?'all':'mine';
+  return {as_of:AS_OF,customer,status:attention?null:status,attention,sort,attention_count:aged.length,counts:counts(scope),unread:scope.filter(r=>r.unread).length,
     rows:attention?aged:status?scope.filter(r=>r.status===status):scope,scope:reps,rep_filter,team_filter,window:null,aging_filter:null,manager};
 }
 

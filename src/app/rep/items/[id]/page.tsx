@@ -2,22 +2,23 @@ import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {ItemDetail} from '@/components/rep/items/ItemDetail';
 import {catalogItem} from '@/server/repository';
-import {detailTitle,itemDetail,pickedCustomer} from '@/server/rep/reference';
-import {signedInRepId} from '@/server/rep/session';
+import {detailTitle,itemDetail} from '@/server/rep/reference';
+import {signedInRep} from '@/server/rep/session';
 
 type Params=Promise<{id:string}>;
-type SearchParams=Promise<Record<string,string|string[]|undefined>>;
 
 export async function generateMetadata({params}:{params:Params}):Promise<Metadata>{
   const {id}=await params;
   return {title:await detailTitle('Items',()=>catalogItem(id)?.sku)};
 }
 
-/** One item, by SKU (/rep/items/HCS-12-13-2G8) or id (spec §4, task 3.8): stock per branch, and recent orders for the "Viewing" picker's customer. */
-export default async function ItemPage({params,searchParams}:{params:Params;searchParams:SearchParams}){
-  await signedInRepId();
-  const viewing=pickedCustomer(await searchParams);
-  const view=itemDetail((await params).id,{customerId:viewing.customerId});
+/**
+ * One item, by SKU (/rep/items/HCS-12-13-2G8) or id (spec §4, task 3.8): stock per branch, and its
+ * recent orders: a rep's own customers' only, every customer's for the manager (task U1).
+ */
+export default async function ItemPage({params}:{params:Params}){
+  const reader=await signedInRep();
+  const view=itemDetail((await params).id,reader);
   if(!view)notFound();
-  return <ItemDetail view={view} viewing={viewing}/>;
+  return <ItemDetail view={view} allCustomers={reader.manager}/>;
 }

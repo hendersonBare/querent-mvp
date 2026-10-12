@@ -36,9 +36,15 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await expect(
     page.getByRole("button", { name: "Account: Brandi Gallegos" }),
   ).toHaveText("BG");
-  const viewing = page.getByLabel("Viewing");
-  await expect(viewing.locator("option")).toHaveText([
-    "All customers",
+  // Brandi is the manager: Customers lists the whole organization (task U1; no "Viewing" picker).
+  await expect(page.getByLabel("Viewing")).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Rep portal" })
+    .getByRole("link", { name: "Customers" })
+    .click();
+  await expect(
+    page.getByRole("table").getByRole("rowheader").getByRole("link"),
+  ).toHaveText([
     "Canyon Ridge Builders",
     "Great Basin Fabrication",
     "Uinta Facility Services",
@@ -46,9 +52,9 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
     "Wasatch Mechanical Contractors",
     "Weber Basin Fabricators",
   ]);
-  await viewing.selectOption("wasatch");
 
-  // Customer access lives under Settings (task 6.1; e2e/rep-settings.spec.ts covers every tab).
+  // Customer access lives under Settings (task 6.1; e2e/rep-settings.spec.ts covers every tab),
+  // with its own customer filter.
   await page
     .getByRole("navigation", { name: "Rep portal" })
     .getByRole("link", { name: "Settings" })
@@ -56,6 +62,8 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await page
     .getByRole("link", { name: "Customer access", exact: true })
     .click();
+  await page.getByRole("combobox", { name: "Customer" }).selectOption("wasatch");
+  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
   for (const name of ["Items & stock", "Pricing", "Orders & quotes", "Account"])
     await expect(page.getByRole("switch", { name })).toHaveAttribute(
       "aria-checked",

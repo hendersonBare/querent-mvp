@@ -7,7 +7,6 @@ import {formatRateBp} from '@/server/freight/recovery';
 import {DECLINE_REASON_LABELS,canEditDraft,fulfillmentTimeLabel} from '@/server/quotes';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
-import {useRepScope} from '../context';
 import {AgingMarker} from '../quotes/AgingMarker';
 import {StatusChip} from '../quotes/QuotesList';
 import {ReassignDialog,type ReassignTarget} from '../reassign/ReassignDialog';
@@ -106,7 +105,6 @@ export function QuoteDetailView({initial,reassign}:{initial:QuoteDetail;reassign
 }
 
 function QuoteHeader({detail,editor,onApprove,onReassign}:{detail:QuoteDetail;editor:QuoteEditor;onApprove:()=>void;onReassign?:()=>void}){
-  const scope=useRepScope();
   const {quote,editable}=detail;
   const [savedNote,setSavedNote]=useState<string|null>(null);
   async function saveDraft(){
@@ -118,7 +116,7 @@ function QuoteHeader({detail,editor,onApprove,onReassign}:{detail:QuoteDetail;ed
   const status=editor.pending?'Saving…':savedNote??(editor.savedAt?'All changes saved':null);
   return <>
     <nav className={list.crumbs} aria-label="Breadcrumb">
-      <Link href={scope.href('/rep/quotes')}>Quotes</Link><span aria-hidden="true">/</span><span aria-current="page" className={list.crumbHere}>{quote.quote_number}</span>
+      <Link href="/rep/quotes">Quotes</Link><span aria-hidden="true">/</span><span aria-current="page" className={list.crumbHere}>{quote.quote_number}</span>
       {quote.is_sample&&<span className={list.tag}>Sample data</span>}
     </nav>
     <div className={s.qtop}>

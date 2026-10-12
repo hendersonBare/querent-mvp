@@ -41,7 +41,7 @@ beforeEach(()=>{fetchMock.mockClear();router.refresh.mockClear();vi.stubGlobal('
 afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail,{rep=brandi,reassign=REASSIGN}:{rep?:{id:string;name:string;initials:string;title:string;manager?:boolean};reassign?:typeof REASSIGN|null}={}){
-  return render(<RepShell rep={rep} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:0,attention:0}}>
+  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:0,attention:0}}>
     <QuoteDetailView initial={detail} reassign={reassign??undefined}/></RepShell>);
 }
 

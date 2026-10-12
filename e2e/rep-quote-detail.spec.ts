@@ -65,7 +65,8 @@ test("screen 03 at 1440px: header, panels, line grid, totals and summary card", 
   await openQuote(page, SAMPLE, "?customer=wasatch");
   const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
   await expect(crumbs).toHaveText(/Quotes\s*\/\s*Q-24817\s*Sample data/);
-  await expect(crumbs.getByRole("link", { name: "Quotes" })).toHaveAttribute("href", "/rep/quotes?customer=wasatch");
+  // A quote page's links never carry the ?customer= it was opened with (task U1).
+  await expect(crumbs.getByRole("link", { name: "Quotes" })).toHaveAttribute("href", "/rep/quotes");
   await expect(page.getByText("Draft ready")).toBeVisible();
   await expect(page.getByText(/^Q-24817 · Dana Ortiz, Purchasing · Requested Wed Sep 23, 10:14 AM · Valid until /)).toBeVisible();
   for (const name of ["Save draft", "Export", "More actions", "Approve & send"]) await expect(page.getByRole("button", { name })).toBeVisible();

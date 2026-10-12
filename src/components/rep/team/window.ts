@@ -1,7 +1,7 @@
 import type {QuoteStatus} from '@/domain';
 import type {AgingLevel} from '@/server/quotes';
 import {AGING_PARAM,STATUS_PARAM} from '../quotes/labels';
-import {ALL_REPS,FROM_PARAM,REPS_PARAM,REP_PARAM,TO_PARAM} from '../scope';
+import {FROM_PARAM,REP_PARAM,TO_PARAM} from '../scope';
 
 // The Team dashboard's date window and links (v3 spec §6 Team, §7; decisions 10, 23; OA-19; task
 // D3). Pure. Days are the browser's: a window runs from local midnight to local midnight, and the
@@ -53,9 +53,9 @@ export function metricsQuery(window:TeamWindow,repIds:readonly string[],team:str
   return params.toString();
 }
 
-/** Where a count drills to: the All reps Quotes list for these reps and the window, narrowed to a status or an aging level. */
+/** Where a count drills to: the manager's Quotes list (every rep's, task U1) for these reps and the window, narrowed to a status or an aging level. */
 export function drillHref(window:TeamWindow,repIds:readonly string[],{status,aging}:{status?:QuoteStatus;aging?:AgingLevel}={}){
-  const params=new URLSearchParams({[REPS_PARAM]:ALL_REPS});
+  const params=new URLSearchParams();
   if(repIds.length)params.set(REP_PARAM,repIds.join(','));
   params.set(FROM_PARAM,window.from);params.set(TO_PARAM,window.to);
   if(status)params.set(STATUS_PARAM,status);

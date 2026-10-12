@@ -69,14 +69,17 @@ async function openQuotes(page: Page) {
   await portalNav(page).getByRole("link", { name: /^Quotes\b/ }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quotes");
 }
-/** The sample quote's Margin cell on the Quotes list: "32.2% margin", plus "N lines below floor" when any are. */
+/**
+ * The sample quote's Margin cell on the Quotes list: "32.2% margin", plus "N lines below floor" when
+ * any are. Brandi is the manager, so her rows start with the checkbox and carry a Rep cell (task U1).
+ */
 const sampleMargin = (page: Page) =>
   page
     .getByRole("table")
     .getByRole("rowgroup")
     .filter({ has: page.getByRole("link", { name: SAMPLE, exact: true }) })
     .getByRole("cell")
-    .nth(4);
+    .nth(6);
 const floorField = (page: Page, category: string) => page.getByRole("textbox", { name: `${category} floor`, exact: true });
 async function saveFloor(page: Page, category: string, value: string) {
   const field = floorField(page, category);
@@ -203,12 +206,11 @@ test("floors: changing Brandi's floor changes the below-floor warning on her quo
 test("access: turning Items & stock off for Wasatch makes Dana's chat refuse stock questions and point her to Brandi", async ({ page, browser }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  await page.getByLabel("Viewing").selectOption("wasatch");
-  // The pick is in the URL before the nav links carry it: wait, or Settings opens for All customers.
-  await expect(page).toHaveURL(/[?&]customer=wasatch(&|$)/);
+  // Customer access picks its own customer (task U1: no header "Viewing" picker).
   await openSettings(page, "Customer access");
+  await page.getByRole("combobox", { name: "Customer" }).selectOption("wasatch");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
-  await expect(page.getByText("Viewing Wasatch Mechanical Contractors")).toBeVisible();
+  await expect(page.getByText("What Querent answers in chat for Wasatch Mechanical Contractors.")).toBeVisible();
   const items = page.getByRole("switch", { name: "Items & stock" });
   await expect(items).toHaveAttribute("aria-checked", "true");
 
@@ -226,14 +228,14 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   await screenshot(dana, testInfo, "dana-stock-refused-1440");
 
   // All customers shows the mix; only Wasatch changed.
-  await page.getByLabel("Viewing").selectOption("all");
+  await page.getByRole("combobox", { name: "Customer" }).selectOption("");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access$/);
   await expect(page.getByText("On for some customers")).toBeVisible();
 
   // Back on: Dana gets stock again. Wait for Wasatch's view first, so the switch is Wasatch's alone.
-  await page.getByLabel("Viewing").selectOption("wasatch");
+  await page.getByRole("combobox", { name: "Customer" }).selectOption("wasatch");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
-  await expect(page.getByText("Viewing Wasatch Mechanical Contractors")).toBeVisible();
+  await expect(page.getByText("What Querent answers in chat for Wasatch Mechanical Contractors.")).toBeVisible();
   await page.getByRole("switch", { name: "Items & stock" }).click();
   await expect(page.getByRole("switch", { name: "Items & stock" })).toHaveAttribute("aria-checked", "true");
   await expect(await ask(dana, STOCK_QUESTION)).toContainText("64 at SLC");
@@ -251,10 +253,9 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
   );
   await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("28 with Brandi Gallegos");
   await screenshot(page, testInfo, "settings-assignments-reassigned-1440");
-  // The "Viewing" picker's rep follows.
-  await page.getByLabel("Viewing").selectOption("wasatch");
-  await expect(page).toHaveURL(/[?&]customer=wasatch(&|$)/);
-  await expect(page.getByRole("banner")).toContainText("WAS-1142 · Rep Mara Jensen");
+  // The Customers list's rep follows.
+  await page.goto("/rep/customers?customer=wasatch");
+  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("Mara Jensen");
 
   // Dana's rep card and chat's "call your rep" name Mara now.
   const dana = await signInAsDana(browser);

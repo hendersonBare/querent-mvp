@@ -15,7 +15,7 @@ export interface TeamRep extends Pick<Rep,'id'|'name'|'initials'|'title'>,RepSta
 export interface CustomerListItem {id:string;name:string;account_number:string;rep_id:string|null;rep_name:string|null}
 
 /**
- * One row of the rep's Customers list (task 3.8): the picker's facts plus terms, balance and how
+ * One row of the rep's Customers list (task 3.8): the customer list's facts plus terms, balance and how
  * much history the account has. Placeholder customers have null terms and zero counts (spec §2).
  */
 export interface CustomerDirectoryRow extends CustomerListItem {

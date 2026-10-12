@@ -1,6 +1,7 @@
 import 'server-only';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {unreadQuoteCount} from '@/server/repository';
+import {ownerFilter} from './access';
 import {redQuoteCount} from './quotes';
 
 // The rep portal's nav badges (spec §4: "Unread badges on Quotes").
@@ -11,27 +12,27 @@ import {redQuoteCount} from './quotes';
 //          accepts, or requests changes (spec §5.4: "badge + activity for the rep");
 //   clear  when the rep sends the quote, or opens it (markQuoteRead(id,'rep'), which the quote
 //          detail page calls, task 3.3).
-// The badge counts the signed-in rep's unread quotes across all their customers. It does not
-// follow the "Viewing" picker, so a request from another customer is never hidden.
+// The badge counts the signed-in rep's unread quotes across all their customers. It follows no
+// page filter, so a request from another customer is never hidden.
 //
-// Beside it (OA-8), the red "Needs attention" badge counts the rep's red quotes only (v3 spec §3,
-// decision 18), across all their customers like the unread badge. Amber quotes show only in the
-// Quotes list's Needs attention filter. In the manager's All reps scope (?scope=all, OA-52, task D2)
-// it counts every rep's red quotes; the unread badge stays her own (it is each owner's flag).
+// Beside it (OA-8), the red "Needs attention" badge counts red quotes (v3 spec §3, decision 18)
+// over the same quotes as the Quotes list: the rep's own, or every rep's for the manager, who reads
+// the whole organization (task U1). Amber quotes show only in the Quotes list's Needs attention
+// filter. The unread badge stays each rep's own (it is each owner's flag).
 
 export interface RepBadges {
   /** The rep's unread quotes. */
   quotes:number;
-  /** The rep's red (Overdue) open quotes. */
+  /** The red (Overdue) open quotes: the rep's own, or every rep's for the manager (task U1). */
   attention:number;
 }
 
 /**
  * The badge counts for one rep. Expiry is lazy (task 1.5), so this stores the expiry of every
- * sent quote past valid_until first; counts then read effective statuses. `allReps`: the manager's
- * All reps scope, where the red count covers every rep (the caller checks she is the manager). `now` is for tests.
+ * sent quote past valid_until first; counts then read effective statuses. `manager` (repAccess):
+ * the red count covers every rep (task U1). `now` is for tests.
  */
-export function repBadges(repId:string,{now=new Date().toISOString(),allReps=false}:{now?:string;allReps?:boolean}={}):RepBadges{
+export function repBadges(repId:string,{now=new Date().toISOString(),manager=false}:{now?:string;manager?:boolean}={}):RepBadges{
   expireOverdueQuotes({now});
-  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(allReps?null:repId,now)};
+  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(ownerFilter({repId,manager}),now)};
 }

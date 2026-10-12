@@ -15,5 +15,5 @@ Deferred work from the v3 decision log (decision 40). Each item is marked in cod
 | R-9 | Diesel price endpoint if OilPriceAPI has none (diesel is $0 until then) | `src/server/freight/fuel-price.ts` |
 | R-10 | Routing API for real road miles and drive time | `src/server/freight/cost-model.ts` |
 | R-11 | Fleet onboarding to prefill MPG and vehicle inputs | `src/server/freight/cost-model.ts` |
-| R-12 | Hierarchical visibility (manager subtree), named groups, with real auth | `src/server/rep/http.ts` |
+| R-12 | Hierarchical visibility (manager subtree), named groups, with real auth | `src/server/rep/http.ts`, `src/server/rep/access.ts` |
 | R-13 | Tooling mismatches deliberately ignored for now (Supabase and Railway tooling in the dev environment) | Registry only: tooling, nothing in `src/` |

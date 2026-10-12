@@ -66,7 +66,7 @@ beforeEach(()=>{server={lines:[...SAMPLE_LINES],removed:[],unread:1,status:null}
 afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
-  return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
+  return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
     initialBadges={{quotes:1,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const row=(sku:string)=>screen.getByRole('rowheader',{name:new RegExp(sku)}).closest('tbody')!;
@@ -78,11 +78,11 @@ const totalsText=()=>screen.getByLabelText('Quote totals').textContent;
 const settle=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
 
 describe('header and panels',()=>{
-  it('shows the breadcrumb (keeping ?customer=), customer, status chip and request line (screen 03)',()=>{
+  it('shows the breadcrumb (never carrying ?customer=, task U1), customer, status chip and request line (screen 03)',()=>{
     renderPage();
     const crumbs=screen.getByRole('navigation',{name:'Breadcrumb'});
     expect(crumbs).toHaveTextContent('Quotes/Q-24817Sample data');
-    expect(within(crumbs).getByRole('link',{name:'Quotes'})).toHaveAttribute('href','/rep/quotes?customer=wasatch');
+    expect(within(crumbs).getByRole('link',{name:'Quotes'})).toHaveAttribute('href','/rep/quotes');
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Wasatch Mechanical Contractors');
     expect(screen.getByText('Draft ready')).toBeInTheDocument();
     expect(screen.getByText('Q-24817 · Dana Ortiz, Purchasing · Requested Wed Sep 23, 10:14 AM · Valid until Oct 9')).toBeInTheDocument();

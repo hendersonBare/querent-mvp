@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import type {CustomerDetail as CustomerView} from '@/server/rep/reference';
-import {scopedHref} from '../scope';
+import {withCustomer} from '../scope';
 import {count,day,fulfillment,money,percent,revision,taxStatus} from '../reference/format';
-import {Crumbs,DetailHeader,Empty,hrefFor,OrderStatusChip,Panel,QuoteStatusChip,referenceStyles as s,type Viewing} from '../reference/parts';
+import {Crumbs,DetailHeader,Empty,OrderStatusChip,Panel,QuoteStatusChip,referenceStyles as s} from '../reference/parts';
 
 // One customer (spec §4, task 3.8): account and terms, the assigned rep, contacts, and the newest
 // orders and quotes, read-only. Quote statuses are the ones to show now (the page's view stores
@@ -11,11 +11,11 @@ import {Crumbs,DetailHeader,Empty,hrefFor,OrderStatusChip,Panel,QuoteStatusChip,
 /** Credit used from here reads amber, as in the mockup's .bar.hi. */
 const HIGH_CREDIT=0.8;
 
-export function CustomerDetail({view,viewing,repId}:{view:CustomerView;viewing:Viewing;repId:string}){
+export function CustomerDetail({view,repId}:{view:CustomerView;repId:string}){
   const {account}=view;
   const rep=account.rep;
   return <>
-    <Crumbs section="Customers" href={hrefFor(viewing,'/rep/customers')} current={account.account_number}/>
+    <Crumbs section="Customers" href="/rep/customers" current={account.account_number}/>
     <DetailHeader title={account.name} meta={<>
       <span className={s.mono}>{account.account_number}</span>
       {rep?<> · Rep {rep.name}{rep.id===repId&&' (you)'}</>:' · No rep assigned'}
@@ -23,8 +23,8 @@ export function CustomerDetail({view,viewing,repId}:{view:CustomerView;viewing:V
     </>}/>
     <div className={s.grid}>
       <div className={s.main}>
-        <RecentOrders view={view} viewing={viewing}/>
-        <RecentQuotes view={view} viewing={viewing}/>
+        <RecentOrders view={view}/>
+        <RecentQuotes view={view}/>
       </div>
       <aside className={s.rail} aria-label="Account details">
         <AccountPanel view={view}/>
@@ -79,10 +79,10 @@ function AccountPanel({view}:{view:CustomerView}){
   </Panel>;
 }
 
-function RecentOrders({view,viewing}:{view:CustomerView;viewing:Viewing}){
+function RecentOrders({view}:{view:CustomerView}){
   const {account,orders}=view;
   // "View all" shows this customer's orders, so it picks the customer.
-  const all=orders.count>orders.recent.length?{href:scopedHref('/rep/orders',account.id),label:`View all ${count(orders.count,'order')}`}:undefined;
+  const all=orders.count>orders.recent.length?{href:withCustomer('/rep/orders',account.id),label:`View all ${count(orders.count,'order')}`}:undefined;
   return <Panel id="customer-orders" title="Recent orders" meta={orders.count?count(orders.count,'order'):undefined} action={all} flush>
     {orders.recent.length?<div className={s.tableWrap}><table className={s.table}>
       <caption>{account.name}’s newest orders</caption>
@@ -91,7 +91,7 @@ function RecentOrders({view,viewing}:{view:CustomerView;viewing:Viewing}){
       </tr></thead>
       <tbody>{orders.recent.map(o=><tr key={o.id}>
         <th scope="row">
-          <Link className={s.name} href={hrefFor(viewing,`/rep/orders/${encodeURIComponent(o.order_number)}`)}>{o.order_number}</Link>
+          <Link className={s.name} href={`/rep/orders/${encodeURIComponent(o.order_number)}`}>{o.order_number}</Link>
           {o.po_number&&<span className={s.sub}>PO {o.po_number}</span>}
         </th>
         <td className={s.date}>{day(o.order_date)}</td>
@@ -103,9 +103,9 @@ function RecentOrders({view,viewing}:{view:CustomerView;viewing:Viewing}){
   </Panel>;
 }
 
-function RecentQuotes({view,viewing}:{view:CustomerView;viewing:Viewing}){
+function RecentQuotes({view}:{view:CustomerView}){
   const {account,quotes}=view;
-  const all=quotes.count>quotes.recent.length?{href:scopedHref('/rep/quotes',account.id),label:`View all ${count(quotes.count,'quote')}`}:undefined;
+  const all=quotes.count>quotes.recent.length?{href:withCustomer('/rep/quotes',account.id),label:`View all ${count(quotes.count,'quote')}`}:undefined;
   return <Panel id="customer-quotes" title="Recent quotes" meta={quotes.count?count(quotes.count,'quote'):undefined} action={all} flush>
     {quotes.recent.length?<div className={s.tableWrap}><table className={s.table}>
       <caption>{account.name}’s newest quotes, newest request first</caption>
@@ -114,7 +114,7 @@ function RecentQuotes({view,viewing}:{view:CustomerView;viewing:Viewing}){
       </tr></thead>
       <tbody>{quotes.recent.map(q=><tr key={q.id}>
         <th scope="row">
-          <Link className={s.name} href={hrefFor(viewing,`/rep/quotes/${encodeURIComponent(q.quote_number)}`)} prefetch={false}>{q.quote_number}</Link>
+          <Link className={s.name} href={`/rep/quotes/${encodeURIComponent(q.quote_number)}`} prefetch={false}>{q.quote_number}</Link>
           <span className={s.sub}>{revision(q.revision)} · {count(q.line_count,'line')}</span>
         </th>
         <td className={s.date}>{day(q.requested_at)}</td>

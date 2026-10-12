@@ -199,17 +199,17 @@ export function questionsAnswered(outcomes:Readonly<Record<string,number>>):Ques
 
 // ---- The page ----
 
-/** Everything the Analytics page shows, for the signed-in rep and the "Viewing" picker (GET /api/rep/analytics). */
+/** Everything the Analytics page shows, for the signed-in rep and the page's own customer filter (GET /api/rep/analytics). */
 export interface RepAnalytics {
   /** Statuses are effective as of this instant, and the trend ends in its week. */
   as_of:string;
   scope:{
-    /** The picked customer, or null for All customers. */
+    /** The filtered customer, or null for All customers. */
     customer:CustomerListItem|null;
-    /** Customers the numbers cover: the rep's own, narrowed by the picker. */
+    /** Customers whose chat questions and Customer access the numbers cover: the rep's own (every customer for the manager, task U1), narrowed by the filter. */
     customer_ids:string[];
-    /** The picked customer is another rep's, so the numbers are empty. */
-    other_rep:boolean;
+    /** Whose quotes the quote numbers cover (quotes.rep_id): the rep's own, or null for every rep (the manager). Narrowed by the filter too (task U1, OA-67). */
+    rep_id:string|null;
   };
   turnaround:Turnaround;
   win_rate:WinRateCard;

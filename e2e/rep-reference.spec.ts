@@ -1,8 +1,10 @@
 import { expect, test, type APIRequestContext, type Browser, type Page, type TestInfo } from "@playwright/test";
 
 // The rep portal's read-only reference pages (task 3.8, spec §4): Customers, Orders and Items,
-// each a list and a detail page, at desktop width and at 390px, following the "Viewing" picker
-// (?customer=). Placeholder customers (spec §2) show empty states. Nothing shows cost or margin.
+// each a list and a detail page, at desktop width and at 390px. Lists follow their own ?customer=
+// filter, and no link carries it to another page (task U1: no "Viewing" picker). Brandi is the
+// manager, so she reads every customer and order. Placeholder customers (spec §2) show empty
+// states. Nothing shows cost or margin.
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts):
 // start your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one.
@@ -29,7 +31,6 @@ async function signInAsBrandi(page: Page) {
 const portalNav = (page: Page) => page.getByRole("navigation", { name: "Rep portal" });
 const section = (page: Page, label: string) => portalNav(page).getByRole("link", { name: new RegExp(`^${label}\\b`) });
 const title = (page: Page) => page.getByRole("heading", { level: 1 });
-const viewing = (page: Page) => page.getByLabel("Viewing");
 const panel = (page: Page, name: string) => page.getByRole("region", { name });
 /** A table row by the text of its row header (the first cell). */
 const row = (page: Page, name: string | RegExp) => page.getByRole("row").filter({ has: page.getByRole("rowheader", { name }) });
@@ -55,7 +56,7 @@ test("customers: every account with its rep, and a detail page with account, rep
   await expect(row(page, /Wasatch Mechanical Contractors/)).toContainText("Brandi Gallegos");
   await expect(row(page, /Wasatch Mechanical Contractors/)).toContainText("Net 30");
   await expect(row(page, /Wasatch Mechanical Contractors/)).toContainText("Sep 9, 2026");
-  // Other reps' customers are listed with their rep (task 3.2 decides whose quotes Brandi sees).
+  // Brandi is the manager: other reps' customers are listed with their rep (task U1; a rep sees only their own, e2e/rep-roles.spec.ts).
   await expect(row(page, /Canyon Ridge Builders/)).toContainText("Mara Jensen");
   await expect(row(page, /Uinta Facility Services/)).toContainText("Nora Chen");
   // Mara's and Eli's books (task F1): terms and quotes, no orders yet.
@@ -93,10 +94,11 @@ test("customers: every account with its rep, and a detail page with account, rep
   await noCostOrMargin(page);
   await attachScreenshot(page, testInfo, "customer-wasatch-desktop");
 
-  // "View all" opens this customer's orders: the picker follows.
+  // "View all" opens the Orders list filtered to this customer; the nav doesn't carry the filter.
   await orders.getByRole("link", { name: "View all 23 orders" }).click();
   await expect(page).toHaveURL(/\/rep\/orders\?customer=wasatch$/);
-  await expect(viewing(page)).toHaveValue("wasatch");
+  await expect(page.getByText("Viewing Wasatch Mechanical Contractors · 23 orders")).toBeVisible();
+  await expect(section(page, "Orders")).toHaveAttribute("href", "/rep/orders");
 
   // A placeholder customer's page: its rep, and empty states.
   await page.goto("/rep/customers/great-basin");
@@ -111,31 +113,27 @@ test("customers: every account with its rep, and a detail page with account, rep
   await expect(title(page)).toHaveText("Customer not found");
 });
 
-test("customers: the picker narrows the list and switches the customer page", async ({ page }) => {
+test("customers: ?customer= narrows the list; a customer page ignores it", async ({ page }) => {
   await signInAsBrandi(page);
-  await section(page, "Customers").click();
-  // Wait for the page before picking: the picker keeps whatever page is current (router.replace).
-  await expect(page).toHaveURL(/\/rep\/customers$/);
-  await expect(bodyRows(page)).toHaveCount(6);
-  await viewing(page).selectOption("great-basin");
-  await expect(page).toHaveURL(/\/rep\/customers\?customer=great-basin$/);
+  await page.goto("/rep/customers?customer=great-basin");
   await expect(bodyRows(page)).toHaveCount(1);
   await expect(page.getByText("Showing Great Basin Fabrication only.")).toBeVisible();
 
   await page.getByRole("link", { name: "Great Basin Fabrication" }).click();
-  await expect(page).toHaveURL(/\/rep\/customers\/great-basin\?customer=great-basin$/);
-  await viewing(page).selectOption("wasatch");
-  await expect(page).toHaveURL(/\/rep\/customers\/wasatch\?customer=wasatch$/);
+  await expect(page).toHaveURL(/\/rep\/customers\/great-basin$/);
+  // A customer page no longer follows a filter: ?customer= neither redirects nor sticks to its links.
+  await page.goto("/rep/customers/wasatch?customer=great-basin");
+  await expect(page).toHaveURL(/\/rep\/customers\/wasatch\?customer=great-basin$/);
   await expect(title(page)).toHaveText("Wasatch Mechanical Contractors");
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Customers" })).toHaveAttribute("href", "/rep/customers?customer=wasatch");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Customers" })).toHaveAttribute("href", "/rep/customers");
 
-  // All customers keeps the page.
-  await viewing(page).selectOption("all");
-  await expect(page).toHaveURL(/\/rep\/customers\/wasatch$/);
-  await expect(title(page)).toHaveText("Wasatch Mechanical Contractors");
+  await page.goto("/rep/customers?customer=wasatch");
+  await page.getByRole("link", { name: "Show every customer" }).click();
+  await expect(page).toHaveURL(/\/rep\/customers$/);
+  await expect(bodyRows(page)).toHaveCount(6);
 });
 
-test("orders: the list follows the picker, and the detail shows the lines at the prices paid", async ({ page }, testInfo) => {
+test("orders: the list follows its own ?customer=, and the detail shows the lines at the prices paid", async ({ page }, testInfo) => {
   await signInAsBrandi(page);
   await section(page, "Orders").click();
   await expect(page).toHaveURL(/\/rep\/orders$/);
@@ -148,15 +146,14 @@ test("orders: the list follows the picker, and the detail shows the lines at the
   await expect(bodyRows(page).first()).toContainText("$698.22");
   await attachScreenshot(page, testInfo, "orders-desktop");
 
-  await viewing(page).selectOption("great-basin");
-  await expect(page).toHaveURL(/\/rep\/orders\?customer=great-basin$/);
+  await page.goto("/rep/orders?customer=great-basin");
   await expect(page.getByRole("heading", { name: "No orders for Great Basin Fabrication yet" })).toBeVisible();
-  await viewing(page).selectOption("wasatch");
+  await page.goto("/rep/orders?customer=wasatch");
   await expect(bodyRows(page)).toHaveCount(23);
   await expect(page.getByRole("columnheader", { name: "Customer" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "SO-51223" }).click();
-  await expect(page).toHaveURL(/\/rep\/orders\/SO-51223\?customer=wasatch$/);
+  await expect(page).toHaveURL(/\/rep\/orders\/SO-51223$/);
   await expect(title(page)).toHaveText("SO-51223");
   await expect(page).toHaveTitle("SO-51223 · Querent");
   const lines = panel(page, "Items");
@@ -166,14 +163,13 @@ test("orders: the list follows the picker, and the detail shows the lines at the
   await expect(lines).toContainText("Order total$698.22");
   const facts = panel(page, "Order");
   await expect(facts).toContainText("7777");
-  await expect(facts.getByRole("link", { name: "Q-24816" })).toHaveAttribute("href", "/rep/quotes/Q-24816?customer=wasatch");
+  await expect(facts.getByRole("link", { name: "Q-24816" })).toHaveAttribute("href", "/rep/quotes/Q-24816");
   await noCostOrMargin(page);
   await attachScreenshot(page, testInfo, "order-desktop");
 
-  // Picking a customer the order isn't for goes to that customer's orders.
-  await viewing(page).selectOption("great-basin");
-  await expect(page).toHaveURL(/\/rep\/orders\?customer=great-basin$/);
-  await expect(title(page)).toHaveText("Orders");
+  // An order page ignores ?customer=: no redirect to another customer's orders.
+  await page.goto("/rep/orders/SO-51223?customer=great-basin");
+  await expect(title(page)).toHaveText("SO-51223");
 
   await page.goto("/rep/orders/SO-99999");
   await expect(title(page)).toHaveText("Order not found");
@@ -219,19 +215,17 @@ test("items: the catalog with stock per branch, list price and category, and an 
   await noCostOrMargin(page);
   await attachScreenshot(page, testInfo, "item-desktop");
 
-  // Recent orders follow the picker; the catalog itself is the same for everyone.
-  await viewing(page).selectOption("great-basin");
-  await expect(page).toHaveURL(/\/rep\/items\/HCS-12-13-2G8\?customer=great-basin$/);
-  await expect(sales.getByRole("heading", { name: "Great Basin Fabrication hasn’t ordered this item" })).toBeVisible();
+  // Recent orders are every customer's for the manager (a rep's own customers' otherwise, task U1); the catalog is the same for everyone.
+  await expect(panel(page, "Recent orders")).toContainText("All customers");
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Items" }).click();
-  await expect(page).toHaveURL(/\/rep\/items\?customer=great-basin$/);
+  await expect(page).toHaveURL(/\/rep\/items$/);
   await expect(bodyRows(page)).toHaveCount(62);
 
   await page.goto("/rep/items/NOPE-1");
   await expect(title(page)).toHaveText("Item not found");
 });
 
-test("phone (390px): each list and detail fits, with the picker, and nothing scrolls sideways", async ({ page }, testInfo) => {
+test("phone (390px): each list and detail fits, filtered or not, and nothing scrolls sideways", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signInAsBrandi(page);
   const pages: [string, string][] = [
@@ -251,24 +245,23 @@ test("phone (390px): each list and detail fits, with the picker, and nothing scr
     await attachScreenshot(page, testInfo, `390${path.replaceAll("/", "-")}`);
   }
 
-  // The picker at 390px: Orders narrows to Wasatch, and the list still fits.
+  // Filtered at 390px: Orders narrows to Wasatch, and the list still fits.
   await page.goto("/rep/orders");
   await expect(bodyRows(page)).toHaveCount(23);
-  await viewing(page).selectOption("wasatch");
-  await expect(page).toHaveURL(/\/rep\/orders\?customer=wasatch$/);
+  await page.goto("/rep/orders?customer=wasatch");
   await expect(page.getByText("Viewing Wasatch Mechanical Contractors · 23 orders")).toBeVisible();
   await expect(bodyRows(page).first().getByRole("link", { name: "SO-51223" })).toBeInViewport();
   await expect(bodyRows(page).first()).toContainText("$698.22");
   await noSidewaysScroll(page);
   await attachScreenshot(page, testInfo, "390-rep-orders-wasatch");
   await bodyRows(page).first().getByRole("link", { name: "SO-51223" }).click();
-  await expect(page).toHaveURL(/\/rep\/orders\/SO-51223\?customer=wasatch$/);
+  await expect(page).toHaveURL(/\/rep\/orders\/SO-51223$/);
   await noSidewaysScroll(page);
 });
 
 /**
  * Every reference route, and one string only its page renders: record data, never in the URL or
- * in the portal frame (whose picker lists every customer's name), and one text node in both the
+ * in the portal frame, and one text node in both the
  * HTML and the RSC payload. A rep's raw response must carry it; a customer's or an anonymous one must not.
  */
 const ROUTES: [path: string, pageText: string][] = [
