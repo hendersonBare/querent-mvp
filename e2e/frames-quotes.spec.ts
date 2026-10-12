@@ -371,22 +371,39 @@ test("C_QOB1 (manager): the customer picker open, All customers first, five rows
   await expect(page.getByRole("combobox", { name: "Customer, Wasatch Mechanical Contractors" })).toBeVisible();
 });
 
-const FILTER_ALIAS: Alias = { "button|Clear all": "span", "button|Apply filters": "span", "button|All reps": "div", "button|Any customer": "div", "button|Any of my customers": "div" };
-/** C_QOB2 draws sample dates in the date fields; the app's are empty date inputs (U0), compared by style. */
-const DATES = ['div "<day>"', 'div "<day>"'];
+const FILTER_ALIAS: Alias = { "button|Clear all": "span", "button|Apply filters": "span", "button|All reps": "div", "button|Any customer": "div", "button|Any of my customers": "div",
+  "button|<day>": "div" };
+/** Picks a day in Requested from or to: the field box opens its day list (no frame), newest first after Any day. */
+async function pickDay(page: Page, field: string, day: string | number) {
+  const panel = page.getByRole("dialog", { name: "Filter quotes" });
+  await panel.getByRole("button", { name: new RegExp(`^${field}: `) }).click();
+  const options = panel.getByRole("option");
+  await (typeof day === "number" ? options.nth(day) : options.filter({ hasText: new RegExp(`^${day}$`) })).click();
+  await expect(panel.getByRole("option")).toHaveCount(0);
+}
 async function expectFilterPanel(page: Page, { rep = true } = {}) {
   await page.locator("header [data-ui=filter] > button").click();
-  await expect(page.getByRole("dialog", { name: "Filter quotes" })).toBeVisible();
+  const panel = page.getByRole("dialog", { name: "Filter quotes" });
+  await expect(panel).toBeVisible();
+  // The frame's date fields show days ("Sep 1", "Oct 10"; placeholders, Appendix G): pick a day in each, so the app's
+  // plain field boxes show real days in the frame's "Mon D" form. No native date input, placeholder or picker icon.
+  await pickDay(page, "Requested from", "Sep 1");
+  await pickDay(page, "Requested to", 1);
+  expect(await panel.locator("input:not([type=checkbox])").count()).toBe(0);
   await rest(page);
   const f = paired(await measure(framePage, { text: "Filter quotes", up: 2 }));
   const a = paired(await measure(page, "header [data-ui=filter]"), FILTER_ALIAS);
-  expectSame("filter panel", f, a, { missing: DATES, extraKinds: ["input", "input"] });
+  expectSame("filter panel", f, a);
   await sameStyle("Filter, open", page, { text: "Filter", selector: "main button" }, "header [data-ui=filter] > button");
   await sameStyle("panel", page, { text: "Filter quotes", up: 1 }, "header [data-ui=filter] [role=dialog]", { h: false });
-  // The frame's field is a flex div holding a sample day (placeholder, Appendix G); the app's is an empty date
-  // input (U0 primitive), so its display, alignment, text colour and gap are the input's own; every other style matches.
-  await sameStyle("date field", page, { text: "Sep 1" }, 'input[aria-label="Requested from"]', { w: true,
-    props: STYLE_PROPS.filter((p: string) => !["display", "textAlign", "color", "gap"].includes(p)) });
+  // The date field is the frame's box, every style and its width; its text is the picked day.
+  await sameStyle("date field", page, { text: "Sep 1" }, { text: "Sep 1", selector: "header [data-ui=filter] button" });
+  await expect(panel.getByRole("button", { name: "Requested from: Sep 1" })).toHaveText("Sep 1");
+  // Any day empties the box (no frame: the box with nothing in it).
+  await pickDay(page, "Requested from", "Any day");
+  await pickDay(page, "Requested to", "Any day");
+  await expect(panel.getByRole("button", { name: "Requested from: Any day" })).toHaveText("");
+  await expect(panel.getByRole("button", { name: "Requested to: Any day" })).toHaveText("");
   // The Rep field (the manager only) lists every rep; the Customer field the reader's customers.
   if (rep) {
     await page.getByRole("button", { name: "Rep: All reps" }).click();

@@ -243,3 +243,45 @@ test("unread: opening a quote from the preview clears its row in the bell", asyn
   await expect(page).toHaveURL(new RegExp(`/rep/quotes/${made.changes_requested}$`));
   await expect.poll(() => bellRows(page)).toEqual([]);
 });
+
+test("reply: the rep replies from the preview and the customer sees it in the Querent box; another rep's quote has no reply controls (decisions 22, 63)", async ({ page, browser, baseURL }) => {
+  await signInAsBrandi(page);
+  await card(page, made.changes_requested).getByRole("button", { name: made.changes_requested }).click();
+  const sheet = page.getByRole("dialog", { name: made.changes_requested, exact: true });
+  await sheet.getByRole("button", { name: "Reply to Dana" }).click();
+  const note = page.getByRole("dialog", { name: `Note on ${made.changes_requested}` });
+  await note.getByRole("textbox", { name: "Reply to Dana" }).fill("Six cases is fine. We will hold it at SLC.");
+  const posted = page.waitForResponse((r) => r.url().endsWith(`/api/rep/quotes/${made.changes_requested}/reply`));
+  await note.getByRole("button", { name: "Send reply" }).click();
+  expect((await posted).status()).toBe(201);
+  await expect(note).toHaveCount(0);
+
+  // Dana, in a new browser (a new conversation), sees it in the box while the change request is open.
+  const customer = await browser.newContext({ baseURL, viewport: { width: 1920, height: 1080 } });
+  try {
+    await customer.addCookies([{ name: "querent-persona", value: "customer", url: String(baseURL) }]);
+    const box = await customer.newPage();
+    await box.goto("/");
+    const reply = box.getByRole("article", { name: `Brandi Gallegos replied about ${made.changes_requested}` });
+    await expect(reply).toBeVisible();
+    await expect(reply).toContainText("Six cases is fine. We will hold it at SLC.");
+  } finally {
+    await customer.close();
+  }
+
+  // The manager reads Mara's change request read-only: the note, no reply box, no Send reply, no Reply in the preview.
+  const theirs = await page.evaluate(() => fetch("/api/rep/quotes?rep=mara&status=changes_requested").then((r) => r.json())
+    .then((l) => l.rows.map((r: { quote_number: string }) => r.quote_number) as string[]));
+  expect(theirs.length).toBeGreaterThan(0);
+  await page.goto("/rep/quotes?rep=mara&status=changes_requested");
+  await card(page, theirs[0]).getByRole("button", { name: "View note" }).click();
+  const read = page.getByRole("dialog", { name: `Note on ${theirs[0]}` });
+  await expect(read).toBeVisible();
+  await expect(read.getByRole("textbox")).toHaveCount(0);
+  await expect(read.getByRole("button", { name: "Send reply" })).toHaveCount(0);
+  await read.getByRole("button", { name: "Close" }).last().click();
+  await card(page, theirs[0]).getByRole("button", { name: theirs[0] }).click();
+  const preview = page.getByRole("dialog", { name: theirs[0], exact: true });
+  await expect(preview.getByRole("link", { name: "Open quote" })).toBeVisible();
+  await expect(preview.getByRole("button", { name: /^Reply to/ })).toHaveCount(0);
+});
