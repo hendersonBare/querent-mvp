@@ -13,7 +13,7 @@ export function ItemDetail({view,allCustomers}:{view:ItemView;
   const {item,branches,sales}=view;
   const onOrder=item.stock.reduce((sum,b)=>sum+b.on_order,0);
   return <>
-    <Crumbs section="Items" href="/rep/items" current={item.sku}/>
+    <Crumbs section="Stock" href="/rep/stock" current={item.sku}/>
     <DetailHeader title={item.description} meta={<><span className={s.mono}>{item.sku}</span> · {item.category_name} · {item.pack}</>}/>
     <div className={s.grid}>
       <div className={s.main}>

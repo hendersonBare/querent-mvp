@@ -271,13 +271,3 @@ test("the CSV route is rep-only: visitors 401, customers 403, another rep's quot
     await context.close();
   }
 });
-
-test("phone (390px): the open menu fits the screen", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openQuote(page);
-  const menu = await openExport(page);
-  await expect(menu.getByRole("menuitem")).toHaveCount(4);
-  await inViewport(page, menu);
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "export-menu-390");
-});

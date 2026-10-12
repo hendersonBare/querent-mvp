@@ -223,7 +223,17 @@ export async function repQuoteList(repId:string,{customerId=null,status=null,att
  * every rep's (repId null: the manager, task U1). The caller stores lazy expiry first (repBadges does).
  */
 export function redQuoteCount(repId:string|null,now:string){
-  return withAging(quotes({repId,statuses:['ready_for_review','changes_requested','sent']}),now).filter(row=>row.aging?.level==='red').length;
+  return attentionQuotes(repId,now).filter(row=>row.aging.level==='red').length;
+}
+
+/**
+ * The amber and red open quotes, the Needs attention view's quotes (v3 spec §3, decision 18): the
+ * rep's own, or every rep's (repId null: the manager, task U1). The header's caution dropdown lists
+ * them (plan U2, ./badges). The caller stores lazy expiry first.
+ */
+export function attentionQuotes(repId:string|null,now:string){
+  return withAging(quotes({repId,statuses:['ready_for_review','changes_requested','sent']}),now)
+    .filter((row):row is typeof row&{aging:Aging}=>needsAttention(row.aging));
 }
 
 /**

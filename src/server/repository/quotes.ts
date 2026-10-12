@@ -67,6 +67,16 @@ export function quotes({customerId=null,repId=null,repIds,statuses}:QuoteFilter=
 /** Quotes waiting on the rep (the unread badge on Quotes). */
 export function unreadQuoteCount(repId:string){return scalar<number>('SELECT count(*) FROM quotes WHERE rep_id=? AND unread_for_rep=1',repId)??0;}
 
+/** One of the rep's unread quotes, as the header bell words it (plan U2, C_QOB4). */
+export interface UnreadQuoteEvent {id:string;quote_number:string;status:QuoteStatus;customer_name:string;contact_name:string|null;requested_at:string;responded_at:string|null;valid_until:string|null}
+
+/** The rep's unread quotes (unread_for_rep on their own quotes): the header bell's notifications. */
+export function unreadQuoteEvents(repId:string):UnreadQuoteEvent[]{
+  return all<UnreadQuoteEvent>(`SELECT q.id,q.quote_number,q.status,cu.name customer_name,ct.name contact_name,q.requested_at,q.responded_at,q.valid_until
+    FROM quotes q JOIN customers cu ON cu.id=q.customer_id LEFT JOIN contacts ct ON ct.id=q.contact_id
+    WHERE q.rep_id=? AND q.unread_for_rep=1`,repId);
+}
+
 // ---- Writes (internal) ----
 
 function checkQty(qty:number){if(!Number.isInteger(qty)||qty<0)throw new RangeError(`Quantity must be a whole number of at least 0 (got ${qty}).`);}

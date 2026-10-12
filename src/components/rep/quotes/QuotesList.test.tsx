@@ -23,7 +23,7 @@ const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sal
 let served:RepQuoteList;
 async function serve(input:RequestInfo|URL){
   const url=String(input);
-  if(url==='/api/rep/badges')return Response.json({quotes:2});
+  if(url==='/api/rep/badges')return Response.json({quotes:2,attention:0,caution:[],bell:[]});
   if(url.startsWith('/api/rep/quotes'))return Response.json(served);
   return Response.json({detail:'Not found.'},{status:404});
 }
@@ -33,7 +33,7 @@ const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 function renderList(initial:RepQuoteList,query=''){
   nav.query=query;
   served=initial;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={{quotes:2,attention:0}}><QuotesList initial={initial}/></RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={{quotes:2,attention:0,caution:[],bell:[]}}><QuotesList initial={initial}/></RepShell>);
 }
 const table=()=>screen.getByRole('table');
 const quoteBlock=(number:string)=>within(table()).getAllByRole('rowgroup').find(g=>within(g).queryByRole('link',{name:number}))!;
@@ -184,7 +184,7 @@ describe('staying fresh',()=>{
   });
 
   it('keeps showing the list when a refresh fails, and says it will retry',async()=>{
-    fetchMock.mockImplementation(async(input:RequestInfo|URL)=>String(input).startsWith('/api/rep/quotes')?Response.json({detail:'boom'},{status:500}):Response.json({quotes:2}));
+    fetchMock.mockImplementation(async(input:RequestInfo|URL)=>String(input).startsWith('/api/rep/quotes')?Response.json({detail:'boom'},{status:500}):Response.json({quotes:2,attention:0,caution:[],bell:[]}));
     renderList(quoteList());
     expect(await screen.findByText('Unable to refresh quotes. Trying again in a few seconds.')).toBeInTheDocument();
     expect(within(table()).getByRole('link',{name:'Q-24817'})).toBeInTheDocument();

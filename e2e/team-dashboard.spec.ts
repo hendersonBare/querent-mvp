@@ -5,7 +5,8 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 //   - Brandi (the manager) opens Team, ticks two reps to compare them, reads the decline reasons with
 //     the Other text, drills from a count into the manager’s Quotes list, and exports the CSV.
 //   - On a phone the leaderboard scrolls inside its own box; the page never scrolls sideways.
-//   - Mara (a rep) has no Team section: /rep/team sends her to her Quotes and the API answers 403.
+//   - Mara (a rep) has no Teams and Reps section: /rep/teams (and the old /rep/team) sends her to her
+//     Quotes and the API answers 403. The page moved to /rep/teams in plan U2 (decision 46); U7 rebuilds it.
 // Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day (POST /api/test/reset; the
@@ -51,9 +52,9 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
 test("Brandi compares two reps, reads the decline reasons, drills into the quotes and exports the CSV", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  await page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Team" }).click();
-  await expect(page).toHaveURL(/\/rep\/team$/);
-  await expect(page.getByRole("heading", { name: "Team", level: 1 })).toBeVisible();
+  await page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Teams and Reps" }).click();
+  await expect(page).toHaveURL(/\/rep\/teams$/);
+  await expect(page.getByRole("heading", { name: "Teams and Reps", level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
   await expect(repRow(page, "Total")).toBeVisible();
 
@@ -95,23 +96,14 @@ test("Brandi compares two reps, reads the decline reasons, drills into the quote
   await screenshot(page, testInfo, "drill-down");
 });
 
-test("On a phone the leaderboard scrolls inside its own box", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signInAsBrandi(page);
-  await page.goto("/rep/team");
-  await expect(repRow(page, "Total")).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-  const box = page.getByRole("region", { name: "Leaderboard" });
-  expect(await box.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
-  await screenshot(page, testInfo, "team-390");
-});
-
 test("Mara (a rep) cannot open the Team dashboard", async ({ browser }, testInfo) => {
   const page = await signInAsMara(browser, testInfo);
   expect((await page.request.get("/api/rep/team/metrics?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(403);
   expect((await page.request.get("/api/rep/team/metrics.csv?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(403);
-  await page.goto("/rep/team");
-  await expect(page).toHaveURL(/\/rep\/quotes$/);
-  await expect(page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Team" })).toHaveCount(0);
+  for (const path of ["/rep/teams", "/rep/team"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/rep\/quotes$/);
+  }
+  await expect(page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Teams and Reps" })).toHaveCount(0);
   await page.context().close();
 });

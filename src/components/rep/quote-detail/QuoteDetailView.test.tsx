@@ -28,7 +28,7 @@ const detailOf=(lines:DetailLine[])=>sampleDetail({lines});
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input),method=init?.method??'GET';
   const body=init?.body?JSON.parse(String(init.body)):undefined;
-  if(url==='/api/rep/badges')return Response.json({quotes:server.unread});
+  if(url==='/api/rep/badges')return Response.json({quotes:server.unread,attention:0,caution:[],bell:[]});
   if(url==='/api/rep/quotes/q-24817/read'&&method==='POST'){server.unread=0;return Response.json({id:'q-24817',quote_number:'Q-24817',unread:false});}
   // "View full chat" (B1): the first page of the chat, for the count.
   if(url==='/api/rep/quotes/q-24817/messages')return Response.json({total:5,messages:[{id:'m-1',role:'customer',kind:'text',content:'Do you have the bolts?',created_at:'2026-09-23T16:12:00.000Z'}],next_before:null});
@@ -67,7 +67,7 @@ afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
-    initialBadges={{quotes:1,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:1,attention:0,caution:[],bell:[]}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const row=(sku:string)=>screen.getByRole('rowheader',{name:new RegExp(sku)}).closest('tbody')!;
 const cells=(sku:string)=>within(row(sku)).getAllByRole('cell');

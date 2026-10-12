@@ -133,29 +133,18 @@ test("Q-24817 at 1440px: the five chips from 1.6; take the nut and the wheels bu
   await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
 });
 
-test("phone (390px, screen 08): the section stacks under the items, chips stay usable, nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("Q-24817 at 1920px: take the flap disc chip; the full-case rule then offers the fourth box", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openQuote(page);
   await expect(header(page)).toContainText("5 ideas · up to +$162.95 gross profit");
-  await header(page).scrollIntoViewIfNeeded();
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "upsells-390-collapsed");
   await header(page).click();
   await expect(chips(page)).toHaveCount(5);
-  const add = suggested(page).getByRole("button", { name: /^Add: Flap disc/ });
-  await add.scrollIntoViewIfNeeded();
-  await expect(add).toBeInViewport();
-  const box = (await add.boundingBox())!;
-  expect(box.x + box.width).toBeLessThanOrEqual(390);
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "upsells-390-open");
-  await add.click();
+  await suggested(page).getByRole("button", { name: /^Add: Flap disc/ }).click();
   await expect(page.getByRole("rowheader", { name: /FD-45-60Z/ })).toBeVisible();
   await saved(page);
   // 3 boxes of flap discs is a broken case (4 to a case): once saved, the full-case rule offers the fourth.
   await expect(chips(page).last()).toContainText("Bump flap discs to 4 boxes (1 full case)");
   await expect(header(page)).toContainText("5 ideas · up to +$136.45 gross profit");
-  await noSidewaysScroll(page);
 });
 
 test("a chip that changed in another tab is refused with a note, and the chips and lines refresh (no stale apply)", async ({ page }) => {

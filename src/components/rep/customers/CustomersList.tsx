@@ -13,7 +13,7 @@ export function CustomersList({rows,viewing,repId}:{rows:CustomerDirectoryRow[];
   /** The signed-in rep, whose customers are marked "You". */
   repId:string}){
   return <>
-    <RepPageHeader title="Customers" description={`Viewing ${viewing.label} · ${count(rows.length,'customer')}`}/>
+    <RepPageHeader spaced title="Customers" description={`Viewing ${viewing.label} · ${count(rows.length,'customer')}`}/>
     <section className={page.card} aria-label={`Customers: ${viewing.label}`}>
       {rows.length?<div className={s.tableWrap}>
         <table className={s.table}>

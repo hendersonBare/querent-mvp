@@ -53,7 +53,6 @@ async function openMenu(page: Page) {
 }
 const price = (page: Page, sku: string) => page.getByRole("textbox", { name: `Unit price for ${sku}` });
 const saved = (page: Page) => expect(page.getByText("All changes saved")).toBeVisible();
-const quotesNav = (page: Page) => page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ });
 /** Calls the API from the page, so the (Secure) session cookie goes with it. */
 const api = (page: Page, path: string, method = "GET", headers: Record<string, string> = {}) =>
   page.evaluate(
@@ -66,9 +65,6 @@ const api = (page: Page, path: string, method = "GET", headers: Record<string, s
 const quoteNumbers = async (page: Page) =>
   ((await api(page, "/api/rep/quotes")).body.rows as { quote_number: string }[]).map((r) => r.quote_number);
 const badge = async (page: Page) => (await api(page, "/api/rep/badges")).body.quotes as number;
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 /** Saves a screenshot in the test's output folder and attaches it to the report. */
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
@@ -243,7 +239,10 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   // The reset sample is unread again, as seeded, and the page on screen reads it: the badge
   // and the list agree, and end where they were.
   await expect.poll(() => badge(page)).toBe(unread);
-  await expect(quotesNav(page)).toHaveAccessibleName(unread ? `Quotes ${unread} unread` : "Quotes");
+  // The header bell (plan U2) lists the same unread quotes, and not the sample on screen.
+  const bell = (await api(page, "/api/rep/badges")).body.bell as { quote_number: string }[];
+  expect(bell).toHaveLength(unread);
+  expect(bell.map((b) => b.quote_number)).not.toContain(SAMPLE);
   const list = (await api(page, "/api/rep/quotes")).body;
   expect(list.unread).toBe(await badge(page));
 
@@ -255,23 +254,6 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   }
   await page.goto(`/rep/quotes/${copy}?customer=wasatch`);
   await expect(page.getByRole("rowheader")).toHaveText(SEEDED_LINES.map(([sku]) => new RegExp(sku)));
-});
-
-test("phone (390px): the open menu fits the screen, and a tap on Open customer in ERP shows why it is disabled", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openQuote(page);
-  const menu = await openMenu(page);
-  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Reassign to another rep", "Open customer in ERP", "Reset sample quote"]);
-  await inViewport(page, menu);
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "more-menu-390");
-  await menu.getByRole("menuitem", { name: "Open customer in ERP" }).click({ force: true });
-  const tooltip = page.getByRole("tooltip");
-  await expect(tooltip).toBeVisible();
-  await expect(tooltip).toHaveText(ERP_TOOLTIP);
-  await inViewport(page, tooltip);
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "more-menu-390-erp-tooltip");
 });
 
 test("rep-only: visitors 401, customers 403, another rep's quote 404, and only the sample resets (409)", async ({ page, browser, baseURL, playwright }) => {

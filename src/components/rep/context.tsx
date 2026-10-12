@@ -25,6 +25,9 @@ export interface RepPortalValue {
 
 export const RepPortalContext=createContext<RepPortalValue|null>(null);
 
+/** The portal's value, or null outside the shell (a page component rendered on its own, as in a unit test). */
+export const useOptionalRepPortal=():RepPortalValue|null=>useContext(RepPortalContext);
+
 export function useRepPortal():RepPortalValue{
   const value=useContext(RepPortalContext);
   if(!value)throw new Error('useRepPortal() needs the rep portal shell (src/app/rep/layout.tsx).');

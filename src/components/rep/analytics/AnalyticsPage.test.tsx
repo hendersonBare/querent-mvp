@@ -23,7 +23,7 @@ const [canyonRidge,greatBasin,wasatch]=CUSTOMERS;
 let analytics:(customer:string|null)=>RepAnalytics|Response=()=>seedAnalytics();
 const fetchMock=vi.fn(async(input:RequestInfo|URL)=>{
   const url=new URL(String(input),'http://127.0.0.1');
-  if(url.pathname==='/api/rep/badges')return Response.json({quotes:1});
+  if(url.pathname==='/api/rep/badges')return Response.json({quotes:1,attention:0,caution:[],bell:[]});
   if(url.pathname==='/api/rep/analytics'){const body=analytics(url.searchParams.get('customer'));return body instanceof Response?body:Response.json(body);}
   return Response.json({detail:'Not found.'},{status:404});
 });
@@ -31,7 +31,7 @@ const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
 
 function renderPage(query=''){
   nav.query=query;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><AnalyticsPage/></RepShell>);
+  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0,caution:[],bell:[]}}><AnalyticsPage/></RepShell>);
 }
 const card=(name:string)=>screen.getByRole('region',{name});
 
@@ -43,7 +43,8 @@ describe('All customers',()=>{
     renderPage();
     expect(await screen.findByText('1 h 33 min')).toBeInTheDocument();
     expect(requested()).toContain('/api/rep/analytics');
-    expect(screen.getByRole('heading',{level:1,name:'Analytics'})).toBeInTheDocument();
+    // A rep's page is My Analytics, as the rail names it (plan U2; C_RAN1); the manager's is Analytics.
+    expect(screen.getByRole('heading',{level:1,name:'My Analytics'})).toBeInTheDocument();
     expect(screen.getByText('Quotes and customer questions for all your customers')).toBeInTheDocument();
     const labels=['Median time to send','Win rate','Quoted vs accepted','Hours saved','Extra GP Querent found'];
     expect(screen.getAllByRole('heading',{level:2}).slice(0,5).map(h=>h.textContent)).toEqual(labels);
@@ -171,7 +172,7 @@ describe('the page\'s own customer filter',()=>{
 
   it('covers all customers for the manager (task U1)',async()=>{
     nav.query='';
-    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><AnalyticsPage/></RepShell>);
+    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0,caution:[],bell:[]}}><AnalyticsPage/></RepShell>);
     expect(await screen.findByText('Quotes and customer questions for all customers')).toBeInTheDocument();
   });
 

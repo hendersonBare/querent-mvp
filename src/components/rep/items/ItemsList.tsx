@@ -16,7 +16,7 @@ export function ItemsList({list}:{list:ItemList}){
   const shown=list.category?.name??'All categories';
   const branchNames=list.branches.map(b=>b.code);
   return <>
-    <RepPageHeader title="Items" description={<>Herrick’s catalog · {count(total,'item')} · stock at {branchNames.slice(0,-1).join(', ')} and {branchNames.at(-1)}</>}/>
+    <RepPageHeader spaced title="Stock" description={<>Herrick’s catalog · {count(total,'item')} · stock at {branchNames.slice(0,-1).join(', ')} and {branchNames.at(-1)}</>}/>
     <CategorySelect categories={list.categories} value={list.category?.id??null} total={total}/>
     <section className={page.card} aria-label={`Items: ${shown}`}>
       {list.items.length?<div className={s.tableWrap}>
@@ -33,7 +33,7 @@ export function ItemsList({list}:{list:ItemList}){
           </thead>
           <tbody>{list.items.map(item=><tr key={item.id}>
             <th scope="row">
-              <Link className={s.desc} href={`/rep/items/${encodeURIComponent(item.sku)}`}>{item.description}</Link>
+              <Link className={s.desc} href={`/rep/stock/${encodeURIComponent(item.sku)}`}>{item.description}</Link>
               <span className={s.sub}><span className={s.sku}>{item.sku}</span> · {item.pack}</span>
               {/* Phones drop the List price column (mockup 08 keeps only the essentials), so the price rides under the item. */}
               <span className={`${s.sub} ${s.phoneOnly}`}>List {money(item.list_price)}</span>

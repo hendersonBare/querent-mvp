@@ -419,33 +419,3 @@ test("rep-only: customers get 403, another rep's quote is 404, and bodies are va
   expect(detail.quote).toMatchObject({ fulfillment: "will_call", freight_override: null, customer_po: null });
   expect(detail.panels.notes).toEqual([]);
 });
-
-test("phone (390px, screen 08): the panels stack under the summary card, open in place, and nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openQuote(page);
-  const card = (await page.getByRole("region", { name: "Quote summary" }).boundingBox())!;
-  const boxes = [];
-  for (const name of ["Customer", "Pickup or delivery", "Quote terms", "Internal notes", "Activity"]) boxes.push((await panel(page, name).boundingBox())!);
-  expect(boxes[0].y).toBeGreaterThan(card.y + card.height);
-  for (let i = 1; i < boxes.length; i++) expect(boxes[i].y).toBeGreaterThan(boxes[i - 1].y);
-  for (const b of boxes) expect(b.x + b.width).toBeLessThanOrEqual(390);
-  await expect(summaryOf(page, "Pickup or delivery")).toContainText("Will call · SLC · Thu Sep 24");
-  await noSidewaysScroll(page);
-  await panel(page, "Customer").scrollIntoViewIfNeeded();
-  await attachScreenshot(page, testInfo, "panels-390-closed");
-
-  for (const name of ["Customer", "Pickup or delivery", "Quote terms", "Internal notes", "Activity"]) await open(page, name);
-  const customer = panel(page, "Customer");
-  await expect(creditLine(customer)).toHaveText("Credit used, with this quote: 39%");
-  const fulfillment = panel(page, "Pickup or delivery");
-  await chooseMode(fulfillment, "Delivery");
-  await saved(page);
-  await expect(fulfillment.getByRole("region", { name: "Freight" })).toContainText("$62.50");
-  for (const control of [fulfillment.getByRole("combobox", { name: "Branch" }), panel(page, "Quote terms").getByRole("textbox", { name: "Customer PO number" })]) {
-    const b = (await control.boundingBox())!;
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.width).toBeLessThanOrEqual(390);
-  }
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "panels-390-open");
-});

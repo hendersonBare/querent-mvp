@@ -28,10 +28,17 @@
   justify-content: space-between;
   gap: 10px;
 }
+/* Decision 60: a title too long for the panel stays on one line and ends with an ellipsis at the
+   panel edge (its full text is the row's `title` tooltip); min-width: 0 lets it shrink in the row. */
 .title {
   font-weight: 800;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tag {
+  flex: none;
   font-size: var(--q-text-table-head);
   font-weight: 700;
   color: var(--q-text-muted);

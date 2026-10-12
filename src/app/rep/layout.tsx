@@ -9,12 +9,13 @@ import {repBadges} from '@/server/rep/badges';
 import {rep} from '@/server/repository';
 import {COOKIE,principalFromCookie} from '@/server/session';
 
-// The rep portal (spec §4): every /rep/* page renders inside this frame. Only a supplier persona
-// whose rep is active gets in (v3 spec §8, task D1); anyone else goes back to the workspace chooser at /.
+// The rep portal (spec §4): every /rep/* page renders inside the shell (plan U2: the rail and the page
+// area, src/components/rep/RepShell.tsx). Only a supplier persona whose rep is active gets in (v3 spec
+// §8, task D1); anyone else goes back to /.
 
-// Type: Albert Sans and Geist Mono, loaded once in the root layout (plan U0). Until the new shell (U2)
-// replaces RepShell, the "rep-fonts" class (src/app/tokens.css) points RepShell's old font variables
-// (--font-archivo, --font-plex-sans, --font-plex-mono) at them.
+// Type: Albert Sans and Geist Mono, loaded once in the root layout (plan U0). Until the page tasks (U3
+// to U9) rebuild every page body, the "rep-fonts" class (src/app/tokens.css) on the page area points the
+// old bodies' font variables (--font-archivo, --font-plex-sans, --font-plex-mono) at them.
 
 export const metadata:Metadata={title:{default:'Rep portal · Querent',template:'%s · Querent'}};
 

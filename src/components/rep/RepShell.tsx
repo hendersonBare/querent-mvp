@@ -1,24 +1,26 @@
 'use client';
-import {useCallback,useEffect,useId,useMemo,useRef,useState,type FormEvent,type ReactNode} from 'react';
-import Link from 'next/link';
-import {usePathname} from 'next/navigation';
-import {Bell,LogOut,TriangleAlert} from 'lucide-react';
+import {useCallback,useMemo,type ReactNode} from 'react';
 import {createAPI} from '@/lib/api';
 import {usePoll} from '@/lib/use-poll';
 import type {RepBadges} from '@/server/rep/badges';
-import {ATTENTION_PARAM,overdueLabel} from './quotes/labels';
-import {RepPortalContext,useRepPortal,type RepIdentity,type RepPortalValue} from './context';
-import {HOME_SECTION,sectionFor,sectionsFor} from './scope';
+import {RepPortalContext,type RepIdentity,type RepPortalValue} from './context';
+import {Rail,exit} from './Rail';
 import s from './RepShell.module.css';
 
-// The rep portal frame (spec §4, docs/design/screens/03): the app bar (Querent, Herrick, the
-// section nav with the Quotes unread badge, search, the red Needs attention badge, bell, BG). The
-// Needs attention badge (v3 spec §3, task A2) sits beside the unread badge, which stays (OA-8); it
-// counts the rep's red quotes, or every rep's for the manager (task U1). Scope is role based on the
-// server: there is no "Viewing" customer picker, and nav links carry no ?customer= or ?scope=
-// (task U1). The manager's nav also has Team (v3 spec §6, task D3).
+// The rep portal shell (plan U2): the left rail (./Rail; C_QOBoard, C_RQBoard) and the page area,
+// which takes the rest of the width (decision 51: fluid, no max-width, no breakpoints, decision 43).
+//
+// How a page uses it:
+//   - Its first child is its header: <RepPageHeader title="…">{picker, search, Filter}</RepPageHeader>
+//     (./RepPage). The header puts the caution and bell (./HeaderAlerts, C_QOB3, C_QOB4) on the right.
+//   - useRepPortal() (./context) gives the signed-in rep, the API client and the polled badges.
+//   - The page area has the frames' page padding (24 32 40). A rebuilt page wraps its body in .ui-root
+//     (src/app/tokens.css); a page body not rebuilt yet keeps the old --rep-* tokens below.
+//
+// Scope is role based on the server (task U1): no "Viewing" picker, no ?customer= or ?scope= on any
+// link. No search, avatar menu, "Switch workspace" or role switch (decision 42).
 
-/** How often the nav badges are re-read, so a customer's new request shows up without a reload. */
+/** How often the header badges are re-read, so a customer's new request shows up without a reload. */
 export const BADGE_POLL_MS=5000;
 
 export interface RepShellProps {
@@ -30,105 +32,27 @@ export interface RepShellProps {
   children:ReactNode;
 }
 
-const leave=()=>window.location.assign('/');
+const leave=()=>exit.to('/');
 
 /** GET /api/rep/badges, scoped by role on the server (task U1). */
 async function loadBadges():Promise<RepBadges>{
   const response=await fetch('/api/rep/badges',{cache:'no-store'});
-  if(response.status===401||response.status===403){leave();throw new Error('Choose a demo workspace.');}
+  if(response.status===401||response.status===403){leave();throw new Error('Sign in to continue.');}
   if(!response.ok)throw new Error('Unable to load notifications.');
   return response.json();
 }
 
 export function RepShell({rep,org,initialBadges,className,children}:RepShellProps){
+  // Sign out (C_QOB9): DELETE /api/session clears the session cookie, then `/` (decision 53).
   const signOut=useCallback(()=>{void fetch('/api/session',{method:'DELETE'}).finally(leave);},[]);
   const api=useMemo(()=>createAPI(leave),[]);
   const {data,refresh}=usePoll(loadBadges,BADGE_POLL_MS);
   const badges=data??initialBadges;
   const value=useMemo<RepPortalValue>(()=>({rep,org,api,badges,refreshBadges:()=>void refresh(),signOut}),[rep,org,api,badges,refresh,signOut]);
   return <RepPortalContext.Provider value={value}>
-    <div className={[s.portal,className].filter(Boolean).join(' ')}>
-      <RepHeader/>
-      <main className={s.page}>{children}</main>
+    <div className={s.shell}>
+      <Rail/>
+      <main className={[s.page,className].filter(Boolean).join(' ')}>{children}</main>
     </div>
   </RepPortalContext.Provider>;
-}
-
-function RepHeader(){
-  const {org,badges,rep}=useRepPortal();
-  const pathname=usePathname();
-  const active=sectionFor(pathname);
-  const unread=badges.quotes;
-  const navRef=useRef<HTMLElement>(null);
-  // On a phone the nav is a scrolling strip: keep the current section in view.
-  useEffect(()=>{
-    const strip=navRef.current,link=strip?.querySelector<HTMLElement>('[aria-current="page"]');
-    if(!strip||!link||strip.scrollWidth<=strip.clientWidth)return;
-    if(link.offsetLeft<strip.scrollLeft||link.offsetLeft+link.offsetWidth>strip.scrollLeft+strip.clientWidth-28)strip.scrollLeft=link.offsetLeft-12;
-  },[active?.id]);
-  return <header className={s.header}>
-    <div className={s.appbar}>
-      <div className={s.brand}><span className={s.mark} aria-hidden="true">Q</span>Querent<span className={s.org}>{org}</span></div>
-      <nav ref={navRef} className={s.nav} aria-label="Rep portal">
-        {sectionsFor(!!rep.manager).map(section=><Link key={section.id} className={s.navLink} href={section.href} aria-current={active?.id===section.id?'page':undefined}>
-          {section.label}
-          {section.id==='quotes'&&unread>0&&<span className={s.count}>{unread}<span className={s.srOnly}> unread</span></span>}
-        </Link>)}
-      </nav>
-      <PortalSearch/>
-      <div className={s.user}>
-        <AttentionBadge/>
-        <Link className={s.iconButton} href={HOME_SECTION.href} aria-label={unread?`Notifications: ${unread} unread ${unread===1?'quote':'quotes'}`:'Notifications: none unread'}>
-          <Bell aria-hidden="true" size={18} strokeWidth={1.7}/>
-          {unread>0&&<span className={s.dot}/>}
-        </Link>
-        <AccountMenu/>
-      </div>
-    </div>
-  </header>;
-}
-
-/** The rep's red (Overdue) quotes, opening the Quotes list's Needs attention filter. Hidden at zero. */
-function AttentionBadge(){
-  const {badges}=useRepPortal();
-  const count=badges.attention??0;
-  if(count<=0)return null;
-  return <Link className={s.attention} href={`/rep/quotes?${ATTENTION_PARAM}=1`} aria-label={`Needs attention: ${overdueLabel(count)}`} title={`${overdueLabel(count)}: open the Needs attention list`}>
-    <TriangleAlert aria-hidden="true" size={14} strokeWidth={2.2}/><span className={s.attentionWord}>Needs attention</span><span className={s.attentionCount}>{count}</span>
-  </Link>;
-}
-
-/** Search is sample-only, as in the mockup: Enter explains it rather than doing nothing. */
-function PortalSearch(){
-  const [note,setNote]=useState('');
-  useEffect(()=>{if(!note)return;const t=setTimeout(()=>setNote(''),4000);return()=>clearTimeout(t);},[note]);
-  function submit(event:FormEvent){event.preventDefault();setNote('Search isn’t available yet in this demo.');}
-  return <form className={s.search} role="search" onSubmit={submit}>
-    <input type="search" placeholder="Search quotes, customers, SKUs" aria-label="Search the portal"/>
-    <p className={s.searchNote} role="status">{note}</p>
-  </form>;
-}
-
-function AccountMenu(){
-  const {rep,org,signOut}=useRepPortal();
-  const [open,setOpen]=useState(false);
-  const wrap=useRef<HTMLDivElement>(null),button=useRef<HTMLButtonElement>(null),first=useRef<HTMLButtonElement>(null);
-  const menuId=useId();
-  useEffect(()=>{
-    if(!open)return;
-    first.current?.focus();
-    const outside=(event:PointerEvent)=>{if(!wrap.current?.contains(event.target as Node))setOpen(false);};
-    const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setOpen(false);button.current?.focus();}};
-    document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
-    return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
-  },[open]);
-  return <div className={s.menuWrap} ref={wrap}>
-    <button ref={button} type="button" className={s.avatar} title={`${rep.name}, ${rep.title}`} aria-label={`Account: ${rep.name}`}
-      aria-haspopup="menu" aria-expanded={open} aria-controls={open?menuId:undefined} onClick={()=>setOpen(o=>!o)}>{rep.initials}</button>
-    {open&&<div className={s.menu} id={menuId} role="menu" aria-label="Account">
-      <div className={s.menuWho}><strong>{rep.name}</strong><small>{rep.title} · {org}</small></div>
-      <hr/>
-      <button ref={first} type="button" role="menuitem" onClick={signOut}><LogOut aria-hidden="true" size={15}/>Switch workspace</button>
-    </div>}
-  </div>;
 }

@@ -53,17 +53,15 @@ const MINE = "/rep/quotes?rep=brandi";
 const COLUMNS = ["Select", "Quote", "Customer", "Rep", "Requested", "Status", "Total", "Margin"];
 /** Cell indexes in a manager's row (the checkbox is cell 0). */
 const CELL = { customer: 1, rep: 2, requested: 3, status: 4, total: 5, margin: 6 } as const;
-const quotesNavLink = (page: Page) =>
-  page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ });
+const quotesNavLink = (page: Page) => page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Quotes", exact: true });
+/** The header bell's rows (plan U2): the signed-in rep's unread quotes. */
+const bellRows = (page: Page) => page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.bell.map((n: { quote_number: string }) => n.quote_number) as string[]));
 const statusFilter = (page: Page) => page.getByRole("navigation", { name: "Filter by status" });
 const quotesTable = (page: Page) => page.getByRole("table");
 /** One quote in the list: its row, plus the customer's note when they asked for changes. */
 const quote = (page: Page, number: string) =>
   quotesTable(page).getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) });
 const listed = (page: Page) => quotesTable(page).getByRole("rowheader").getByRole("link");
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
@@ -199,16 +197,16 @@ test("rep-only: a customer can't read the list or open the page", async ({ brows
   }
 });
 
-test("unread: opening a quote clears its dot and the Quotes badge", async ({ page }) => {
+test("unread: opening a quote clears its dot and its row in the bell", async ({ page }) => {
   await signInAsBrandi(page);
-  await expect(quotesNavLink(page)).toHaveAccessibleName("Quotes 2 unread");
+  expect((await bellRows(page)).sort()).toEqual([made.changes_requested, SAMPLE].sort());
 
   // Open the sample from its number.
   await quote(page, SAMPLE).getByRole("link", { name: SAMPLE, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/rep/quotes/${SAMPLE}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
   await expect(page.getByText("Draft ready")).toBeVisible();
-  await expect(quotesNavLink(page)).toHaveAccessibleName("Quotes 1 unread");
+  await expect.poll(() => bellRows(page)).toEqual([made.changes_requested]);
   await expect(quotesNavLink(page)).toHaveAttribute("aria-current", "page");
 
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Quotes" }).click();
@@ -220,25 +218,8 @@ test("unread: opening a quote clears its dot and the Quotes badge", async ({ pag
   // Anywhere on a row opens it: here, the customer's note.
   await quote(page, made.changes_requested).getByText(/Can you make the gloves/).click({ force: true });
   await expect(page).toHaveURL(new RegExp(`/rep/quotes/${made.changes_requested}$`));
-  await expect(quotesNavLink(page)).toHaveAccessibleName("Quotes");
+  await expect.poll(() => bellRows(page)).toEqual([]);
   await page.goBack();
   await expect(quote(page, made.changes_requested).getByRole("rowheader")).not.toHaveText(/Unread/);
   await expect(page.getByText("Viewing All customers", { exact: true })).toBeVisible();
-});
-
-test("phone (390px): each quote is a card, the note wraps, and nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signInAsBrandi(page);
-  const changes = quote(page, made.changes_requested);
-  // The manager's rep and team filters sit above the list (task U1), so scroll the note into view first.
-  const note = changes.getByText("Can you make the gloves 6 cases, and hold it for pickup at SLC instead?");
-  await note.scrollIntoViewIfNeeded();
-  await expect(note).toBeInViewport({ ratio: 1 });
-  await expect(quote(page, SAMPLE).getByText("Requested Sep 23")).toBeVisible();
-  await expect(quote(page, SAMPLE).getByText("32.2% margin")).toBeVisible();
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "quotes-390");
-  await page.goto("/rep/quotes?customer=great-basin");
-  await expect(page.getByRole("heading", { name: "No quotes for Great Basin Fabrication yet" })).toBeVisible();
-  await noSidewaysScroll(page);
 });

@@ -30,11 +30,10 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   page,
 }) => {
   await choose(page, "Herrick Industrial Supply");
-  // The supplier persona opens the rep portal (task 3.1); e2e/rep-portal.spec.ts covers its shell.
+  // The supplier persona opens the rep portal (task 3.1); e2e/rep-portal.spec.ts and
+  // e2e/frames-shell.spec.ts cover its shell (the rail's user block, plan U2).
   await expect(page).toHaveURL(/\/rep\/quotes$/);
-  await expect(
-    page.getByRole("button", { name: "Account: Brandi Gallegos" }),
-  ).toHaveText("BG");
+  await expect(page.getByRole("complementary").first()).toContainText("BGBrandi G.Manager");
   // Brandi is the manager: Customers lists the whole organization (task U1; no "Viewing" picker).
   await expect(page.getByLabel("Viewing")).toHaveCount(0);
   await page

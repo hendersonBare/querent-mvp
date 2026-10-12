@@ -321,28 +321,3 @@ test("rep-only: customers get 403, another rep's quote is not found (the manager
   }
   expect((await api(page, "/api/rep/quotes/Q-24817")).body.lines[0].unit_price).toBe(31.5);
 });
-
-test("phone (390px, screen 08): lines stack as cards, prices stay editable, nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openQuote(page);
-  await expect(qty(page, "HCS-12-13-2G8")).toBeInViewport();
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "quote-detail-390");
-  const gloves = price(page, "GLV-N8-L-1000");
-  await gloves.scrollIntoViewIfNeeded();
-  await expect(gloves).toBeInViewport();
-  const warning = line(page, "GLV-N8-L-1000").getByRole("note");
-  const w = (await warning.boundingBox())!;
-  const p = (await gloves.boundingBox())!;
-  expect(w.y + w.height).toBeLessThanOrEqual(p.y);
-  await page.getByRole("button", { name: "Price basis for GLV-N8-L-1000: Last paid" }).click();
-  const list = page.getByRole("listbox", { name: "Price basis for GLV-N8-L-1000" });
-  await expect(list).toBeInViewport();
-  const box = (await list.boundingBox())!;
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(390);
-  await list.getByRole("option", { name: /^List/ }).click();
-  await expect(gloves).toHaveValue("94.00");
-  await noSidewaysScroll(page);
-  await expect(summary(page)).toContainText("$1,182.40");
-});

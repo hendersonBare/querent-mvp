@@ -29,7 +29,7 @@ type Answer=()=>Response|Promise<Response>;
 let api:{detail:QuoteDetail;send:Answer};
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input),method=init?.method??'GET';
-  if(url==='/api/rep/badges')return Response.json({quotes:0});
+  if(url==='/api/rep/badges')return Response.json({quotes:0,attention:0,caution:[],bell:[]});
   if(url==='/api/rep/quotes/q-24817/read')return Response.json({id:'q-24817',quote_number:'Q-24817',unread:false});
   if(url==='/api/rep/quotes/q-24817/send'&&method==='POST')return api.send();
   if(url==='/api/rep/quotes/q-24817')return Response.json(api.detail);
@@ -50,7 +50,7 @@ afterEach(()=>{vi.unstubAllGlobals();});
 function renderPage(detail:QuoteDetail=sampleDetail()){
   api.detail=detail;
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
-    initialBadges={{quotes:0,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:0,attention:0,caution:[],bell:[]}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 /** Clicks Approve & send; a real click focuses the button first (jsdom doesn't). */
 const approve=()=>{const button=screen.getByRole('button',{name:'Approve & send'});button.focus();fireEvent.click(button);};

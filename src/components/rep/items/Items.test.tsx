@@ -3,7 +3,7 @@ import {fireEvent,render,screen,within} from '@testing-library/react';
 import {describe,expect,it,vi} from 'vitest';
 import {BOLTS_VIEW,ITEM_LIST,STRAPS} from '../reference/test-fixtures';
 
-// The rep's Items list and item page (task 3.8).
+// The rep's Stock list (formerly Items, decision 46) and item page (task 3.8).
 
 const push=vi.fn();
 vi.mock('next/navigation',()=>({useRouter:()=>({push})}));
@@ -16,7 +16,7 @@ const {ItemDetail}=await import('./ItemDetail');
 describe('ItemsList',()=>{
   it('lists each item with its category, list price and stock at every branch',()=>{
     render(<ItemsList list={ITEM_LIST}/>);
-    expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Items');
+    expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Stock');
     expect(screen.getByText(/Herrick’s catalog · 2 items · stock at SLC, Ogden and Provo/)).toBeInTheDocument();
     expect(screen.getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Item','Category','List price','SLC','Ogden','Provo','Total']);
     // Item (with the list price phones show under it), category, list price, then available at SLC, Ogden, Provo (with what's on order), and the total.
@@ -24,7 +24,7 @@ describe('ItemsList',()=>{
       'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zincHCS-12-13-2G8 · Box of 50List $38.95Fasteners$38.956422894',
       'Ratchet strap 2 in x 27 ft, 3,333 lb WLL, J-hooksRS-2-27-JH · EachList $28.50Material Handling & Tie-downs$28.507200+24 on order27',
     ]);
-    expect(screen.getByRole('link',{name:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc'})).toHaveAttribute('href','/rep/items/HCS-12-13-2G8');
+    expect(screen.getByRole('link',{name:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc'})).toHaveAttribute('href','/rep/stock/HCS-12-13-2G8');
   });
 
   it('filters by category with one dropdown, All by default, carrying no customer (task U1)',()=>{
@@ -36,16 +36,16 @@ describe('ItemsList',()=>{
     expect(screen.queryByRole('navigation',{name:'Filter by category'})).not.toBeInTheDocument();
     expect(screen.queryByRole('link',{name:/^Fasteners/})).not.toBeInTheDocument();
     fireEvent.change(select,{target:{value:'material-handling'}});
-    expect(push).toHaveBeenLastCalledWith('/rep/items?category=material-handling');
+    expect(push).toHaveBeenLastCalledWith('/rep/stock?category=material-handling');
     unmount();
 
     render(<ItemsList list={{...ITEM_LIST,category:{id:'material-handling',name:'Material Handling & Tie-downs',sort_order:4},items:[STRAPS]}}/>);
     const filtered=screen.getByRole('combobox',{name:'Category'});
     expect(filtered).toHaveValue('material-handling');
     expect(screen.getAllByRole('row')).toHaveLength(2);
-    expect(screen.getByRole('link',{name:/Ratchet strap/})).toHaveAttribute('href','/rep/items/RS-2-27-JH');
+    expect(screen.getByRole('link',{name:/Ratchet strap/})).toHaveAttribute('href','/rep/stock/RS-2-27-JH');
     fireEvent.change(filtered,{target:{value:''}});
-    expect(push).toHaveBeenLastCalledWith('/rep/items');
+    expect(push).toHaveBeenLastCalledWith('/rep/stock');
   });
 
   it('carries no cost or margin',()=>{
@@ -57,7 +57,7 @@ describe('ItemsList',()=>{
 describe('ItemDetail',()=>{
   it('shows the item facts and stock at each branch',()=>{
     render(<ItemDetail view={BOLTS_VIEW} allCustomers/>);
-    expect(screen.getByRole('navigation',{name:'Breadcrumb'})).toHaveTextContent('Items/HCS-12-13-2G8');
+    expect(screen.getByRole('navigation',{name:'Breadcrumb'})).toHaveTextContent('Stock/HCS-12-13-2G8');
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc');
     expect(screen.getByRole('heading',{level:1}).parentElement?.nextElementSibling).toHaveTextContent('HCS-12-13-2G8 · Fasteners · Box of 50');
     const stock=within(screen.getByRole('region',{name:'Stock by branch'}));
@@ -90,7 +90,7 @@ describe('ItemDetail',()=>{
     render(<ItemDetail view={{...BOLTS_VIEW,sales:[]}} allCustomers={false}/>);
     expect(screen.getByRole('region',{name:'Recent orders'})).toHaveTextContent('Your customers');
     expect(screen.getByRole('heading',{name:'None of your customers has ordered this item yet'})).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Items'})).toHaveAttribute('href','/rep/items');
+    expect(screen.getByRole('link',{name:'Stock'})).toHaveAttribute('href','/rep/stock');
   });
 
   it('carries no cost or margin',()=>{

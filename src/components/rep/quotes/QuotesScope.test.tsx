@@ -29,7 +29,7 @@ const NORAS=quoteRow({id:'q-30002',quote_number:'Q-30002',customer_id:'uinta-fac
 let served:RepQuoteList;
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
-  if(url.startsWith('/api/rep/badges'))return Response.json({quotes:1,attention:0});
+  if(url.startsWith('/api/rep/badges'))return Response.json({quotes:1,attention:0,caution:[],bell:[]});
   if(url==='/api/rep/quotes/reassign'&&init?.method==='POST'){
     const body=JSON.parse(String(init.body));
     return Response.json({replayed:false,to:{id:body.toRepId,name:'Eli Porter'},skipped:[],
@@ -42,7 +42,7 @@ const posts=()=>fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').ma
 
 function renderList(initial:RepQuoteList,{query='',rep=brandi}:{query?:string;rep?:typeof brandi|typeof mara}={}){
   nav.query=query;served=initial;
-  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><QuotesList initial={initial}/></RepShell>);
+  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0,caution:[],bell:[]}}><QuotesList initial={initial}/></RepShell>);
 }
 const table=()=>screen.getByRole('table');
 const quoteBlock=(number:string)=>within(table()).getAllByRole('rowgroup').find(g=>within(g).queryByRole('link',{name:number}))!;

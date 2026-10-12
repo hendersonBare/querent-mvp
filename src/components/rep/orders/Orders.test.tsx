@@ -57,7 +57,7 @@ describe('OrderDetail',()=>{
       'Nitrile disposable gloves, 8 mil, black, size LGLV-N8-L-1000 · Case of 1,0004$79.00$316.00',
       'Flap disc 4.5 in, 60 grit zirconiaFD-45-60Z · Box of 103$44.25$132.75',
     ]);
-    expect(lines.getByRole('link',{name:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1'})).toHaveAttribute('href','/rep/items/CW-45-045-T1');
+    expect(lines.getByRole('link',{name:'Cut-off wheel 4.5 x .045 x 7/8 in, Type 1'})).toHaveAttribute('href','/rep/stock/CW-45-045-T1');
     const totals=Object.fromEntries(lines.getAllByRole('term').map(dt=>[dt.textContent,dt.nextElementSibling?.textContent]));
     expect(totals).toEqual({'Items':'$592.75','Freight':'$62.50','Sales tax':'$42.97','Order total':'$698.22'});
   });
@@ -73,7 +73,7 @@ describe('OrderDetail',()=>{
     expect(screen.getByRole('link',{name:'Orders'})).toHaveAttribute('href','/rep/orders');
     // Each line opens its item; no link carries a customer filter (task U1).
     expect(within(screen.getByRole('region',{name:'Items'})).getAllByRole('link').map(l=>l.getAttribute('href'))).toEqual([
-      '/rep/items/CW-45-045-T1','/rep/items/GLV-N8-L-1000','/rep/items/FD-45-60Z',
+      '/rep/stock/CW-45-045-T1','/rep/stock/GLV-N8-L-1000','/rep/stock/FD-45-60Z',
     ]);
   });
 

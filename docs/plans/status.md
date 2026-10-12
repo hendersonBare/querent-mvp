@@ -29,6 +29,12 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Opened list of a filter panel select (C_QOB2 "Rep", "Customer"): the frame draws the closed field only; the list reuses the customer picker's rows | U0 | A select must open to work | approved (decision 57) |
 | Customer picker with 5 entries or fewer: no "Showing 5 of N" line (C_QOB1 draws it for a longer list); "0 matches" when a search finds nothing (C_QOT7 draws "2 matches") | U0 | Minimum to function | approved (decision 57) |
 | Reorder states the frames do not draw: the drop line on the left edge of the first column when a header is dragged to the start (C_QOT6 draws the line on a right edge); dragging a row in the columns picker has no lifted look | U0 | Minimum to function | approved (decision 57) |
+| Caution and bell rows open their quote (`/rep/quotes/<number>`): C_QOB3 and C_QOB4 draw the rows as plain boxes, not links. Opening a dropdown never navigates | U2 | A list of quotes must lead to them | approved (decision 58) |
+| Bell row wording for events C_QOB4 does not sample: "Q-24818 requested by Dana Ortiz" and "Q-24791 declined by Dana Ortiz", by analogy with its "Dana Ortiz replied on Q-24790" and "Q-24763 accepted by Canyon Ridge" | U2 | The frames' rows are samples (Appendix G); the words come from real data | approved (decision 58) |
+| Caution lines for reasons C_QOB3 has no sentence for (its three: "Dana Ortiz asked to move pickup to Ogden.", "Draft has 1 line below the margin floor.", "Sent Oct 6, no reply yet."): a draft waiting with no line below the floor reads "Requested Sep 23, not sent yet." (after the sent sentence); a sent quote marked by the expiry rule (expires today or tomorrow) keeps "Sent Sep 23, no reply yet." with no word about the expiry; a change request note that does not read as a request reads "Dana Ortiz asked for changes: the size is wrong.", an empty one "Dana Ortiz asked for changes." | U2 | Every quote in the caution needs a line; closest frame sentence | approved (decision 59) |
+| How C_QOB3's and C_QOB4's sentences are filled from real data: a change request is the note's first line and sentence without its polite opening ("Can you", "Please"), trimmed to one row (48 characters) at a comma or a word with "…" ("Dana Ortiz asked to hold the anchors for pickup…"); "accepted by" names the customer by its full name ("Q-24830 accepted by Wasatch Mechanical Contractors"), and so does a row whose quote has no contact; an expired row's day is the day the quote expired (the day after valid until); dates are UTC days, like the Quotes list | U2 | The frames' rows are samples (Appendix G) | approved (decision 59) |
+| A bell or caution title too long for one row (C_QOB4 draws each title on one row): at 1920x1080 "Q-24830 accepted by Wasatch Mechanical Contractors", the longest seeded customer name (decision 59: the full name), stays on one 17px row and ends with an ellipsis at the panel edge; the full text is its `title` tooltip. `e2e/frames-shell.spec.ts` checks it, and C_QOB4 matches with no height difference | U2 | Decision 59's full name does not fit the 360px panel | approved (decision 60) |
+| Empty dropdowns: the caution shows only its heading ("0 need your attention"); the bell shows "No notifications" (decision 52: one plain line) | U2 | Minimum to function | not needed (decision 52) |
 | Customer account chip menu: the chip (C_CVL1) opens a one-item menu, Sign out, which returns to the visitor box | U10 | The customer has no other way to sign out once "Switch workspace" is gone | approved (decision 56) |
 | Customer conversation once it has turns: the turns in the box's column (scrolling), and New conversation beside Orders and My rep (the Orders button's tokens) | U10 | The frames draw the box before the first question only | approved (decision 56) |
 | Visitor conversation: the question and the stub's "Sign in to continue." in the same column | U10 | Minimum to show the R-14 stub's answer | approved (decision 57) |
@@ -46,11 +52,13 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 ### Lane U frame ledger
 Every board in `canvas.json` (89). State is PASS (frame spec diff with zero unexplained differences), deferred (with reason) or no-frame. The rail on every page frame is proven in U2.
 
+Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) against C_QOBoard as the manager and C_RQBoard as a rep, scoped to the `aside`: every element and computed style, both directions (nothing missing, nothing added), 216px wide, sticky at the top at 100vh after scrolling a long page, the page area taking the rest of the width; every rep route renders in the shell. The frames' user names (Brian G., Brandi G.) are placeholders.
+
 | Frame | Task | State |
 |---|---|---|
-| C_QOB3 | U2 | pending |
-| C_QOB4 | U2 | pending |
-| C_QOB9 | U2 | pending |
+| C_QOB3 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G, worded in the frame's sentence per status, each one row tall) |
+| C_QOB4 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G, worded in the frame's patterns: the contact who replied, the customer who accepted, by its full name (decision 59); no differences: a title too long for the panel stays on one row with an ellipsis and a tooltip, decision 60) |
+| C_QOB9 | U2 | PASS (`e2e/frames-shell.spec.ts`; the overlay is `position: fixed` where the frame's one-viewport root uses `absolute`) |
 | C_QOB1 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
 | C_QOB2 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
 | C_QOB5 | U3 | pending |

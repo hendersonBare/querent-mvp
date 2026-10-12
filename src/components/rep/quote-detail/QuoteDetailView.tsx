@@ -21,6 +21,7 @@ import {UpsellsSection} from './upsells/UpsellsSection';
 import {day,itemCount,money,requestedAt,signedMoney,timeOfDay} from './format';
 import {useMarkQuoteRead} from './use-mark-read';
 import {useQuoteEditor,type QuoteEditor} from './use-quote-editor';
+import {HeaderAlertsBar} from '../HeaderAlerts';
 import list from '../quotes/QuotesList.module.css';
 import s from './QuoteDetail.module.css';
 
@@ -132,6 +133,8 @@ function QuoteHeader({detail,editor,onApprove,onReassign}:{detail:QuoteDetail;ed
         <ExportMenu detail={detail.read_only?{...detail,editable:canEditDraft(quote.status)}:detail} lines={editor.lines} flush={editor.flush} buttonClassName={s.btn}/>
         <MoreMenu quote={quote} flush={editor.flush} buttonClassName={`${s.btn} ${s.sq}`} readOnly={detail.read_only!==null} onReassign={onReassign}/>
         <button type="button" className={`${s.btn} ${s.primary}`} onClick={onApprove} disabled={!editable}>Approve &amp; send</button>
+        {/* The shell's caution and bell (plan U2); U4 moves them into the editor's own header row (C_QEBase). */}
+        <HeaderAlertsBar/>
       </div>
     </div>
   </>;
