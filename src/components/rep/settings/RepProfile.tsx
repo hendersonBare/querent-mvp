@@ -6,8 +6,8 @@ import {RequestError,deletePicture,saveProfile,uploadPicture} from './api';
 import {Card,Problem,SaveButton,SettingsFrame} from './parts';
 import s from './Settings.module.css';
 
-// Settings > Profile, a rep's (plan U9; C_RS2): their picture, name, phone and email, which customers see in
-// the My rep sheet and on quotes. Upload picture picks a PNG, JPEG or WebP of 2 MB or less (the server checks
+// Settings > Profile, a rep's and the manager's own (plan U9; C_RS2; decision 69): their picture, name, phone and
+// email, which customers see in the My rep sheet and on quotes. Upload picture picks a PNG, JPEG or WebP of 2 MB or less (the server checks
 // the bytes again) and shows it at once; Remove goes back to the initials; Save profile stores the picture
 // change and the fields (PUT or DELETE /api/rep/profile/picture, then PUT /api/rep/profile) and refreshes the
 // page, so the rail shows the new name. No frame: the "Saved" line, one red line for a refused field or

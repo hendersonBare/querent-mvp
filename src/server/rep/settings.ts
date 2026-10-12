@@ -85,6 +85,8 @@ export interface ManagerSettings {
   aging:AgingThresholds;
   /** Decision 48: a section whose flag is off does not render. */
   flags:FeatureFlags;
+  /** Her own Profile tab (decision 69; C_RS2, the rep's), because customers see her in My rep. */
+  profile:RepProfileView;
 }
 
 /**
@@ -99,7 +101,7 @@ export interface RepSettings {
   manager:ManagerSettings|null;
   /** The signed-in rep's own margins ("margin floors" in the database: their floor per category). */
   mine:RepFloorSet;
-  /** A rep's Margins, Profile and Notifications tabs; null for the manager, who keeps her four (plan U9). */
+  /** A rep's Margins, Profile and Notifications tabs; null for the manager, who keeps her four and has her Profile in `manager` (plan U9; decision 69). */
   own:OwnSettings|null;
 }
 
@@ -164,8 +166,11 @@ export function accessFilter(params:URLSearchParams):AccessFilter{
   return filter;
 }
 
-/** The manager's tabs (plan U8). `customerId`: Customer access opened for that customer, searched for its name. */
-export function managerSettings(customerId:string|null=null):ManagerSettings{
+/**
+ * The manager's tabs (plan U8) and her own Profile (decision 69), for the manager `repId`. `customerId`: Customer
+ * access opened for that customer, searched for its name.
+ */
+export function managerSettings(repId:string,customerId:string|null=null):ManagerSettings{
   const linked=customerId?customers().find(c=>c.id===customerId):undefined;
   return {
     access:everyCustomer(),
@@ -176,19 +181,20 @@ export function managerSettings(customerId:string|null=null):ManagerSettings{
     delivery:deliveryRates(),
     aging:agingThresholds(),
     flags:featureFlags(),
+    profile:profileView(repId),
   };
 }
 
 /**
  * Everything Settings shows, for the signed-in rep (`manager`: they are the manager). The manager gets her
- * four tabs; a rep gets only their own: margins, profile and switches (Appendix B; OA-69; plan U9). `customerId` (the manager's ?customer=)
+ * four tabs and her own Profile (decision 69); a rep gets only their own: margins, profile and switches (Appendix B; OA-69; plan U9). `customerId` (the manager's ?customer=)
  * opens Customer access searched for that customer; an unknown id is ignored.
  */
 export function repSettings(repId:string,{customerId=null,manager=false}:{customerId?:string|null;manager?:boolean}={}):RepSettings{
   const me=reps().find(r=>r.id===repId);
   return {
     rep_id:repId,
-    manager:manager?managerSettings(customerId):null,
+    manager:manager?managerSettings(repId,customerId):null,
     mine:me?floorSet(me):{rep:{id:repId,name:repId,initials:'',title:''},floors:[]},
     own:manager||!me?null:{orgFloors:orgCells(),profile:profileView(repId),notifications:notificationPrefs(repId)},
   };

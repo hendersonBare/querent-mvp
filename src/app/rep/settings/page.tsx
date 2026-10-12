@@ -11,10 +11,10 @@ type SearchParams=Promise<Record<string,string|string[]|undefined>>;
 const single=(value:string|string[]|undefined)=>typeof value==='string'?value:null;
 
 /**
- * Settings (spec §4, task 6.1; plan U8): the manager's Customer access, Margin floors, Pricing and delivery
- * and Aging (?tab=), with the feature flags read on the server (decision 48); ?customer=<id> opens Customer
- * access searched for that customer (Analytics' Manage customer access). A rep gets their own margin floors
- * only. Rendered here with the signed-in rep's settings; the tabs then save through /api/rep/settings/*.
+ * Settings (spec §4, task 6.1; plans U8, U9): the manager's Customer access, Margin floors, Pricing and delivery,
+ * Aging and her own Profile (?tab=; decision 69), with the feature flags read on the server (decision 48);
+ * ?customer=<id> opens Customer access searched for that customer (Analytics' Manage customer access). A rep
+ * gets their own Margins, Profile and Notifications only. Rendered here with the signed-in rep's settings; the tabs then save through /api/rep/settings/*.
  */
 export default async function SettingsPage({searchParams}:{searchParams:SearchParams}){
   const {repId,manager}=await signedInRep();

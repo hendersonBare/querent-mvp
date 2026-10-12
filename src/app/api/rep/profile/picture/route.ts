@@ -5,7 +5,7 @@ import {profileError} from '@/server/rep/profile-http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 
 /**
- * The signed-in rep's picture (plan U9; C_RS2 "Upload picture", "Remove"):
+ * The signed-in rep's picture, the manager's own included (plan U9; C_RS2 "Upload picture", "Remove"; decision 69):
  *   GET     serves their own picture (404 without one), with its stored type, never sniffed, sandboxed;
  *   PUT     the image itself as the body: a PNG, JPEG or WebP (checked by its bytes, whatever its
  *           Content-Type says) of 2 MB or less, else 400 or 413 {detail, field: picture};
