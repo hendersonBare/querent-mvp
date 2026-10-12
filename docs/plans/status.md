@@ -24,7 +24,12 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 
 | What | Task | Why it exists | Asked |
 |---|---|---|---|
-| Blocked-send state: disabled Approve and send with the first blocker named under it and "+N more" | U4 | Decision 44 | made (decision 44) |
+| Blocked-send state (C_QEBase draws Approve and send enabled): disabled Approve and send with the first blocker named under it in red ("Line 2 (CW-45-045-T1) has a quantity of 0. +1 more", the server's own `sendBlockers()` messages) as a text button; clicking it jumps to the line's field (focused, its row outlined in red for 2.4 s), opens Quote details at the section (no ship-to, call for freight, expiration passed), or scrolls to + Add item (no lines) | U4 | Decision 44 | made (decision 44); the look and the jump highlight to ask |
+| Inline line notes (decision 44): stock short at the quote branch ("Short 5 at SLC. 20 at Ogden. 24 on order at SLC, due Sep 26") and a match below 0.75 ("Confirm the match for "<requested text>"") under the item name, styled like the below-floor note | U4 | Decision 44; the checks box is gone | to ask (the look and the match wording) |
+| Status banners removed (sent, changes requested with Dana's note, accepted with PO and pickup, declined with reason and note, expired): C_QEBase draws none. What they said is in Quote details, Activity (the server's own messages), and the status in the header | U4 | Minimal header (plan U4) | to ask |
+| Read-only manager view (decision 22): one plain line under Approve and send, "Read only: Mara Jensen's quote. Reassign it to edit.", every edit control off, Reassign in More actions | U4 | Decision 22 | to ask |
+| Editor toasts: Undo for the last edit ("Removed Ratchet strap 2 in x 27 ft", Undo), a refused save (alert with Dismiss), running and failed menu actions; all in the C_QE11 toast without its check | U4 | Undo and save errors must show | to ask |
+| Quote details parts C_QE4 does not draw: the delivery rows (Ship to, Distance, Formula), the Set freight by hand form with its required reason, over the credit limit (red value and "Over limit by $X"), notes already written, "Load earlier" in the chat drawer, the Confirm send dialog (C_QE1's tokens), and a send the server refused (one red line) | U4 | Existing behaviour (tasks 3.4, 3.7, B1) | to ask |
 | `/test/ui` fixture page: renders the tokens and primitives for `e2e/frames-primitives.spec.ts`; 404 unless `QUERENT_E2E_RESET=1` | U0 | Test tooling, not a product screen | not needed (test tooling) |
 | Opened list of a filter panel select (C_QOB2 "Rep", "Customer"): the frame draws the closed field only; the list reuses the customer picker's rows | U0 | A select must open to work | approved (decision 57) |
 | Customer picker with 5 entries or fewer: no "Showing 5 of N" line (C_QOB1 draws it for a longer list); "0 matches" when a search finds nothing (C_QOT7 draws "2 matches") | U0 | Minimum to function | approved (decision 57) |
@@ -78,18 +83,18 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_RQB2 | U3 | pending |
 | C_RQBoard | U3 | pending |
 | C_RQTable | U3 | pending |
-| C_QE1 | U4 | pending |
-| C_QE10 | U4 | pending |
-| C_QE11 | U4 | pending |
-| C_QE2 | U4 | pending |
-| C_QE3 | U4 | pending |
-| C_QE4 | U4 | pending |
-| C_QE5 | U4 | pending |
-| C_QE6 | U4 | pending |
-| C_QE7 | U4 | pending |
-| C_QE8 | U4 | pending |
-| C_QE9 | U4 | pending |
-| C_QEBase | U4 | pending |
+| C_QE1 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; dates in the message and summary are real data, Appendix G; Cancel, Send quote and Preview PDF are real controls where the frame draws spans) |
+| C_QE10 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the paid date is real data, Appendix G; the pointer rests on Customer as drawn) |
+| C_QE11 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the saved time is the real time) |
+| C_QE2 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`) |
+| C_QE3 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`) |
+| C_QE4 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; dates, times and the win rate are real data, Appendix G; Copy, Set freight by hand and Add note are buttons where the frame draws spans) |
+| C_QE5 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`) |
+| C_QE6 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the chat is Q-24817's seeded conversation, so three messages are longer than the frame's samples and wrap to more lines, Appendix G) |
+| C_QE7 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; fixed widths Qty 60, Available, Cost, Unit price 118, Margin 78, Total 82 equal the frame's) |
+| C_QE8 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the results are the catalog's real matches for "1/2", the frame's three are samples, Appendix G) |
+| C_QE9 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; last-paid date is real data, Appendix G; Use and Current are buttons where the frame draws spans) |
+| C_QEBase | U4 | PASS (`e2e/frames-quote-editor.spec.ts`, both directions, icons counted; dates are real data, Appendix G; the strap line's stock-short note is decision 44's inline note, no frame) |
 | C_CU1 | U5 | pending |
 | C_CU2 | U5 | pending |
 | C_CU3 | U5 | pending |

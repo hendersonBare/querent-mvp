@@ -402,9 +402,19 @@ test("the item rows share the 34px centre line: name, inputs and total", async (
     const mid = (el: Element) => { const r = el.getBoundingClientRect(); return Math.round((r.top + r.height / 2) * 10) / 10; };
     const name = row.querySelector('[data-ui="item-name"]')!;
     const line = name.getBoundingClientRect();
-    const firstLine = Math.round((line.top + 18.85 / 2) * 10) / 10;
+    // The name's first line, by its own line height (the name may wrap).
+    const firstLine = Math.round((line.top + parseFloat(getComputedStyle(name).lineHeight) / 2) * 10) / 10;
+    const total = row.querySelector('[data-ui="line-total"]')!;
     return { name: firstLine, qty: mid(row.querySelector('input[aria-label^="Quantity"]')!), price: mid(row.querySelector('input[aria-label^="Unit price"]')!),
-      margin: mid(row.querySelector('input[aria-label^="Margin"]')!), total: mid(row.querySelector('[data-ui="line-total"]')!) };
+      margin: mid(row.querySelector('input[aria-label^="Margin"]')!), total: mid(total), height: Math.round(total.getBoundingClientRect().height * 10) / 10 };
   });
-  for (const value of Object.values(centres)) expect(Math.abs(value - centres.qty)).toBeLessThanOrEqual(1);
+  const { height, ...line } = centres;
+  for (const [name, value] of Object.entries(line)) expect(Math.abs(value - line.qty), name).toBeLessThanOrEqual(1);
+  // The line's height is the frame's: its total cell (34px in C_QEBase), read from the frame.
+  await openFrame(frameSmall, frames.base, "QEBase");
+  const frameTotal = await frameSmall.evaluate(() => {
+    const el = [...document.querySelectorAll("body *")].find((e) => e.childElementCount === 0 && e.textContent!.trim() === "$315.00")!;
+    return Math.round(el.getBoundingClientRect().height * 10) / 10;
+  });
+  expect(height).toBe(frameTotal);
 });
