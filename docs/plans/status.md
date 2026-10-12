@@ -41,6 +41,10 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Bell copy for an expired quote ("Quote Q-24815 expired", "It was valid until Oct 3."), "N min ago" and "Today" time labels | U10 | The frames draw ready, updated and shipped notices only; the task asks for expired notices too | approved (decision 56) |
 | Empty and error lines in the bell, the Orders and My rep sheets ("No notifications yet.", "No orders yet.", "No rep is assigned yet.") | U10 | Decision 52: one plain line | not needed (decision 52) |
 | The strip that holds the bell, the account chip and Sign in: the frames' 72px header with its bottom rule, without the stand-in Herrick logo | U10 | The controls the task builds sit in it, and the sheets open under it (C_CVL2, C_CVL3) | approved (decision 56) |
+| Analytics window: a Custom range (the manager's "Created" segments, the rep's Period) shows two day fields, under the leaderboard's note for the manager and as From and To in the rep's filter (C_QOB2's date fields). The window is the cohort of the leaderboard, Decline reasons and Untouched quotes only; the Overview keeps 26 weeks and the questions all time (decisions 23 to 25 unchanged) | U6 | C_AN6 and C_RAN2 draw the Custom choice, not what it opens; no frame says which tabs a period changes | to ask |
+| Analytics breakdown: Whole organization and Rep both give a row per rep (C_AN6 is drawn at the default); Team gives a row per team label, reps without one in "No team"; Customer gives a row per customer the reader may read. Only the leaderboard, Decline reasons (its columns) and Untouched quotes change; the Overview has no broken-down frame and stays whole. Reps and teams picked narrow every tab to those reps' quotes and their customers' questions | U6 | C_AN4 draws the choice, no frame draws its result | to ask |
+| Analytics extras: the leaderboard's columns picker offers the old dashboard's other columns (In changes req., Quoted value, Accepted value, Avg quoted margin, Freight recovered, Suggestions taken, Rep upsell lines), hidden by default; each count above zero links to its quotes ("Pick a count to see its quotes", C_AN6), the decline count to the declined quotes, a note's quote number to the quote; "Show fewer weeks" after the week table is opened; the "i" tips keep the old page's explanations; Export CSV downloads `rep-leaderboard.csv` with the first column named Rep, Team or Customer; the filter badge counts each rep and team picked, the customer, a breakdown other than the whole organization, and (rep) a period other than 30 days | U6 | The frames draw the controls, not where they lead or what they hold | to ask |
+| Analytics with little data: one plain line for no quotes sent, decided or accepted, no weeks with quotes, no items and no Other notes ("No customer chose Other."); "-" for a value with nothing to divide (as C_AN6); the frames' sentences filled with zeros where they read well ("0 of 0", "0% answered without a rep", "0 lines of 71 under the floor."); Extra GP "$0.00" not green; the line under the title names a filtered customer ("for Great Basin Fabrication"); "Loading analytics." and an error line | U6 | Decision 52; the frames show full data only | to ask |
 | Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
@@ -103,20 +107,20 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_ST2 | U5 | pending |
 | C_ST3 | U5 | pending |
 | C_STBase | U5 | pending |
-| C_AN1 | U6 | pending |
-| C_AN2 | U6 | pending |
-| C_AN3 | U6 | pending |
-| C_AN4 | U6 | pending |
-| C_AN5 | U6 | pending |
-| C_AN6 | U6 | pending |
-| C_AN7 | U6 | pending |
-| C_AN8 | U6 | pending |
-| C_ANBase | U6 | pending |
-| C_RAN1 | U6 | pending |
-| C_RAN2 | U6 | pending |
-| C_RAN3 | U6 | pending |
-| C_RAN4 | U6 | pending |
-| C_RAN5 | U6 | pending |
+| C_AN1 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); the same long page scrolled, rail sticky; data-length lists cut to the shorter side: chart ticks, categories, items) |
+| C_AN2 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); the Assigned rep names are the data's) |
+| C_AN3 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); nine weeks then "Show 17 more weeks") |
+| C_AN4 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); panel driven to the frame's state, two reps ticked and Rep; the seed's four reps against the frame's three placeholders, the fourth row cut; the frame's spans and div are buttons here with the same computed styles) |
+| C_AN5 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); scrolled) |
+| C_AN6 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); fixed column tracks and the 2280px minimum compared; counts link to their quotes and are compared as the frame's spans; count colours follow the frame's rule: green, gray at zero, red overdue) |
+| C_AN7 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); per-rep columns are the seed's four reps; one Other note on each side) |
+| C_AN8 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G)) |
+| C_ANBase | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); chart geometry compared: plot, columns, segments, gridline, labels, top tick; data-length lists cut to the shorter side) |
+| C_RAN1 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); Mara's four categories against the frame's six; Extra GP is "$0.00" in the values' colour since she has none, the rule checked against the frame's green sample) |
+| C_RAN2 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); the frame's spans and div are buttons here with the same computed styles) |
+| C_RAN3 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); the note names the customer) |
+| C_RAN4 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G)) |
+| C_RAN5 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); Mara's customer has no chat questions, so the card reads "0 of 0" and "0% answered without a rep" in the frame's layout) |
 | C_TR1 | U7 | pending |
 | C_TR2 | U7 | pending |
 | C_TR3 | U7 | pending |

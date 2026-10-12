@@ -252,8 +252,10 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 | `PUT /api/rep/settings/assignments` | D2 | manager | adds `{moveOpenQuotes:boolean}` |
 | `GET /api/rep/quotes?rep=<id>&team=<label>` | D2, U1 | rep, manager | Scope is role based (U1): a rep's own quotes, every rep's for the manager, who also filters by rep and team. `?scope=all` is ignored (no switch, never a 403) |
 | `GET /api/rep/badges`, `/api/rep/analytics`, `/api/rep/settings` | U1 | rep, manager | Role based: a rep's own customers and quotes, the whole organization for the manager. `?customer=` is a page's own filter; a customer the rep can't read is ignored |
-| `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone |
-| `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
+| `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone. Kept, unchanged, for the old dashboard on `/rep/teams` until U7; Analytics reads `GET /api/rep/analytics` |
+| `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` (kept like the route above) |
+| `GET /api/rep/analytics?customer=&reps=a,b&teams=X,Y&breakdown=org\|rep\|team\|customer&from=&to=` (or `&period=7\|30\|90`) | U6 | rep, manager | The Analytics page: the Overview (stat cards, weekly trend, margin vs floor, top items), the customer questions and query analytics, `filter`, `options` (reps, team labels, readable customers), and `groups`: the section 7 metrics, one row per rep, team label ("No team" for reps without one) or customer, plus the totals and the Other notes, over the quotes created in the window. Reps and teams narrow every number to those reps' quotes and their customers' questions; the whole organization groups the rows by rep. A rep is forced to their own data (reps, teams and breakdown ignored, another rep's customer reads as none, never a 403). The window defaults to the last 30 UTC days; the browser sends its own midnights (OA-19). 400 for an unknown rep, team or breakdown or a bad window |
+| `GET /api/rep/analytics/csv?…` | U6 | manager | Export CSV on the Rep leaderboard: the rows as filtered and broken down, then the totals, `rep-leaderboard.csv`; the first column is named Rep, Team or Customer. 403 for a rep |
 | `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
 | line add with `added_by:'suggestion'` | E1 | customer | adding a suggestion to the cart at qty 1 |
 | `GET /api/query/customer/orders` | U10 | customer | the session customer's own orders, newest first: `[{id, order_number, order_date, status, fulfillment, branch_code, total, quote_number}]`; no lines, subtotal, freight, tax, cost or margin |
@@ -306,7 +308,17 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - Aging thresholds card (D1, manager-only). Reps card: team label, active, deactivate blocked while customers are assigned (D1).
 - Rep assignments: "Also move this customer's open quotes" checkbox (D2).
 
+### Rep: Analytics (`/rep/analytics`, U6; frames C_ANBase to C_AN8, C_RAN1 to C_RAN5)
+- Manager tabs: Overview, Rep leaderboard, Decline reasons, Untouched quotes, Customer questions. Rep ("My Analytics"): the same without Rep leaderboard.
+- Header: the title and the line under it ("Quotes and customer questions for the whole organization", "for your customers", or the filtered customer's name), **Filter**, and on the Rep leaderboard tab **Export CSV**.
+- Manager filter (C_AN4): Reps and Teams checkboxes, a Customer select ("Any customer"), "Break the numbers down by" Whole organization, Rep, Team, Customer. Rep filter (C_RAN2): Customer ("Any of my customers") and Period 7, 30 (default), 90 days or Custom. The manager picks the window in the leaderboard's title bar ("Created"). The window is the cohort of the leaderboard, Decline reasons and Untouched quotes (section 7); the Overview keeps its own spans (26 weeks, all time).
+- Overview: the five stat cards with an "i" each, quotes and wins by week (a column per week, a label under every fourth from the first, **Show table** newest first, nine weeks then "Show N more weeks"), average margin vs floor per category, top requested items (bars by quantity).
+- Rep leaderboard (C_AN6): the section 7 counts and rates per row and in the totals, each count linked to its quotes; the frame's 18 columns, with the rest of section 7 in the columns picker. Decline reasons (C_AN7): per reason, a column per row for the manager, and the Other notes ("Q-24767, Mara Jensen, Sep 28"; a rep's notes name the customer). Untouched quotes (C_AN8): per reason, a row per rep and the totals; a rep's single row is "Your quotes".
+- Customer questions (C_AN2): questions answered without a rep, then Query analytics (Total queries, Estimated time saved, Queries by category with the Assigned rep for the manager, and the access card with "Manage customer access" for the manager).
+- Table headers carry "::" and reorder by drag or Alt+Left/Right; the week and leaderboard tables have the columns picker. Order and hidden columns are the user's own (`ui_table_prefs`).
+
 ### Rep: Teams and Reps (`/rep/teams`, was `/rep/team`; manager-only, D3; rebuilt in U7)
+- U6 moved this dashboard's content into Analytics (Rep leaderboard, Decline reasons, Untouched quotes). The page below stays until U7 replaces it.
 - Filters: rep multi-select, team label filter, presets 7 / 30 / 90 days and a custom range.
 - Leaderboard: one row per selected rep plus a totals row, columns per section 7.
 - Drill-down: any count or row links to `/rep/quotes?rep=…&from=…&to=…` filtered to those quotes; decline counts show reasons and Other text.
@@ -321,7 +333,7 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 
 ## 7. Team metrics (D3)
 
-Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and team label. Statuses use `effectiveStatus` at request time. Rates are `null` (shown "–") when the denominator is 0.
+Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and team label. Statuses use `effectiveStatus` at request time. Rates are `null` (shown "-") when the denominator is 0. Analytics (U6) groups the same metrics by rep, team label or customer; only the grouping changes.
 
 | Metric | Definition |
 |---|---|
