@@ -106,7 +106,7 @@ describe('savePicture and removePicture',()=>{
       expect(pictureType(own.data)).toBe(type);
     }
     savePicture('mara',noisyPng(),{now:NOW});
-    expect(ownPicture('mara')!.data).toEqual(noisyPng());
+    expect(new Uint8Array(ownPicture('mara')!.data)).toEqual(noisyPng());
     removePicture('mara');
   });
 });

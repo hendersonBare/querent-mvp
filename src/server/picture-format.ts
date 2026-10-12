@@ -8,27 +8,19 @@ import type {PictureType} from '@/domain';
 //         each SOS skipped to the next marker), a frame (SOF) before the first scan, and EOI as the very last bytes;
 //   WebP  RIFF whose size field is the file's length minus 8, WEBP, then chunk by chunk to the end: a VP8 or VP8L
 //         bitstream alone, or VP8X followed by chunks among which a VP8, VP8L or animation frame.
-// On top of that, a picture carrying HTML or SVG markup anywhere (a PNG text chunk, a JPEG comment, a WebP
-// metadata chunk) is refused: no real picture needs it, and it is what a polyglot hides. CRCs are not checked:
-// the structure is what decides whether the bytes can be read as something else.
-
-/** Markup a browser could run, as lowercase ASCII; matched case-insensitively. */
-const MARKUP=['<script','<html','<svg','<!doctype','<body','<iframe','<object','<embed'];
-
-function carriesMarkup(bytes:Uint8Array):boolean{
-  for(let i=bytes.indexOf(0x3c);i!==-1;i=bytes.indexOf(0x3c,i+1)){
-    for(const tag of MARKUP){
-      if(i+tag.length>bytes.length)continue;
-      let match=true;
-      for(let k=1;k<tag.length&&match;k++){
-        const b=bytes[i+k];
-        match=(b>=0x41&&b<=0x5a?b|0x20:b)===tag.charCodeAt(k);
-      }
-      if(match)return true;
-    }
-  }
-  return false;
-}
+// CRCs are not checked: the structure is what decides whether the bytes can be read as something else.
+//
+// What is stored and served (storablePicture) is the picture without its text and metadata, rebuilt from the
+// segments kept, in their order, and checked by its structure again:
+//   PNG   only IHDR, PLTE, IDAT, IEND and the colour chunks tRNS, gAMA, cHRM, sRGB, iCCP, sBIT and pHYs, each
+//         copied whole with its CRC; tEXt, iTXt, zTXt, eXIf, tIME and every other ancillary chunk are dropped;
+//   JPEG  COM and every APPn segment are dropped except APP0 JFIF, APP2 ICC_PROFILE and APP14 Adobe (its colour
+//         transform); every other segment and the entropy-coded data are kept, through EOI;
+//   WebP  only VP8X, ICCP, ANIM, ANMF, ALPH, VP8 and VP8L chunks: EXIF, XMP and unknown chunks are dropped, the
+//         VP8X EXIF and XMP flags cleared, and the RIFF size set to the new length.
+// Nothing is refused for what its image data holds: compressed pixels are close to random, so any byte pattern
+// turns up in ordinary pictures. Serving the stored type with nosniff and a sandbox (./picture-response) is
+// what keeps a browser from reading the image data as anything else.
 
 const ascii=(bytes:Uint8Array,at:number,length:number)=>String.fromCharCode(...bytes.subarray(at,at+length));
 const isLetter=(b:number)=>(b>=0x41&&b<=0x5a)||(b>=0x61&&b<=0x7a);
@@ -121,8 +113,91 @@ function isWebp(bytes:Uint8Array):boolean{
   return at===bytes.length&&sawImage;
 }
 
-/** PNG, JPEG or WebP when the bytes are a whole, well formed picture of that type and carry no markup; else null. */
+const concat=(parts:Uint8Array[])=>{
+  const out=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let at=0;
+  for(const p of parts){out.set(p,at);at+=p.length;}
+  return out;
+};
+const startsWith=(bytes:Uint8Array,at:number,text:string)=>at+text.length<=bytes.length&&ascii(bytes,at,text.length)===text;
+
+const PNG_KEPT=new Set(['IHDR','PLTE','IDAT','IEND','tRNS','gAMA','cHRM','sRGB','iCCP','sBIT','pHYs']);
+
+/** A well formed PNG (isPng) with only its critical and colour chunks. */
+function stripPng(bytes:Uint8Array):Uint8Array{
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),parts=[bytes.subarray(0,8)];
+  for(let at=8;at<bytes.length;){
+    const end=at+12+view.getUint32(at);
+    if(PNG_KEPT.has(ascii(bytes,at+4,4)))parts.push(bytes.subarray(at,end));
+    at=end;
+  }
+  return concat(parts);
+}
+
+/** Whether a JPEG APPn segment (its marker, and its payload from `at` for `length` bytes) is colour data kept. */
+function keptApp(bytes:Uint8Array,marker:number,at:number,length:number):boolean{
+  if(marker===0xe0)return startsWith(bytes,at,'JFIF\0');
+  if(marker===0xe2)return startsWith(bytes,at,'ICC_PROFILE\0');
+  if(marker===0xee)return length===12&&startsWith(bytes,at,'Adobe');
+  return false;
+}
+
+/** A well formed JPEG (isJpeg) without COM, and with no APPn but JFIF, ICC_PROFILE and Adobe. Fill bytes go. */
+function stripJpeg(bytes:Uint8Array):Uint8Array{
+  const parts=[bytes.subarray(0,2)];
+  let at=2;
+  for(;;){
+    while(bytes[at]===0xff)at++;
+    const marker=bytes[at++];
+    if(marker===0xd9){parts.push(Uint8Array.from([0xff,0xd9]));return concat(parts);}
+    if(marker===0x01||isRestart(marker)){parts.push(Uint8Array.from([0xff,marker]));continue;}
+    const length=(bytes[at]<<8)|bytes[at+1],end=at+length;
+    const dropped=marker===0xfe||(marker>=0xe0&&marker<=0xef&&!keptApp(bytes,marker,at+2,length-2));
+    if(!dropped)parts.push(bytes.subarray(at-2,end));
+    at=end;
+    if(marker===0xda){
+      const data=at;
+      for(;;){
+        const next=bytes.indexOf(0xff,at),b=bytes[next+1];
+        if(b===0x00||isRestart(b)){at=next+2;continue;}
+        if(b===0xff){at=next+1;continue;}
+        at=next;break;
+      }
+      parts.push(bytes.subarray(data,at));
+    }
+  }
+}
+
+const WEBP_KEPT=new Set(['VP8X','ICCP','ANIM','ANMF','ALPH','VP8 ','VP8L']);
+
+/** A well formed WebP (isWebp) with only its image and colour chunks, its VP8X flags and RIFF size to match. */
+function stripWebp(bytes:Uint8Array):Uint8Array{
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),parts=[bytes.slice(0,12)];
+  for(let at=12;at<bytes.length;){
+    const size=view.getUint32(at+4,true),end=at+8+size+(size&1),fourcc=ascii(bytes,at,4);
+    if(fourcc==='VP8X'){
+      const header=bytes.slice(at,end);
+      header[8]&=~(0x08|0x04);                              // flags: EXIF, XMP
+      parts.push(header);
+    }else if(WEBP_KEPT.has(fourcc))parts.push(bytes.subarray(at,end));
+    at=end;
+  }
+  const out=concat(parts);
+  new DataView(out.buffer).setUint32(4,out.length-8,true);
+  return out;
+}
+
+/** PNG, JPEG or WebP when the bytes are a whole, well formed picture of that type; else null. */
 export function pictureType(bytes:Uint8Array):PictureType|null{
-  const type:PictureType|null=isPng(bytes)?'image/png':isJpeg(bytes)?'image/jpeg':isWebp(bytes)?'image/webp':null;
-  return type&&!carriesMarkup(bytes)?type:null;
+  return isPng(bytes)?'image/png':isJpeg(bytes)?'image/jpeg':isWebp(bytes)?'image/webp':null;
+}
+
+/**
+ * What to store for an uploaded picture: its type and its bytes without text and metadata (see the top of this
+ * file), or null when the bytes are not a whole, well formed PNG, JPEG or WebP, before or after stripping.
+ */
+export function storablePicture(bytes:Uint8Array):{type:PictureType;data:Uint8Array}|null{
+  const type=pictureType(bytes);
+  if(!type)return null;
+  const data=type==='image/png'?stripPng(bytes):type==='image/jpeg'?stripJpeg(bytes):stripWebp(bytes);
+  return pictureType(data)===type?{type,data}:null;
 }

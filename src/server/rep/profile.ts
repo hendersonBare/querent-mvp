@@ -1,7 +1,7 @@
 import 'server-only';
 import type {RepPicture,RepProfile} from '@/domain';
 import {initials} from '@/lib/initials';
-import {pictureType} from '@/server/picture-format';
+import {pictureType,storablePicture} from '@/server/picture-format';
 import {repPicture,repProfile,setRepPicture,setRepProfile} from '@/server/repository';
 
 // Settings > Profile (plan U9; C_RS2): the signed-in rep's picture, name, phone and email. Customers see them
@@ -10,7 +10,9 @@ import {repPicture,repProfile,setRepPicture,setRepProfile} from '@/server/reposi
 //
 // The picture is checked by its bytes, never by the type an upload claims: a whole, well formed PNG, JPEG or
 // WebP only (../picture-format walks its structure, so a polyglot or a truncated file is refused; no SVG,
-// which can carry script), 2 MB at most. It is served back with that type, sandboxed (./picture-response).
+// which can carry script), 2 MB at most. What is stored is the picture without its text and metadata (PNG text
+// and other ancillary chunks, JPEG comments and APPn metadata, WebP EXIF and XMP; ../picture-format lists what
+// is kept). It is served back with its type, sandboxed (../picture-response).
 // No frame draws a refused field or picture, so each refusal is one plain sentence (decision 52).
 
 /** The largest picture a rep may upload. */
@@ -65,13 +67,13 @@ export function updateProfile(repId:string,input:unknown):RepProfileView{
   return view(setRepProfile(repId,{name,initials:initials(name),phone,email})!);
 }
 
-/** PUT /api/rep/profile/picture (the image as the body): replaces the rep's picture. The old one stays on a refusal. */
+/** PUT /api/rep/profile/picture (the image as the body): replaces the rep's picture, stripped of text and metadata. The old one stays on a refusal. */
 export function savePicture(repId:string,bytes:Uint8Array,{now=new Date().toISOString()}:{now?:string}={}):RepProfileView{
   if(bytes.length>PICTURE_MAX_BYTES)throw new ProfileError(PICTURE_TOO_BIG,'picture',413);
-  const type=pictureType(bytes);
-  if(!type)throw new ProfileError(PICTURE_PROBLEM,'picture');
+  const picture=storablePicture(bytes);
+  if(!picture)throw new ProfileError(PICTURE_PROBLEM,'picture');
   stored(repId);
-  setRepPicture(repId,{type,data:bytes,at:now});
+  setRepPicture(repId,{...picture,at:now});
   return profileView(repId);
 }
 
