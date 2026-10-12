@@ -34,7 +34,33 @@ it("returns Dana's rep only: the departments stay with the chat's answers (Appen
   expect(response.status).toBe(200);
   const body=await response.json();
   expect(Object.keys(body)).toEqual(['rep']);
-  expect(body.rep).toEqual({id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'});
+  // Plan U9: what the rep set on Settings > Profile, and nothing else of the rep (no internal id).
+  expect(body.rep).toEqual({name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',picture_url:null});
+});
+
+it("follows the rep's Settings > Profile, and serves the rep's picture to their own customers only (plan U9)",async()=>{
+  const {updateProfile,savePicture,removePicture}=await import('@/server/rep/profile');
+  const PNG=Uint8Array.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13]);
+  const picture=(await import('./contacts/picture/route')).GET;
+  const get=(persona?:'customer'|'supplier')=>picture(request('contacts/picture?v=1',persona));
+  expect((await get()).status).toBe(401);
+  expect((await get('supplier')).status).toBe(403);
+  expect((await get('customer')).status).toBe(404);
+  updateProfile('brandi',{name:'Brandi Gallegos',phone:'(801) 555-0142',email:'brandi@example.com'});
+  savePicture('brandi',PNG,{now:'2026-10-12T10:00:00.000Z'});
+  const contacts=await routes.contacts();
+  const body=await (await contacts(request('contacts','customer'))).json();
+  expect(body.rep).toEqual({name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 555-0142',email:'brandi@example.com',
+    picture_url:`/api/query/customer/contacts/picture?v=${Date.parse('2026-10-12T10:00:00.000Z')}`});
+  const served=await get('customer');
+  expect(served.status).toBe(200);
+  expect(served.headers.get('content-type')).toBe('image/png');
+  expect(served.headers.get('x-content-type-options')).toBe('nosniff');
+  expect(served.headers.get('content-security-policy')).toMatch(/sandbox/);
+  expect(Buffer.from(await served.arrayBuffer()).equals(Buffer.from(PNG))).toBe(true);
+  removePicture('brandi');
+  updateProfile('brandi',{name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'});
+  expect((await get('customer')).status).toBe(404);
 });
 
 it("returns Wasatch's own orders, newest first, with no cost",async()=>{

@@ -3,7 +3,8 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {ALL_ON,FLAGS_OFF,FLAGS_ON,ORG_FLOORS,VIEW,rule,settingsFixture,table} from './test-fixtures';
 
 // Settings (task 6.1; plan U8; C_S1 to C_S4): what each manager tab shows and what it sends to
-// /api/rep/settings/*, the feature-flagged sections (decision 48), and a rep's own floors.
+// /api/rep/settings/*, and the feature-flagged sections (decision 48). A rep's own tabs (plan U9) are in
+// RepSettings.test.tsx.
 
 const nav=vi.hoisted(()=>({params:new URLSearchParams(),refresh:vi.fn()}));
 vi.mock('next/navigation',()=>({
@@ -12,7 +13,7 @@ vi.mock('next/navigation',()=>({
 }));
 
 const {CustomerAccess}=await import('./CustomerAccess');
-const {MarginFloors,MyFloors}=await import('./MarginFloors');
+const {MarginFloors}=await import('./MarginFloors');
 const {PricingDelivery}=await import('./PricingDelivery');
 const {SettingsSection}=await import('../SettingsSection');
 
@@ -207,21 +208,6 @@ describe('Margin floors (C_S2, C_S3)',()=>{
   });
 });
 
-describe("a rep's own margin floors (until plan U9's rep tabs)",()=>{
-  it('edits their own floors only, saved one by one through PUT /floors',async()=>{
-    const mine=settingsFixture({manager:false}).mine;
-    render(<MyFloors mine={mine} tabs={null}/>);
-    const card=screen.getByRole('region',{name:'My margin floors'});
-    expect(within(card).getAllByRole('textbox')).toHaveLength(6);
-    fireEvent.change(within(card).getByRole('textbox',{name:'Tools floor'}),{target:{value:'22'}});
-    replies=[{body:{...mine,floors:mine.floors.map(f=>f.category_id==='tools'?{...f,margin_floor:0.22,label:'22.0%'}:f)}}];
-    fireEvent.click(within(card).getByRole('button',{name:'Save floors'}));
-    await waitFor(()=>expect(within(card).getByRole('status')).toHaveTextContent('Saved'));
-    expect(sent()).toEqual([{url:'/api/rep/settings/floors',body:{category_id:'tools',floor_pct:22}}]);
-    expect(screen.queryByRole('region',{name:'Rep margins'})).not.toBeInTheDocument();
-  });
-});
-
 describe('Pricing and delivery (C_S4)',()=>{
   const {pricing,delivery}=settingsFixture().manager!;
   const renderIt=(flags=FLAGS_OFF)=>render(<PricingDelivery pricing={pricing} delivery={delivery} flags={flags} tabs={null}/>);
@@ -318,14 +304,10 @@ describe('the Settings page (plan U8)',()=>{
     }
   });
 
-  it("gives a rep one tab, their own margin floors, whatever ?tab= says",()=>{
-    for(const tab of ['access','floors','pricing','aging','sources']){
-      nav.params=new URLSearchParams({tab});
-      const {unmount}=render(<SettingsSection initial={settingsFixture({manager:false})}/>);
-      expect(within(tabs()).getAllByRole('link').map(l=>l.textContent)).toEqual(['Margin floors']);
-      expect(screen.getByRole('region',{name:'My margin floors'})).toBeInTheDocument();
-      for(const name of ['Customer access','Organization margin floors','Rep margins','Delivery rates','Aging thresholds'])expect(screen.queryByRole('heading',{name})).not.toBeInTheDocument();
-      unmount();
-    }
+  it("gives a rep their own three tabs, not the manager's (plan U9; RepSettings.test.tsx covers them)",()=>{
+    nav.params=new URLSearchParams({tab:'access'});
+    render(<SettingsSection initial={settingsFixture({manager:false})}/>);
+    expect(within(tabs()).getAllByRole('link').map(l=>l.textContent)).toEqual(['Margins','Profile','Notifications']);
+    for(const name of ['Customer access','Organization margin floors','Rep margins','Delivery rates','Aging thresholds'])expect(screen.queryByRole('heading',{name})).not.toBeInTheDocument();
   });
 });

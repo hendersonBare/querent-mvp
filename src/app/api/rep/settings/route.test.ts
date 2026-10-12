@@ -70,13 +70,17 @@ describe('GET /api/rep/settings',()=>{
     expect((await call('','GET',{query:'?customer=nobody'})).json.manager.accessTable).toBeNull();
   });
 
-  it("gives a rep their own floors only: no other rep's floors and no customer access (OA-69)",async()=>{
+  it("gives a rep their own tabs only: their margins against the organization floors, their profile and switches; no other rep's floors and no customer access (OA-69)",async()=>{
     const {status,json,text}=await call('','GET',{persona:'mara',query:'?customer=canyon-ridge'});
     expect(status).toBe(200);
-    expect(Object.keys(json).sort()).toEqual(['manager','mine','rep_id']);
+    expect(Object.keys(json).sort()).toEqual(['manager','mine','own','rep_id']);
     expect(json).toMatchObject({rep_id:'mara',manager:null,mine:{rep:{id:'mara',name:'Mara Jensen'}}});
     expect(json.mine.floors).toHaveLength(6);
+    expect(Object.keys(json.own).sort()).toEqual(['notifications','orgFloors','profile']);
+    expect(json.own.orgFloors.map((f:{category_id:string;floor:number})=>[f.category_id,f.floor])).toEqual(SEEDED_ORG);
+    expect(json.own.profile).toMatchObject({name:'Mara Jensen',phone:'(801) 555-0102'});
     for(const other of ['brandi','eli','nora','Brandi','Eli','Nora','Multiple reps','Canyon Ridge'])expect(text).not.toContain(other);
+    expect((await call('','GET')).json.own).toBeNull();
   });
 });
 
@@ -159,6 +163,24 @@ describe('PUT routes',()=>{
     expect(mara.status).toBe(200);
     expect(mara.json.rep.id).toBe('mara');
     expect((await call('floors','PUT',{persona:'mara',body:{category_id:'tools',floor_pct:20}})).status).toBe(200);
+  });
+
+  it('floors: a margin below the organization floor is refused with a field-level error naming the real floor (plan U9; C_RS3)',async()=>{
+    expect((await call('org-floors','PUT',{body:{floors:[{category_id:'safety',floor_pct:30}]}})).status).toBe(200);
+    const one=await call('floors','PUT',{persona:'mara',body:{category_id:'safety',floor_pct:28}});
+    expect(one).toMatchObject({status:400,json:{detail:'Below the 30.0% organization floor. Pick 30.0% or higher.',code:'below_org_floor',
+      fields:[{category_id:'safety',floor:0.3,detail:'Below the 30.0% organization floor. Pick 30.0% or higher.'}]}});
+    // Several at once ({floors}): all or none.
+    const many=await call('floors','PUT',{persona:'mara',body:{floors:[{category_id:'fasteners',floor_pct:24},{category_id:'safety',floor_pct:28}]}});
+    expect(many).toMatchObject({status:400,json:{code:'below_org_floor',fields:[{category_id:'safety',floor:0.3}]}});
+    const settings=(await call('','GET',{persona:'mara'})).json;
+    expect(settings.mine.floors.map((f:{margin_floor:number})=>f.margin_floor)).toEqual([0.2,0.2,0.2,0.2,0.2,0.2]);
+    const saved=await call('floors','PUT',{persona:'mara',body:{floors:[{category_id:'fasteners',floor_pct:24},{category_id:'safety',floor_pct:30}]}});
+    expect(saved.status).toBe(200);
+    expect(saved.json.floors.map((f:{label:string})=>f.label)).toEqual(['24.0%','20.0%','30.0%','20.0%','20.0%','20.0%']);
+    expect((await call('floors','PUT',{persona:'mara',body:{floors:[{category_id:'fasteners',floor_pct:20},{category_id:'safety',floor_pct:20}]}})).status).toBe(400);
+    expect((await call('org-floors','PUT',{body:{floors:[{category_id:'safety',floor_pct:20}]}})).status).toBe(200);
+    expect((await call('floors','PUT',{persona:'mara',body:{floors:[{category_id:'fasteners',floor_pct:20},{category_id:'safety',floor_pct:20}]}})).status).toBe(200);
   });
 
   it('pricing: the scarcity uplift on and off',async()=>{

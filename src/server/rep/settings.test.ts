@@ -63,10 +63,16 @@ describe('repSettings: the page snapshot (plan U8)',()=>{
     expect(repSettings('brandi',{manager:true,customerId:'nobody'}).manager!.accessTable).toBeNull();
   });
 
-  it("gives a rep only their own floors: nothing of the manager's tabs, no other rep's floors (OA-69)",()=>{
+  it("gives a rep only their own tabs' data: nothing of the manager's tabs, no other rep's floors (OA-69)",()=>{
     const settings=repSettings('mara',{customerId:'canyon-ridge'});
-    expect(settings).toEqual({rep_id:'mara',manager:null,mine:expect.objectContaining({rep:{id:'mara',name:'Mara Jensen',initials:'MJ',title:expect.any(String)}})});
+    expect(settings).toEqual({rep_id:'mara',manager:null,mine:expect.objectContaining({rep:{id:'mara',name:'Mara Jensen',initials:'MJ',title:expect.any(String)}}),own:expect.any(Object)});
     expect(settings.mine.floors.map(f=>f.label)).toEqual(['20.0%','20.0%','20.0%','20.0%','20.0%','20.0%']);
+    // Plan U9: Margins reads the organization floors (Appendix B "No (reads them)"), Profile and Notifications their own.
+    expect(settings.own!.orgFloors.map(f=>[f.category_id,f.label])).toEqual([['fasteners','20.0%'],['abrasives','20.0%'],['safety','20.0%'],['material-handling','20.0%'],['tools','18.0%'],['janitorial','20.0%']]);
+    expect(settings.own!.profile).toEqual({name:'Mara Jensen',initials:'MJ',title:'Inside Sales',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com',picture_url:null});
+    expect(Object.values(settings.own!.notifications)).toEqual(Array(8).fill(true));
+    // The manager keeps the U8 tabs: no rep tabs.
+    expect(repSettings('brandi',{manager:true}).own).toBeNull();
   });
 
   it('Data sources (manager route only now): the demo database and the last sync events',()=>{
@@ -227,8 +233,56 @@ describe('updateMyFloor: My margin floors',()=>{
   it('stores tenths of a point, as the portal shows and compares margins',()=>{
     expect(updateMyFloor('brandi',{category_id:'fasteners',floor_pct:22.45}).floors[0]).toMatchObject({margin_floor:0.225,label:'22.5%'});
     expect(updateMyFloor('brandi',{category_id:'fasteners',floor_pct:29.95}).floors[0]).toMatchObject({margin_floor:0.3,label:'30.0%'});
+    // 0% is a margin only where the organization floor is 0% too (plan U9).
+    updateOrgFloors({floors:[{category_id:'fasteners',floor_pct:0}]});
     expect(updateMyFloor('brandi',{category_id:'fasteners',floor_pct:0}).floors[0]).toMatchObject({margin_floor:0,label:'0.0%'});
+    updateOrgFloors({floors:[{category_id:'fasteners',floor_pct:20}]});
     expect(updateMyFloor('brandi',{category_id:'fasteners',floor_pct:99.9}).floors[0]).toMatchObject({margin_floor:0.999,label:'99.9%'});
+  });
+
+  // Plan U9 (C_RS3; Appendix C "must be at or above the organization floor (enforced on write)"; Appendix H).
+  it('refuses a margin below the organization floor, for that field, with the real floor in its words; at the floor is fine',()=>{
+    updateOrgFloors({floors:[{category_id:'safety',floor_pct:30}]});
+    try{
+      const error=(()=>{try{updateMyFloor('mara',{category_id:'safety',floor_pct:28});}catch(e){return e;}})() as SettingsError;
+      expect(error).toBeInstanceOf(SettingsError);
+      expect(error).toMatchObject({status:400,code:'below_org_floor',message:'Below the 30.0% organization floor. Pick 30.0% or higher.'});
+      expect(error.extra).toEqual({fields:[{category_id:'safety',floor:0.3,detail:'Below the 30.0% organization floor. Pick 30.0% or higher.'}]});
+      // Compared at tenths of a point: 29.96% rounds to 30.0%, 29.94% to 29.9%.
+      expect(updateMyFloor('mara',{category_id:'safety',floor_pct:29.96}).floors.find(f=>f.category_id==='safety')).toMatchObject({label:'30.0%'});
+      rejects(()=>updateMyFloor('mara',{category_id:'safety',floor_pct:29.94}),400,/^Below the 30\.0% organization floor\. Pick 30\.0% or higher\.$/);
+      expect(updateMyFloor('mara',{category_id:'tools',floor_pct:18}).floors.find(f=>f.category_id==='tools')).toMatchObject({label:'18.0%'});
+      rejects(()=>updateMyFloor('mara',{category_id:'tools',floor_pct:17.9}),400,/^Below the 18\.0% organization floor\. Pick 18\.0% or higher\.$/);
+      // The manager's own book (decision 20) is held to the organization floor too.
+      rejects(()=>updateMyFloor('brandi',{category_id:'safety',floor_pct:25}),400,/30\.0% organization floor/);
+    }finally{
+      updateOrgFloors({floors:[{category_id:'safety',floor_pct:20}]});
+      updateMyFloor('mara',{category_id:'safety',floor_pct:20});updateMyFloor('mara',{category_id:'tools',floor_pct:20});
+    }
+    expect(repFloors('mara').map(f=>f.margin_floor)).toEqual([0.2,0.2,0.2,0.2,0.2,0.2]);
+  });
+
+  it('saves several of the rep\'s own margins together ({floors}), or none when one is refused, naming every refused field',()=>{
+    updateOrgFloors({floors:[{category_id:'safety',floor_pct:30},{category_id:'abrasives',floor_pct:25}]});
+    try{
+      const saved=updateMyFloor('mara',{floors:[{category_id:'fasteners',floor_pct:24},{category_id:'safety',floor_pct:30}]});
+      expect(saved.rep.id).toBe('mara');
+      expect(saved.floors.map(f=>[f.category_id,f.label])).toEqual([['fasteners','24.0%'],['abrasives','20.0%'],['safety','30.0%'],['material-handling','20.0%'],['tools','20.0%'],['janitorial','20.0%']]);
+      const error=(()=>{try{updateMyFloor('mara',{floors:[{category_id:'fasteners',floor_pct:22},{category_id:'safety',floor_pct:28},{category_id:'abrasives',floor_pct:24}]});}catch(e){return e;}})() as SettingsError;
+      expect(error).toMatchObject({status:400,code:'below_org_floor'});
+      expect(error.extra).toEqual({fields:[
+        {category_id:'safety',floor:0.3,detail:'Below the 30.0% organization floor. Pick 30.0% or higher.'},
+        {category_id:'abrasives',floor:0.25,detail:'Below the 25.0% organization floor. Pick 25.0% or higher.'},
+      ]});
+      expect(repFloors('mara')[0].margin_floor).toBe(0.24);
+      for(const bad of [{floors:[]},{floors:'x'},{floors:[{category_id:'fasteners',floor_pct:22},{category_id:'fasteners',floor_pct:23}]},{floors:[{category_id:'fasteners',floor_pct:120}]}])rejects(()=>updateMyFloor('mara',bad),400);
+      rejects(()=>updateMyFloor('mara',{floors:[{category_id:'nothing',floor_pct:30}]}),404);
+      rejects(()=>updateMyFloor('mara',{rep_id:'eli',floors:[{category_id:'fasteners',floor_pct:30}]}),403);
+      expect(repFloors('eli')[0].margin_floor).toBe(0.2);
+    }finally{
+      updateOrgFloors({floors:[{category_id:'safety',floor_pct:20},{category_id:'abrasives',floor_pct:20}]});
+      updateMyFloor('mara',{floors:[{category_id:'fasteners',floor_pct:20},{category_id:'safety',floor_pct:20}]});
+    }
   });
 
   it('rejects a floor outside 0% to 99.9%, or not a number, changing nothing',()=>{

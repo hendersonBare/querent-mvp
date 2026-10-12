@@ -30,9 +30,15 @@ export const CUSTOMERS=[
 ];
 export const table=(q:string,ids:string[]):AccessTable=>({q,total:6,customers:CUSTOMERS.filter(c=>ids.includes(c.id))});
 
-/** Brandi's Settings (manager:false gives Mara's: her own floors only). */
-export function settingsFixture({manager=true,flags=FLAGS_OFF,accessTable=null}:{manager?:boolean;flags?:FeatureFlags;accessTable?:AccessTable|null}={}):RepSettings{
-  if(!manager)return {rep_id:'mara',manager:null,mine:{rep:REPS[2],floors:floors([0.2,0.2,0.2,0.2,0.2,0.2])}};
+/** Mara's Settings > Profile on the seed (plan U9). */
+export const REP_PROFILE={name:'Mara Jensen',initials:'MJ',title:'Inside Sales',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com',picture_url:null as string|null};
+/** Every notification switch on, as a rep starts (plan U9). */
+export const ALL_PREFS={quote_overdue:true,quote_aging:true,below_margin_floor:true,change_requested:true,quote_accepted:true,quote_declined:true,quote_expired:true,customer_chat_needs_rep:true};
+
+/** Brandi's Settings (manager:false gives Mara's: her own margins against the organization floors, her profile and switches). */
+export function settingsFixture({manager=true,flags=FLAGS_OFF,accessTable=null,picture=null}:{manager?:boolean;flags?:FeatureFlags;accessTable?:AccessTable|null;picture?:string|null}={}):RepSettings{
+  if(!manager)return {rep_id:'mara',manager:null,mine:{rep:REPS[2],floors:floors([0.2,0.2,0.2,0.2,0.2,0.2])},
+    own:{orgFloors:ORG_FLOORS,profile:{...REP_PROFILE,picture_url:picture},notifications:ALL_PREFS}};
   return {
     rep_id:'brandi',
     manager:{
@@ -43,6 +49,7 @@ export function settingsFixture({manager=true,flags=FLAGS_OFF,accessTable=null}:
       aging:AGING,flags,
     },
     mine:{rep:REPS[0],floors:floors([0.2,0.25,0.3,0.2,0.18,0.2])},
+    own:null,
   };
 }
 
