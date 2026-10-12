@@ -6,6 +6,6 @@ export const dynamic='force-dynamic';
 
 const REPLY='Sign in to continue.';
 
-export async function POST(){
+export async function POST(_request?:unknown){
   return Response.json({answer:REPLY});
 }

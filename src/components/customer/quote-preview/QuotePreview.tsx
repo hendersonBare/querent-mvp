@@ -1,22 +1,23 @@
 'use client';
 import {useEffect,useId,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Download,FileClock,Mail,Phone,X} from 'lucide-react';
+import {FileClock,Mail,Phone} from 'lucide-react';
 import type {CustomerQuotePreview} from '@/domain';
 import type {API} from '@/lib/contracts';
 import {useModal} from '@/components/rep/quote-detail/send/use-modal';
 import {onOpenQuote,type OpenQuoteDetail} from '../open-quote';
+import {SiteIcon} from '../site/icons';
 import {STATUS_CHIPS} from '../quote-label';
 import {awaitingCopy,isOlderRevision,previewFacts} from './copy';
 import {PdfPages} from './PdfPages';
 import {ResponseBar,type ResponseStep} from './ResponseBar';
 
-// The PDF preview modal (spec §3, task 5.1). The right sidebar's quote buttons and the chat's View
-// quote open it (the open-quote event). It shows the customer PDF of the revision the rep sent,
-// inline; Download sits at the top right when the rep left Attach PDF on; the action bar at the
-// bottom holds Accept and Request changes (task 5.2, ./ResponseBar), each with its form and its
-// centered Confirm dialog. Before the first send there is no PDF: the modal says the rep is pricing
-// it. Below 600px it fills the screen.
+// The PDF preview modal (spec §3, task 5.1; plan U10, C_CVL5). The bell's quote notifications
+// (decision 41) and the chat's View quote open it (the open-quote event). It shows the customer PDF of
+// the revision the rep sent, inline; Download sits at the top right when the rep left Attach PDF on;
+// the action bar at the bottom holds Decline, Request changes and Accept (task 5.2, ./ResponseBar),
+// each with its form or dialog and its centered Confirm dialog. Before the first send there is no
+// PDF: the modal says the rep is pricing it.
 
 const tel=(phone:string)=>`tel:${phone.replace(/\D/g,'')}`;
 const previewPath=({id,revision}:OpenQuoteDetail)=>`customer/quotes/${encodeURIComponent(id)}${revision?`?rev=${revision}`:''}`;
@@ -55,29 +56,29 @@ function QuotePreviewDialog({api,request,now,onClose,onOpen}:DialogProps){
       <header className="qp-head">
         <div className="qp-title">
           <div className="qp-title-row">
-            <h2 id={title}>Quote {preview?.quote_number??request.quote_number}</h2>
-            {chip&&<span className={`cx-chip cx-chip-${chip.tone}`}>{chip.label}</span>}
+            <span className="qp-quote" id={title}>Quote {preview?.quote_number??request.quote_number}</span>
+            {chip&&<span className="qp-state" data-tone={chip.tone}>{chip.label}</span>}
           </div>
-          {preview&&<dl className="qp-facts">
-            {previewFacts(preview,at).map(f=><div key={f.label}><dt>{f.label}</dt><dd>{f.value}</dd></div>)}
-          </dl>}
+          {preview&&<div className="qp-facts">
+            {previewFacts(preview,at).map(f=><div key={f.label}><div className="qp-fact-label">{f.label}</div><div className="qp-fact-value">{f.value}</div></div>)}
+          </div>}
         </div>
         <div className="qp-tools">
           {shown?.attach_pdf&&<a className="qp-download" href={shown.pdf_url} download>
-            <Download size={16} aria-hidden="true"/>Download
+            <SiteIcon name="download" size={17}/>Download
           </a>}
-          <button type="button" className="icon-button qp-close" aria-label="Close" onClick={onClose} ref={close}><X size={20}/></button>
+          <button type="button" className="qp-close" aria-label="Close" onClick={onClose} ref={close}><SiteIcon name="close" size={20}/></button>
         </div>
       </header>
 
       <div className="qp-desk">
-        {error?<div className="qp-empty" role="alert"><p className="qp-empty-title">{error}</p><p>Open it again from Your quotes, or ask your rep.</p></div>
+        {error?<div className="qp-empty" role="alert"><p className="qp-empty-title">{error}</p><p>Open it again from the bell, or ask your rep.</p></div>
           :!preview?<p className="qp-pdf-note" role="status">Loading the quote…</p>
           :!shown?<Awaiting preview={preview}/>
           :<>
             {older&&<div className="qp-older">
               <p>You’re looking at revision {shown.revision}. Revision {preview.latest_revision} is the latest.</p>
-              <button type="button" className="ip-secondary" onClick={()=>onOpen({id:preview.id,quote_number:preview.quote_number,revision:preview.latest_revision})}>
+              <button type="button" className="qp-zoom" onClick={()=>onOpen({id:preview.id,quote_number:preview.quote_number,revision:preview.latest_revision})}>
                 View revision {preview.latest_revision}
               </button>
             </div>}

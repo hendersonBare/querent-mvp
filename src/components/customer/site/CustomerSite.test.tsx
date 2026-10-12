@@ -85,9 +85,10 @@ describe('the bell',()=>{
     }finally{stop();}
   });
 
-  it('an order notification marks itself read and opens nothing',async()=>{
+  it('an order notification marks itself read and opens nothing; a read one sends nothing',async()=>{
     const send=vi.fn().mockResolvedValue(notifications);
-    renderSite({routes:{'customer/notifications':notifications},send});
+    const unreadOrder={...notifications,unread:3,items:notifications.items.map(n=>n.quote?n:{...n,read:false})};
+    renderSite({routes:{'customer/notifications':unreadOrder},send});
     const opened=vi.fn();
     const stop=onOpenQuote(opened);
     try{
@@ -95,6 +96,10 @@ describe('the bell',()=>{
       fireEvent.click(await screen.findByRole('button',{name:/Order SO-51223 has shipped/}));
       expect(send).toHaveBeenCalledWith('customer/notifications/read','POST',{ids:['order:so-51223:shipped']});
       expect(opened).not.toHaveBeenCalled();
+      // The answer has it read: pressing it again sends nothing.
+      await waitFor(()=>expect(screen.getByRole('button',{name:/Order SO-51223 has shipped/})).toHaveAttribute('data-read','true'));
+      fireEvent.click(screen.getByRole('button',{name:/Order SO-51223 has shipped/}));
+      expect(send).toHaveBeenCalledTimes(1);
     }finally{stop();}
   });
 
