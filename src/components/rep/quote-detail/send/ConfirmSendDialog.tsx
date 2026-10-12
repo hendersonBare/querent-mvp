@@ -4,7 +4,7 @@ import {money} from '../format';
 import {useModal} from './use-modal';
 import s from './Send.module.css';
 
-// Approve & send, step 2 (spec §4; task 3.7): Confirm send, a separate dialog centered on screen
+// Approve and send, step 2 (spec §4; task 3.7; no frame: the C_QE1 dialog in the same tokens): Confirm send, a separate dialog centered on screen
 // that repeats what will go out (the quote number and revision, who gets it, the total and how many
 // lines are below floor) with a red Cancel and a Querent-green Send. It is narrower than the send
 // dialog and its buttons sit in the middle, so the second click of a double click on Send quote
@@ -35,7 +35,7 @@ export function ConfirmSendDialog({quoteNumber,revision,recipient,company,total,
   const titleId=useId(),summaryId=useId();
   const dialog=useRef<HTMLDivElement>(null);
   useModal(dialog,{onEscape:()=>{if(!busy)onCancel();}});
-  return <div className={`${s.backdrop} ${s.confirmBackdrop}`}>
+  return <div className={s.backdrop}>
     <div ref={dialog} className={`${s.dialog} ${s.confirm}`} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={summaryId} tabIndex={-1}>
       <header className={s.head}>
         <h2 id={titleId}>Confirm send</h2>

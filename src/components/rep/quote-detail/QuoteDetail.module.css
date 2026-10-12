@@ -1,7 +1,971 @@
-/* The rep's quote detail: docs/design/querent-quote-flow.html (.qtop, .qgrid, .req, .checks,
-   .itoolbar, table.lines, .totals, .summary, .fbar, .menu) and screens 03, 04 and 08. The send
-   dialogs (.modal, screen 07) live in ./send/Send.module.css. Colours are the portal tokens from
-   RepShell.module.css. */
+/* The quote editor (plan U4). Every value is read from the canvas frames C_QEBase and C_QE1 to C_QE11
+   (docs/design/canvas-frames/), through src/app/tokens.css where the token sheet has the value. No
+   breakpoints (decision 43): fixed widths stay fixed, the Items column takes the rest (decision 51).
+   States the frames don't draw follow "States not drawn" in docs/design/new-ui-style-guide.md. */
+
+.editor {
+  /* Values the token sheet doesn't carry, from the frames. */
+  --qe-note-tint: #FDE7E4; /* the below-floor note (C_QEBase) */
+  --qe-status: #1F2422; /* the status pill (C_QEBase) */
+  --qe-count: rgba(255, 255, 255, 0.16); /* the item count on the title bar */
+  --qe-current-border: #E3E5E4; /* "Current" in Price options (C_QE9) */
+  --qe-dashed: #9DA29F; /* + Add item's dashed border */
+  display: block;
+}
+
+/* ---- Header (C_QEBase) ---- */
+.head h1 {
+  font-size: 30px;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 40px;
+  margin-top: 14px;
+}
+.factLabel {
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  color: var(--q-text-2);
+  margin-bottom: 3px;
+}
+.factValue {
+  font-weight: 600;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+.quoteNo {
+  font-family: var(--q-font-mono);
+  font-weight: 700;
+}
+.status {
+  background: var(--qe-status);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--q-radius-pill);
+}
+.aging {
+  color: var(--q-red);
+  font-weight: 700;
+  font-size: var(--q-text-secondary);
+  margin-left: 6px;
+}
+
+/* ---- Body: the Items column (fluid) and the total column (340) ---- */
+.body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+.main {
+  flex: 1 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.side {
+  flex: 0 0 340px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.card {
+  background: var(--q-card);
+  border-radius: var(--q-radius-card);
+  overflow: hidden;
+}
+/* C_QE8: the results drop down over the page, so the card stops clipping and its title bar keeps the corners. */
+.card[data-open="true"] {
+  overflow: visible;
+}
+.card[data-open="true"] > .titlebar {
+  border-radius: var(--q-radius-card) var(--q-radius-card) 0 0;
+}
+.titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--q-titlebar);
+  color: #fff;
+}
+.cardTitle {
+  font-weight: 800;
+  font-size: var(--q-text-card-title);
+}
+.count {
+  font-family: var(--q-font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  background: var(--qe-count);
+  padding: 1px 8px;
+  border-radius: var(--q-radius-pill);
+  margin-left: 6px;
+}
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.switchLabel {
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ---- The line grid: fixed columns Qty 60, Unit price 118, Margin 78, Total 82 (Available 92, Cost 66 with Show cost and stock) ---- */
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 60px 118px 78px 82px 16px;
+  gap: 8px;
+}
+.cols[data-cost="true"] {
+  grid-template-columns: 1fr 60px 92px 66px 118px 78px 82px 16px;
+}
+.thead {
+  padding: 10px 20px;
+  font-size: var(--q-text-table-head);
+  font-weight: 800;
+  color: var(--q-table-header-text);
+  background: var(--q-table-header);
+}
+.thead > div {
+  text-align: right;
+}
+.thead > .left {
+  text-align: left;
+}
+.line {
+  padding: 14px 20px;
+  border-top: 1px solid var(--q-row-divider);
+}
+.line[data-flash="true"] {
+  box-shadow: inset 0 0 0 2px var(--q-red);
+}
+.lineRow {
+  align-items: start;
+}
+.itemName {
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 7px;
+}
+.itemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 3px;
+}
+.sku {
+  font-family: var(--q-font-mono);
+  font-size: 11.5px;
+  color: var(--q-text-code);
+}
+.pack {
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-code);
+}
+.tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--q-accent);
+  background: var(--q-table-header);
+  padding: 1px 7px;
+  border-radius: 5px;
+}
+.detailsLink {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--q-accent);
+  font-weight: 700;
+  font-size: var(--q-text-table-head);
+  cursor: pointer;
+}
+/* The below-floor note, and the stock and match notes styled like it (decision 44). */
+.note {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--q-red);
+  background: var(--qe-note-tint);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.floorNote {
+  margin-bottom: 4px;
+  text-align: right;
+}
+.lineNote {
+  width: fit-content;
+  margin-top: 6px;
+}
+.qtyCell {
+  display: flex;
+  justify-content: flex-end;
+}
+.input {
+  box-sizing: border-box;
+  width: 56px;
+  height: 34px;
+  margin: 0;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  background: #fff;
+  display: flex;
+  padding: 0 10px;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--q-text);
+}
+.input[data-low="true"] {
+  border-color: var(--q-red);
+  color: var(--q-red);
+}
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.price {
+  width: 84px;
+}
+.margin {
+  width: 52px;
+}
+.priceCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.basisRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.marginCell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.total {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.remove {
+  border: 0;
+  background: transparent;
+  color: var(--q-text-muted);
+  font-size: 16px;
+  padding: 0;
+  height: 34px;
+  cursor: pointer;
+}
+.avail {
+  font-size: 13.5px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+}
+.short {
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  color: var(--q-red);
+}
+.cost {
+  font-variant-numeric: tabular-nums;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+}
+.noLines {
+  padding: 14px 20px;
+  border-top: 1px solid var(--q-row-divider);
+  color: var(--q-text-2);
+}
+
+/* ---- Price source (C_QE10): the basis under the price, and its list ---- */
+.basis {
+  display: contents;
+}
+.basisButton {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--q-text-2);
+  font-weight: 700;
+  font-size: var(--q-text-table-head);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.basisButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Under the price cell, its top 76px below the price field's (C_QE10). */
+.basisList {
+  position: absolute;
+  top: 76px;
+  right: 0;
+  width: 290px;
+  background: #fff;
+  border: 1px solid var(--q-rule);
+  border-radius: 12px;
+  box-shadow: var(--q-shadow-picker);
+  padding: 8px;
+  z-index: 12;
+  text-align: left;
+  font-size: var(--q-text-control);
+  outline: none;
+}
+.basisHead {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px 8px;
+  color: var(--q-text-2);
+  font-weight: 600;
+}
+.basisHead > span:last-child {
+  font-weight: 800;
+}
+.basisGap {
+  height: 4px;
+}
+.basisOption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border-left: 4px solid transparent;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.basisOption[data-active="true"] {
+  background: var(--q-lane);
+}
+.basisOption[aria-selected="true"] {
+  background: #fff;
+  border-left-color: var(--q-accent);
+}
+.basisOption[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.contents {
+  display: contents;
+}
+.basisName {
+  font-weight: 500;
+}
+.basisPicked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.basisPicked > span:first-child {
+  font-weight: 800;
+}
+.pick {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--q-accent);
+  background: var(--q-table-header);
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+.basisNote {
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+  margin-top: 2px;
+}
+.basisPrice {
+  font-weight: 500;
+  color: var(--q-text-2);
+}
+.basisOption[aria-selected="true"] .basisPrice {
+  font-weight: 800;
+  color: var(--q-text);
+}
+
+/* The "?" beside the basis: a circle with a question mark (C_QEBase); its tip is ../InfoTip's. */
+.help {
+  box-sizing: content-box;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--q-text-muted);
+  color: var(--q-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Line details (C_QE9) ---- */
+.lineDetails {
+  margin-top: 12px;
+  background: var(--q-lane);
+  border-radius: var(--q-radius-control);
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: 1.2fr 1.5fr 1.2fr;
+  gap: 24px;
+  font-size: 13.5px;
+}
+.dHead {
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.dText {
+  line-height: 1.45;
+}
+.dNote {
+  margin-top: 8px;
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+  line-height: 1.4;
+}
+.dAsked {
+  margin-top: 14px;
+}
+.optGrid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 0.9fr 0.9fr;
+  gap: 8px;
+}
+.stockGrid {
+  display: grid;
+  grid-template-columns: 0.9fr 1fr 1fr;
+  gap: 8px;
+}
+.dTh {
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  color: var(--q-text-2);
+  padding-bottom: 3px;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.dRow {
+  padding: 5px 0;
+  font-weight: 500;
+}
+.optGrid.dRow {
+  align-items: center;
+}
+.dRow[data-strong="true"] {
+  font-weight: 800;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.muted {
+  color: var(--q-text-2);
+}
+.use {
+  justify-self: end;
+  margin: 0;
+  padding: 3px 12px;
+  border: 1px solid var(--q-border);
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
+  color: var(--q-accent);
+  font-size: var(--q-text-table-head);
+  cursor: pointer;
+}
+.use:disabled {
+  padding: 3px 10px;
+  border-color: var(--qe-current-border);
+  background: transparent;
+  font-weight: 600;
+  color: var(--q-icon-muted);
+  cursor: default;
+}
+
+/* ---- + Add item (C_QEBase) and its search (C_QE8) ---- */
+.addRow {
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--q-row-divider);
+}
+.addRow[data-flash="true"] {
+  box-shadow: inset 0 0 0 2px var(--q-red);
+}
+.addButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 46px;
+  border: 1px dashed var(--qe-dashed);
+  background: transparent;
+  border-radius: var(--q-radius-control);
+  color: var(--q-more-text);
+  font-weight: 700;
+  cursor: pointer;
+}
+.plus {
+  font-size: 20px;
+  line-height: 1;
+}
+.addWrap {
+  position: relative;
+}
+.search {
+  height: 46px;
+  box-sizing: border-box;
+  border: 2px solid var(--q-accent);
+  border-radius: var(--q-radius-control);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: #fff;
+}
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--q-text-body);
+  font-weight: 600;
+  color: inherit;
+}
+.searchInput:focus-visible {
+  outline: none;
+}
+.results {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--q-rule);
+  border-radius: 12px;
+  box-shadow: var(--q-shadow-picker);
+  padding: 6px;
+  z-index: 12;
+}
+.result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.result[data-active="true"] {
+  background: var(--q-table-header);
+}
+.result[aria-disabled="true"] {
+  cursor: default;
+}
+.resultName {
+  font-weight: 700;
+}
+.resultMeta {
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+}
+.resultAction {
+  font-weight: 800;
+  color: var(--q-accent);
+}
+.resultsFoot {
+  padding: 6px 12px 2px;
+  font-size: 11.5px;
+  color: var(--q-text-2);
+}
+
+/* ---- The total box (C_QEBase) ---- */
+.totalBox {
+  background: var(--q-card);
+  border-radius: var(--q-radius-card);
+  padding: 20px;
+}
+.big {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.cap {
+  color: var(--q-text-2);
+  margin-top: 6px;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+.stat {
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-control);
+  padding: 10px 12px;
+}
+.statValue {
+  font-size: 18px;
+  font-weight: 800;
+}
+.statValue[data-low="true"] {
+  color: var(--q-red);
+}
+.statLabel {
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+}
+.approveWrap {
+  position: relative;
+  margin-top: 16px;
+}
+.approve {
+  width: 100%;
+  height: 48px;
+  border: 0;
+  border-radius: var(--q-radius-control);
+  background: var(--q-accent);
+  color: #fff;
+  font-weight: 800;
+  font-size: var(--q-text-card-title);
+  cursor: pointer;
+}
+.approve:hover:not(:disabled) {
+  background: var(--q-accent-hover);
+}
+.approve:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* No frame (decision 44): the first send blocker, in red, under the disabled button. */
+.blocker {
+  display: block;
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: var(--q-text-table-head);
+  font-weight: 700;
+  color: var(--q-red);
+  cursor: pointer;
+}
+/* No frame: why another rep's quote is read-only (decision 22), one plain line. */
+.readOnly {
+  margin-top: 8px;
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+}
+
+/* ---- Save draft, Export, Chat, More (C_QEBase) ---- */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.actionWrap {
+  position: relative;
+}
+.iconButton {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--q-radius-control);
+  border: 1px solid var(--q-border);
+  background: #fff;
+  color: var(--q-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.iconButton:hover:not(:disabled) {
+  background: var(--q-lane);
+}
+.iconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.spacer {
+  height: 14px;
+}
+
+/* ---- Menus (C_QE2 Export, C_QE3 More actions) ---- */
+.menu {
+  position: absolute;
+  top: 54px;
+  left: 0;
+  width: 300px;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid var(--q-rule);
+  border-radius: 12px;
+  box-shadow: var(--q-shadow-picker);
+  padding: 6px;
+  z-index: 12;
+  font-size: var(--q-text-control);
+  color: var(--q-text);
+  outline: none;
+}
+.menu[data-align="right"] {
+  left: auto;
+  right: 0;
+  width: 250px;
+}
+.menuItem {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover:not([aria-disabled="true"]),
+.menuItem:focus-visible {
+  background: var(--q-lane);
+}
+.menuItem[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.menuLabel {
+  font-weight: 700;
+  color: var(--q-text);
+}
+.menuItem[aria-disabled="true"] .menuLabel {
+  color: var(--q-icon-muted);
+}
+.menuHint {
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+  margin-top: 1px;
+}
+.menuRule {
+  height: 1px;
+  background: var(--q-row-divider);
+  margin: 6px 4px;
+}
+.menuTipWrap {
+  position: relative;
+}
+/* No frame: a disabled item's reason ("Available after ERP integration"), shown on hover, focus or tap. */
+.menuTip {
+  display: none;
+  position: absolute;
+  right: 8px;
+  top: calc(100% - 2px);
+  z-index: 13;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--q-rail);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.menuTipWrap:hover .menuTip,
+.menuTipWrap:focus-within .menuTip,
+.menuTipWrap[data-open="true"] .menuTip {
+  display: block;
+}
+
+/* ---- Toasts (C_QE11 Draft saved): one stack at the bottom centre ---- */
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 36px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.toast {
+  width: 300px;
+  background: var(--q-rail);
+  color: #fff;
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 16px 36px rgba(15, 35, 25, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+.toastIcon {
+  color: var(--q-rail-name);
+}
+.toastIcon svg {
+  display: block;
+}
+.toastText {
+  font-weight: 700;
+}
+.toastAction {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: #fff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---- Quote details (C_QE4) ---- */
+.detailsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--q-titlebar);
+  color: #fff;
+  cursor: pointer;
+}
+.detailsSummary {
+  font-size: var(--q-text-table-head);
+  color: var(--q-titlebar-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chev {
+  width: 14px;
+  display: flex;
+}
+
+/* ---- Suggested by Querent (C_QEBase closed, C_QE5 open) ---- */
+.suggestHead {
+  gap: 12px;
+  cursor: pointer;
+}
+.suggestHead[aria-disabled="true"] {
+  cursor: default;
+}
+.suggestTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: var(--q-text-card-title);
+}
+.found {
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  background: var(--q-accent);
+  color: #fff;
+  padding: 2px 9px;
+  border-radius: var(--q-radius-pill);
+}
+.suggestMeta {
+  font-size: var(--q-text-table-head);
+}
+.idea {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid var(--q-row-divider);
+}
+.ideaTitle {
+  font-weight: 700;
+}
+.ideaReason {
+  font-size: var(--q-text-table-head);
+  color: var(--q-text-2);
+  margin-top: 2px;
+  line-height: 1.35;
+}
+.ideaFigures {
+  font-size: var(--q-text-label);
+  color: var(--q-text-2);
+  margin-top: 3px;
+}
+.ideaFigures b {
+  color: var(--q-accent);
+}
+.ideaButton {
+  height: 34px;
+  padding: 0 18px;
+  border: 1px solid var(--q-border);
+  background: #fff;
+  border-radius: var(--q-radius-field);
+  font-weight: 700;
+  cursor: pointer;
+  flex: none;
+}
+.ideaButton:hover:not(:disabled) {
+  background: var(--q-lane);
+}
+.ideaButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Empty and error lines (decision 52): one plain line in the card. */
+.plain {
+  padding: 12px 18px;
+  border-top: 1px solid var(--q-row-divider);
+  color: var(--q-text-2);
+}
+.plain[data-tone="error"] {
+  color: var(--q-red);
+}
+.plainButton {
+  margin-left: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 .srOnly {
   position: absolute;
@@ -14,1276 +978,26 @@
   white-space: nowrap;
   border: 0;
 }
-.muted {
-  color: var(--rep-muted);
-}
 
-/* ---- Header ---- */
-.qtop {
+/* The "?" button around the circle: no look of its own. */
+.helpButton {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px 20px;
-  margin-bottom: 14px;
-}
-.qtitle {
-  min-width: 0;
-}
-.title {
   margin: 0;
-  font: 700 22px/1.15 var(--rep-display);
-  font-stretch: 112%;
-  letter-spacing: normal;
-  text-wrap: balance;
-}
-.qmeta {
-  margin-top: 5px;
-  font-size: 13px;
-  color: var(--rep-muted);
-}
-.qactions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.saveState {
-  font-size: 12px;
-  color: var(--rep-muted);
-  white-space: nowrap;
-}
-.saveState:empty {
-  display: none;
-}
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid var(--rep-line);
-  background: var(--rep-surface);
-  border-radius: 6px;
-  padding: 6px 11px;
-  font: 500 13px/1.45 var(--rep-body);
-  color: var(--rep-ink);
-  cursor: pointer;
-}
-.btn:hover:not(:disabled) {
-  border-color: var(--rep-ink-2);
-}
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.btn.primary {
-  background: var(--rep-accent);
-  border-color: var(--rep-accent);
-  color: var(--rep-accent-ink);
-  font-weight: 600;
-}
-.btn.sq {
-  width: 32px;
-  padding-inline: 0;
-}
-.caret {
-  color: var(--rep-muted);
-}
-.link {
   border: 0;
-  background: none;
-  padding: 2px 0;
-  color: var(--rep-accent);
-  font: 600 12.5px/1.3 var(--rep-body);
-  cursor: pointer;
-}
-.link:hover {
-  text-decoration: underline;
-}
-
-/* Header menus (Export, ⋯) */
-.menuWrap {
-  position: relative;
-}
-.menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
-  min-width: 250px;
-  background: var(--rep-surface);
-  border: 1px solid var(--rep-line);
-  border-radius: 9px;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
-  padding: 5px;
-  display: flex;
-  flex-direction: column;
-}
-.menu button {
-  display: grid;
-  text-align: left;
-  border: 0;
-  background: none;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 13.5px;
-  color: var(--rep-ink);
-  cursor: pointer;
-}
-.menu button small {
-  color: var(--rep-muted);
-  font-size: 12px;
-}
-.menu button:hover:not([aria-disabled="true"]),
-.menu button:focus-visible {
-  background: var(--rep-surface-2);
-}
-.menu button[aria-disabled="true"] {
-  color: var(--rep-muted);
-  cursor: not-allowed;
-}
-.menuNote {
-  max-width: 260px;
-  padding: 8px 10px;
-  font-size: 12.5px;
-  color: var(--rep-muted);
-}
-.menu hr {
-  border: 0;
-  border-top: 1px solid var(--rep-line-2);
-  margin: 4px 2px;
-}
-/* A menu item's tooltip (why it is disabled): on hover, keyboard focus or a tap (task 3.5).
-   Beside the menu, pointing at its item, so it covers none of the other items. */
-.menuTipWrap {
-  position: relative;
-  display: grid;
-}
-.menuTip {
-  position: absolute;
-  right: calc(100% + 12px);
-  top: 50%;
-  z-index: 1;
-  width: max-content;
-  max-width: 240px;
-  padding: 6px 9px;
-  border-radius: 6px;
-  background: var(--rep-ink);
-  color: var(--rep-surface);
-  font-size: 12px;
-  line-height: 1.35;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
-  pointer-events: none;
-  visibility: hidden;
-  opacity: 0;
-  transform: translate(4px, -50%);
-  transition: opacity 0.12s, transform 0.12s, visibility 0.12s;
-}
-.menuTip::after {
-  content: "";
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  margin-top: -5px;
-  border: 5px solid transparent;
-  border-left-color: var(--rep-ink);
-}
-.menuTipWrap:hover .menuTip,
-.menuTipWrap:focus-within .menuTip,
-.menuTipWrap[data-open] .menuTip {
-  visibility: visible;
-  opacity: 1;
-  transform: translate(0, -50%);
-}
-@media (prefers-reduced-motion: reduce) {
-  .menuTip {
-    transition: none;
-  }
-}
-/* Phones: the header wraps and its buttons sit on the left, so a menu opens under the actions
-   row from its left edge (it would run off the screen from its button), and a tooltip opens
-   in the menu, under its item. */
-@media (max-width: 640px) {
-  .qactions {
-    position: relative;
-  }
-  .menuWrap {
-    position: static;
-  }
-  .menu {
-    left: 0;
-    right: auto;
-    max-width: 100%;
-  }
-  .menuTip {
-    position: static;
-    display: none;
-    justify-self: start;
-    max-width: none;
-    margin: 0 10px 6px;
-    transform: none;
-    transition: none;
-  }
-  .menuTip::after {
-    display: none;
-  }
-  .menuTipWrap:hover .menuTip,
-  .menuTipWrap:focus-within .menuTip,
-  .menuTipWrap[data-open] .menuTip {
-    display: block;
-    transform: none;
-  }
-}
-
-/* Read-only reason, or the customer's change request */
-.banner {
-  margin: -4px 0 14px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: var(--rep-surface);
-  border: 1px solid var(--rep-line);
-  font-size: 13px;
-  color: var(--rep-ink-2);
-}
-.banner strong {
-  color: var(--rep-ink);
-  font-weight: 600;
-}
-.banner[data-tone="changes"] {
-  background: var(--rep-warn-soft);
-  border-color: color-mix(in srgb, var(--rep-warn) 35%, transparent);
-}
-.banner[data-tone="accepted"] {
-  background: var(--rep-ok-soft);
-  border-color: color-mix(in srgb, var(--rep-ok) 30%, transparent);
-}
-.banner[data-tone="declined"] {
-  background: var(--rep-bad-soft);
-  border-color: color-mix(in srgb, var(--rep-bad) 30%, transparent);
-}
-
-/* ---- Layout: the main column and the rail ---- */
-.qgrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 16px;
-  align-items: start;
-}
-.qmain,
-.rail {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-.card {
-  background: var(--rep-surface);
-  border: 1px solid var(--rep-line);
-  border-radius: 10px;
-}
-.lbl {
-  font: 600 10.5px/1 var(--rep-body);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--rep-muted);
-  white-space: nowrap;
-}
-.chev {
-  flex: none;
-  color: var(--rep-muted);
-  transition: transform 0.15s;
-}
-
-/* Customer request */
-.reqCard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-}
-.reqChat {
-  display: flex;
-  align-items: center;
-  min-height: 42px;
-  padding-right: 12px;
-}
-@media (max-width: 560px) {
-  .reqCard {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .reqChat {
-    min-height: 0;
-    padding: 0 14px 9px 38px;
-  }
-}
-.req > summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  list-style: none;
-  cursor: pointer;
-}
-.req > summary::-webkit-details-marker {
-  display: none;
-}
-.req[open] .chev {
-  transform: rotate(90deg);
-}
-.reqSnip {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--rep-ink-2);
-  font-size: 13.5px;
-}
-.req[open] .reqSnip {
-  visibility: hidden;
-}
-.reqBody {
-  padding: 0 14px 13px 40px;
-}
-.reqBody blockquote {
-  margin: 0;
-  font-size: 14px;
-  max-width: 80ch;
-}
-.who {
-  font-size: 12px;
-  color: var(--rep-muted);
-  margin-top: 5px;
-}
-
-/* Things to check before sending */
-.checks {
-  padding: 4px 0 6px;
-}
-.chd {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 14px 5px;
-  font: 600 13.5px/1.3 var(--rep-body);
-  letter-spacing: normal;
-}
-.chd i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--rep-warn);
-}
-.checks[data-ok] .chd i {
-  background: var(--rep-ok);
-}
-.checkList {
-  list-style: none;
-  margin: 0;
   padding: 0;
-}
-.check {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
-  padding: 6px 14px;
-  font-size: 13px;
-  color: var(--rep-ink-2);
-}
-.check b {
-  font-weight: 600;
-  color: var(--rep-ink);
-}
-.sev {
-  font: 600 10.5px/1 var(--rep-body);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-right: 6px;
-  color: var(--rep-warn);
-}
-.sev[data-kind="blocker"],
-.sev[data-kind="margin"] {
-  color: var(--rep-bad);
-}
-
-/* ---- Items card ---- */
-.itoolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--rep-line-2);
-}
-.itoolbar h2 {
-  margin: 0;
-  font: 600 13px/1.2 var(--rep-display);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.itoolbar h2 span {
-  font: 400 12.5px/1 var(--rep-body);
-  letter-spacing: 0;
-  text-transform: none;
-  margin-left: 6px;
-  color: var(--rep-muted);
-}
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  font-size: 12.5px;
-  color: var(--rep-ink-2);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.addItem + .switch {
-  margin-left: 0;
-}
-.switch input {
-  appearance: none;
-  flex: none;
-  width: 30px;
-  height: 17px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: var(--rep-line);
-  position: relative;
-  cursor: pointer;
-  margin: 0;
-  transition: background 0.15s;
-}
-.switch input::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--rep-surface);
-  transition: left 0.15s;
-}
-.switch input:checked {
-  background: var(--rep-accent);
-}
-.switch input:checked::after {
-  left: 15px;
-}
-.switch input:focus {
-  outline: none;
-}
-.switch input:focus-visible {
-  outline: 2px solid var(--rep-accent);
-  outline-offset: 2px;
-}
-.problem {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 6px 12px;
-  margin: 0;
-  padding: 8px 14px;
-  background: var(--rep-bad-soft);
-  color: var(--rep-bad);
-  font-size: 13px;
-  border-bottom: 1px solid var(--rep-line-2);
-}
-
-/* Add item by SKU or name */
-.addItem {
-  position: relative;
-  flex: 1;
-  min-width: 200px;
-  max-width: 380px;
-  margin-left: auto;
-}
-.addItem input {
-  width: 100%;
-  border: 1px solid var(--rep-line);
-  background: var(--rep-surface-2);
-  border-radius: 7px;
-  padding: 7px 10px 7px 30px;
-  font: 13px/1.45 var(--rep-body);
-  color: var(--rep-ink);
-}
-.addItem input:focus {
-  outline: none;
-  border-color: var(--rep-accent);
-  background: var(--rep-surface);
-}
-.addIcon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--rep-accent);
-  pointer-events: none;
-}
-.addBusy {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  color: var(--rep-muted);
-}
-.addList {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 15;
-  background: var(--rep-surface);
-  border: 1px solid var(--rep-line);
-  border-radius: 8px;
-  box-shadow: 0 10px 26px rgb(0 0 0 / 0.14);
-  padding: 4px;
-  max-height: 300px;
-  overflow: auto;
-}
-.addOption {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 10px;
-  padding: 7px 9px;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.addOption[aria-selected="true"] {
-  background: var(--rep-surface-2);
-}
-.addOption[aria-disabled="true"] {
-  cursor: default;
-  color: var(--rep-muted);
-}
-.addDesc {
-  font-weight: 500;
-  line-height: 1.3;
-}
-.addPrice {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  align-self: center;
-  font-variant-numeric: tabular-nums;
-  color: var(--rep-ink-2);
-}
-.addMeta {
-  font-size: 12px;
-  color: var(--rep-muted);
-}
-.addNone {
-  padding: 9px;
-  color: var(--rep-muted);
-  font-size: 13px;
-}
-
-/* Undo */
-.undo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 14px;
-  background: var(--rep-surface-2);
-  border-bottom: 1px solid var(--rep-line-2);
-  font-size: 13px;
-}
-.undo button {
-  border: 0;
-  background: none;
-  color: var(--rep-accent);
-  font: 600 13px/1.3 var(--rep-body);
-  padding: 2px 4px;
-  cursor: pointer;
-}
-.undo button:disabled {
-  color: var(--rep-muted);
-  cursor: wait;
-}
-
-/* ---- The line grid (table.lines) ---- */
-.tableWrap {
-  overflow-x: auto;
-}
-.lines {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-  min-width: 720px;
-}
-.lines thead th {
-  font: 600 10.5px/1.2 var(--rep-body);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--rep-muted);
-  text-align: right;
-  padding: 9px 8px;
-  border-bottom: 1px solid var(--rep-line);
-  white-space: nowrap;
-}
-.lines td,
-.lines tbody th {
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--rep-line-2);
-  text-align: right;
-  vertical-align: middle;
-}
-/* globals.css styles every th as a column header and every td as nowrap; a line's item cell is neither. */
-.lines tbody th {
-  font: 400 14px/1.45 var(--rep-body);
-  letter-spacing: normal;
-  text-transform: none;
-  color: var(--rep-ink);
   background: transparent;
-  white-space: normal;
-}
-.lines .itemCol {
-  text-align: left;
-  min-width: 230px;
-}
-.expCol {
-  width: 38px;
-  padding-left: 10px !important;
-  padding-right: 0 !important;
-}
-.rmCol {
-  width: 38px;
-  padding-left: 4px !important;
-}
-.line[data-open] > tr:first-child > * {
-  border-bottom-color: transparent;
-  background: var(--rep-surface-2);
-}
-.exp {
-  border: 1px solid var(--rep-line);
-  background: var(--rep-surface);
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  color: var(--rep-muted);
+  color: inherit;
   cursor: pointer;
 }
-.exp svg {
-  transition: transform 0.15s;
-}
-.exp[aria-expanded="true"] svg {
-  transform: rotate(90deg);
-}
-.desc {
-  display: block;
-  font-weight: 500;
-  line-height: 1.3;
-}
-.ititle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-.sku {
-  font: 500 11.5px/1 var(--rep-mono);
-  color: var(--rep-muted);
-}
-.pack {
-  font-size: 11.5px;
-  color: var(--rep-muted);
-}
-.tag {
-  font: 600 10px/1 var(--rep-body);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 3px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-  background: var(--rep-accent-soft);
-  color: var(--rep-accent);
-}
-.tag[data-tone="warn"] {
-  background: var(--rep-warn-soft);
-  color: var(--rep-warn);
-}
-.cin {
-  width: 78px;
-  text-align: right;
-  border: 1px solid var(--rep-line);
-  background: var(--rep-surface);
-  border-radius: 6px;
-  padding: 5px 6px;
-  font: 14px/1.45 var(--rep-body);
-  font-variant-numeric: tabular-nums;
-  color: var(--rep-ink);
-}
-.cin.qty {
-  width: 54px;
-}
-.cin.m {
-  width: 62px;
-}
-.cin:focus {
-  outline: none;
-  border-color: var(--rep-accent);
-  box-shadow: 0 0 0 1px var(--rep-accent);
-}
-.cin[data-low] {
-  border-color: var(--rep-bad);
-  color: var(--rep-bad);
-}
-.cin:disabled {
-  background: var(--rep-surface-2);
-  color: var(--rep-ink-2);
-}
-.cwrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-.avail {
-  white-space: nowrap;
-  font-size: 13px;
-}
-.dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 5px;
-  vertical-align: 1px;
-  background: var(--rep-ok);
-}
-.dot[data-short] {
-  background: var(--rep-warn);
-}
-.short {
-  display: block;
-  font-size: 11px;
-  color: var(--rep-warn);
-}
-.num {
-  white-space: nowrap;
-}
-.total {
-  font-weight: 600;
-}
-.priceCell {
-  white-space: nowrap;
-}
-/* The red below-floor warning, directly above the price field (spec §4) */
-.floorWarn {
-  display: block;
-  width: max-content;
-  margin: 0 0 5px auto;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: var(--rep-bad-soft);
-  color: var(--rep-bad);
-  font: 600 11.5px/1.25 var(--rep-body);
-  white-space: normal;
-  text-align: right;
-}
-.rm {
-  border: 1px solid transparent;
-  background: none;
-  color: var(--rep-muted);
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  opacity: 0.55;
-  cursor: pointer;
-}
-.line:hover .rm,
-.rm:focus-visible {
-  opacity: 1;
-}
-.rm:hover {
-  color: var(--rep-bad);
-  border-color: var(--rep-line);
-  background: var(--rep-bad-soft);
-}
-@media (hover: none) {
-  .rm {
-    opacity: 1;
-  }
-}
-.noLines {
-  text-align: left !important;
-  padding: 18px 16px !important;
-  color: var(--rep-muted);
-}
 
-/* The price-basis dropdown */
-.basis {
-  position: relative;
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 3px;
+/* A SKU inside running text (C_QE5, C_QE8): the mono face at the text's own size and colour. */
+.mono {
+  font-family: var(--q-font-mono);
 }
-/* The price-basis dropdown with its "?" (why Querent suggests that price) */
-.pickRow {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  margin-top: 3px;
+/* The Items card lets its dropdowns (results, price source) hang over the page; its title bar keeps the corners. */
+.itemsCard {
+  overflow: visible;
 }
-.pickRow .basis {
-  margin-top: 0;
-}
-.basisButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border: 1px solid transparent;
-  background: none;
-  border-radius: 5px;
-  padding: 1px 4px 1px 6px;
-  margin-right: -4px;
-  font: 500 11.5px/1.35 var(--rep-body);
-  color: var(--rep-ink-2);
-  cursor: pointer;
-}
-.basisButton:hover:not(:disabled),
-.basisButton[aria-expanded="true"] {
-  border-color: var(--rep-line);
-  background: var(--rep-surface-2);
-}
-.basisButton svg {
-  color: var(--rep-muted);
-}
-.basisButton:disabled {
-  cursor: default;
-  color: var(--rep-muted);
-}
-.basisButton:disabled svg {
-  display: none;
-}
-.basisList {
-  position: fixed;
-  z-index: 25;
-  width: 264px;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  background: var(--rep-surface);
-  border: 1px solid var(--rep-line);
-  border-radius: 9px;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
-  text-align: left;
-  white-space: normal;
-}
-.basisList:focus {
-  outline: none;
-}
-.basisOption {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  padding: 7px 9px;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.basisOption[data-active] {
-  background: var(--rep-surface-2);
-}
-.basisOption[aria-selected="true"] {
-  box-shadow: inset 3px 0 0 var(--rep-accent);
-}
-.basisOption[aria-disabled="true"] {
-  color: var(--rep-muted);
-  cursor: not-allowed;
-}
-.basisOption strong {
-  font-weight: 700;
-}
-.basisName {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 7px;
-}
-.basisName small {
-  flex-basis: 100%;
-  font-size: 11.5px;
-  color: var(--rep-muted);
-}
-.pick {
-  font: 600 9.5px/1 var(--rep-body);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--rep-accent);
-  background: var(--rep-accent-soft);
-  padding: 3px 5px;
-  border-radius: 4px;
-}
-.basisPrice {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* "Why this price?" row */
-.lines .why > td {
-  background: var(--rep-surface-2);
-  white-space: normal;
-  text-align: left !important;
-  padding: 4px 16px 16px 46px !important;
-  border-bottom: 1px solid var(--rep-line-2);
-}
-.whyGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 32px;
-}
-.whyGrid > section {
-  flex: 1 1 220px;
-  min-width: 0;
-}
-/* The tables keep their natural width; the text sections share what is left. */
-.whyGrid > .whyTable {
-  flex: 0 0 auto;
-}
-.whyGrid h4 {
-  margin: 0 0 7px;
-  font: 600 10.5px/1 var(--rep-body);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--rep-muted);
-}
-.explain {
-  font-size: 13px;
-  color: var(--rep-ink);
-  line-height: 1.45;
-}
-.whyNote {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--rep-muted);
-}
-.mini {
-  border-collapse: collapse;
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-}
-.lines .mini td,
-.lines .mini th {
-  padding: 2px 14px 2px 0;
-  text-align: left;
-  border: 0;
-  font: 400 12.5px/1.45 var(--rep-body);
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-  background: transparent;
-}
-.lines .mini th {
-  color: var(--rep-muted);
-  font-size: 11px;
-}
-.lines .mini strong {
-  font-weight: 600;
-}
-.use {
-  border: 1px solid var(--rep-line);
-  background: var(--rep-surface);
-  border-radius: 5px;
-  padding: 1px 7px;
-  font: 600 11.5px/1.4 var(--rep-body);
-  color: var(--rep-accent);
-  cursor: pointer;
-}
-.use:disabled {
-  color: var(--rep-muted);
-  font-weight: 500;
-  cursor: default;
-}
-
-/* Totals */
-.totals {
-  display: grid;
-  grid-template-columns: auto auto;
-  justify-content: end;
-  gap: 5px 28px;
-  padding: 12px 16px 14px;
-  font-variant-numeric: tabular-nums;
-  font-size: 13.5px;
-  margin: 0;
-}
-.totals dt {
-  color: var(--rep-muted);
-  text-align: right;
-}
-.totals dd {
-  margin: 0;
-  text-align: right;
-  min-width: 90px;
-}
-.totals .grand {
-  font: 600 16px/1.2 var(--rep-display);
-  color: var(--rep-ink);
-  padding-top: 6px;
-  border-top: 1px solid var(--rep-line);
-}
-
-/* ---- Summary card ---- */
-.summary {
-  padding: 14px 16px;
-}
-.big {
-  font: 700 28px/1 var(--rep-display);
-  font-variant-numeric: tabular-nums;
-}
-.cap {
-  font-size: 12px;
-  color: var(--rep-muted);
-  margin-top: 4px;
-}
-.pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 12px;
-}
-.pair > div {
-  border: 1px solid var(--rep-line-2);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-.pair b {
-  display: block;
-  font: 600 16px/1.2 var(--rep-display);
-  font-variant-numeric: tabular-nums;
-}
-.pair b[data-low] {
-  color: var(--rep-bad);
-}
-.pair span {
-  font-size: 11.5px;
-  color: var(--rep-muted);
-}
-.floorBox {
-  margin-top: 12px;
-  font-size: 12px;
-  color: var(--rep-muted);
-}
-.lift [data-tone="good"] {
-  color: var(--rep-ok);
-}
-.lift [data-tone="bad"] {
-  color: var(--rep-bad);
-}
-.fbar {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--rep-line-2);
-  margin-top: 6px;
-}
-.fbar i {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  border-radius: 3px;
-  background: var(--rep-accent);
-}
-.fbar i[data-low] {
-  background: var(--rep-bad);
-}
-.fbar u {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--rep-ink-2);
-}
-.barNote {
-  margin-top: 5px;
-}
-
-/* ---- Narrower screens: the rail drops under the items (mockup .qgrid at 1080px) ---- */
-@media (max-width: 1080px) {
-  .qgrid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* ---- Phones (screen 08): each line is a card, so qty and price stay editable without scrolling sideways ---- */
-@media (max-width: 640px) {
-  .qtop {
-    align-items: flex-start;
-  }
-  .qactions {
-    justify-content: flex-start;
-  }
-  .saveState {
-    flex-basis: 100%;
-    order: 9;
-  }
-  .addItem {
-    flex-basis: 100%;
-    max-width: none;
-    order: 3;
-    margin-left: 0;
-  }
-  .switch {
-    order: 4;
-    margin-left: 0;
-  }
-  .tableWrap {
-    overflow: visible;
-  }
-  .lines {
-    min-width: 0;
-  }
-  .lines thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-  }
-  .line > tr:first-child {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
-    grid-template-areas:
-      "exp item qty"
-      ". avail rm"
-      ". price price"
-      ". margin total"
-      ". cost cost";
-    align-items: center;
-    padding: 10px 12px 10px 4px;
-    border-bottom: 1px solid var(--rep-line-2);
-  }
-  .line[data-open] > tr:first-child {
-    background: var(--rep-surface-2);
-    border-bottom-color: transparent;
-  }
-  .line > tr:first-child > * {
-    display: block;
-    border: 0 !important;
-    padding: 3px 0 !important;
-    background: transparent !important;
-  }
-  .line .expCol {
-    grid-area: exp;
-    width: auto;
-    align-self: start;
-    padding-top: 2px !important;
-  }
-  .line .itemCol {
-    grid-area: item;
-    min-width: 0;
-  }
-  .qtyCell {
-    grid-area: qty;
-    align-self: start;
-  }
-  .avail {
-    grid-area: avail;
-    text-align: left !important;
-  }
-  .short {
-    display: inline;
-    margin-left: 6px;
-  }
-  .line .rmCol {
-    grid-area: rm;
-    width: auto;
-    justify-self: end;
-  }
-  .priceCell {
-    grid-area: price;
-    display: flex !important;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px 8px;
-    text-align: right;
-  }
-  .priceCell::before,
-  .marginCell::before,
-  .line .total::before,
-  .line td[data-label="Cost"]::before {
-    content: attr(data-label);
-    margin-right: auto;
-    font: 600 10.5px/1 var(--rep-body);
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--rep-muted);
-  }
-  .floorWarn {
-    flex-basis: 100%;
-    margin: 0 0 2px auto;
-  }
-  .basis {
-    margin-top: 0;
-  }
-  .marginCell {
-    grid-area: margin;
-    display: flex !important;
-    align-items: center;
-    gap: 8px;
-  }
-  .marginCell::before {
-    margin-right: 0;
-  }
-  .line .total {
-    grid-area: total;
-    display: flex !important;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-  .line .total::before {
-    margin-right: 0;
-  }
-  .line td[data-label="Cost"] {
-    grid-area: cost;
-    display: flex !important;
-    justify-content: space-between;
-  }
-  .line td[data-label="Cost"]::before {
-    margin-right: 0;
-  }
-  .why {
-    display: block;
-  }
-  .why[hidden] {
-    display: none;
-  }
-  .lines .why > td {
-    display: block;
-    padding: 4px 12px 14px 38px !important;
-  }
-  .whyGrid > .whyTable {
-    flex: 1 1 100%;
-  }
-  .totals {
-    gap: 5px 20px;
-  }
-}
-
-/* The manager on another rep's quote (task D2): the read-only banner, with Reassign at its end. */
-.banner[data-tone="readonly"] {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  background: var(--rep-accent-soft);
-  border-color: color-mix(in srgb, var(--rep-accent) 35%, transparent);
-  color: var(--rep-ink);
+.itemsCard > .titlebar {
+  border-radius: var(--q-radius-card) var(--q-radius-card) 0 0;
 }

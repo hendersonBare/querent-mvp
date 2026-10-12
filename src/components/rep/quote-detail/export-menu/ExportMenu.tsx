@@ -1,18 +1,17 @@
 'use client';
 import {useCallback,useRef,useState} from 'react';
-import {ChevronDown} from 'lucide-react';
 import type {PdfRevision} from '@/server/pdf/request';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {quoteFigures,type DetailLine} from '@/server/rep/quote-math';
 import {ActionMenu,type MenuItem} from '../ActionMenu';
+import {ExportIcon} from '../icons';
 import {QuoteToast,type ToastMessage} from '../more-menu/QuoteToast';
-import s from '../QuoteDetail.module.css';
 import {copyText} from './clipboard';
 import {ExportRefused,downloadExport} from './download';
 import {quoteSummaryText,summaryQuoteOf} from './summary';
 
-// The quote detail's Export menu (spec §4, docs/design/screens/05; task 4.3), in the mockup's
-// order and words:
+// The quote editor's Export menu (plan U4, C_QE2; spec §4; task 4.3), under the Export icon button, in
+// the frame's order and words:
 //   Customer quote (PDF)     GET /api/quotes/<id>/pdf?variant=customer (task 4.1)
 //   Internal worksheet (PDF) GET /api/quotes/<id>/pdf?variant=internal (task 4.2)
 //   Line items (CSV)         GET /api/rep/quotes/<id>/lines.csv: the customer quote's columns
@@ -96,9 +95,7 @@ export function ExportMenu({detail,lines,flush,buttonClassName}:ExportMenuProps)
   ];
 
   return <>
-    <ActionMenu buttonClassName={buttonClassName} menuLabel="Export" items={items} emptyNote="">
-      Export<ChevronDown aria-hidden="true" size={13} strokeWidth={2} className={s.caret}/>
-    </ActionMenu>
+    <ActionMenu buttonClassName={buttonClassName} label="Export" menuLabel="Export" items={items}><ExportIcon/></ActionMenu>
     <QuoteToast message={toast} onDismiss={dismiss}/>
   </>;
 }

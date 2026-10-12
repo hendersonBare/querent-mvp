@@ -17,7 +17,7 @@ interface Place {top:number;left:number;width:number}
  * Scrolling and resizing move it with its button rather than hiding it: tabbing to an "i" below
  * the fold scrolls the page, and that scroll must not close the tip the focus just opened.
  */
-export function InfoTip({topic,label,icon='info',size,children}:({
+export function InfoTip({topic,label,icon='info',size,glyph,buttonClassName,children}:({
   /** What it explains, for the button's name: "How {topic} is calculated". */
   topic:string;label?:undefined;
 }|{
@@ -28,6 +28,9 @@ export function InfoTip({topic,label,icon='info',size,children}:({
   icon?:'info'|'help';
   /** 'sm' for a dense row (the quote line grid). */
   size?:'sm';
+  /** Drawn in place of the icon (the quote editor's "?" circle, C_QEBase), with `buttonClassName` replacing the round button's style. */
+  glyph?:ReactNode;
+  buttonClassName?:string;
   children:ReactNode;
 }){
   const Icon=icon==='help'?CircleHelp:Info;
@@ -61,9 +64,9 @@ export function InfoTip({topic,label,icon='info',size,children}:({
   },[open,hide,position]);
 
   return <span className={s.tipAnchor} onMouseEnter={show} onMouseLeave={hide}>
-    <button ref={button} type="button" className={s.tipButton} data-size={size} aria-label={label??`How ${topic} is calculated`} aria-describedby={id}
+    <button ref={button} type="button" className={buttonClassName??s.tipButton} data-size={size} aria-label={label??`How ${topic} is calculated`} aria-describedby={id}
       onClick={show} onFocus={show} onBlur={hide}>
-      <Icon aria-hidden="true" size={size==='sm'?14:15} strokeWidth={1.9}/>
+      {glyph??<Icon aria-hidden="true" size={size==='sm'?14:15} strokeWidth={1.9}/>}
     </button>
     <span ref={tip} id={id} role="tooltip" className={s.tip} hidden={!open} style={place?{top:place.top,left:place.left,width:place.width}:undefined}>{children}</span>
   </span>;
