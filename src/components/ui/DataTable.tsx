@@ -1,5 +1,5 @@
 'use client';
-import {useRef,useState,type CSSProperties,type ReactNode} from 'react';
+import {useRef,useState,type CSSProperties,type HTMLAttributes,type ReactNode} from 'react';
 import {ColumnsPicker} from './ColumnsPicker';
 import {Icon} from './Icon';
 import {ShowMoreButton} from './ShowMoreButton';
@@ -39,8 +39,11 @@ export interface DataTableProps<Row> {
   pageSize:number;
   moreLabel:(remaining:number)=>string;
   lessLabel:string;
-  /** card: one white card with the header inside (C_QOTable). split: the header bar above a white section (C_CUBase). */
-  layout?:'card'|'split';
+  /**
+   * card: one white card with the header inside (C_QOTable). split: the header bar above a white section
+   * (C_CUBase). bare: the header and rows only, inside the page's own card under its title bar (C_TRBase).
+   */
+  layout?:'card'|'split'|'bare';
   /** The row divider: soft is C_QOTable's lighter line. */
   divider?:'default'|'soft';
   /** Gap between grid tracks (C_QOTable 16, C_TRBase 14). */
@@ -58,6 +61,13 @@ export interface DataTableProps<Row> {
   pickerTrack?:string;
   /** A per-row control in that last track, under the columns picker (C_STBase "Add to quote"). */
   rowEnd?:(row:Row)=>ReactNode;
+  /**
+   * What opens under a row (C_TR1: a rep's customers). With it, each row and its detail share one group
+   * whose top line is the divider, as the frame draws it.
+   */
+  rowDetail?:(row:Row)=>ReactNode;
+  /** Extra attributes on a row (C_TRBase: a row picked for a bulk action is aria-selected); its className is added to the row's. */
+  rowAttributes?:(row:Row)=>Omit<HTMLAttributes<HTMLDivElement>,'children'|'role'|'style'>;
   className?:string;
   style?:CSSProperties;
 }
@@ -65,7 +75,7 @@ export interface DataTableProps<Row> {
 const PICKER_TRACK='28px';
 
 export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreLabel,lessLabel,layout='card',divider='default',gap=16,splitGap=14,
-  minWidth,initialPrefs=null,onPrefsChange,onRowClick,empty,pickerTrack=PICKER_TRACK,rowEnd,className,style}:DataTableProps<Row>){
+  minWidth,initialPrefs=null,onPrefsChange,onRowClick,empty,pickerTrack=PICKER_TRACK,rowEnd,rowDetail,rowAttributes,className,style}:DataTableProps<Row>){
   const [prefs,setPrefs]=useState(()=>{const r=resolveColumns(columns,initialPrefs);return {column_order:r.order,hidden_columns:r.hidden};});
   const [expanded,setExpanded]=useState(false);
   const [picking,setPicking]=useState(false);
@@ -119,17 +129,23 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
       </button>
     </div>
   </div>;
-  const bodyRows=rows.length===0&&empty?empty:shownRows.map(row=><div key={rowKey(row)} role="row" className={cx(s.row,divider==='soft'&&s.soft,onRowClick&&s.clickable)} style={grid}
-    onClick={onRowClick?()=>onRowClick(row):undefined}>
-    {visible.map(column=><div key={column.id} role="cell" className={column.align==='right'?s.right:undefined}>{column.render(row)}</div>)}
-    {rowEnd&&<div role="cell" className={s.rowEnd}>{rowEnd(row)}</div>}
-  </div>);
+  const bodyRows=rows.length===0&&empty?empty:shownRows.map(row=>{
+    const {className:extra,...attributes}=rowAttributes?.(row)??{};
+    const line=<div key={rowKey(row)} role="row" className={cx(s.row,divider==='soft'&&s.soft,onRowClick&&s.clickable,rowDetail&&s.inGroup,extra)} style={grid}
+      onClick={onRowClick?()=>onRowClick(row):undefined} {...attributes}>
+      {visible.map(column=><div key={column.id} role="cell" className={column.align==='right'?s.right:undefined}>{column.render(row)}</div>)}
+      {rowEnd&&<div role="cell" className={s.rowEnd}>{rowEnd(row)}</div>}
+    </div>;
+    return rowDetail?<div key={rowKey(row)} role="rowgroup" className={cx(s.group,divider==='soft'&&s.soft)}>{line}{rowDetail(row)}</div>:line;
+  });
   const foot=remaining>0&&<div className={cx(s.foot,divider==='soft'&&s.soft,layout==='card'?s.cardFoot:s.splitFoot)}>
     <ShowMoreButton onClick={()=>setExpanded(!expanded)}>{expanded?lessLabel:moreLabel(remaining)}</ShowMoreButton>
   </div>;
 
   return <div ref={wrap} className={cx(s.wrap,className)} style={style}>
-    {layout==='card'
+    {layout==='bare'
+      ?<div role="table" aria-label={label} data-ui="table" style={{minWidth}}>{headRow}{bodyRows}{foot}</div>
+      :layout==='card'
       ?<div role="table" aria-label={label} data-ui="table" className={s.card}><div className={s.scroll}><div style={{minWidth}}>{headRow}{bodyRows}{foot}</div></div></div>
       :<div className={s.scroll}><div role="table" aria-label={label} data-ui="table" className={s.splitInner} style={{minWidth,gap:splitGap}}>
         {headRow}<section className={s.section}>{bodyRows}{foot}</section>

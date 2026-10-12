@@ -7,7 +7,6 @@ import {settingsFixture} from './test-fixtures';
 const router=vi.hoisted(()=>({refresh:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({refresh:router.refresh,replace:vi.fn(),push:vi.fn(),prefetch:vi.fn()})}));
 
-const {RepAssignments}=await import('./RepAssignments');
 const {CustomerAccess}=await import('./CustomerAccess');
 const {MarginFloors}=await import('./MarginFloors');
 const {PricingDelivery}=await import('./PricingDelivery');
@@ -23,69 +22,6 @@ const sent=()=>fetchMock.mock.calls.filter(([,init])=>init?.method==='PUT').map(
 
 beforeEach(()=>{replies=[];fetchMock.mockClear();router.refresh.mockClear();vi.stubGlobal('fetch',fetchMock);});
 afterEach(()=>vi.unstubAllGlobals());
-
-describe('Rep assignments',()=>{
-  const settings=settingsFixture();
-  const renderIt=(onChange=vi.fn(),manager=true)=>{render(<RepAssignments rows={settings.assignments} reps={settings.reps} repId="brandi" manager={manager} onChange={onChange}/>);return onChange;};
-
-  it('lists every customer, placeholders marked, with a rep dropdown and their quotes by rep',()=>{
-    renderIt();
-    const rows=within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(rows.map(r=>within(r).getByRole('rowheader').textContent)).toEqual([
-      'Canyon Ridge BuildersCRB-3318Placeholder','Great Basin FabricationGBF-2207Placeholder','Uinta Facility ServicesUFS-4051Placeholder','Wasatch Mechanical ContractorsWAS-1142',
-    ]);
-    const wasatch=screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'});
-    expect(wasatch).toHaveValue('brandi');
-    expect(within(wasatch).getAllByRole('option').map(o=>o.textContent)).toEqual(['Brandi Gallegos (you)','Eli Porter','Mara Jensen','Nora Chen']);
-    expect(screen.getByRole('combobox',{name:'Rep for Canyon Ridge Builders'})).toHaveValue('mara');
-    expect(rows[3]).toHaveTextContent('25 with Brandi Gallegos');
-    expect(rows[0]).toHaveTextContent('None yet');
-  });
-
-  it("reassigns a customer, says its quotes stay put, and refreshes the picker's rep names",async()=>{
-    const moved=settings.assignments.map(a=>a.id==='wasatch'?{...a,rep_id:'mara',rep_name:'Mara Jensen'}:a);
-    replies=[{body:{assignments:moved}}];
-    const onChange=renderIt();
-    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'}),{target:{value:'mara'}});
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith(moved));
-    expect(sent()).toEqual([{url:'/api/rep/settings/assignments',body:{customer_id:'wasatch',rep_id:'mara'}}]);
-    expect(screen.getByRole('status')).toHaveTextContent('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 25 existing quotes stay with Brandi Gallegos.');
-    expect(router.refresh).toHaveBeenCalled();
-  });
-
-  it('“Also move this customer’s open quotes” (task D2): the save moves them too, and the notice says how many',async()=>{
-    const moved=settings.assignments.map(a=>a.id==='wasatch'?{...a,rep_id:'mara',rep_name:'Mara Jensen',
-      quotes:[{rep_id:'brandi',rep_name:'Brandi Gallegos',count:21},{rep_id:'mara',rep_name:'Mara Jensen',count:4}]}:a);
-    replies=[{body:{assignments:moved,moved:{to:{id:'mara',name:'Mara Jensen'},skipped:[],moved:[1,2,3,4].map(n=>({id:`q-${n}`,quote_number:`Q-${n}`,from:{id:'brandi',name:'Brandi Gallegos'}}))}}}];
-    const onChange=renderIt();
-    const box=screen.getByRole('checkbox',{name:'Also move this customer’s open quotes'});
-    expect(box).not.toBeChecked();
-    fireEvent.click(box);
-    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'}),{target:{value:'mara'}});
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith(moved));
-    expect(sent()).toEqual([{url:'/api/rep/settings/assignments',body:{customer_id:'wasatch',rep_id:'mara',moveOpenQuotes:true}}]);
-    expect(screen.getByRole('status')).toHaveTextContent('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. 4 open quotes moved to Mara Jensen. Its 21 existing quotes stay with Brandi Gallegos.');
-  });
-
-  it('a rep sees the assignments read-only: names, no dropdowns, no checkbox, and who can change them (task D2)',()=>{
-    renderIt(vi.fn(),false);
-    expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.queryByRole('checkbox')).toBeNull();
-    const rows=within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(within(rows[3]).getAllByRole('cell')[0]).toHaveTextContent('Brandi Gallegos');
-    expect(within(rows[0]).getAllByRole('cell')[0]).toHaveTextContent('Mara Jensen');
-    expect(screen.getByText('Only a manager can change rep assignments.')).toBeInTheDocument();
-  });
-
-  it("shows the server's reason when a change isn't saved",async()=>{
-    replies=[{status:404,body:{detail:'Rep not found.'}}];
-    const onChange=renderIt();
-    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Great Basin Fabrication'}),{target:{value:'eli'}});
-    expect(await screen.findByRole('alert')).toHaveTextContent('Rep not found.');
-    expect(onChange).not.toHaveBeenCalled();
-    expect(router.refresh).not.toHaveBeenCalled();
-  });
-});
 
 describe('Customer access',()=>{
   const PICKABLE=[{id:'great-basin',name:'Great Basin Fabrication'},{id:'wasatch',name:'Wasatch Mechanical Contractors'}];

@@ -1,11 +1,12 @@
 import { expect, test, type APIRequest, type Browser, type Page, type TestInfo } from "@playwright/test";
 
-// Settings (task 6.1; spec §4, §5.2, §6.3): Rep assignments, Customer access, My margin floors,
-// Pricing & delivery and Data sources, and what each change does elsewhere:
+// Settings (task 6.1; spec §4, §5.2, §6.3): Customer access, My margin floors, Pricing & delivery and
+// Data sources, and what each change does elsewhere:
 //   - a floor moves the "N lines below floor" warning on the Quotes list (task 3.2) and the red
 //     warning above a line's price on the quote detail (task 3.3);
-//   - turning a category off makes Dana's chat refuse it and point her to her rep (task 2.1);
-//   - reassigning a customer moves Dana's rep card, but never Brandi's existing quotes.
+//   - turning a category off makes Dana's chat refuse it and point her to her rep (task 2.1).
+// Rep assignments and Reps moved to Teams and Reps (plan U7): reassigning a customer (Dana's rep card
+// follows, Brandi's existing quotes stay) is in e2e/rep-teams.spec.ts.
 //
 // beforeAll/afterAll reset the database to the seed pinned to the mockup's day through the
 // test-only POST /api/test/reset (the server needs QUERENT_E2E_RESET=1; playwright.config.ts sets
@@ -14,8 +15,8 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
 const STOCK_QUESTION = "Do you have 1/2 in grade 8 hex bolts in stock?";
-// Brandi is the manager, so she also has Reps and Aging (task D1; e2e/rep-roles.spec.ts covers them).
-const TABS = ["Rep assignments", "Reps", "Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"] as const;
+// Brandi is the manager, so she also has Aging (task D1; e2e/rep-roles.spec.ts covers it).
+const TABS = ["Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"] as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -70,16 +71,10 @@ async function openQuotes(page: Page) {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quotes");
 }
 /**
- * The sample quote's Margin cell on the Quotes list: "32.2% margin", plus "N lines below floor" when
- * any are. Brandi is the manager, so her rows start with the checkbox and carry a Rep cell (task U1).
+ * The sample quote's card on the Quotes board (plan U3): "32.2%", plus "N lines below floor" when any
+ * are. (U3 merged with this helper still reading the old table; U7 points it at the board's card.)
  */
-const sampleMargin = (page: Page) =>
-  page
-    .getByRole("table")
-    .getByRole("rowgroup")
-    .filter({ has: page.getByRole("link", { name: SAMPLE, exact: true }) })
-    .getByRole("cell")
-    .nth(6);
+const sampleMargin = (page: Page) => page.getByRole("article", { name: SAMPLE, exact: true });
 const floorField = (page: Page, category: string) => page.getByRole("textbox", { name: `${category} floor`, exact: true });
 async function saveFloor(page: Page, category: string, value: string) {
   const field = floorField(page, category);
@@ -91,7 +86,9 @@ async function saveFloor(page: Page, category: string, value: string) {
 /** Opens the sample quote from the Quotes list. */
 async function openSample(page: Page) {
   await openQuotes(page);
-  await page.getByRole("link", { name: SAMPLE, exact: true }).click();
+  // The card opens the preview (plan U3), whose Open quote goes to the editor.
+  await sampleMargin(page).getByRole("button", { name: SAMPLE, exact: true }).click();
+  await page.getByRole("dialog", { name: SAMPLE, exact: true }).getByRole("link", { name: "Open quote" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 }
 /** A line's unit price on the quote editor (plan U4): its red below-floor warning, directly above it, is its description. */
@@ -105,27 +102,18 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
 
-test("tabs: every Settings section, with Rep assignments first; the old Data browser is gone", async ({ page }, testInfo) => {
+test("tabs: every Settings section, with Customer access first; the old Data browser is gone", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
   await portalNav(page).getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/rep\/settings$/);
   await expect(settingsTabs(page).getByRole("link")).toHaveText([...TABS]);
-  await expect(page.getByRole("heading", { name: "Rep assignments" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Customer access" })).toBeVisible();
   await expect(page.getByText("Data browser")).toHaveCount(0);
-
-  // Placeholders are listed with their one rep; Brandi is "(you)".
-  for (const [customer, rep] of [
-    ["Canyon Ridge Builders", "Mara Jensen"],
-    ["Great Basin Fabrication", "Brandi Gallegos (you)"],
-    ["Uinta Facility Services", "Nora Chen"],
-    ["Wasatch Mechanical Contractors", "Brandi Gallegos (you)"],
-  ])
-    await expect(page.getByRole("combobox", { name: `Rep for ${customer}` }).locator("option:checked")).toHaveText(rep);
-  // 28: the 24 past quotes, the sample and the three aging quotes (task A2).
-  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("28 with Brandi Gallegos");
-  await expect(page.getByRole("row", { name: /Great Basin Fabrication/ })).toContainText("Placeholder");
-  await screenshot(page, testInfo, "settings-assignments-1440");
+  // Rep assignments and Reps are on Teams and Reps now (plan U7).
+  await expect(settingsTabs(page).getByRole("link", { name: "Rep assignments" })).toHaveCount(0);
+  await expect(settingsTabs(page).getByRole("link", { name: "Reps", exact: true })).toHaveCount(0);
+  await screenshot(page, testInfo, "settings-access-1440");
 
   for (const tab of TABS.slice(1)) {
     await settingsTabs(page).getByRole("link", { name: tab, exact: true }).click();
@@ -240,44 +228,6 @@ test("access: turning Items & stock off for Wasatch makes Dana's chat refuse sto
   await page.getByRole("switch", { name: "Items & stock" }).click();
   await expect(page.getByRole("switch", { name: "Items & stock" })).toHaveAttribute("aria-checked", "true");
   await expect(await ask(dana, STOCK_QUESTION)).toContainText("64 at SLC");
-  await dana.context().close();
-});
-
-test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing quotes", async ({ page, browser }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInAsBrandi(page);
-  await openSettings(page, "Rep assignments");
-  const wasatch = page.getByRole("combobox", { name: "Rep for Wasatch Mechanical Contractors" });
-  await wasatch.selectOption("mara");
-  await expect(page.getByRole("status").filter({ hasText: "is now" })).toHaveText(
-    "Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 28 existing quotes stay with Brandi Gallegos.",
-  );
-  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("28 with Brandi Gallegos");
-  await screenshot(page, testInfo, "settings-assignments-reassigned-1440");
-  // The Customers list's rep follows.
-  await page.goto("/rep/customers?customer=wasatch");
-  await expect(page.getByRole("row", { name: /Wasatch Mechanical Contractors/ })).toContainText("Mara Jensen");
-
-  // Dana's rep card and chat's "call your rep" name Mara now.
-  const dana = await signInAsDana(browser);
-  // The My rep sheet (plan U10, C_CVL3).
-  await dana.getByRole("button", { name: "My rep" }).click();
-  const rep = dana.getByRole("dialog", { name: "Your rep" });
-  await expect(rep).toContainText("Mara Jensen");
-  await expect(rep).toContainText("(801) 555-0102");
-
-  // Brandi keeps Q-24817: quotes are never reassigned.
-  await openQuotes(page);
-  await expect(page.getByRole("link", { name: SAMPLE, exact: true })).toBeVisible();
-  await expect(sampleMargin(page)).toContainText("1 line below floor");
-
-  // Back to Brandi.
-  await openSettings(page, "Rep assignments");
-  await page.getByRole("combobox", { name: "Rep for Wasatch Mechanical Contractors" }).selectOption("brandi");
-  await expect(page.getByRole("status").filter({ hasText: "is now" })).toContainText("is now Brandi Gallegos’s customer");
-  await dana.reload();
-  await dana.getByRole("button", { name: "My rep" }).click();
-  await expect(rep).toContainText("Brandi Gallegos");
   await dana.context().close();
 });
 

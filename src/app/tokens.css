@@ -21,6 +21,10 @@
   --q-card-border: #DDDFDE;
   --q-titlebar: #2A302D;
   --q-titlebar-muted: #C7CBC9;
+  /* A control's line on a title bar (C_TRBase "Filter"). */
+  --q-titlebar-line: #5A615D;
+  /* A picked row (C_TR5: the selected team). */
+  --q-row-picked: #F7FAF8;
   --q-table-header: #E8EAE9;
   --q-table-header-text: #3A403D;
   --q-row-divider: #E8EAE9;

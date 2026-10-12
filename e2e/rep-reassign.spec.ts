@@ -6,8 +6,9 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 //     quote in the editor (plan U4): "Read only: …" under Approve and send, every edit control
 //     disabled. She reassigns it to herself from More actions and can edit it after; Activity says
 //     who moved it.
-//   - Bulk reassign is gone from the Quotes page (decision 45; it moves to Teams and Reps, plan U7), and
-//     POST /api/rep/quotes/reassign still moves two quotes to Eli at once; the rep filter shows them as Eli's.
+//   - Bulk reassign is gone from the Quotes page (decision 45), and POST /api/rep/quotes/reassign still
+//     moves two quotes to Eli at once; the rep filter shows them as Eli's.
+//   - On Teams and Reps (decision 45, plan U7) she selects Mara's row and moves all her open quotes to Nora.
 //   - Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees only her own quotes.
 // Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
@@ -111,7 +112,7 @@ test("No bulk reassign on the Quotes page (decision 45); the reassign API still 
     await expect(page.getByRole("region", { name: "Selected quotes" })).toHaveCount(0);
     await expect(page.getByText(/Reassign/)).toHaveCount(0);
   }
-  // POST /api/rep/quotes/reassign (D2) moves both, each with its Activity row; Teams and Reps will call it (plan U7).
+  // POST /api/rep/quotes/reassign (D2) moves both, each with its Activity row; Teams and Reps calls it (plan U7).
   const moved = await page.evaluate(async (ids) => {
     const response = await fetch("/api/rep/quotes/reassign", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": `e2e-${Date.now()}` },
       body: JSON.stringify({ quoteIds: ids, toRepId: "eli" }) });
@@ -134,6 +135,36 @@ test("No bulk reassign on the Quotes page (decision 45); the reassign API still 
   await screenshot(page, testInfo, "filtered-eli");
 });
 
+test("Brandi selects Mara on Teams and Reps and reassigns all her open quotes to Nora in bulk (decision 45)", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await signInAsBrandi(page);
+  await page.goto("/rep/teams");
+  const board = async () => page.evaluate(async () => (await fetch("/api/rep/teams")).json());
+  const open: { quote_number: string }[] = (await board()).reps.find((r: { id: string }) => r.id === "mara").open_quotes;
+  expect(open.length).toBeGreaterThan(0);
+  // A row is selected by clicking it (no frame draws the selection: the minimum, listed under "No frame").
+  const reps = page.getByRole("region", { name: "Reps" });
+  const mara = reps.getByRole("row").filter({ has: page.getByText("Mara Jensen", { exact: true }) }).first();
+  await mara.getByText("Mara Jensen", { exact: true }).click();
+  await expect(mara).toHaveAttribute("aria-selected", "true");
+  const bar = page.getByRole("region", { name: "Selected reps" });
+  await expect(bar).toContainText("Mara Jensen");
+  await bar.getByRole("button", { name: "Reassign open quotes" }).click();
+  const dialog = page.getByRole("dialog", { name: open.length === 1 ? `Reassign ${open[0].quote_number}` : `Reassign ${open.length} quotes` });
+  await expect(dialog.getByRole("combobox", { name: "New rep" }).locator("option")).not.toContainText(["Mara Jensen"]);
+  await dialog.getByRole("combobox", { name: "New rep" }).selectOption("nora");
+  await screenshot(page, testInfo, "teams-bulk-dialog");
+  await dialog.getByRole("button", { name: "Reassign" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await board()).reps.find((r: { id: string }) => r.id === "mara").open_quotes).toEqual([]);
+  // Each move writes an Activity row: who, from and to (decision 21); the first owner is kept.
+  for (const { quote_number: number } of open) {
+    const detail = await page.evaluate(async (n) => (await fetch(`/api/rep/quotes/${n}`)).json(), number);
+    expect(detail.quote).toMatchObject({ rep_id: "nora", original_rep_id: "mara" });
+    expect(JSON.stringify(detail)).toContain(`Brandi Gallegos reassigned ${number} from Mara Jensen to Nora Chen`);
+  }
+});
+
 test("Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees only her own quotes", async ({ browser }, testInfo) => {
   const page = await signInAsMara(browser, testInfo);
   const api = page.request;
@@ -152,13 +183,12 @@ test("Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await expect(page.getByRole("table", { name: "Quotes" }).getByRole("button", { name: "Q-24817", exact: true })).toHaveCount(0);
 
-  // Brandi's quote is not found for her, and Rep assignments is read-only.
+  // Brandi's quote is not found for her, and Teams and Reps (where customers and quotes are reassigned, plan U7) is not hers.
   await page.goto("/rep/quotes/Q-24817");
   await expect(page.getByRole("button", { name: "Approve and send" })).toHaveCount(0);
-  await page.goto("/rep/settings");
-  await expect(page.getByRole("heading", { name: "Rep assignments" })).toBeVisible();
-  await expect(page.getByText("Only a manager can change rep assignments.")).toBeVisible();
-  await expect(page.getByRole("combobox", { name: /^Rep for / })).toHaveCount(0);
-  await screenshot(page, testInfo, "mara-settings-read-only");
+  await page.goto("/rep/teams");
+  await expect(page).toHaveURL(/\/rep\/quotes$/);
+  expect((await api.get("/api/rep/teams")).status()).toBe(403);
+  await screenshot(page, testInfo, "mara-no-teams");
   await page.context().close();
 });

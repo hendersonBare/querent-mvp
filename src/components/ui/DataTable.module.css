@@ -97,6 +97,14 @@
   border-top: 1px solid var(--q-row-divider);
   align-items: center;
 }
+/* A row with its detail under it (C_TR1): the group carries the divider and the white ground. */
+.group {
+  border-top: 1px solid var(--q-row-divider);
+  background: var(--q-card);
+}
+.inGroup {
+  border-top: 0;
+}
 .clickable {
   cursor: pointer;
 }

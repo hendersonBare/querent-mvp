@@ -229,6 +229,19 @@ describe('groupMetricRows',()=>{
     expect(grouped.totals).toEqual(byRep.totals);
   });
 
+  it('by team entity (plan U7): one row per team with reps in the cohort, in the teams’ order; a parent counts the reps of the teams inside it, the totals count each quote once',()=>{
+    // Sales holds Inside Sales (Mara) and Outside Sales (Eli, Nora); Nights has none of these reps.
+    const teams=[{name:'Sales',rep_ids:['mara','eli','nora']},{name:'Inside Sales',rep_ids:['mara']},{name:'Outside Sales',rep_ids:['eli','nora']},{name:'Nights',rep_ids:['ghost']}];
+    const groups=metricGroups('team',WITH_NORA,customers,teams);
+    expect(groups.map(g=>[g.key,g.name,g.team,g.rep_ids])).toEqual([
+      ['team:Sales','Sales','Sales',['mara','eli','nora']],['team:Inside Sales','Inside Sales','Inside Sales',['mara']],['team:Outside Sales','Outside Sales','Outside Sales',['eli','nora']],['team:','No team',null,['solo']],
+    ]);
+    const grouped=groupMetricRows(groups,facts,EVENTS,options);
+    const byRep=teamMetricRows(WITH_NORA,facts,EVENTS,options);
+    expect(grouped.rows.find(r=>r.key==='team:Sales')!.created).toBe(byRep.totals.created);
+    expect(grouped.totals).toEqual(byRep.totals);
+  });
+
   it('by customer: one row per customer given, by the order given; the totals are every selected rep\'s quotes',()=>{
     const grouped=groupMetricRows(metricGroups('customer',REPS,customers),facts,EVENTS,options);
     expect(grouped.dimension).toBe('customer');

@@ -7,7 +7,7 @@ import {NO_FILTER,type AnalyticsFilter} from './window';
 
 // The Analytics filter panels: the manager's (C_AN4) picks any mix of reps and teams, a customer and the
 // breakdown; a rep's (C_RAN2) picks one of their own customers and a period. "Apply filters" applies,
-// "Clear all" empties the draft (U0 FilterButton). Team labels until U7 makes teams entities.
+// "Clear all" empties the draft (U0 FilterButton). Teams are entities (plan U7): a team takes in the reps of the teams inside it.
 
 const BREAKDOWNS:readonly {value:Breakdown;label:string}[]=[{value:'org',label:'Whole organization'},{value:'rep',label:'Rep'},{value:'team',label:'Team'},{value:'customer',label:'Customer'}];
 /** The panel's width in both frames. */

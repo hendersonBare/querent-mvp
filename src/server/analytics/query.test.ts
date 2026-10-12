@@ -37,6 +37,17 @@ describe('the manager',()=>{
     expect(ok('teams=Outside%20Sales,Inside%20Sales').repIds).toEqual(['brandi','eli','mara','nora']);
   });
 
+  it('reads team entities (plan U7): a team counts its own members and the members of the teams inside it (decision 47)',()=>{
+    // Sales holds Inside Sales (Brandi, Mara) and Outside Sales (Eli, Nora); Nights has nobody yet.
+    const teams=[{name:'Sales',rep_ids:['brandi','eli','mara','nora']},{name:'Inside Sales',rep_ids:['brandi','mara']},{name:'Outside Sales',rep_ids:['eli','nora']},{name:'Nights',rep_ids:[]}];
+    const withTeams=(query:string)=>{const r=parseAnalyticsQuery(new URLSearchParams(query),{reader:manager,reps:REPS,teams,now:NOW});if(!r.ok)throw new Error(r.detail);return r.query;};
+    expect(withTeams('teams=Sales').repIds).toEqual(['brandi','eli','mara','nora']);
+    expect(withTeams('teams=Outside%20Sales&reps=mara').repIds).toEqual(['eli','mara','nora']);
+    // A team with no reps yet is known, and narrows to nobody.
+    expect(withTeams('teams=Nights')).toMatchObject({teams:['Nights'],repIds:[],cohortRepIds:[]});
+    expect(parseAnalyticsQuery(new URLSearchParams('teams=Ghosts'),{reader:manager,reps:REPS,teams,now:NOW})).toEqual({ok:false,detail:'Unknown team: Ghosts.'});
+  });
+
   it('takes the customer and the breakdown',()=>{
     expect(ok('customer=wasatch').customerId).toBe('wasatch');
     for(const breakdown of ['org','rep','team','customer'] as const)expect(ok(`breakdown=${breakdown}`).breakdown).toBe(breakdown);

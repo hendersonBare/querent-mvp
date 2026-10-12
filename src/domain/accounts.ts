@@ -8,8 +8,8 @@ export interface Rep {id:string;name:string;initials:string;title:string;phone:s
 export type RepRole='rep'|'manager';
 /** A rep's stored role and whether they are active, read on every rep request (task D1). */
 export interface RepStanding {role:RepRole;active:boolean}
-/** One row of the manager's Reps card (task D1): role, team label (a filter), active, and how many customers are theirs (customer_rep). */
-export interface TeamRep extends Pick<Rep,'id'|'name'|'initials'|'title'>,RepStanding {team:string|null;customer_count:number}
+/** One rep as Teams and Reps lists them (tasks D1, U7): role, team (its name and id, null for none), active, and how many customers are theirs (customer_rep). */
+export interface TeamRep extends Pick<Rep,'id'|'name'|'initials'|'title'>,RepStanding {team:string|null;team_id:number|null;customer_count:number}
 
 /** One row of the customer picker, the Customers list and Rep assignments (one rep per customer). */
 export interface CustomerListItem {id:string;name:string;account_number:string;rep_id:string|null;rep_name:string|null}

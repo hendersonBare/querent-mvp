@@ -4,10 +4,11 @@ import type {DistanceProvider} from '@/server/freight/distance';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {customerFilterFor,ownerFilter,readableCustomers,type RepReader} from '@/server/rep/access';
 import {managerListOptions} from '@/server/rep/quotes';
-import {aggregateAccess,agingThresholds,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,teamStatusEvents,topRequestedItems,type QuoteScope} from '@/server/repository';
+import {aggregateAccess,agingThresholds,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,teamList,teamMemberships,teamStatusEvents,topRequestedItems,type QuoteScope} from '@/server/repository';
 import {teamMetricsCsv} from '@/server/team/csv';
-import {groupMetricRows,metricGroups} from '@/server/team/metrics';
+import {groupMetricRows,metricGroups,type MetricsTeam} from '@/server/team/metrics';
 import {cohortFacts} from '@/server/team/service';
+import {countedReps,treeOrder} from '@/server/teams/tree';
 import {
   TOP_ITEMS,extraGp,hoursSaved,marginVsFloor,questionsAnswered,quotedVsAccepted,turnaround,weeklyTrend,winRateCard,type AnalyticsPage,type RepAnalytics,
 } from './metrics';
@@ -94,7 +95,8 @@ export interface AnalyticsPageOptions {now?:string;provider?:DistanceProvider}
 /** The page for the reader and the query string. Throws AnalyticsQueryError. */
 export async function analyticsPage(reader:RepReader,params:{get(name:string):string|null},{now=clock(),provider}:AnalyticsPageOptions={}):Promise<AnalyticsPage>{
   const listed=managerListOptions();
-  const parsed=parseAnalyticsQuery(params,{reader,reps:listed.reps,now});
+  const teams=metricsTeams();
+  const parsed=parseAnalyticsQuery(params,{reader,reps:listed.reps,teams,now});
   if(!parsed.ok)throw new AnalyticsQueryError(parsed.detail);
   const query=parsed.query;
   const everyone=customers();
@@ -104,11 +106,20 @@ export async function analyticsPage(reader:RepReader,params:{get(name:string):st
   // The cohort: the quotes created in the window, owned now by a cohort rep, for the picked customer or any.
   const cohort={...query.window,repIds:query.cohortRepIds,customerIds:picked?[picked.id]:null};
   const reps=listed.reps.filter(r=>query.cohortRepIds.includes(r.id));
-  const groups=groupMetricRows(metricGroups(query.breakdown,reps,picked?[picked]:readable),await cohortFacts(cohort,{now,provider}),teamStatusEvents(cohort),{now,thresholds:agingThresholds()});
+  const groups=groupMetricRows(metricGroups(query.breakdown,reps,picked?[picked]:readable,teams),await cohortFacts(cohort,{now,provider}),teamStatusEvents(cohort),{now,thresholds:agingThresholds()});
   return {...overview,
     filter:{rep_ids:query.repIds===null?[]:query.reps,teams:query.teams,customer_id:picked?.id??null,breakdown:query.breakdown,window:query.window},
     groups,
-    options:reader.manager?{reps:listed.reps,teams:listed.teams,customers:readable}:{reps:[],teams:[],customers:readable}};
+    options:reader.manager?{reps:listed.reps,teams:teams.map(t=>t.name),customers:readable}:{reps:[],teams:[],customers:readable}};
+}
+
+/**
+ * The team entities (plan U7) in the Teams card's order, each with every rep it counts: its own members and
+ * those of the teams inside it (decision 47: grouping and filters only).
+ */
+function metricsTeams():MetricsTeam[]{
+  const nodes=teamList(),counted=countedReps(nodes,teamMemberships());
+  return treeOrder(nodes).map(({team})=>({name:team.name,rep_ids:counted.get(team.id)??[]}));
 }
 
 /** The CSV file name for Export CSV on the Rep leaderboard. */

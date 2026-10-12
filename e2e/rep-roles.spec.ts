@@ -2,9 +2,9 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 
 // Roles (v3 spec §5, §6 Settings, §8; decisions 16, 20, 21; task D1):
 //   - Mara is a rep: Settings has no Reps or Aging tab for her, and every manager route answers 403.
-//   - Brandi is the manager: she edits an aging threshold (the Quotes list follows it) and a team
-//     label, and can mark a rep inactive only once that rep's customers are reassigned. An inactive
-//     rep's session is refused.
+//   - Brandi is the manager: she edits an aging threshold (the Quotes list follows it). Teams, the
+//     active flag and deactivation (blocked while the rep has customers; an inactive rep's session is
+//     refused) moved to Teams and Reps in plan U7: e2e/rep-teams.spec.ts.
 //   - Scope is role based (task U1): Mara reads only her own customers, quotes, orders and analytics,
 //     whatever ?scope= or ?customer= say; Brandi reads the whole organization. No nav link carries a query.
 // Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
@@ -49,9 +49,6 @@ async function signInAsMara(browser: Browser, testInfo: TestInfo) {
 const settingsTabs = (page: Page) => page.getByRole("navigation", { name: "Settings sections" });
 /** A quote's card on the Quotes board (plan U3). */
 const quoteCard = (page: Page, number: string) => page.getByRole("article", { name: number, exact: true });
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
@@ -60,11 +57,11 @@ test("Mara (a rep) has no manager settings, and the manager APIs refuse her", as
   const page = await signInAsMara(browser, testInfo);
   await page.goto("/rep/settings");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
-  await expect(settingsTabs(page).getByRole("link")).toHaveText(["Rep assignments", "Customer access", "Margin floors", "Pricing & delivery", "Data sources"]);
-  // A typed ?tab= falls back to Rep assignments.
-  for (const tab of ["aging", "reps"]) {
+  await expect(settingsTabs(page).getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing & delivery", "Data sources"]);
+  // A typed ?tab= falls back to Customer access (Rep assignments and Reps moved to Teams and Reps, plan U7).
+  for (const tab of ["aging", "reps", "assignments"]) {
     await page.goto(`/rep/settings?tab=${tab}`);
-    await expect(page.getByRole("heading", { name: "Rep assignments" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Customer access" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Aging thresholds" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Reps", exact: true })).toHaveCount(0);
   }
@@ -153,65 +150,4 @@ test("Brandi edits an aging threshold, and the Quotes list follows it", async ({
   // Sent 100 hours ago: now past the 96 h red threshold.
   await page.goto("/rep/quotes");
   await expect(quoteCard(page, "Q-24789")).toContainText(/Overdue$/);
-});
-
-test("Brandi sets a team label, and can mark Mara inactive only after reassigning her customer", async ({ page, browser }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInAsBrandi(page);
-  await page.goto("/rep/settings?tab=reps");
-  await expect(page.getByRole("heading", { name: "Reps", exact: true })).toBeVisible();
-
-  // Team label.
-  const label = page.getByRole("textbox", { name: "Team label for Eli Porter" });
-  await expect(label).toHaveValue("Outside Sales");
-  await label.fill("Field Sales");
-  const eliRow = page.getByRole("row", { name: /Eli Porter/ });
-  await eliRow.getByRole("button", { name: "Save" }).click();
-  await expect(eliRow.getByRole("status")).toHaveText("Saved");
-  await page.reload();
-  await expect(page.getByRole("textbox", { name: "Team label for Eli Porter" })).toHaveValue("Field Sales");
-
-  // Mara still has Canyon Ridge: the switch is off-limits, and the API says why.
-  const mara = page.getByRole("switch", { name: "Mara Jensen active" });
-  await expect(mara).toBeDisabled();
-  await expect(mara).toHaveAccessibleDescription("Reassign 1 customer in Rep assignments first");
-  // From the page itself: the production session cookie is Secure, which Playwright's request client won't send over http.
-  const refused = await page.evaluate(async () => {
-    const response = await fetch("/api/rep/team/reps/mara", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ active: false }) });
-    return { status: response.status, body: await response.json() };
-  });
-  expect(refused).toMatchObject({ status: 409, body: { code: "has_customers" } });
-  await expect(page.getByRole("switch", { name: "Brandi Gallegos active" })).toBeDisabled();
-  await screenshot(page, testInfo, "brandi-reps");
-
-  // Reassign Canyon Ridge to Eli, then Mara can be marked inactive.
-  await settingsTabs(page).getByRole("link", { name: "Rep assignments", exact: true }).click();
-  await page.getByRole("combobox", { name: "Rep for Canyon Ridge Builders" }).selectOption("eli");
-  await expect(page.getByRole("status").filter({ hasText: "Canyon Ridge Builders is now Eli Porter’s customer" })).toBeVisible();
-  await settingsTabs(page).getByRole("link", { name: "Reps", exact: true }).click();
-  await expect(mara).toBeEnabled();
-  await mara.click();
-  await expect(mara).toHaveAttribute("aria-checked", "false");
-  await expect(mara).toHaveAccessibleDescription("Inactive");
-
-  // Mara's session is refused now, and she can't be given a customer.
-  const maraPage = await signInAsMara(browser, testInfo);
-  expect((await maraPage.request.get("/api/rep/badges")).status()).toBe(403);
-  // The portal sends her back to /, which reads her session as signed out: the visitor box (decision 53).
-  await maraPage.goto("/rep/quotes");
-  await expect(maraPage).toHaveURL(/\/$/);
-  await expect(maraPage.getByRole("button", { name: "Sign in" })).toBeVisible();
-  await maraPage.context().close();
-  await settingsTabs(page).getByRole("link", { name: "Rep assignments", exact: true }).click();
-  await expect(page.getByRole("combobox", { name: "Rep for Canyon Ridge Builders" }).locator("option")).not.toContainText(["Mara Jensen"]);
-
-  // Phone: the Reps card fits.
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/rep/settings?tab=reps");
-  await expect(page.getByRole("switch", { name: "Mara Jensen active" })).toBeVisible();
-  await noSidewaysScroll(page);
-  await page.goto("/rep/settings?tab=aging");
-  await expect(page.getByRole("spinbutton", { name: "Sent red hours" })).toBeVisible();
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "brandi-aging-390");
 });

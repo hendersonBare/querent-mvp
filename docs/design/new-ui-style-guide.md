@@ -21,6 +21,8 @@ Every token below is a CSS variable in `src/app/tokens.css` (`--q-<name>`). `e2e
 | rail-button-border | `#4A514D` | Sign out |
 | titlebar | `#2A302D`, text `#fff` | card, column and panel headers |
 | titlebar-muted | `#C7CBC9` | subtitles inside title bars |
+| titlebar-line | `#5A615D` | a control's line on a title bar (C_TRBase Filter) |
+| row-picked | `#F7FAF8` | a picked row (C_TR5 selected team) |
 | page | `#E9EBEA` | app background |
 | card | `#FFFFFF` | cards, inputs, panels |
 | card-border | `#DDDFDE` | the Quotes table card and board cards |

@@ -2,9 +2,10 @@ import {NextRequest} from 'next/server';
 import {describe,expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
 
-// GET /api/rep/team/reps and PUT /api/rep/team/reps/<id> (v3 spec §5, §8; decisions 20, 21; task
-// D1): manager only. Reps get 403, the customer 403, no session 401. Deactivating a rep who still
-// has customers is 409 has_customers; it succeeds once Rep assignments has moved them.
+// GET /api/rep/team/reps and PUT /api/rep/team/reps/<id> (v3 spec §5, §8; decisions 20, 21; tasks
+// D1, U7): manager only, the backing route of Teams and Reps' Active toggles. Reps get 403, the customer
+// 403, no session 401. Deactivating a rep who still has customers is 409 has_customers; it succeeds once
+// their customers have another rep (PUT /api/rep/settings/assignments).
 useSeededDatabase();
 
 type Persona='supplier'|'mara'|'eli'|'customer'|null;
@@ -36,23 +37,20 @@ describe('who may use the team routes',()=>{
   it('refuses reps and the customer with 403 and no session with 401, on GET and PUT, changing nothing',async()=>{
     for(const persona of ['mara','eli','customer'] as const){
       expect(await call('GET',{persona})).toMatchObject({status:403});
-      expect(await call('PUT',{persona,id:'eli',body:{team:'Hacked'}})).toMatchObject({status:403});
+      expect(await call('PUT',{persona,id:'eli',body:{active:false}})).toMatchObject({status:403});
     }
     expect(await call('GET',{persona:null})).toMatchObject({status:401});
-    expect(await call('PUT',{persona:null,id:'eli',body:{team:'Hacked'}})).toMatchObject({status:401});
-    expect((await call('GET')).json.reps.find((r:{id:string})=>r.id==='eli').team).toBe('Outside Sales');
+    expect(await call('PUT',{persona:null,id:'eli',body:{active:false}})).toMatchObject({status:401});
+    expect((await call('GET')).json.reps.find((r:{id:string})=>r.id==='eli')).toMatchObject({team:'Outside Sales',active:true});
   });
 });
 
 describe('PUT /api/rep/team/reps/<id>',()=>{
-  it('sets a team label (trimmed) and returns every rep; refuses a long one with the reason',async()=>{
-    const saved=await call('PUT',{id:'eli',body:{team:'  Field Sales '}});
-    expect(saved.status).toBe(200);
-    expect(saved.json.reps.find((r:{id:string})=>r.id==='eli').team).toBe('Field Sales');
-    expect(await call('PUT',{id:'eli',body:{team:'x'.repeat(41)}})).toMatchObject({status:400,json:{detail:'Keep the team label to 40 characters.'}});
+  it('takes the active flag only (teams are set on Teams and Reps, plan U7), with the reason for a bad request',async()=>{
+    expect(await call('PUT',{id:'eli',body:{team:'Field Sales'}})).toMatchObject({status:400,json:{detail:'Change the active setting.'}});
     expect(await call('PUT',{id:'eli',body:'not json'})).toMatchObject({status:400});
-    expect(await call('PUT',{id:'nobody',body:{team:'X'}})).toMatchObject({status:404,json:{detail:'Rep not found.'}});
-    expect((await call('PUT',{id:'eli',body:{team:'Outside Sales'}})).status).toBe(200);
+    expect(await call('PUT',{id:'nobody',body:{active:true}})).toMatchObject({status:404,json:{detail:'Rep not found.'}});
+    expect((await call('PUT',{id:'eli',body:{active:true}})).status).toBe(200);
   });
 
   it('refuses to deactivate Mara while she has a customer (409 has_customers), then allows it after reassigning',async()=>{

@@ -6,8 +6,8 @@ import { expect, test, type APIRequest, type Browser, type BrowserContext, type 
 //   2. Brandi sees an amber and a red quote in the header caution's Needs attention dropdown and in the
 //      Quotes filter's Only show Overdue and Aging, opens Dana's quote from the bell, reads the full chat, and sends it.
 //   3. Dana declines a different quote and picks a reason.
-//   4. Brandi (the manager) opens Teams and Reps, compares Mara and Eli, drills into the decline reasons, and
-//      reassigns one of Mara's overdue quotes to Eli.
+//   4. Brandi (the manager) opens Analytics (the leaderboard moved there from Teams and Reps, plans U6 and
+//      U7), compares Mara and Eli, drills into the decline reasons, and reassigns one of Mara's overdue quotes to Eli.
 //   5. Brandi opens Pricing & delivery, views the impact preview, turns free delivery pricing on and
 //      sees the ramp, with the computed pool rate next to the starting rate.
 //
@@ -60,8 +60,8 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
 const quoteCard = (page: Page, number: string) => page.getByRole("article", { name: number, exact: true });
 const laneCards = (page: Page, label: string) => page.locator(`section[data-lane][aria-label="${label}"] [role=article]`);
 const repDetail = (number: string) => brandi.evaluate((n) => fetch(`/api/rep/quotes/${n}`).then((r) => r.json()), number);
-const leaderboard = (page: Page) => page.getByRole("table", { name: /Leaderboard/ });
-const repRow = (page: Page, name: string) => leaderboard(page).getByRole("row").filter({ has: page.getByRole("rowheader", { name }) });
+const leaderboard = (page: Page) => page.getByRole("table", { name: "Leaderboard" });
+const repRow = (page: Page, name: string) => leaderboard(page).getByRole("row").filter({ has: page.getByRole("rowheader", { name, exact: true }) });
 
 test.beforeAll(async ({ browser, playwright }, testInfo) => {
   await resetDemo(playwright.request, testInfo);
@@ -190,29 +190,35 @@ test("Act 3: Dana declines a different quote and picks a reason", async ({}, tes
   expect((await repDetail("Q-24791")).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", unread_for_rep: true });
 });
 
-test("Act 4: Brandi compares Mara and Eli on Teams and Reps, drills into the decline reasons, and reassigns a quote", async ({}, testInfo) => {
+test("Act 4: Brandi compares Mara and Eli on Analytics, drills into the decline reasons, and reassigns a quote", async ({}, testInfo) => {
   // Act 3's decline is in Brandi's bell.
   await brandi.getByRole("button", { name: "Notifications" }).click();
   await expect(brandi.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: /^Q-24791 declined by Dana Ortiz/ })).toHaveCount(1);
   await brandi.keyboard.press("Escape");
-  await brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Teams and Reps" }).click();
-  await expect(brandi).toHaveURL(/\/rep\/teams$/);
-  await expect(brandi.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
+  // The leaderboard moved from Teams and Reps to Analytics (plans U6, U7).
+  await brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Analytics" }).click();
+  await expect(brandi).toHaveURL(/\/rep\/analytics$/);
+  await brandi.getByRole("tab", { name: "Rep leaderboard", exact: true }).click();
+  await expect(brandi.getByRole("radio", { name: "30 days" })).toHaveAttribute("aria-checked", "true");
 
-  // Compare Mara and Eli: untick Brandi and Nora. Their books are dated from the reset time.
-  await brandi.getByRole("checkbox", { name: "Brandi Gallegos" }).uncheck();
-  await brandi.getByRole("checkbox", { name: "Nora Chen" }).uncheck();
+  // Compare Mara and Eli: pick them in the filter. Their books are dated from the reset time.
+  await brandi.getByRole("button", { name: "Filter" }).click();
+  const filter = brandi.getByRole("dialog", { name: "Filter analytics" });
+  await filter.getByText("Eli Porter", { exact: true }).click();
+  await filter.getByText("Mara Jensen", { exact: true }).click();
+  await filter.getByRole("button", { name: "Apply filters" }).click();
   await expect(leaderboard(brandi).getByRole("rowheader")).toHaveText(["Eli Porter", "Mara Jensen", "Total"]);
-  await expect(repRow(brandi, "Mara Jensen").getByRole("cell", { name: "13 created" })).toBeVisible();
-  await expect(repRow(brandi, "Eli Porter").getByRole("cell", { name: "20 created" })).toBeVisible();
-  await expect(repRow(brandi, "Total").getByRole("cell", { name: "33 created" })).toBeVisible();
+  await expect(repRow(brandi, "Mara Jensen").getByRole("link", { name: "13 created" })).toBeVisible();
+  await expect(repRow(brandi, "Eli Porter").getByRole("link", { name: "20 created" })).toBeVisible();
+  await expect(repRow(brandi, "Total").getByRole("link", { name: "33 created" })).toBeVisible();
   await screenshot(brandi, testInfo, "act4-compare");
 
   // Every reason once, a decline with none, and the Other note in the customer's words.
-  const declines = brandi.getByRole("region", { name: "Decline reasons" });
+  await brandi.getByRole("tab", { name: "Decline reasons", exact: true }).click();
+  const declines = brandi.getByRole("region", { name: "Decline reasons", exact: true });
   for (const reason of ["Price too high", "Found other source", "Need it sooner than quoted", "Wrong items or quantity", "Other", "No reason given"])
-    await expect(declines.getByRole("row", { name: new RegExp(`^${reason} 1 `) })).toBeVisible();
-  await expect(declines.getByRole("list", { name: "Other reasons in their words" })).toContainText(OTHER_NOTE);
+    await expect(brandi.getByRole("table", { name: "Decline reasons" }).getByRole("row").filter({ has: brandi.getByRole("rowheader", { name: reason, exact: true }) })).toContainText(new RegExp(`^${reason}1`));
+  await expect(declines.getByRole("list", { name: "Other, in the customer's words" })).toContainText(OTHER_NOTE);
   await screenshot(brandi, testInfo, "act4-decline-reasons");
   await declines.getByRole("link", { name: "6 declined quotes" }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?(rep=[^&]+&)?from=.+status=declined/);
@@ -220,9 +226,10 @@ test("Act 4: Brandi compares Mara and Eli on Teams and Reps, drills into the dec
   await expect(laneCards(brandi, "Declined")).toHaveCount(6);
   await screenshot(brandi, testInfo, "act4-declined-quotes");
 
-  // Mara's overdue quotes, from her row: open her overdue draft and move it to Eli from the quote page
-  // (the Quotes page has no bulk reassign, decision 45; Teams and Reps gets it, plan U7).
-  await brandi.goto("/rep/teams");
+  // Mara's overdue quotes, from her leaderboard row: open her overdue draft and move it to Eli from the
+  // quote page (the Quotes page has no bulk reassign; Teams and Reps moves all of a rep's open quotes, decision 45).
+  await brandi.goto("/rep/analytics");
+  await brandi.getByRole("tab", { name: "Rep leaderboard", exact: true }).click();
   await repRow(brandi, "Mara Jensen").getByRole("link", { name: "2 overdue" }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?rep=mara&.*aging=red/);
   const draft = laneCards(brandi, "Draft ready");
