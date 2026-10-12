@@ -382,8 +382,9 @@ async function expectFilterPanel(page: Page, { rep = true } = {}) {
   const a = paired(await measure(page, "header [data-ui=filter]"), FILTER_ALIAS);
   expectSame("filter panel", f, a, { missing: DATES, extraKinds: ["input", "input"] });
   await sameStyle("Filter, open", page, { text: "Filter", selector: "main button" }, "header [data-ui=filter] > button");
-  await sameStyle("panel", page, { text: "Filter quotes", up: 1 }, "header [data-ui=filter] [role=dialog]",
-    { h: false, explained: { position: { frame: "absolute", app: "absolute", why: "" } } });
+  await sameStyle("panel", page, { text: "Filter quotes", up: 1 }, "header [data-ui=filter] [role=dialog]", { h: false });
+  // The frame's field is a flex div holding a sample day (placeholder, Appendix G); the app's is an empty date
+  // input (U0 primitive), so its display, alignment, text colour and gap are the input's own; every other style matches.
   await sameStyle("date field", page, { text: "Sep 1" }, 'input[aria-label="Requested from"]', { w: true,
     props: STYLE_PROPS.filter((p: string) => !["display", "textAlign", "color", "gap"].includes(p)) });
   // The Rep field (the manager only) lists every rep; the Customer field the reader's customers.
