@@ -92,6 +92,13 @@
 }
 .said[data-role="assistant"] {
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.said[data-role="assistant"][data-open="true"] {
+  white-space: pre-line;
 }
 .notice {
   margin-top: 8px;

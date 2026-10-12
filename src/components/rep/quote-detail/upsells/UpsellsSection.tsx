@@ -27,7 +27,7 @@ export function UpsellsSection({editor,querentFound}:{editor:QuoteEditor;querent
   const toggle=()=>{if(editable)setOpen(o=>!o);};
   const onKey=(event:KeyboardEvent)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}};
 
-  return <section className={s.card} aria-labelledby={titleId}>
+  return <section className={s.card} aria-label="Suggested by Querent">
     <div className={`${s.titlebar} ${s.suggestHead}`} role="button" tabIndex={editable?0:-1} aria-expanded={editable?open:undefined} aria-controls={editable?bodyId:undefined}
       aria-disabled={!editable||undefined} onClick={toggle} onKeyDown={onKey}>
       <div id={titleId} className={s.suggestTitle}>Suggested by Querent<span className={s.found} title={FOUND_NOTE}>{querentFound}</span></div>
@@ -35,7 +35,7 @@ export function UpsellsSection({editor,querentFound}:{editor:QuoteEditor;querent
     </div>
     {editable&&open&&<div id={bodyId}>
       {editor.upsellError&&<div className={s.plain} data-tone="error" role="alert">{editor.upsellError}<button type="button" className={s.plainButton} onClick={editor.dismissUpsellError}>Dismiss</button></div>}
-      {chips.length?chips.map(chip=><Idea key={chip.id} chip={chip} taking={editor.takingUpsells.has(chip.id)} onTake={()=>editor.takeUpsell(chip)}/>)
+      {chips.length?<div role="list" aria-label="Ideas">{chips.map(chip=><Idea key={chip.id} chip={chip} taking={editor.takingUpsells.has(chip.id)} onTake={()=>editor.takeUpsell(chip)}/>)}</div>
         :<div className={s.plain}>{state.status==='loading'?'Querent is looking for ideas for this quote.':state.status==='error'?'Suggestions couldn’t be loaded. They’ll try again after your next change.':'Nothing more to suggest for these lines.'}</div>}
     </div>}
   </section>;
@@ -43,9 +43,9 @@ export function UpsellsSection({editor,querentFound}:{editor:QuoteEditor;querent
 
 function Idea({chip,taking,onTake}:{chip:RepUpsell;taking:boolean;onTake:()=>void}){
   const verb=takeVerb(chip);
-  return <div className={s.idea} data-kind={chip.kind}>
+  return <div className={s.idea} data-kind={chip.kind} role="listitem">
     <div>
-      <div className={s.ideaTitle}>{chip.wording.title}</div>
+      <div className={s.ideaTitle} data-ui="idea-title">{chip.wording.title}</div>
       <div className={s.ideaReason}>{chip.wording.reason}</div>
       <div className={s.ideaFigures}><span className={s.mono}>{chip.item.sku}</span>{`, ${chipFigures(chip)}, `}<b>{chipGain(chip)}</b></div>
     </div>

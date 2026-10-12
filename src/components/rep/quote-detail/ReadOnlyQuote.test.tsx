@@ -5,10 +5,11 @@ import type {QuoteDetail} from '@/server/rep/quote-detail';
 import {CUSTOMERS} from '../quotes/test-fixtures';
 import {sampleDetail} from './test-fixtures';
 
-// The manager on another rep's quote (v3 spec §6 Quote detail; decision 22; task D2): a banner
-// "Read only: Mara Jensen’s quote. Reassign it to edit." with Reassign (to herself or another active
-// rep), every edit control disabled, and the quote not marked read for Mara. On her own quote the
-// manager gets "Reassign to another rep" in the ⋯ menu (the mockup's item, screen 06). A rep gets neither.
+// The manager on another rep's quote (v3 spec §6 Quote detail; decision 22; task D2; plan U4): one plain
+// line under the disabled Approve and send, "Read only: Mara Jensen's quote. Reassign it to edit." (no
+// frame), every edit control disabled, Reassign in the More menu (C_QE3: to herself or another active
+// rep), and the quote not marked read for Mara. On her own quote the manager gets "Reassign to another
+// rep" in the More menu too. A rep gets neither.
 
 const router=vi.hoisted(()=>({refresh:vi.fn()}));
 vi.mock('next/navigation',()=>({
@@ -46,17 +47,15 @@ function renderPage(detail:QuoteDetail,{rep=brandi,reassign=REASSIGN}:{rep?:{id:
 }
 
 describe('the manager on another rep’s quote',()=>{
-  it('shows the read-only banner and disables every edit control',async()=>{
+  it('says whose quote it is under Approve and send, and disables every edit control',async()=>{
     renderPage(marasDraft());
-    const banner=screen.getByRole('region',{name:'Read only'});
-    expect(banner).toHaveTextContent('Read only: Mara Jensen’s quote. Reassign it to edit.');
-    expect(within(banner).getByRole('button',{name:'Reassign…'})).toBeEnabled();
-    for(const name of ['Save draft','Approve & send'])expect(screen.getByRole('button',{name})).toBeDisabled();
+    expect(within(screen.getByRole('region',{name:'Quote summary'})).getByText('Read only: Mara Jensen\'s quote. Reassign it to edit.')).toBeInTheDocument();
+    for(const name of ['Save draft','Approve and send'])expect(screen.getByRole('button',{name})).toBeDisabled();
     // Reading stays open: Export and the chat.
     expect(screen.getByRole('button',{name:'Export'})).toBeEnabled();
-    expect(await screen.findByRole('button',{name:'View full chat, 5 messages'})).toBeEnabled();
+    expect(await screen.findByRole('button',{name:'Customer chat, 5 messages'})).toBeEnabled();
     // No Add item, every line field disabled (as on a sent quote), no remove buttons, no note box.
-    expect(screen.queryByRole('combobox',{name:/Add item/})).toBeNull();
+    expect(screen.queryByRole('button',{name:'Add item'})).toBeNull();
     const prices=screen.getAllByRole('textbox',{name:/^Unit price for/});
     expect(prices).toHaveLength(4);
     for(const field of [...prices,...screen.getAllByRole('textbox',{name:/^(Quantity|Qty|Margin) for/i})])expect(field).toBeDisabled();
@@ -71,13 +70,14 @@ describe('the manager on another rep’s quote',()=>{
 
   it('does not mark the quote read for its rep',async()=>{
     renderPage(marasDraft());
-    await screen.findByRole('button',{name:'View full chat, 5 messages'});
+    await screen.findByRole('button',{name:'Customer chat, 5 messages'});
     expect(posts().filter(p=>p.url.endsWith('/read'))).toEqual([]);
   });
 
-  it('reassigns the quote to herself from the banner, then reloads the page as hers',async()=>{
+  it('reassigns the quote to herself from the More menu, then reloads the page as hers',async()=>{
     renderPage(marasDraft());
-    fireEvent.click(within(screen.getByRole('region',{name:'Read only'})).getByRole('button',{name:'Reassign…'}));
+    fireEvent.click(screen.getByRole('button',{name:'More actions'}));
+    fireEvent.click(screen.getByRole('menuitem',{name:'Reassign to another rep'}));
     const dialog=screen.getByRole('dialog',{name:'Reassign Q-24817'});
     const target=within(dialog).getByRole('combobox',{name:'New rep'});
     // Mara already owns it, so she isn't offered; the manager herself is first and chosen.
@@ -94,7 +94,8 @@ describe('the manager on another rep’s quote',()=>{
       ?Response.json({detail:'Eli Porter is inactive. Choose an active rep.'},{status:400})
       :String(input).startsWith('/api/rep/badges')?Response.json({quotes:0,attention:0,caution:[],bell:[]}):Response.json({total:0,messages:[],next_before:null}));
     renderPage(marasDraft());
-    fireEvent.click(within(screen.getByRole('region',{name:'Read only'})).getByRole('button',{name:'Reassign…'}));
+    fireEvent.click(screen.getByRole('button',{name:'More actions'}));
+    fireEvent.click(screen.getByRole('menuitem',{name:'Reassign to another rep'}));
     const dialog=screen.getByRole('dialog',{name:'Reassign Q-24817'});
     fireEvent.change(within(dialog).getByRole('combobox',{name:'New rep'}),{target:{value:'eli'}});
     fireEvent.click(within(dialog).getByRole('button',{name:'Reassign'}));
@@ -104,10 +105,10 @@ describe('the manager on another rep’s quote',()=>{
 });
 
 describe('on her own quote',()=>{
-  it('the manager gets no banner and can edit, with "Reassign to another rep" in the ⋯ menu',()=>{
+  it('the manager gets no read-only line and can edit, with "Reassign to another rep" in the More menu',()=>{
     renderPage(sampleDetail());
-    expect(screen.queryByRole('region',{name:'Read only'})).toBeNull();
-    expect(screen.getByRole('button',{name:'Approve & send'})).toBeEnabled();
+    expect(screen.queryByText(/^Read only/)).toBeNull();
+    expect(screen.getByRole('button',{name:'Approve and send'})).toBeEnabled();
     fireEvent.click(screen.getByRole('button',{name:'More actions'}));
     expect(within(screen.getByRole('menu',{name:'More actions'})).getAllByRole('menuitem').map(i=>i.textContent))
       .toEqual(['Duplicate quote','Reassign to another rep','Open customer in ERP','Reset sample quote']);

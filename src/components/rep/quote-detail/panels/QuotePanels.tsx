@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useId,type KeyboardEvent} from 'react';
+import {useCallback,useId,useState,type KeyboardEvent} from 'react';
 import type {QuoteFigures} from '@/server/rep/quote-math';
 import {Chevron} from '../icons';
 import {day} from '../format';
@@ -7,7 +7,7 @@ import type {QuoteEditor} from '../use-quote-editor';
 import {ActivityPanel} from './ActivityPanel';
 import {savePanel} from './api';
 import {CustomerPanel} from './CustomerPanel';
-import {FulfillmentPanel} from './FulfillmentPanel';
+import {FulfillmentPanel,type OverrideDraft} from './FulfillmentPanel';
 import {NotesPanel} from './NotesPanel';
 import {TermsPanel} from './TermsPanel';
 import type {SavePanel} from './types';
@@ -29,6 +29,9 @@ export function QuoteDetails({editor,figures,open,onToggle,flash=null}:{editor:Q
   const {quote}=detail;
   const quoteId=quote.id;
   const bodyId=useId();
+  // Half-typed drafts survive closing the card: the freight override and the internal note.
+  const [override,setOverride]=useState<OverrideDraft|null>(null);
+  const [note,setNote]=useState('');
   const save=useCallback<SavePanel>((endpoint,method,body)=>saveQuote(()=>savePanel(quoteId,endpoint,method,body)),[saveQuote,quoteId]);
   const terms=detail.panels.customer.terms;
   const where=quote.fulfillment==='delivery'?`delivery from ${quote.branch_code}`:`will call ${quote.branch_code}`;
@@ -42,9 +45,9 @@ export function QuoteDetails({editor,figures,open,onToggle,flash=null}:{editor:Q
     </div>
     {open&&<div id={bodyId} className={p.body}>
       <CustomerPanel detail={detail} quoteTotal={figures.total??figures.items}/>
-      <FulfillmentPanel detail={detail} items={figures.goods} save={save} flash={flash==='fulfillment'||flash==='freight'}/>
+      <FulfillmentPanel detail={detail} items={figures.goods} save={save} flash={flash==='fulfillment'||flash==='freight'} override={override} setOverride={setOverride}/>
       <TermsPanel detail={detail} save={save} flash={flash==='terms'}/>
-      <NotesPanel detail={detail} save={save}/>
+      <NotesPanel detail={detail} save={save} text={note} setText={setNote}/>
       <ActivityPanel detail={detail}/>
     </div>}
   </section>;

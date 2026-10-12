@@ -13,9 +13,10 @@ import p from './Panels.module.css';
 // text. Like every other edit, notes are added while the quote is a draft. No frame draws notes already
 // written: each is a line with who and when under it.
 
-export function NotesPanel({detail,save}:{detail:QuoteDetail;save:SavePanel}){
+export function NotesPanel({detail,save,text,setText}:{detail:QuoteDetail;save:SavePanel;
+  /** The note being written, kept by Quote details so closing the card doesn't lose it. */
+  text:string;setText:(text:string)=>void}){
   const {editable,as_of,panels:{notes}}=detail;
-  const [text,setText]=useState('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   async function add(event:FormEvent){

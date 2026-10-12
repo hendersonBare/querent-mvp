@@ -36,8 +36,8 @@ function FreightDetails({freight,origin}:{freight:FreightDisplay;origin:string})
   </>;
 }
 
-/** What the rep has typed in the override form. FulfillmentPanel keeps it, so closing Quote details doesn't lose it. */
-interface OverrideDraft {amount:string;reason:string}
+/** What the rep has typed in the override form. Quote details keeps it, so closing the card doesn't lose it. */
+export interface OverrideDraft {amount:string;reason:string}
 const draftFor=(freight:FreightDisplay):OverrideDraft=>({amount:priceInput(freight.override?.amount??freight.computedAmount),reason:freight.override?.reason??''});
 
 function OverrideForm({draft,onChange,busy,onSave,onCancel}:{draft:OverrideDraft;onChange:(draft:OverrideDraft)=>void;busy:boolean;
@@ -70,14 +70,14 @@ function OverrideForm({draft,onChange,busy,onSave,onCancel}:{draft:OverrideDraft
   </form>;
 }
 
-export function FulfillmentPanel({detail,items,save,flash=false}:{detail:QuoteDetail;items:number;save:SavePanel;flash?:boolean}){
+export function FulfillmentPanel({detail,items,save,flash=false,override,setOverride}:{detail:QuoteDetail;items:number;save:SavePanel;flash?:boolean;
+  /** The override form's draft while it is open (null when closed), kept by Quote details. */
+  override:OverrideDraft|null;setOverride:(draft:OverrideDraft|null)=>void}){
   const {quote,editable,panels}=detail;
   const branchLabel=useId();
   const [pending,setPending]=useState<{fulfillment?:Fulfillment;branchId?:string}|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
-  // The override form's draft while it is open (null when closed); kept here so closing Quote details keeps it.
-  const [override,setOverride]=useState<OverrideDraft|null>(null);
   const overriding=override!==null;
   const fulfillment=pending?.fulfillment??quote.fulfillment;
   const branchId=pending?.branchId??quote.branch_id;

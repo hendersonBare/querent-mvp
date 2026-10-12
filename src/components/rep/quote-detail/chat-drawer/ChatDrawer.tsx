@@ -1,5 +1,5 @@
 'use client';
-import {useId,useLayoutEffect,useRef} from 'react';
+import {useId,useLayoutEffect,useRef,useState,type KeyboardEvent} from 'react';
 import {useModal} from '../send/use-modal';
 import {requestedAt} from '../format';
 import type {TranscriptMessage} from './api';
@@ -7,8 +7,8 @@ import s from './ChatDrawer.module.css';
 
 // The quote's whole chat in a right-hand drawer (plan U4, C_QE6; B1; decision 26; spec §9): "Full chat"
 // with who, how many messages and the channel, then every message: the customer's on grey in bold,
-// Querent's on the lighter tint, notices (item pop-up, quote requested, quote sent) as one muted italic
-// line. No AI summary. Pages of 50 with "Load earlier" at the top (no frame: one plain button). Escape,
+// Querent's on the lighter tint, collapsed to one line until clicked (decision 26), notices (item
+// pop-up, quote requested, quote sent) as one muted italic line. No AI summary. Pages of 50 with "Load earlier" at the top (no frame: one plain button). Escape,
 // the x or a click outside closes it; focus moves in on open and back to the Chat button on close.
 
 /** "12 messages", "1 message". */
@@ -82,6 +82,16 @@ function Message({message:m,customer,notice,firstNotice}:{message:TranscriptMess
   const customerSaid=m.role==='customer';
   return <div role="listitem" className={s.message} data-role={m.role}>
     <div className={s.who}>{customerSaid?customer:'Querent'} <span className={s.when}>{when}</span></div>
-    <div className={s.said} data-role={m.role}>{m.content}</div>
+    {customerSaid?<div className={s.said} data-role={m.role}>{m.content}</div>:<AssistantTurn content={m.content}/>}
   </div>;
+}
+
+/** Querent's turn (decision 26): its first line, with an ellipsis when there is more; the whole turn on click, Enter or Space. */
+function AssistantTurn({content}:{content:string}){
+  const [open,setOpen]=useState(false);
+  const [first='',...rest]=content.trim().split('\n');
+  const more=rest.some(line=>line.trim());
+  const toggle=(event:KeyboardEvent)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setOpen(o=>!o);}};
+  return <div className={s.said} data-role="assistant" data-open={open||undefined} role="button" tabIndex={0} aria-expanded={open}
+    onClick={()=>setOpen(o=>!o)} onKeyDown={toggle}>{open?content:`${first}${more?'…':''}`}</div>;
 }
