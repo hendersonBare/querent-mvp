@@ -5,7 +5,7 @@ import type {DistanceProvider} from '@/server/freight/distance';
 import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingLevel,type AgingThresholds} from '@/server/quotes';
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
 import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamList,teamMemberships,teamReps,touchQuoteByRep} from '@/server/repository';
-import {isoInstant} from '@/server/team/query';
+import {isoInstant} from '@/server/analytics/query';
 import {repsInTeams} from '@/server/teams/tree';
 import {AGING_PARAM,ATTENTION_PARAM,ONLY_PARAM,REQUESTED_FROM_PARAM,REQUESTED_TO_PARAM,SORT_PARAM,STATUS_PARAM,isAttention} from '@/components/rep/quotes/labels';
 import {CUSTOMER_PARAM,FROM_PARAM,REP_PARAM,TEAM_PARAM,TO_PARAM} from '@/components/rep/scope';
@@ -261,8 +261,8 @@ export async function repQuoteList(repId:string,{customerId=null,status=null,sta
   const pickedReps=all?options.reps.filter(r=>asked.includes(r.id)).map(r=>r.id):[];
   const team=filters?.team??'';
   // A team counts its own members and those of the teams inside it (decision 47: grouping and filters only).
-  const inTeam=all&&options.teams.includes(team)?new Set(repsInTeams(teamList(),teamMemberships(),[team])):null;
-  const teamIds=inTeam?options.reps.filter(r=>inTeam.has(r.id)).map(r=>r.id):undefined;
+  const inTeam=options&&options.teams.includes(team)?new Set(repsInTeams(teamList(),teamMemberships(),[team])):null;
+  const teamIds=options&&inTeam?options.reps.filter(r=>inTeam.has(r.id)).map(r=>r.id):undefined;
   const repFilter=pickedReps.length?pickedReps.join(','):null;
   const teamFilter=teamIds?team:null;
   const repIds=pickedReps.length>1?pickedReps.filter(id=>!teamIds||teamIds.includes(id)):teamIds;

@@ -3,7 +3,7 @@ import {toCents} from '@/lib/money';
 import {margin} from '@/server/floors';
 import {aging,effectiveStatus,expiresAt,type AgingThresholds} from '@/server/quotes';
 
-// The Team dashboard's numbers (v3 spec §7, §7.3; decisions 23–25; OA-10, OA-13, OA-15; task D3).
+// The Analytics leaderboard's numbers, first built for the D3 Team dashboard (v3 spec §7, §7.3; decisions 23–25; OA-10, OA-13, OA-15; tasks D3, U6).
 // Pure: the repository (src/server/repository/team) reads the cohort live, quotes created in the
 // window and owned now by a selected rep, and this module aggregates it per rep and in total.
 //

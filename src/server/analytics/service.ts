@@ -1,13 +1,12 @@
 import 'server-only';
 import type {CustomerListItem} from '@/domain';
 import type {DistanceProvider} from '@/server/freight/distance';
-import {expireOverdueQuotes} from '@/server/quotes/service';
+import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
 import {customerFilterFor,ownerFilter,readableCustomers,type RepReader} from '@/server/rep/access';
 import {managerListOptions} from '@/server/rep/quotes';
-import {aggregateAccess,agingThresholds,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,teamList,teamMemberships,teamStatusEvents,topRequestedItems,type QuoteScope} from '@/server/repository';
+import {aggregateAccess,agingThresholds,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,teamList,teamMemberships,teamQuoteFacts,teamStatusEvents,topRequestedItems,type QuoteScope,type TeamCohort} from '@/server/repository';
 import {teamMetricsCsv} from '@/server/team/csv';
 import {groupMetricRows,metricGroups,type MetricsTeam} from '@/server/team/metrics';
-import {cohortFacts} from '@/server/team/service';
 import {countedReps,treeOrder} from '@/server/teams/tree';
 import {
   TOP_ITEMS,extraGp,hoursSaved,marginVsFloor,questionsAnswered,quotedVsAccepted,turnaround,weeklyTrend,winRateCard,type AnalyticsPage,type RepAnalytics,
@@ -83,9 +82,24 @@ export function repAnalytics(repId:string,{manager=false,customerId=null,repIds=
 // ---- The whole page, with its filter (plan U6; Part 1 section 6; Appendix D) ----
 //
 // GET /api/rep/analytics takes reps, teams, customer, breakdown and period (./query) and answers the
-// Overview above plus what the old Team dashboard served (GET /api/rep/team/metrics): the leaderboard
+// Overview above plus what the old D3 Team dashboard served (its routes are gone since U11): the leaderboard
 // rows grouped by the breakdown, the decline reasons with the Other notes, and the untouched quotes,
 // all over the cohort of quotes created in the window. A rep only ever gets their own data.
+
+/**
+ * The cohort's facts with each never-sent quote's live draft total: what the Quotes list shows for the
+ * draft, priced lines plus freight (items only while freight is call for freight). Formerly the D3
+ * Team dashboard's (decisions 23 to 25; metric definitions unchanged).
+ */
+export async function cohortFacts(cohort:TeamCohort,{now=clock(),provider}:{now?:string;provider?:DistanceProvider}={}){
+  const facts=[];
+  for(const fact of teamQuoteFacts(cohort)){
+    let draft_total:number|null=null;
+    if(fact.sent_total===null){const check=await sendCheck(fact.id,{provider,now});draft_total=check.total??check.subtotal;}
+    facts.push({...fact,draft_total});
+  }
+  return facts;
+}
 
 /** A refused filter (400): an unknown rep, team or breakdown, or a bad window. */
 export class AnalyticsQueryError extends Error {}

@@ -71,6 +71,7 @@
   background: var(--q-accent-hover);
 }
 .label {
+  display: block;
   font-size: var(--q-text-control);
   white-space: nowrap;
 }

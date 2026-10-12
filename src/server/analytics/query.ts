@@ -1,5 +1,4 @@
 import type {Breakdown,MetricsRep,MetricsTeam} from '@/server/team/metrics';
-import {MAX_RANGE_DAYS,isoInstant} from '@/server/team/query';
 
 // GET /api/rep/analytics's filter (plan U6; Part 1 section 6; Appendix D; C_AN4, C_RAN2). Pure.
 //
@@ -17,6 +16,24 @@ import {MAX_RANGE_DAYS,isoInstant} from '@/server/team/query';
 // quotes created in it); the Overview keeps its own spans (26 weeks, all time).
 
 export const BREAKDOWNS:readonly Breakdown[]=['org','rep','team','customer'];
+/** The longest window served: a year and a bit, so a 366-day custom range always fits. */
+export const MAX_RANGE_DAYS=400;
+const INSTANT=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * A real instant in ISO form with a time zone (Z or ±hh:mm), normalised to UTC, or null. Rejects
+ * impossible days (Feb 30). The browser computes windows at its own midnights (OA-19); the server
+ * does no time-zone math. The Quotes list's drill-down window (?from=&to=) reads it too.
+ */
+export function isoInstant(value:string|null):string|null{
+  if(!value||!INSTANT.test(value))return null;
+  const ms=Date.parse(value);
+  if(Number.isNaN(ms))return null;
+  const [y,m,d]=value.slice(0,10).split('-').map(Number);
+  const day=new Date(Date.UTC(y,m-1,d));
+  if(day.getUTCMonth()!==m-1||day.getUTCDate()!==d)return null;
+  return new Date(ms).toISOString();
+}
 /** The period presets (decision 23; C_AN6 "Created", C_RAN2 "Period"). */
 export const PERIOD_DAYS=[7,30,90] as const;
 export const DEFAULT_PERIOD=30;
