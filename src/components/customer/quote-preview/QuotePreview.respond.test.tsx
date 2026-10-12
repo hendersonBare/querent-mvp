@@ -151,7 +151,7 @@ describe('Accept',()=>{
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('Send accepts the revision on screen once, then the modal shows it accepted and the sidebar is told',async()=>{
+  it('Send accepts the revision on screen once, then the modal shows it accepted and the bell is told',async()=>{
     let resolve:(value:unknown)=>void=()=>{};
     post.mockReturnValue(new Promise(r=>{resolve=r;}));
     const changed=vi.fn();
