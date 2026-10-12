@@ -14,6 +14,8 @@ import s from './HeaderAlerts.module.css';
 // No frame (listed in docs/plans/status.md): choosing a row opens that quote (decision 58); an empty
 // bell says "No notifications" (decision 52: one plain line). Each row's words come from the server
 // (src/server/rep/badges.ts), in C_QOB3's and C_QOB4's sentence patterns.
+// A row title too long for the panel ("Q-24822 accepted by Wasatch Mechanical Contractors") stays on one
+// line with an ellipsis and its full text as a tooltip (decision 60; DropdownItem draws it).
 
 /** "Sep 23, 4:14 PM" in the browser's time zone (decision 10), as C_QOB4 prints when a notification happened (an expired row brings its day as `line`). */
 const when=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});

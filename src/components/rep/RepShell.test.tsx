@@ -2,6 +2,9 @@ import type {AnchorHTMLAttributes,ReactNode} from 'react';
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {BadgeSummary,RepBadges} from '@/server/rep/badges';
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
+import dropdownClasses from '@/components/ui/Dropdown.module.css';
 
 // The rep portal shell (plan U2): the left rail (C_QOBoard for the manager, C_RQBoard for a rep),
 // Sign out (C_QOB9), and every page header's caution and bell dropdowns (C_QOB3, C_QOB4). There is
@@ -199,6 +202,30 @@ describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
     fireEvent.click(cautionButton());
     fireEvent.click(within(screen.getByRole('dialog',{name:'3 need your attention'})).getAllByRole('button')[2]!);
     expect(nav.push).toHaveBeenLastCalledWith('/rep/quotes/Q-24789');
+  });
+
+  it('a title too long for the panel stays on one line, ends with an ellipsis, and carries the full text as its tooltip (decision 60)',()=>{
+    // Vitest leaves CSS modules unapplied; put the dropdown's own stylesheet in the page under its module class names.
+    const sheet=document.createElement('style');
+    sheet.textContent=readFileSync(path.resolve('src/components/ui/Dropdown.module.css'),'utf8')
+      .replace(/\.([A-Za-z][\w-]*)/g,(m,name:string)=>`.${(dropdownClasses as Record<string,string>)[name]??name}`);
+    document.head.append(sheet);
+    try{
+      const accepted='Q-24822 accepted by Wasatch Mechanical Contractors';
+      const flagged='Q-24790 for Wasatch Mechanical Contractors, Salt Lake City';
+      renderShell(brandi,<Page/>,{...BADGES,caution:[caution({label:flagged})],bell:[bellItem({label:accepted})]});
+      const oneLine=(dialog:string,text:string)=>{
+        const title=within(screen.getByRole('dialog',{name:dialog})).getByText(text);
+        expect(title).toHaveAttribute('title',text);
+        const cs=getComputedStyle(title);
+        expect([cs.whiteSpace,cs.overflow,cs.textOverflow,cs.minWidth]).toEqual(['nowrap','hidden','ellipsis',expect.stringMatching(/^0(px)?$/)]);
+        expect(getComputedStyle(title.parentElement!).display).toBe('flex');
+      };
+      fireEvent.click(bellButton());
+      oneLine('Notifications',accepted);
+      fireEvent.click(cautionButton());
+      oneLine('1 needs your attention',flagged);
+    }finally{sheet.remove();}
   });
 
   it('empty lists say so in one plain line (no frame: decision 52)',()=>{

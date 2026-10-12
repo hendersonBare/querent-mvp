@@ -23,11 +23,11 @@ export function Dropdown({open,onOpenChange,title,trigger,children}:{
   </div>;
 }
 
-/** One row: a bold title, an optional tag on the right (red for a problem), and one line under it. */
+/** One row: a bold title, an optional tag on the right (red for a problem), and one line under it. A title too long for the panel stays on one line with an ellipsis, its full text in a tooltip (decision 60). */
 export function DropdownItem({title,tag,tone='plain',onSelect,children}:{title:string;tag?:string;tone?:'plain'|'problem';onSelect:()=>void;children?:ReactNode}){
   const key=(event:KeyboardEvent)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onSelect();}};
   return <div role="button" tabIndex={0} className={s.item} onClick={onSelect} onKeyDown={key}>
-    <div className={s.line}><span className={s.title}>{title}</span><span className={cx(s.tag,tone==='problem'&&s.problem)}>{tag}</span></div>
+    <div className={s.line}><span className={s.title} title={title}>{title}</span><span className={cx(s.tag,tone==='problem'&&s.problem)}>{tag}</span></div>
     {children&&<div className={s.body}>{children}</div>}
   </div>;
 }
