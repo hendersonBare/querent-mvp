@@ -210,7 +210,7 @@ describe('Overview',()=>{
     const margin=await screen.findByRole('region',{name:'Average margin vs floor'});
     expect(margin).toHaveTextContent('33.8% average margin against a 24.0% average floor. 3 lines of 56 under the floor.');
     expect(within(margin).getAllByRole('listitem').map(r=>r.textContent)).toEqual([
-      'Fasteners32.2%floor 20%','Abrasives & Cutting34.2%floor 25%','Safety & PPE34.2%floor 30%3 lines under the 30% floor','Tools35.6%floor 18%',
+      'Fasteners32.2% floor 20%','Abrasives & Cutting34.2% floor 25%','Safety & PPE34.2% floor 30%3 lines under the 30% floor','Tools35.6% floor 18%',
     ]);
     expect(margin).toHaveTextContent('Average marginYour floor. Bars run from 0 to 50%.');
     const items=within(section('Top requested items')).getAllByRole('listitem');

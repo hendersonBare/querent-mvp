@@ -1,9 +1,9 @@
 import {describe,expect,it} from 'vitest';
-import {formatCount,formatDuration,formatGpAmount,formatHours,formatMoneyFigure,formatPercent,formatWeek,niceTicks,plural} from './format';
+import {formatCount,formatDuration,formatGpAmount,formatHours,formatMoneyFigure,formatPercent,formatShortDays,formatWeek,niceTicks,plural} from './format';
 
 describe('analytics number formats',()=>{
   it('formats durations in minutes, hours and minutes, or days',()=>{
-    expect(formatDuration(null)).toBe('—');
+    expect(formatDuration(null)).toBe('-'); // C_AN6 draws a hyphen for no value (no em-dashes, Appendix E)
     expect(formatDuration(0.4)).toBe('<1 min');
     expect(formatDuration(35)).toBe('35 min');
     expect(formatDuration(59.6)).toBe('1 h');
@@ -14,11 +14,17 @@ describe('analytics number formats',()=>{
     expect(formatDuration(3300)).toBe('2.3 days');
   });
 
+  it('formats the leaderboard\'s "In sent" column with a short day unit, as C_AN6 draws it ("4.6 d")',()=>{
+    expect(formatShortDays(null)).toBe('-');
+    expect(formatShortDays(92.5)).toBe('1 h 33 min');
+    expect(formatShortDays(6624)).toBe('4.6 d');
+  });
+
   it('formats rates as whole percents, and nothing as a dash',()=>{
     expect(formatPercent(17/24)).toBe('71%');
     expect(formatPercent(1)).toBe('100%');
     expect(formatPercent(0)).toBe('0%');
-    expect(formatPercent(null)).toBe('—');
+    expect(formatPercent(null)).toBe('-');
   });
 
   it('shows dollars to the cent under $1,000 and whole dollars above',()=>{

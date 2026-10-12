@@ -84,7 +84,8 @@ export const REPS:MetricsRep[]=[
   {id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},
   {id:'nora',name:'Nora Chen',team:'Outside Sales',active:true},
 ];
-export const WINDOW={from:'2026-09-12T06:00:00.000Z',to:'2026-10-12T06:00:00.000Z'};
+/** Sep 12 to Oct 11, 2026 at the test's local midnights (the browser's days, OA-19). */
+export const WINDOW={from:new Date(2026,8,12).toISOString(),to:new Date(2026,9,12).toISOString()};
 
 const zeroDeclines={price_too_high:0,found_other_source:0,need_sooner:0,wrong_items:0,other:0,none:0};
 const zeroUntouched={draft_never_opened:0,draft_opened_not_sent:0,changes_not_revised:0,sent_never_opened:0,sent_opened_no_reply:0,expired_no_response:0};
