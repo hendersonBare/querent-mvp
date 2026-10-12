@@ -15,9 +15,9 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | [#60](https://github.com/hendersonBare/querent-mvp/pull/60) | merged |
 | U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | merged |
-| U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | fix round 2 (verifier FAIL: the markup scan refuses ordinary images and misses metadata payloads; fix strips metadata instead) |
+| U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | merged (2 fix rounds) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
-| U11 | | not started |
+| U11 | | in progress (`task/U11-cleanup-and-proof`) |
 
 ### No frame
 Screens, states or controls built with no frame (decision 50). Each is the minimum needed to function, in the same tokens, and is raised with the product owner.
