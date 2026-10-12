@@ -12,7 +12,7 @@ import {ReassignDialog} from '../reassign/ReassignDialog';
 import {RepPageHeader} from '../RepPage';
 import {assignCustomer,changeMembers,createTeam,loadBoard,moveTeam,saveActive} from './api';
 import {CreateTeamDialog,DisconnectDialog,MembersDialog,MoveApprovalDialog,MoveTeamDialog} from './dialogs';
-import {count,repsLabel} from './format';
+import {count,REPS_TABLE,repsLabel} from './format';
 import s from './Teams.module.css';
 
 // Teams and Reps (plan U7; Part 1 section 7; C_TRBase to C_TR7), the manager's page. No analytics here
@@ -28,7 +28,6 @@ import s from './Teams.module.css';
 //   into other team.
 // Every write goes through its backing route and the page shows the board the server returns.
 
-export const REPS_TABLE='teams-reps';
 /** Rows before "Show N more": every rep (the frames draw four). */
 const ALL=1000;
 

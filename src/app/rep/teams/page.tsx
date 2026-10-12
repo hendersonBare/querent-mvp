@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import {redirect} from 'next/navigation';
-import {REPS_TABLE,TeamsAndReps} from '@/components/rep/teams/TeamsAndReps';
+import {REPS_TABLE} from '@/components/rep/teams/format';
+import {TeamsAndReps} from '@/components/rep/teams/TeamsAndReps';
 import {tablePrefs} from '@/server/repository';
 import {signedInRep} from '@/server/rep/session';
 import {teamsBoard} from '@/server/rep/teams';

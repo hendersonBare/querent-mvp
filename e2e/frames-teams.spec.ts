@@ -214,6 +214,14 @@ async function dropFromFrame(drops: { text: string; up: number }[]) {
   }
 }
 
+/** Every own text longer than measureAll's 80 characters under `selector`, in full (sentences are compared whole). */
+async function longTexts(page: Page, selector: string, also: string[] = []) {
+  return page.evaluate(({ sel, also }) => {
+    const own = (el: Element) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent!.trim()).join(" ").trim();
+    return [...document.querySelectorAll(`${sel} *`)].filter((e) => (e as HTMLElement).offsetParent !== null).map(own).filter((t) => t.length > 80 || also.includes(t));
+  }, { sel: selector, also });
+}
+
 /** Left and right card widths and the gap between them: the cards share the page area as flex 1.7 and 1 (C_TRBase). */
 async function cards(page: Page, reps: string, teams: string) {
   return page.evaluate(({ reps, teams }) => {
@@ -232,8 +240,12 @@ const AS_BRANDI: Rewrite[] = [
   { app: "Mara Jensen", frame: "Brandi Gallegos", tag: "div", nth: 0, why: "the expanded rep: Mara holds the frame's three customers (Brandi, the frame's rep, is the manager)" },
   { app: "Customers for Mara Jensen", frame: "Customers for Brandi Gallegos", why: "as above" },
 ];
-/** The Active toggles are switches (buttons) where the frame draws spans; each title-bar or dialog action the frame draws as a span is a button. */
-const TOGGLES = 3;
+/**
+ * The three Active toggles are switches (buttons, text-less) where the frame draws spans. The actions the
+ * frame draws as spans with text (Save, Create team, the dialogs' buttons) are buttons too, compared as the
+ * frame's span with every style (asFrameTags), so they are not extra controls.
+ */
+const SWITCHES: Explained = { kinds: { button: { n: 3, why: "the three Active switches are buttons where the frame draws spans" } } };
 
 interface Case {
   id: string;
@@ -243,6 +255,8 @@ interface Case {
   rewrites?: Rewrite[];
   /** The dialog, outside main on both sides: the frame's selector and the app's. */
   dialog?: { frame: string; app: string; rewrites?: Rewrite[] };
+  /** Whole sentences longer than 80 characters: the app's text as the frame's sample, with the reason. */
+  sentences?: { app: string; frame: string; why: string }[];
   explained?: Explained;
 }
 
@@ -261,12 +275,12 @@ const CASES: Case[] = [
   {
     id: "TRBase", setup: "base",
     drop: [BRANDI_ROW], rewrites: [FOUR_REPS, NORA_ROLE],
-    explained: { kinds: { button: { n: TOGGLES + 2, why: "the three Active switches, and Save and Create team, which the frame draws as spans" } } },
+    explained: SWITCHES,
   },
   {
     id: "TR1", setup: "expanded", drive: expandMara,
     drop: [MARA_ROW], rewrites: [FOUR_REPS, NORA_ROLE, ...AS_BRANDI],
-    explained: { kinds: { button: { n: TOGGLES + 2, why: "as C_TRBase" } } },
+    explained: SWITCHES,
   },
   {
     id: "TR2", setup: "expanded",
@@ -280,11 +294,12 @@ const CASES: Case[] = [
     dialog: {
       frame: DIALOG_FRAME, app: '[role="dialog"][aria-label="Disconnect Canyon Ridge Builders?"]',
       rewrites: [
-        { app: "Every customer needs a rep. Pick who takes Canyon Ridge Builders from Mara Jensen.", frame: "Every customer needs a rep. Pick who takes Canyon Ridge Builders from Brandi Gallegos.", why: "the rep losing the customer: Mara stands in for the frame's Brandi" },
+        { app: /^Every customer needs a rep\. Pick who takes Canyon Ridge Builders from Mara Jense$/, frame: "Every customer needs a rep. Pick who takes Canyon Ridge Builders from Brandi Gal", why: "the rep losing the customer: Mara stands in for the frame's Brandi (measureAll keeps 80 characters; the whole sentence is compared under sentences)" },
         { app: "Brandi Gallegos", frame: "Mara Jensen", why: "the new rep picked: Brandi (now with no customers) in place of the frame's Mara, who has none in the frame" },
       ],
     },
-    explained: { kinds: { button: { n: TOGGLES + 2 + 2, why: "as C_TRBase, and the dialog's Cancel and Disconnect and reassign, drawn as spans" } } },
+    sentences: [{ app: "Every customer needs a rep. Pick who takes Canyon Ridge Builders from Mara Jensen.", frame: "Every customer needs a rep. Pick who takes Canyon Ridge Builders from Brandi Gallegos.", why: "the rep losing the customer: Mara stands in for the frame's Brandi" }],
+    explained: SWITCHES,
   },
   {
     id: "TR3", setup: "expanded",
@@ -294,7 +309,7 @@ const CASES: Case[] = [
       await rest(page);
     },
     drop: [MARA_ROW], rewrites: [FOUR_REPS, NORA_ROLE, ...AS_BRANDI],
-    explained: { kinds: { button: { n: TOGGLES + 2, why: "as C_TRBase" } } },
+    explained: SWITCHES,
   },
   {
     id: "TR4", setup: "expanded",
@@ -308,17 +323,18 @@ const CASES: Case[] = [
     dialog: {
       frame: DIALOG_FRAME, app: '[role="dialog"][aria-label="Utah Valley Electric is with Eli Porter"]',
       rewrites: [
-        { app: "Connecting it to Mara Jensen takes it off Eli Porter. Eli will keep 1 customer.", frame: "Connecting it to Brandi Gallegos takes it off Eli Porter. Eli will keep 1 customer.", why: "the rep it moves to: Mara stands in for the frame's Brandi" },
+        { app: /^Connecting it to Mara Jensen takes it off Eli Porter\. Eli will keep 1 customer\.$/, frame: "Connecting it to Brandi Gallegos takes it off Eli Porter. Eli will keep 1 custom", why: "the rep it moves to: Mara stands in for the frame's Brandi (measureAll keeps 80 characters; the whole sentence is compared under sentences)" },
         { app: /^Also move this customer's open quotes \(\d+ quotes\)$/, frame: "Also move this customer's open quotes (12 quotes)", why: "Utah Valley Electric's open quotes in the seed; the frame's 12 is a sample" },
         { app: "Move to Mara Jensen", frame: "Move to Brandi Gallegos", why: "as above" },
       ],
     },
-    explained: { kinds: { button: { n: TOGGLES + 2 + 2, why: "as C_TRBase, and the dialog's Cancel and Move to, drawn as spans" } } },
+    sentences: [{ app: "Connecting it to Mara Jensen takes it off Eli Porter. Eli will keep 1 customer.", frame: "Connecting it to Brandi Gallegos takes it off Eli Porter. Eli will keep 1 customer.", why: "the rep it moves to: Mara stands in for the frame's Brandi" }],
+    explained: SWITCHES,
   },
   {
     id: "TR5", setup: "base", drive: selectTeam,
     drop: [BRANDI_ROW], rewrites: [FOUR_REPS, NORA_ROLE],
-    explained: { kinds: { button: { n: TOGGLES + 2 + 3, why: "as C_TRBase, and Add to team, Remove from team and Move into other team, drawn as spans" } } },
+    explained: SWITCHES,
   },
   {
     id: "TR6", setup: "base",
@@ -331,7 +347,7 @@ const CASES: Case[] = [
     },
     drop: [BRANDI_ROW], rewrites: [FOUR_REPS, NORA_ROLE],
     dialog: { frame: DIALOG_FRAME, app: '[role="dialog"][aria-label="Create team"]' },
-    explained: { kinds: { button: { n: TOGGLES + 2 + 3, why: "as C_TRBase, the Inside another team field (a list button where the frame draws a box), and Cancel and Create team, drawn as spans" } } },
+    explained: SWITCHES,
   },
   {
     id: "TR7", setup: "base",
@@ -343,7 +359,7 @@ const CASES: Case[] = [
     },
     drop: [BRANDI_ROW], rewrites: [FOUR_REPS, NORA_ROLE],
     dialog: { frame: DIALOG_FRAME, app: '[role="dialog"][aria-label="Move Field Sales into another team"]' },
-    explained: { kinds: { button: { n: TOGGLES + 2 + 3 + 2, why: "as C_TR5, and the dialog's Cancel and Move team, drawn as spans" } } },
+    explained: SWITCHES,
   },
 ];
 
@@ -363,6 +379,14 @@ for (const c of CASES) {
     const appList = asFrameTags(allFrame, [...appMain, ...appDialog]);
     const result = expectSame(`C_${c.id}`, allFrame, appList, c.explained);
     for (const r of [...(c.rewrites ?? []), ...(c.dialog?.rewrites ?? [])]) expect(used.has(r), `C_${c.id}: rewrite ${String(r.app)} -> ${r.frame} is used (${r.why})`).toBe(true);
+    // Sentences longer than measureAll keeps are compared whole, both ways.
+    const frameLong = [...await longTexts(framePage, "main"), ...(c.dialog ? await longTexts(framePage, c.dialog.frame) : [])].sort();
+    // (A sample sentence can be longer than the app's: the app's rewritten one is taken whatever its length.)
+    const also = (c.sentences ?? []).map((x) => x.app);
+    const appLong = [...await longTexts(page, "main", also), ...(c.dialog ? await longTexts(page, c.dialog.app, also) : [])]
+      .map((t) => c.sentences?.find((x) => x.app === t)?.frame ?? t).sort();
+    expect(appLong, `C_${c.id}: whole sentences`).toEqual(frameLong);
+    for (const x of c.sentences ?? []) expect(frameLong, `C_${c.id}: sentence rewrite is used (${x.why})`).toContain(x.frame);
 
     // The two cards share the page area as the frame's flex 1.7 and 1, 20px apart, tops aligned; extra width goes to them (decision 51).
     const frameCards = await cards(framePage, "main section:first-of-type", "main section:last-of-type");

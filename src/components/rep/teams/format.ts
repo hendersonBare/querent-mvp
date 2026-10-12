@@ -2,6 +2,9 @@ import type {BoardCustomer} from '@/server/rep/teams';
 
 // Teams and Reps' words (plan U7). The sentences are the frames' (C_TRBase to C_TR7), filled with real data.
 
+/** The Reps table's id for the user's column prefs (PUT /api/rep/table-prefs). Here, not in the client module, so the page can read it. */
+export const REPS_TABLE='teams-reps';
+
 /** "1 customer", "3 customers", "0 customers". */
 export const count=(n:number,word:string)=>`${n} ${word}${n===1?'':'s'}`;
 /** "2 reps" (C_TRBase's Teams list, C_TR7). */
