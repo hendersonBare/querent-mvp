@@ -2,13 +2,13 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 58. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 59. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
-| U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | fix round 1 (verifier FAIL: caution and bell row wording differ from C_QOB3 and C_QOB4; upsell chip coverage dropped) |
+| U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | fix round 2 (verifier FAIL: "accepted by" shortens the customer name; decision 59 wants the full name) |
 | U3 | | not started |
 | U4 | | not started |
 | U5 | | not started |
