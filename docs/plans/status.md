@@ -2,17 +2,17 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 62. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 65. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
 | U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
-| U3 | | in progress (`task/U3-quotes-list`) |
-| U4 | | in progress (`task/U4-quote-editor`) |
-| U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | in review |
-| U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | in review |
+| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | fix round 1 (verifier FAIL: native date fields add copy and an icon; manager offered Send reply on another rep's quote; decision 63 reply to chat) |
+| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | in review |
+| U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
+| U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
@@ -41,10 +41,21 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Bell copy for an expired quote ("Quote Q-24815 expired", "It was valid until Oct 3."), "N min ago" and "Today" time labels | U10 | The frames draw ready, updated and shipped notices only; the task asks for expired notices too | approved (decision 56) |
 | Empty and error lines in the bell, the Orders and My rep sheets ("No notifications yet.", "No orders yet.", "No rep is assigned yet.") | U10 | Decision 52: one plain line | not needed (decision 52) |
 | The strip that holds the bell, the account chip and Sign in: the frames' 72px header with its bottom rule, without the stand-in Herrick logo | U10 | The controls the task builds sit in it, and the sheets open under it (C_CVL2, C_CVL3) | approved (decision 56) |
-| Analytics window: a Custom range (the manager's "Created" segments, the rep's Period) shows two day fields, under the leaderboard's note for the manager and as From and To in the rep's filter (C_QOB2's date fields). The window is the cohort of the leaderboard, Decline reasons and Untouched quotes only; the Overview keeps 26 weeks and the questions all time (decisions 23 to 25 unchanged) | U6 | C_AN6 and C_RAN2 draw the Custom choice, not what it opens; no frame says which tabs a period changes | to ask |
-| Analytics breakdown: Whole organization and Rep both give a row per rep (C_AN6 is drawn at the default); Team gives a row per team label, reps without one in "No team"; Customer gives a row per customer the reader may read. Only the leaderboard, Decline reasons (its columns) and Untouched quotes change; the Overview has no broken-down frame and stays whole. Reps and teams picked narrow every tab to those reps' quotes and their customers' questions | U6 | C_AN4 draws the choice, no frame draws its result | to ask |
-| Analytics extras: the leaderboard's columns picker offers the old dashboard's other columns (In changes req., Quoted value, Accepted value, Avg quoted margin, Freight recovered, Suggestions taken, Rep upsell lines), hidden by default; each count above zero links to its quotes ("Pick a count to see its quotes", C_AN6), the decline count to the declined quotes, a note's quote number to the quote; "Show fewer weeks" after the week table is opened; the "i" tips keep the old page's explanations; Export CSV downloads `rep-leaderboard.csv` with the first column named Rep, Team or Customer; the filter badge counts each rep and team picked, the customer, a breakdown other than the whole organization, and (rep) a period other than 30 days | U6 | The frames draw the controls, not where they lead or what they hold | to ask |
-| Analytics with little data: one plain line for no quotes sent, decided or accepted, no weeks with quotes, no items and no Other notes ("No customer chose Other."); "-" for a value with nothing to divide (as C_AN6); the frames' sentences filled with zeros where they read well ("0 of 0", "0% answered without a rep", "0 lines of 71 under the floor."); Extra GP "$0.00" not green; the line under the title names a filtered customer ("for Great Basin Fabrication"); "Loading analytics." and an error line | U6 | Decision 52; the frames show full data only | to ask |
+| Analytics window: a Custom range (the manager's "Created" segments, the rep's Period) shows two day fields, under the leaderboard's note for the manager and as From and To in the rep's filter (C_QOB2's date fields). The window is the cohort of the leaderboard, Decline reasons and Untouched quotes only; the Overview keeps 26 weeks and the questions all time (decisions 23 to 25 unchanged) | U6 | C_AN6 and C_RAN2 draw the Custom choice, not what it opens; no frame says which tabs a period changes | approved (decision 65) |
+| Analytics breakdown: Whole organization and Rep both give a row per rep (C_AN6 is drawn at the default); Team gives a row per team label, reps without one in "No team"; Customer gives a row per customer the reader may read. Only the leaderboard, Decline reasons (its columns) and Untouched quotes change; the Overview has no broken-down frame and stays whole. Reps and teams picked narrow every tab to those reps' quotes and their customers' questions | U6 | C_AN4 draws the choice, no frame draws its result | approved (decision 65) |
+| Analytics extras: the leaderboard's columns picker offers the old dashboard's other columns (In changes req., Quoted value, Accepted value, Avg quoted margin, Freight recovered, Suggestions taken, Rep upsell lines), hidden by default; each count above zero links to its quotes ("Pick a count to see its quotes", C_AN6), the decline count to the declined quotes, a note's quote number to the quote; "Show fewer weeks" after the week table is opened; the "i" tips keep the old page's explanations; Export CSV downloads `rep-leaderboard.csv` with the first column named Rep, Team or Customer; the filter badge counts each rep and team picked, the customer, a breakdown other than the whole organization, and (rep) a period other than 30 days | U6 | The frames draw the controls, not where they lead or what they hold | approved (decision 65) |
+| Analytics with little data: one plain line for no quotes sent, decided or accepted, no weeks with quotes, no items and no Other notes ("No customer chose Other."); "-" for a value with nothing to divide (as C_AN6); the frames' sentences filled with zeros where they read well ("0 of 0", "0% answered without a rep", "0 lines of 71 under the floor."); Extra GP "$0.00" not green; the line under the title names a filtered customer ("for Great Basin Fabrication"); "Loading analytics." and an error line | U6 | Decision 52; the frames show full data only | approved (decision 65) |
+| Customers, Orders, Stock list states the frames do not draw: one plain line when nothing matches ("No customers match.", "No orders match.", "No items match."; "No orders for Great Basin Fabrication yet." for a picked customer with none); "Show fewer …" after "Show N more" (the U0 table's) | U5 | Decision 52: one plain line | not needed (decision 52) |
+| The applied state of the Orders and Stock filters: the Filter button's count badge only (C_CU2's chip row is drawn for Customers only) | U5 | Minimum to function | approved (decision 62) |
+| Customers chips for groups C_CU2 does not sample, in its "Rep: Brandi Gallegos, Eli Porter" pattern: "Terms: Net 30, Not on file", "Open balance: $0.00 to $5,000.00" ("from $1,000.00", "up to $5,000.00"), "Only show: Has open quotes, Never ordered" | U5 | Every applied group needs a chip | approved (decision 62) |
+| Filter field hints: "Open balance to" shows the highest credit limit in the list (C_CU1 "$50,000.00", which the seed matches), "List price to" the highest list price ($121.00 where C_ST1 samples $500.00); the from fields show "$0.00"; Ordered from and to are native date fields (C_OR1 samples "Jan 1, 2026" and "Oct 10, 2026") | U5 | The frames' values are samples; the fields must take any amount or day | approved (decision 62) |
+| "Low stock" (C_ST1 Only show): less than one full case (case_qty packs) on hand at some branch. No spec or frame defines it | U5 | The filter needs a rule | approved (decision 62) |
+| The Rep filter on Orders lists every rep with customers the manager reads (C_OR1 lists reps beyond those with orders) | U5 | Closest to the frame | approved (decision 62) |
+| Customer page: the Recent orders table when the customer has orders (C_CU3 draws the card empty for Canyon Ridge), drawn as its Recent quotes table with Order, Ordered, Fulfillment, Status, Total; a contact's phone and email, drawn as the rep card's; "No quotes yet" with the old line, in the frame's empty style; the not-on-file account line; "No rep is assigned to this customer." | U5 | Real data the sample customer lacks | approved (decision 62) |
+| Order statuses the frames do not draw: Open as plain text (600) in the list; the Closed (muted) and Open chips on the order page (C_OR2 draws Shipped); "Picked up" for a will-call order, "Direct order" with no quote, "-" with no PO (the page's old words) | U5 | Real statuses and orders | approved (decision 62) |
+| Add to quote after the frame (C_ST3): the quote opens after adding (POST /api/rep/quotes/<number>/lines); a refused add shows the server's reason in one red line and the dialog stays; the drafts are the rep's own (decision 22), newest quote first; the quantity starts at 1 (C_ST3 samples 2) and takes whole numbers of 1 or more | U5 | Minimum to function | approved (decision 62) |
+| "Start a new quote" in Add to quote: drawn and selectable, but no route starts a quote from Stock (quotes start from a customer's request or a duplicate), so its button reads "Start a new quote" and stays disabled; its picked look (2px dashed accent on the picked grey) has no frame | U5 | Product decision: what a rep-started quote needs (customer, fulfillment, branch) | approved (decision 62) |
+| Not found pages for a customer, order or item: the page title, one line and the way back, in the new tokens | U5 | Decision 52 | not needed (decision 52) |
 | Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
@@ -94,19 +105,19 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_QE8 | U4 | pending |
 | C_QE9 | U4 | pending |
 | C_QEBase | U4 | pending |
-| C_CU1 | U5 | pending |
-| C_CU2 | U5 | pending |
-| C_CU3 | U5 | pending |
-| C_CUBase | U5 | pending |
-| C_OR1 | U5 | pending |
-| C_OR2 | U5 | pending |
-| C_ORBase | U5 | pending |
-| C_RCU1 | U5 | pending |
-| C_RCUBase | U5 | pending |
-| C_ST1 | U5 | pending |
-| C_ST2 | U5 | pending |
-| C_ST3 | U5 | pending |
-| C_STBase | U5 | pending |
+| C_CU1 | U5 | PASS (`e2e/frames-records.spec.ts`; Brandi and Eli picked as drawn; the seed's four reps pair with the frame's three by name, Brandi's count 2 for the sample 3, Appendix G) |
+| C_CU2 | U5 | PASS (`e2e/frames-records.spec.ts`; chip "Rep: Brandi Gallegos, Eli Porter" literal; the frame's Canyon Ridge row is drawn as Brandi's, Mara Jensen's in the seed, so 4 customers for the sample 5) |
+| C_CU3 | U5 | PASS (`e2e/frames-records.spec.ts`; Canyon Ridge's rep is Mara Jensen in the seed (the frame draws Brandi); the open quotes' requested days follow the clock, compared by place) |
+| C_CUBase | U5 | PASS (`e2e/frames-records.spec.ts`; Canyon Ridge's rep is Mara Jensen in the seed; search 320px) |
+| C_OR1 | U5 | PASS (`e2e/frames-records.spec.ts`; Delivery and SLC picked as drawn; Ordered from and to are native date fields; a fourth rep, Mara Jensen, in the seed) |
+| C_OR2 | U5 | PASS (`e2e/frames-records.spec.ts`; side column 340px) |
+| C_ORBase | U5 | PASS (`e2e/frames-records.spec.ts`; ten orders then "Show 13 more orders"; the seed links SO-51214 to Q-24806, which the frame's sample omits; customer names fit on one line at 1920) |
+| C_RCU1 | U5 | PASS (`e2e/frames-records.spec.ts`; Mara's one customer for the frame rep's three, so Terms offers Net 30 only and Open balance to reads $40,000.00) |
+| C_RCUBase | U5 | PASS (`e2e/frames-records.spec.ts`; Mara's book is Canyon Ridge with 18 of its quotes, the frame's rep has three customers) |
+| C_ST1 | U5 | PASS (`e2e/frames-records.spec.ts`; Fasteners picked as drawn; category names are catalog data ("&", "/" where the frame writes "and"); List price to $121.00 for the sample $500.00) |
+| C_ST2 | U5 | PASS (`e2e/frames-records.spec.ts`; side column 340px) |
+| C_ST3 | U5 | PASS (`e2e/frames-records.spec.ts`; Brandi's own drafts Q-24817 and Q-24790 (decision 22) for the frame's three; quantity starts at 1; 580px, 120px from the top, centred) |
+| C_STBase | U5 | PASS (`e2e/frames-records.spec.ts`; nine items then "Show 53 more items"; search 340px, Add to quote 108px in the 124px track) |
 | C_AN1 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); the same long page scrolled, rail sticky; data-length lists cut to the shorter side: chart ticks, categories, items) |
 | C_AN2 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); the Assigned rep names are the data's) |
 | C_AN3 | U6 | PASS (`e2e/frames-analytics.spec.ts`, frame laid out at 1920x1080, whole `main` both directions; numbers, dates and names are real data compared as the frame's sentence patterns (Appendix G); nine weeks then "Show 17 more weeks") |
