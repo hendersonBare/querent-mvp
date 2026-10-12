@@ -53,8 +53,11 @@ export interface AssignmentRow extends CustomerListItem {
 export interface FloorCell {category_id:string;category_name:string;margin_floor:number;label:string;updated_at:string}
 export interface RepFloorSet {rep:SettingsRep;floors:FloorCell[]}
 
-/** Customer access as one customer's (or, customer_id null, every customer's) rules: what PUT /access answers. */
-export interface AccessSettings {customer_id:string|null;rules:AccessRule[]}
+/**
+ * What PUT /access answers: one customer's rules (or, customer_id null, every customer's), and `all`, the
+ * rules over every customer, so the no-filter view (C_S1) follows a change made to one customer.
+ */
+export interface AccessSettings {customer_id:string|null;rules:AccessRule[];all:AccessRule[]}
 /** Customer access searched or filtered (C_S1b): the matching customers and how many there are in all. */
 export interface AccessTable {q:string;customers:AccessCustomer[];total:number}
 
@@ -118,7 +121,8 @@ export function assignmentRows(reader?:RepReader):AssignmentRow[]{
 
 function floorSet(rep:Rep):RepFloorSet{return {rep:asRep(rep),floors:repFloors(rep.id).map(toCell)};}
 
-const accessFor=(customerId:string|null):AccessSettings=>({customer_id:customerId,rules:aggregateAccess(customerId?[customerId]:customerIds())});
+const everyCustomer=()=>aggregateAccess(customerIds());
+const accessFor=(customerId:string|null):AccessSettings=>{const all=everyCustomer();return {customer_id:customerId,rules:customerId?aggregateAccess([customerId]):all,all};};
 const orgCells=():OrgFloorCell[]=>orgMarginFloors().map(f=>({...f,label:formatMargin(f.floor)}));
 
 /** Settings > Data sources: the demo database and the ERP connection's recent sync events. No longer in the UI (plan U8); the manager's route only. */
@@ -152,7 +156,7 @@ export function accessFilter(params:URLSearchParams):AccessFilter{
 export function managerSettings(customerId:string|null=null):ManagerSettings{
   const linked=customerId?customers().find(c=>c.id===customerId):undefined;
   return {
-    access:accessFor(null).rules,
+    access:everyCustomer(),
     accessTable:linked?accessTable({q:linked.name}):null,
     orgFloors:orgCells(),
     repMargins:repMargins(),

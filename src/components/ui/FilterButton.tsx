@@ -33,9 +33,13 @@ export interface FilterButtonProps<T> {
   align?:'left'|'right';
   /** For the wrapper, so a page can place it (C_TRBase pushes it right with margin-left: auto). */
   className?:string;
+  /** Added to the panel, for a frame that draws its own line or shadow (C_S1a). */
+  panelClassName?:string;
+  /** Replaces the count badge's look, for a frame that draws its own (C_S1b). */
+  countClassName?:string;
 }
 
-export function FilterButton<T>({title,description,value,empty,count,onApply,children,width=390,titleGap,actionsGap=14,tone='default',align='left',className}:FilterButtonProps<T>){
+export function FilterButton<T>({title,description,value,empty,count,onApply,children,width=390,titleGap,actionsGap=14,tone='default',align='left',className,panelClassName,countClassName}:FilterButtonProps<T>){
   const [open,setOpen]=useState(false);
   const [draft,setDraft]=useState(value);
   const wrap=useRef<HTMLDivElement>(null);
@@ -43,9 +47,9 @@ export function FilterButton<T>({title,description,value,empty,count,onApply,chi
   return <div ref={wrap} className={cx(s.wrap,className)} data-ui="filter">
     <button type="button" className={cx(s.button,tone==='bar'&&s.bar,(open||count>0)&&s.active)} aria-expanded={open} aria-haspopup="dialog"
       aria-label={count>0?`Filter, ${count} applied`:undefined} onClick={toggle}>
-      <Icon name="filter" size={15}/>Filter{count>0&&<span data-ui="count" className={s.count}>{count}</span>}
+      <Icon name="filter" size={15}/>Filter{count>0&&<span data-ui="count" className={countClassName??s.count}>{count}</span>}
     </button>
-    <Popover open={open} label={title} onClose={()=>setOpen(false)} ignore={wrap} className={cx(s.panel,align==='right'&&s.panelRight)} style={{width}}>
+    <Popover open={open} label={title} onClose={()=>setOpen(false)} ignore={wrap} className={cx(s.panel,align==='right'&&s.panelRight,panelClassName)} style={{width}}>
       <div className={cx(s.title,description&&s.titleTight)} style={titleGap===undefined?undefined:{marginBottom:titleGap}}>{title}</div>
       {description&&<div className={s.description}>{description}</div>}
       {children(draft,setDraft)}
