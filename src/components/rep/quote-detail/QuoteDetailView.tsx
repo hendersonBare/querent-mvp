@@ -27,8 +27,9 @@ import {useQuoteEditor,type QuoteEditor} from './use-quote-editor';
 import s from './QuoteDetail.module.css';
 
 // The rep's quote editor (plan U4; C_QEBase and its states C_QE1 to C_QE11): the minimal header
-// (customer, quote number, status with Overdue or Aging, purchasing agent, requested, valid until) with
-// the caution and bell; the Items card (Show cost and stock, the lines, + Add item); Suggested by
+// (customer, quote number, status with Overdue or Aging, purchasing agent, requested, valid until, and
+// on a quote that carries freight recovery the "Freight recovery N%" chip, decision 64) with the caution
+// and bell; the Items card (Show cost and stock, the lines, + Add item); Suggested by
 // Querent; and on the right the total box with Approve and send, the Save draft, Export, Chat and More
 // icon buttons, and Quote details. Every edit autosaves (./use-quote-editor); Undo takes the last one
 // back. Pricing, margin math, freight and the send rules are the server's (Appendix F).
