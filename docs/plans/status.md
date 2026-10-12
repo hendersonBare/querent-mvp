@@ -10,7 +10,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 66. Started 2026-10-11.
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
 | U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
 | U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | merged (1 fix round) |
-| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | fix round 1 (verifier FAIL: decision 64 header chip missing; remove column 8px vs 16px; deleted unit tests; unapproved "(freight to set)") |
+| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | in review (after fix round 1) |
 | U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | | in progress (`task/U7-teams-and-reps`) |
