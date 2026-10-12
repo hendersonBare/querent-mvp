@@ -15,7 +15,7 @@ export function ActivityPanel({detail}:{detail:QuoteDetail}){
     {activity.length
       ?[...activity].reverse().map(a=><Fragment key={a.id}>
         <Row label={stamp(a.at,detail.as_of)}/>
-        <div className={p.message}>{a.message}</div>
+        <div className={p.message} data-ui="activity-message">{a.message}</div>
       </Fragment>)
       :<div className={p.line}>Nothing yet.</div>}
   </Panel>;
