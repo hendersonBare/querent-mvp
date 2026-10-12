@@ -15,7 +15,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 69. Started 2026-10-11.
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | [#60](https://github.com/hendersonBare/querent-mvp/pull/60) | merged |
 | U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | merged |
-| U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | fix round 1 (verifier FAIL: picture upload accepts polyglot and truncated files; decision 69 manager Profile tab) |
+| U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | fix round 2 (verifier FAIL: the markup scan refuses ordinary images and misses metadata payloads; fix strips metadata instead) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
 | U11 | | not started |
 
