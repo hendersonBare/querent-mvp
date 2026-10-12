@@ -43,7 +43,8 @@ describe('GET /api/rep/settings',()=>{
     const {status,cache,json}=await call('','GET');
     expect(status).toBe(200);
     expect(cache).toMatch(/no-store/);
-    expect(Object.keys(json).sort()).toEqual(['manager','mine','rep_id']);
+    expect(Object.keys(json).sort()).toEqual(['manager','mine','own','rep_id']);
+    expect(json.own).toBeNull();
     expect(json.rep_id).toBe('brandi');
     const m=json.manager;
     expect(Object.keys(m).sort()).toEqual(['access','accessTable','aging','delivery','flags','orgFloors','pricing','repMargins']);

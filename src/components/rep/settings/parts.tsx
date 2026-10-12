@@ -32,9 +32,12 @@ export function Card({title,note,action,saved,review=false,children}:{title:stri
   </section>;
 }
 
-/** The green action on a title bar ("Save rates", "Save floors"). */
-export function SaveButton({label,disabled,onClick}:{label:string;disabled:boolean;onClick:()=>void}){
-  return <button type="button" className={s.green} disabled={disabled} onClick={onClick}>{label}</button>;
+/**
+ * The green action on a title bar ("Save rates", "Save floors"). `drawnOff`: a rep's tabs, whose disabled
+ * Save C_RS3 draws grey (#C4C7C5) rather than the dimmed green of "States not drawn".
+ */
+export function SaveButton({label,disabled,onClick,drawnOff=false}:{label:string;disabled:boolean;onClick:()=>void;drawnOff?:boolean}){
+  return <button type="button" className={cx(s.green,drawnOff&&s.greenOff)} disabled={disabled} onClick={onClick}>{label}</button>;
 }
 
 /** One plain red line under the title bar (decision 52): what is wrong, or the server's reason. */

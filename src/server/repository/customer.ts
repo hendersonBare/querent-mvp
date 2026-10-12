@@ -5,7 +5,7 @@
 // Adding an export? customer.test.ts calls every export and fails on any cost-like field, and
 // fails until the new function is added to its call list.
 export {access,enabledCategories,isCategory} from './access';
-export {accountSummary,assignedRep,deliveryAddress,departments,supplier} from './accounts';
+export {accountSummary,assignedRep,assignedRepPicture,assignedRepProfile,deliveryAddress,departments,supplier} from './accounts';
 export {branches,catalogItem,catalogItems,productCategories,stockForItems} from './catalog';
 export {addMessage,appendLog,conversation,conversationMessages,createConversation,history,quoteNotices,repReplyNotices} from './chat';
 export {notificationReads,quoteNews,saveNotificationReads,shippedOrders,type QuoteNewsRow,type ShippedOrderRow} from './notifications';

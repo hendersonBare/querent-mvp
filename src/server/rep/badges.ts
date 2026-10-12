@@ -5,7 +5,8 @@ import {expiresAt} from '@/server/quotes/lifecycle';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {quote,unreadQuoteCount,unreadQuoteEvents,type UnreadQuoteEvent} from '@/server/repository';
 import {ownerFilter} from './access';
-import {attentionQuotes,redQuoteCount} from './quotes';
+import {notifyFor} from './notification-prefs';
+import {attentionQuotes} from './quotes';
 
 // The rep portal's header badges (spec §4; plan U2): counts plus short summaries for the page
 // header's two dropdowns, the caution (Needs attention, C_QOB3) and the bell (Notifications, C_QOB4).
@@ -22,11 +23,16 @@ import {attentionQuotes,redQuoteCount} from './quotes';
 // attention view (decision 18, aging rules unchanged): the rep's own, or every rep's for the manager
 // (task U1). `attention` counts the red ones only (decision 18: the header badge counts red).
 //
-// Notification preferences (Appendix C rep_notification_prefs) come with plan U9: it passes the
-// reader's choices as `notify`, which keeps or drops each summary by its kind. Counts ignore it.
+// Notification preferences (Appendix C rep_notification_prefs; plan U9, Settings > Notifications): the
+// reader's switches come in as `notify` (by default their stored ones, ./notification-prefs notifyFor),
+// which keeps or drops each row by the kinds it falls under. A caution row falls under its tag's switch
+// (Quote overdue or Quote aging) and, by its line, Change requested (a change request) or Below margin
+// floor (a draft with lines below the floor); it is dropped when any of them is off. A bell row falls
+// under its own kind (a new request under Customer chat needs a rep). `attention`, the red count on the
+// caution button, counts the red rows kept; `quotes` (unread) ignores the switches.
 
 /** What a summary is about: the event keys of Appendix C where one exists, plus a new quote request. */
-export type NotificationKind='quote_overdue'|'quote_aging'|'quote_requested'|'change_requested'|'quote_accepted'|'quote_declined'|'quote_expired';
+export type NotificationKind='quote_overdue'|'quote_aging'|'below_margin_floor'|'quote_requested'|'change_requested'|'quote_accepted'|'quote_declined'|'quote_expired';
 
 /** One row of a header dropdown. Selecting it opens /rep/quotes/<quote_number>. */
 export interface BadgeSummary {
@@ -50,7 +56,7 @@ export interface BadgeSummary {
 export interface RepBadges {
   /** The reader's unread quotes (the bell's rows before preferences). */
   quotes:number;
-  /** The red (Overdue) open quotes: the rep's own, or every rep's for the manager (task U1). */
+  /** The red (Overdue) rows of the caution: the rep's own open quotes, or every rep's for the manager (task U1), as the switches keep them (plan U9). */
   attention:number;
   /** The caution dropdown: amber and red open quotes, red first, then the longest waiting. */
   caution:BadgeSummary[];
@@ -119,17 +125,18 @@ type CautionRow=ReturnType<typeof attentionQuotes>[number];
  * No frame (docs/plans/status.md): a draft with no line below the floor reads "Requested Sep 23, not sent yet.",
  * after the sent pattern.
  */
-function cautionLine(row:CautionRow,now:string){
+function cautionLine(row:CautionRow,now:string):{line:string;reason:NotificationKind|null}{
   switch(row.status){
     case 'changes_requested':{
       const who=quote(row.id)?.contact_name??row.customer_name;
-      return askedLine(who,row.change_request_note??'');
+      return {line:askedLine(who,row.change_request_note??''),reason:'change_requested'};
     }
     case 'ready_for_review':{
       const below=quoteFloors(row.id)?.belowFloorCount??0;
-      return below>0?`Draft has ${below} ${below===1?'line':'lines'} below the margin floor.`:`Requested ${day(row.requested_at,now)}, not sent yet.`;
+      return below>0?{line:`Draft has ${below} ${below===1?'line':'lines'} below the margin floor.`,reason:'below_margin_floor'}
+        :{line:`Requested ${day(row.requested_at,now)}, not sent yet.`,reason:null};
     }
-    default:return `Sent ${day(row.sent_at??row.aging.since,now)}, no reply yet.`;
+    default:return {line:`Sent ${day(row.sent_at??row.aging.since,now)}, no reply yet.`,reason:null};
   }
 }
 
@@ -161,20 +168,21 @@ const RANK={red:0,amber:1,ok:2} as const;
 /**
  * The header badges for one rep. Expiry is lazy (task 1.5), so this stores the expiry of every sent
  * quote past valid_until first; everything then reads effective statuses. `manager` (repAccess): the
- * caution covers every rep (task U1). `notify`: the reader's notification preferences (plan U9).
- * `now` is for tests.
+ * caution covers every rep (task U1). `notify`: the reader's notification preferences, their stored
+ * switches unless given (plan U9). `now` is for tests.
  */
-export function repBadges(repId:string,{now=new Date().toISOString(),manager=false,notify=()=>true}:{now?:string;manager?:boolean;notify?:(kind:NotificationKind)=>boolean}={}):RepBadges{
+export function repBadges(repId:string,{now=new Date().toISOString(),manager=false,notify=notifyFor(repId)}:{now?:string;manager?:boolean;notify?:(kind:NotificationKind)=>boolean}={}):RepBadges{
   expireOverdueQuotes({now});
   const owner=ownerFilter({repId,manager});
   const caution=attentionQuotes(owner,now)
     .sort((a,b)=>RANK[a.aging.level]-RANK[b.aging.level]||Date.parse(a.aging.since)-Date.parse(b.aging.since))
-    .map((row):BadgeSummary=>{
-      const red=row.aging.level==='red';
-      return {id:row.id,quote_number:row.quote_number,kind:red?'quote_overdue':'quote_aging',label:row.quote_number,
-        tag:AGING_LABELS[red?'red':'amber'],line:cautionLine(row,now),at:row.aging.since};
+    .flatMap((row):BadgeSummary[]=>{
+      const red=row.aging.level==='red',kind=red?'quote_overdue':'quote_aging';
+      const {line,reason}=cautionLine(row,now);
+      if(!notify(kind)||(reason&&!notify(reason)))return [];
+      return [{id:row.id,quote_number:row.quote_number,kind,label:row.quote_number,tag:AGING_LABELS[red?'red':'amber'],line,at:row.aging.since}];
     });
   const bell=unreadQuoteEvents(repId).map(e=>bellSummary(e,now)).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
-  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(owner,now),
-    caution:caution.filter(item=>notify(item.kind)),bell:bell.filter(item=>notify(item.kind))};
+  return {quotes:unreadQuoteCount(repId),attention:caution.filter(item=>item.kind==='quote_overdue').length,
+    caution,bell:bell.filter(item=>notify(item.kind))};
 }

@@ -3,6 +3,30 @@
 export interface Supplier {id:string;name:string;address:string;city:string;state:string;zip:string;phone:string;email:string;website:string}
 
 export interface Rep {id:string;name:string;initials:string;title:string;phone:string;email:string}
+/** A rep's Settings > Profile as stored (plan U9): the rep, and when their picture last changed (null: no picture). */
+export interface RepProfile extends Rep {picture_updated_at:string|null}
+/** The picture types a rep may upload (plan U9): never SVG, which can carry script. */
+export const PICTURE_TYPES=['image/png','image/jpeg','image/webp'] as const;
+export type PictureType=(typeof PICTURE_TYPES)[number];
+/** A rep's stored picture. */
+export interface RepPicture {data:Uint8Array;type:PictureType;updated_at:string}
+/** The notification events a rep turns on or off in the app (plan U9; Appendix C rep_notification_prefs). */
+export const REP_NOTIFICATION_KEYS=['quote_overdue','quote_aging','below_margin_floor','change_requested','quote_accepted','quote_declined','quote_expired','customer_chat_needs_rep'] as const;
+export type RepNotificationKey=(typeof REP_NOTIFICATION_KEYS)[number];
+/**
+ * Settings > Notifications' two cards (plan U9; C_RS4), in its order and words: the switches that feed the
+ * caution dropdown (Needs attention) and the ones that feed the bell (Notifications).
+ */
+export const NOTIFICATION_GROUPS:readonly {title:string;items:readonly {key:RepNotificationKey;label:string}[]}[]=[
+  {title:'Needs attention',items:[
+    {key:'quote_overdue',label:'Quote overdue'},{key:'quote_aging',label:'Quote aging'},
+    {key:'below_margin_floor',label:'Below margin floor'},{key:'change_requested',label:'Change requested'},
+  ]},
+  {title:'Notifications',items:[
+    {key:'quote_accepted',label:'Quote accepted'},{key:'quote_declined',label:'Quote declined'},
+    {key:'quote_expired',label:'Quote expired'},{key:'customer_chat_needs_rep',label:'Customer chat needs a rep'},
+  ]},
+];
 
 /** reps.role (v3 spec §8, decision 20): supervisor and admin are merged into manager. */
 export type RepRole='rep'|'manager';
@@ -52,7 +76,12 @@ export interface Department {id:string;name:string;branch_id:string|null;phone:s
  * GET /api/query/customer/contacts: the customer's assigned rep, shown in the My rep sheet (plan U10,
  * C_CVL3). Only the rep: the departments stay in the chat's answers.
  */
-export interface CustomerRepContact {rep:Rep|null}
+/**
+ * The rep as a customer sees them (plan U9): what the rep set on Settings > Profile, their title, and a link to
+ * their picture (null without one). No internal id, nothing else of the rep.
+ */
+export interface CustomerRep {name:string;initials:string;title:string;phone:string;email:string;picture_url:string|null}
+export interface CustomerRepContact {rep:CustomerRep|null}
 
 /** Freight rates (spec §5.3), shown read-only in Settings. */
 /** Settings > Pricing & delivery. road_factor turns straight-line miles into road miles (spec §5.3). */
