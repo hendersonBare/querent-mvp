@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { FIXTURES, ICC_SEGMENT, PAYLOAD, contains, fixture, jpegWithIcc, jpegWithText, noisyPng, pngWithText, webpWithText } from "../test/fixtures/pictures/with-text";
 import { expect, test, type APIRequest, type Browser, type Page, type TestInfo } from "@playwright/test";
 
 // Settings (task 6.1; plans U8, U9; spec §4, §5.2, §6.3): the manager's Customer access, Margin floors, Pricing and
@@ -283,6 +284,53 @@ test("profile: Mara's name, phone, email and picture are what her customer sees 
   } finally {
     expect((await assign("brandi")).status()).toBe(200);
     await brandi.close();
+  }
+});
+
+test("profile: a picture is stored without its text and metadata, and what is stored still loads in the browser", async ({ browser }, testInfo) => {
+  const mara = await signInAsMara(browser, testInfo);
+  await mara.goto("/rep/settings?tab=profile");
+  /** Uploads `bytes`, then returns the stored bytes as served and the size Chromium decodes them to. */
+  let upload = 0;
+  const storeAndLoad = async (bytes: Uint8Array, type: string) => {
+    const put = await mara.request.put("/api/rep/profile/picture", { headers: { "content-type": type }, data: Buffer.from(bytes) });
+    expect(put.status()).toBe(200);
+    const url = (await put.json()).picture_url as string;
+    const served = await mara.request.get(url);
+    expect(served.headers()["content-type"]).toBe(type);
+    const size = await mara.evaluate(async (src) => {
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      return [img.naturalWidth, img.naturalHeight];
+    }, `${url}&upload=${++upload}`);
+    return { data: new Uint8Array(await served.body()), size };
+  };
+  try {
+    // The six fixtures are stored as they are and display.
+    for (const name of FIXTURES) {
+      const type = name.endsWith(".png") ? "image/png" : name.endsWith(".webp") ? "image/webp" : "image/jpeg";
+      const { data, size } = await storeAndLoad(fixture(name), type);
+      expect(Buffer.from(data).equals(Buffer.from(fixture(name))), name).toBe(true);
+      expect(size, name).toEqual([2, 2]);
+    }
+    // Markup in a PNG tEXt/iTXt chunk, a JPEG comment or XMP packet, or a WebP XMP chunk is accepted, and gone from what is stored.
+    for (const [bytes, type] of [[pngWithText(), "image/png"], [jpegWithText(), "image/jpeg"], [webpWithText(), "image/webp"]] as const) {
+      expect(contains(bytes, PAYLOAD)).toBe(true);
+      const { data, size } = await storeAndLoad(bytes, type);
+      expect(contains(data, PAYLOAD), type).toBe(false);
+      expect(contains(data, "onerror"), type).toBe(false);
+      expect(size, type).toEqual([2, 2]);
+    }
+    // An ordinary picture whose image data happens to hold <svg and <script bytes is not refused.
+    expect((await storeAndLoad(noisyPng(), "image/png")).size).toEqual([64, 64]);
+    // A JPEG keeps its ICC profile.
+    const icc = await storeAndLoad(jpegWithIcc(), "image/jpeg");
+    expect(contains(icc.data, ICC_SEGMENT)).toBe(true);
+    expect(icc.size).toEqual([2, 2]);
+  } finally {
+    expect((await mara.request.delete("/api/rep/profile/picture")).status()).toBe(200);
+    await mara.context().close();
   }
 });
 

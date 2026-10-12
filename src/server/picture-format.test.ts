@@ -1,12 +1,15 @@
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {describe,expect,it} from 'vitest';
-import {pictureType} from './picture-format';
+import {pictureType,storablePicture} from './picture-format';
+import {FIXTURES,ICC_SEGMENT,PAYLOAD,contains,jpegWithIcc,jpegWithText,noisyPng,pngChunkTypes,pngWithText,webpChunks,webpWithText} from '../../test/fixtures/pictures/with-text';
 
 // A rep's picture (plan U9; C_RS2) is checked by its whole structure, never by the type an upload claims or by its
 // first bytes alone: a PNG walked chunk by chunk from IHDR to IEND, a JPEG segment by segment from SOI to EOI,
 // a WebP by its RIFF size and its chunks. A file that merely starts like a picture (a polyglot carrying HTML or
-// SVG, a truncated file, or data after the image's end) is not a picture.
+// SVG, a truncated file, or data after the image's end) is not a picture. What is stored is the picture without its
+// text and metadata (storablePicture): markup in a PNG text chunk, a JPEG comment or a WebP XMP chunk goes, the
+// image stays, and nothing is refused for what its compressed image data happens to contain.
 
 const fixture=(name:string)=>new Uint8Array(readFileSync(path.join(__dirname,'../../test/fixtures/pictures',name)));
 const bytes=(...parts:(Uint8Array|number[]|string)[])=>{
@@ -50,13 +53,6 @@ describe('pictureType: polyglots are not pictures',()=>{
     expect(pictureType(bytes('RIFF',u32le(4+svg.length),'WEBP',svg))).toBeNull();
     expect(pictureType(bytes('RIFF',u32le(4+8+svg.length),'WEBP','VP8 ',u32le(svg.length),svg))).toBeNull();
   });
-  it('refuses markup hidden inside an otherwise well formed picture (a PNG text chunk, a JPEG comment)',()=>{
-    const text=new TextEncoder().encode(`Comment\0${HTML}`);
-    const tEXt=bytes(u32be(text.length),'tEXt',text,[0,0,0,0]);
-    expect(pictureType(bytes(PNG.subarray(0,IEND_AT),tEXt,PNG.subarray(IEND_AT)))).toBeNull();
-    const comment=new TextEncoder().encode(SVG);
-    expect(pictureType(bytes(JPEG.subarray(0,2),[0xff,0xfe,(comment.length+2)>>8,(comment.length+2)&255],comment,JPEG.subarray(2)))).toBeNull();
-  });
 });
 
 describe('pictureType: truncated files are not pictures',()=>{
@@ -99,5 +95,79 @@ describe('pictureType: data after the end of the image',()=>{
 describe('pictureType: other formats',()=>{
   it('refuses GIF, SVG, HTML, an empty file and random bytes',()=>{
     for(const other of [bytes('GIF89a',[1,0,1,0,0,0,0]),bytes(SVG),bytes(HTML),new Uint8Array(),Uint8Array.from([0x89,0x50])])expect(pictureType(other)).toBeNull();
+  });
+});
+
+describe('storablePicture: an ordinary picture is never refused for what its image data holds',()=>{
+  it('accepts a high-entropy PNG whose image data holds <svg and <script bytes, and stores it unchanged',()=>{
+    const png=noisyPng();
+    expect(contains(png,'<svg')&&contains(png,'<SCRIPT')&&contains(png,'<script>')).toBe(true);
+    expect(pictureType(png)).toBe('image/png');
+    const stored=storablePicture(png);
+    expect(stored?.type).toBe('image/png');
+    expect(stored?.data).toEqual(png);
+  });
+});
+
+describe('storablePicture: text and metadata are stripped, the picture stays',()=>{
+  const clean=(data:Uint8Array)=>{
+    expect(contains(data,PAYLOAD)).toBe(false);
+    expect(contains(data,'onerror')).toBe(false);
+    expect(contains(data,'xmpmeta')).toBe(false);
+  };
+  it('drops PNG tEXt, iTXt, zTXt, eXIf, tIME and private chunks, keeping the critical and colour chunks',()=>{
+    const png=pngWithText();
+    expect(pictureType(png)).toBe('image/png');
+    const stored=storablePicture(png)!;
+    expect(stored.type).toBe('image/png');
+    expect(pngChunkTypes(stored.data)).toEqual(['IHDR','sRGB','gAMA','pHYs','IDAT','IEND']);
+    clean(stored.data);
+    expect(pictureType(stored.data)).toBe('image/png');
+  });
+  it('drops JPEG COM and APPn segments other than APP0 JFIF, APP2 ICC_PROFILE and APP14 Adobe, in a baseline and a progressive JPEG',()=>{
+    for(const name of ['tiny.jpg','tiny-progressive.jpg']){
+      const jpeg=jpegWithText(PAYLOAD,name),original=fixture(name);
+      expect(pictureType(jpeg)).toBe('image/jpeg');
+      const stored=storablePicture(jpeg)!;
+      expect(stored.type).toBe('image/jpeg');
+      clean(stored.data);
+      expect(contains(stored.data,Uint8Array.from([0xff,0xfe]))).toBe(false);
+      expect(contains(stored.data,Uint8Array.from([0xff,0xe1]))).toBe(false);
+      expect(stored.data).toEqual(original);
+    }
+  });
+  it('keeps a JPEG ICC profile and Adobe segment byte for byte',()=>{
+    const jpeg=jpegWithIcc();
+    const stored=storablePicture(jpeg)!;
+    expect(stored.type).toBe('image/jpeg');
+    expect(contains(stored.data,ICC_SEGMENT)).toBe(true);
+    expect(stored.data).toEqual(jpeg);
+  });
+  it('drops WebP EXIF and XMP chunks, clears their VP8X flags and fixes the RIFF size',()=>{
+    const webp=webpWithText();
+    expect(pictureType(webp)).toBe('image/webp');
+    expect(webpChunks(webp)).toEqual(['VP8X','ALPH','VP8 ','EXIF','XMP ']);
+    const stored=storablePicture(webp)!;
+    expect(stored.type).toBe('image/webp');
+    expect(webpChunks(stored.data)).toEqual(['VP8X','ALPH','VP8 ']);
+    expect(stored.data[20]&0x0c).toBe(0);
+    expect(stored.data[20]&0x10).toBe(0x10);                 // alpha stays flagged
+    clean(stored.data);
+    expect(pictureType(stored.data)).toBe('image/webp');
+    expect(stored.data).toEqual(fixture('tiny-alpha.webp'));
+  });
+  it('stores the six fixtures unchanged',()=>{
+    for(const name of FIXTURES){
+      const original=fixture(name),stored=storablePicture(original);
+      expect(stored?.type,name).toBe(pictureType(original));
+      expect(stored?.data,name).toEqual(original);
+    }
+  });
+  it('refuses what pictureType refuses',()=>{
+    for(const other of [bytes(PNG_SIGNATURE,HTML),bytes(PNG,HTML),JPEG.subarray(0,JPEG.length-2),bytes(SVG),new Uint8Array()])expect(storablePicture(other)).toBeNull();
+  });
+  it('accepts a picture inside a larger buffer (a non-zero byteOffset)',()=>{
+    const pooled=bytes([1,2,3],pngWithText(),[4]).subarray(3,-1);
+    expect(pngChunkTypes(storablePicture(pooled)!.data)).toEqual(['IHDR','sRGB','gAMA','pHYs','IDAT','IEND']);
   });
 });

@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {describe,expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
+import {PAYLOAD,contains,jpegWithText,noisyPng,pngWithText,webpWithText} from '../../../test/fixtures/pictures/with-text';
 import {PICTURE_MAX_BYTES,ProfileError,ownPicture,pictureType,profileView,removePicture,savePicture,updateProfile} from './profile';
 
 // Settings > Profile (plan U9; C_RS2): the signed-in rep's picture, name, phone and email, which customers
@@ -93,6 +94,19 @@ describe('savePicture and removePicture',()=>{
     const fits=pngOf(PICTURE_MAX_BYTES);
     expect(pictureType(fits)).toBe('image/png');
     expect(savePicture('mara',fits,{now:NOW}).picture_url).not.toBeNull();
+    removePicture('mara');
+  });
+  it('stores the picture without its text and metadata, still a picture of its type',()=>{
+    for(const [bytes,type] of [[pngWithText(),'image/png'],[jpegWithText(),'image/jpeg'],[webpWithText(),'image/webp']] as const){
+      savePicture('mara',bytes,{now:NOW});
+      const own=ownPicture('mara')!;
+      expect(own.type).toBe(type);
+      expect(contains(own.data,PAYLOAD)).toBe(false);
+      expect(own.data.length).toBeLessThan(bytes.length);
+      expect(pictureType(own.data)).toBe(type);
+    }
+    savePicture('mara',noisyPng(),{now:NOW});
+    expect(ownPicture('mara')!.data).toEqual(noisyPng());
     removePicture('mara');
   });
 });
