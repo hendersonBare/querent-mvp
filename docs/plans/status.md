@@ -8,7 +8,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 58. Started 2026-10-11.
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
-| U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | in review |
+| U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | fix round 1 (verifier FAIL: caution and bell row wording differ from C_QOB3 and C_QOB4; upsell chip coverage dropped) |
 | U3 | | not started |
 | U4 | | not started |
 | U5 | | not started |
