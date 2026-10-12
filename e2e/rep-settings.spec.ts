@@ -71,16 +71,10 @@ async function openQuotes(page: Page) {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Quotes");
 }
 /**
- * The sample quote's Margin cell on the Quotes list: "32.2% margin", plus "N lines below floor" when
- * any are. Brandi is the manager, so her rows start with the checkbox and carry a Rep cell (task U1).
+ * The sample quote's card on the Quotes board (plan U3): "32.2%", plus "N lines below floor" when any
+ * are. (U3 merged with this helper still reading the old table; U7 points it at the board's card.)
  */
-const sampleMargin = (page: Page) =>
-  page
-    .getByRole("table")
-    .getByRole("rowgroup")
-    .filter({ has: page.getByRole("link", { name: SAMPLE, exact: true }) })
-    .getByRole("cell")
-    .nth(6);
+const sampleMargin = (page: Page) => page.getByRole("article", { name: SAMPLE, exact: true });
 const floorField = (page: Page, category: string) => page.getByRole("textbox", { name: `${category} floor`, exact: true });
 async function saveFloor(page: Page, category: string, value: string) {
   const field = floorField(page, category);
@@ -92,7 +86,9 @@ async function saveFloor(page: Page, category: string, value: string) {
 /** Opens the sample quote from the Quotes list. */
 async function openSample(page: Page) {
   await openQuotes(page);
-  await page.getByRole("link", { name: SAMPLE, exact: true }).click();
+  // The card opens the preview (plan U3), whose Open quote goes to the editor.
+  await sampleMargin(page).getByRole("button", { name: SAMPLE, exact: true }).click();
+  await page.getByRole("dialog", { name: SAMPLE, exact: true }).getByRole("link", { name: "Open quote" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 }
 /** A line's unit price on the quote editor (plan U4): its red below-floor warning, directly above it, is its description. */
