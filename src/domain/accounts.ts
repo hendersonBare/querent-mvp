@@ -21,6 +21,8 @@ export interface CustomerListItem {id:string;name:string;account_number:string;r
 export interface CustomerDirectoryRow extends CustomerListItem {
   terms:string|null;credit_limit:number|null;open_balance:number|null;
   order_count:number;last_order_date:string|null;quote_count:number;
+  /** Quotes still open: Draft ready, Changes requested or Sent (the Has open quotes filter, plan U5). */
+  open_quote_count:number;
 }
 
 export interface ShipTo {name:string|null;address:string;city:string|null;state:string|null;zip:string|null;lat:number|null;lng:number|null}

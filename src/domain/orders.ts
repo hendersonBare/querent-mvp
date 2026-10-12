@@ -15,7 +15,8 @@ export interface Order extends OrderSummary {lines:OrderLine[]}
 export type CustomerOrderRow=Pick<OrderSummary,'id'|'order_number'|'order_date'|'status'|'fulfillment'|'branch_code'|'total'|'quote_number'>;
 
 /** Whose order it is: the rep portal's Orders views cover every customer (task 3.8). */
-export interface OrderCustomer {customer_id:string;customer_name:string;account_number:string}
+/** Whose order it is, and the customer's assigned rep (null when none): the rep's Orders list and order page (plan U5). */
+export interface OrderCustomer {customer_id:string;customer_name:string;account_number:string;rep_id:string|null;rep_name:string|null}
 
 /** One row of the rep's Orders list. */
 export interface OrderListRow extends OrderSummary,OrderCustomer {line_count:number}

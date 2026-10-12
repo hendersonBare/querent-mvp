@@ -140,6 +140,8 @@ test("rail, manager (C_QOBoard): every element and style, 216px, sticky, the pag
 
   // Sticky: on a long page scrolled to the bottom the rail is still at the top, one viewport tall.
   await page.goto("/rep/stock");
+  // Stock shows about one screen of items first (plan U5, C_STBase); the whole catalog makes a long page.
+  await page.getByRole("button", { name: /^Show \d+ more items$/ }).click();
   const tall = await page.evaluate(() => document.documentElement.scrollHeight);
   expect(tall).toBeGreaterThan(APP_SIZE.height * 1.5);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -161,6 +163,8 @@ test("rail, rep (C_RQBoard): My Analytics, no Teams and Reps, role Rep; 216px an
 const MANAGER_ROUTES = ["/rep/quotes", "/rep/quotes/Q-24817", "/rep/customers", "/rep/customers/wasatch", "/rep/orders", "/rep/stock", "/rep/stock/HCS-12-13-2G8",
   "/rep/analytics", "/rep/teams", "/rep/settings", "/rep/quotes/Q-NOPE", "/rep/stock/NOPE-1"];
 const REP_ROUTES = ["/rep/quotes", "/rep/customers", "/rep/orders", "/rep/stock", "/rep/analytics", "/rep/settings"];
+/** Pages whose own header has a search box (C_CUBase "Search customers", C_STBase "Search SKU or item name"). */
+const PAGE_SEARCH = ["/rep/customers", "/rep/stock"];
 
 test("every rep route: the rail (216px) and the page header's title, caution and bell", async ({ browser }, testInfo) => {
   for (const [persona, routes] of [["supplier", MANAGER_ROUTES], ["mara", REP_ROUTES]] as const) {
@@ -172,7 +176,10 @@ test("every rep route: the rail (216px) and the page header's title, caution and
       await expect(page.getByRole("heading", { level: 1 }), route).toHaveCount(1);
       await expect(page.getByRole("button", { name: /^Needs attention/ }), route).toHaveCount(1);
       await expect(page.getByRole("button", { name: /^Notifications/ }), route).toHaveCount(1);
-      await expect(page.getByRole("searchbox"), route).toHaveCount(0);
+      // No global search: the only search boxes are the page's own (plan U5: C_CUBase, C_STBase), in its header.
+      await expect(page.locator("aside").getByRole("searchbox"), route).toHaveCount(0);
+      await expect(page.getByRole("searchbox"), route).toHaveCount(PAGE_SEARCH.includes(route) ? 1 : 0);
+      if (PAGE_SEARCH.includes(route)) await expect(page.locator("main header").getByRole("searchbox"), route).toHaveCount(1);
       await expect(page.getByText("Switch workspace"), route).toHaveCount(0);
     }
   }
