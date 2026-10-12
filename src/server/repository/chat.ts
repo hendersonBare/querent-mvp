@@ -1,6 +1,6 @@
 import 'server-only';
 import {randomUUID} from 'node:crypto';
-import {QUOTE_READY_KIND,type ChatMessage,type Conversation,type MessageRole,type QuoteNotice} from '@/domain';
+import {QUOTE_READY_KIND,REP_REPLY_KIND,type ChatMessage,type Conversation,type MessageRole,type QuoteNotice,type RepReplyNotice} from '@/domain';
 import type {Category,ChatTurn} from '@/lib/contracts';
 import {all,nowIso,one,run,scalar} from './sql';
 
@@ -99,6 +99,22 @@ export function quoteNotices(customerId:string,conversationId:string|null=null):
     .flatMap(row=>{
       const fields=noticeFields(toMessage(row).payload);
       return fields?[{id:row.id,conversation_id:row.conversation_id,created_at:row.created_at,text:row.content,...fields}]:[];
+    });
+}
+
+/**
+ * Customer-safe: the replies reps posted in the customer's chat from the Quotes page (decision 63,
+ * plan U3), oldest first, in all their conversations or only `conversationId`. Like quoteNotices, only
+ * a message about one of the customer's own quotes, its payload rebuilt field by field; a malformed one
+ * is skipped.
+ */
+export function repReplyNotices(customerId:string,conversationId:string|null=null):RepReplyNotice[]{
+  return all<MessageRow>(`${MESSAGE} JOIN conversations c ON c.id=m.conversation_id JOIN quotes q ON q.id=json_extract(m.payload,'$.quote_id') AND q.customer_id=c.customer_id
+    WHERE c.customer_id=? AND m.kind=? AND (? IS NULL OR m.conversation_id=?) ORDER BY m.created_at,m.rowid`,customerId,REP_REPLY_KIND,conversationId,conversationId)
+    .flatMap(row=>{
+      const p=toMessage(row).payload as Record<string,unknown>|null;
+      if(!p||typeof p.quote_id!=='string'||typeof p.quote_number!=='string'||typeof p.rep_name!=='string')return [];
+      return [{kind:REP_REPLY_KIND,id:row.id,conversation_id:row.conversation_id,created_at:row.created_at,text:row.content,quote_id:p.quote_id,quote_number:p.quote_number,rep_name:p.rep_name}];
     });
 }
 

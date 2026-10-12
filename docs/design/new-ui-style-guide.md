@@ -43,6 +43,7 @@ Every token below is a CSS variable in `src/app/tokens.css` (`--q-<name>`). `e2e
 | red | `#C92A1C` | Overdue, Aging, below floor, caution only |
 | red-tint / red-border | `#FFEDEA` / `#E8A8A0` | caution button, error rows. The Quotes table frames (C_QOTable, C_QOT1 to C_QOT7, C_RQTable) draw the caution border `#F1BEB8`; every other frame draws `#E8A8A0`, which the token uses |
 | note / note-text | `#FBE7A1` / `#5C4300` | "View note" |
+| note-quote | `#3D2E00` | the customer's words in a note box (C_QOB5, C_QOB6) |
 | toggle-off | `#BFC3C1` | a switch that is off |
 | check-disabled | `#B0B4B2` | the square of a column that is always shown |
 | close | `#EEF2F0` | the "x" close button of sheets and dialogs |

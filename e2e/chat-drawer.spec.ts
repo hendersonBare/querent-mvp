@@ -1,10 +1,10 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-// "View full chat" on the rep's quote detail (B1; decision 26; spec §6, §9): the compact Customer
-// request box stays, with a button that shows the message count and opens a side drawer with the
-// whole conversation. Dana's messages are emphasised, Querent's turns are one line until expanded,
-// notices (item pop-up, quote requested) are one muted line. Escape and the X close it. (No phone
-// check: the rep portal has no phone layout, decision 43, plan U2.)
+// The Chat icon button on the rep's quote editor (plan U4, C_QEBase, C_QE6; B1; decision 26; spec §6,
+// §9): its name gives the message count, and it opens the "Full chat" drawer on the right with the
+// whole conversation. Dana's messages are bold, Querent's turns are one line until expanded, notices
+// (item pop-up, quote requested) are one muted line. Escape and the x close it. The drawer's look is
+// proven against C_QE6 in e2e/frames-quote-editor.spec.ts. (No phone check: decision 43.)
 //
 // Before each test the database is reset to the seed pinned to the mockup's day (POST
 // /api/test/reset, only with QUERENT_E2E_RESET=1, which playwright.config.ts sets).
@@ -36,46 +36,45 @@ async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
-test("opens Dana's whole chat from the Customer request box and closes it", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1057 });
+test("opens Dana's whole chat from the Chat button and closes it", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openQuote(page);
-  // The compact box is unchanged: collapsed, with the request snippet.
-  await expect(page.getByText("Customer request")).toBeVisible();
-  await expect(page.locator("details").filter({ hasText: "Customer request" })).not.toHaveAttribute("open", "");
-  const button = page.getByRole("button", { name: "View full chat, 5 messages" });
+  // The Chat button sits with Save draft, Export and More under the total box (C_QEBase).
+  const button = page.getByRole("button", { name: "Customer chat, 5 messages" });
   await expect(button).toBeVisible();
-  await expect(button).toContainText("5 messages");
-  await attachScreenshot(page, testInfo, "request-box-1440");
+  await expect(button).toHaveAttribute("aria-haspopup", "dialog");
+  const total = (await page.getByRole("region", { name: "Quote summary" }).boundingBox())!;
+  expect((await button.boundingBox())!.y).toBeGreaterThan(total.y + total.height);
+  await attachScreenshot(page, testInfo, "chat-button-1920");
 
   await button.click();
   const drawer = page.getByRole("dialog", { name: "Full chat" });
   await expect(drawer).toBeVisible();
-  await expect(drawer).toContainText("Dana Ortiz · 5 messages");
+  await expect(drawer).toContainText("Dana Ortiz, 5 messages, via Querent chat");
   expect(await drawer.evaluate((el) => el.contains(document.activeElement))).toBe(true);
-  // The drawer sits on the right.
+  // The drawer sits on the right edge.
   const box = (await drawer.boundingBox())!;
-  expect(box.x + box.width).toBeGreaterThan(1430);
-  expect(box.x).toBeGreaterThan(700);
+  expect(Math.round(box.x + box.width)).toBe(1920);
+  expect(box.x).toBeGreaterThan(1000);
 
   const items = drawer.getByRole("listitem");
   await expect(items).toHaveCount(5);
-  // Dana's request, emphasised: bold with a Querent-green left accent.
+  // Dana's request, emphasised: her words in bold.
   const request = items.nth(0);
   await expect(request).toHaveAttribute("data-role", "customer");
-  const words = request.locator("strong").filter({ hasText: REQUEST });
+  const words = request.locator('[data-role="customer"]').filter({ hasText: REQUEST });
   await expect(words).toBeVisible();
   expect(Number(await words.evaluate((el) => getComputedStyle(el).fontWeight))).toBeGreaterThanOrEqual(600);
-  expect(await request.evaluate((el) => getComputedStyle(el).borderLeftColor)).toBe("rgb(14, 124, 116)");
 
   // Querent's answer: one line, then the whole turn on click, and back.
   const turn = items.nth(1).getByRole("button", { name: /Yes, the 1\/2-13 x 2 in Grade 8 hex cap screws are in stock/ });
   await expect(turn).toHaveAttribute("aria-expanded", "false");
-  const oneLine = (await turn.locator("[data-text]").boundingBox())!.height;
+  const oneLine = (await turn.boundingBox())!.height;
   expect(oneLine).toBeLessThan(30);
   await turn.click();
   await expect(turn).toHaveAttribute("aria-expanded", "true");
   await expect(turn).toContainText("30 ft with flat hooks?");
-  expect((await turn.locator("[data-text]").boundingBox())!.height).toBeGreaterThan(oneLine);
+  expect((await turn.boundingBox())!.height).toBeGreaterThan(oneLine);
   await turn.press("Enter");
   await expect(turn).toHaveAttribute("aria-expanded", "false");
 
@@ -84,7 +83,7 @@ test("opens Dana's whole chat from the Customer request box and closes it", asyn
   await expect(items.nth(3)).toContainText("Item pop-up: Here is your list.");
   await expect(items.nth(4)).toContainText("Quote requested: Thanks, Dana. Brandi Gallegos is pricing your request now.");
   await expect(drawer.getByRole("button", { name: "Load earlier" })).toHaveCount(0);
-  await attachScreenshot(page, testInfo, "chat-drawer-1440");
+  await attachScreenshot(page, testInfo, "chat-drawer-1920");
 
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);

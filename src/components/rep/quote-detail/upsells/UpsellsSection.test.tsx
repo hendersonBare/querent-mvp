@@ -4,14 +4,13 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
 import type {RepUpsell} from '@/server/rep/quote-upsells';
 import {applyPatch,type DetailLine} from '@/server/rep/quote-math';
-import {CUSTOMERS} from '../../quotes/test-fixtures';
 import {SAMPLE_LINES,sampleDetail} from '../test-fixtures';
 import {SAMPLE_UPSELLS,upsellLine} from './test-fixtures';
 import {chipFigures,openUpsells,upsellsMeta} from './upsell-view';
 
-// "Suggested by Querent" on the quote detail (task 3.6; spec §4, §5.5; mockup .sugbox): the
-// collapsed row with "Querent found" and the ideas, the chips, and taking one: the line is added
-// or the qty bumped, the totals and "Querent found" follow, the chip goes, and Undo brings it all
+// "Suggested by Querent" on the quote editor (plan U4, C_QEBase and C_QE5; task 3.6; spec §4, §5.5):
+// the closed title bar with "Querent found" and the ideas, the ideas opened, and taking one: the line is
+// added or the qty bumped, the total and "Querent found" follow, the idea goes, and Undo brings it all
 // back. fetch is a small fake of the rep API: the upsells list answers the chips that still apply
 // to the lines, as the server's rules would for these five.
 
@@ -72,73 +71,77 @@ function renderPage(detail:QuoteDetail=sampleDetail()){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
     initialBadges={{quotes:0,attention:0,caution:[],bell:[]}}><QuoteDetailView initial={detail}/></RepShell>);
 }
-const section=()=>screen.getByRole('group',{name:'Suggested by Querent'}) as HTMLDetailsElement;
-const chipTitles=()=>within(section()).queryAllByRole('listitem').map(li=>li.querySelector('p')!.textContent);
-const totalsText=()=>screen.getByLabelText('Quote totals').textContent;
-const loaded=(ideas:string)=>waitFor(()=>expect(section().querySelector('summary')).toHaveTextContent(ideas));
+const section=()=>screen.getByRole('region',{name:'Suggested by Querent'});
+const head=()=>within(section()).getByRole('button',{name:/^Suggested by Querent/});
+const chipTitles=()=>within(section()).queryAllByRole('listitem').map(li=>li.querySelector('[data-ui="idea-title"]')!.textContent);
+const total=()=>screen.getByRole('region',{name:'Quote summary'}).firstElementChild!.textContent;
+const loaded=(ideas:string)=>waitFor(()=>expect(head()).toHaveTextContent(ideas));
 async function openSection(){
   renderPage();
-  await loaded('5 ideas · up to +$162.95 gross profit');
-  fireEvent.click(section().querySelector('summary')!);
-  expect(section().open).toBe(true);
+  await loaded('5 ideas, up to +$162.95 gross profit');
+  fireEvent.click(head());
+  expect(head()).toHaveAttribute('aria-expanded','true');
 }
 
 describe('the section',()=>{
-  it('starts collapsed, as in the mockup: "Querent found", then the ideas once they load',async()=>{
+  it('starts closed (C_QEBase): "Querent found", then the ideas once they load',async()=>{
     renderPage();
-    expect(section().open).toBe(false);
-    const summary=section().querySelector('summary')!;
-    expect(summary).toHaveTextContent('Suggested by QuerentQuerent found +$11.50 GP');
-    expect(summary).toHaveTextContent('Looking for ideas…');
-    await loaded('5 ideas · up to +$162.95 gross profit');
+    expect(head()).toHaveAttribute('aria-expanded','false');
+    expect(head()).toHaveTextContent('Suggested by QuerentQuerent found +$11.50 GP');
+    expect(head()).toHaveTextContent('Looking for ideas…');
+    await loaded('5 ideas, up to +$162.95 gross profit');
+    expect(within(section()).queryAllByRole('listitem')).toEqual([]);
     expect(calls('GET',/\/upsells$/)).toHaveLength(1);
   });
 
-  it('opens to the five chips: wording, SKU, qty, price, margin and GP, each with one button',async()=>{
+  it('opens to the five ideas (C_QE5): wording, SKU, qty, price, margin and GP, each with one button',async()=>{
     await openSection();
     expect(chipTitles()).toEqual(SAMPLE_UPSELLS.map(u=>u.wording.title));
     const [nut]=within(section()).getAllByRole('listitem');
     expect(nut).toHaveTextContent('Matches the 1/2-13 Grade 8 bolts: 5 boxes of 100 cover all 500.');
-    expect(nut).toHaveTextContent('HN-12-13-G8 · 5 at $18.15 · 46.0% margin · +$41.75 GP');
-    expect(within(section()).getAllByRole('button').map(b=>b.getAttribute('aria-label'))).toEqual([
+    expect(nut).toHaveTextContent('HN-12-13-G8, 5 at $18.15, 46.0% margin, +$41.75 GP');
+    expect(within(section()).getAllByRole('button',{name:/^(Add|Apply):/}).map(b=>b.getAttribute('aria-label'))).toEqual([
       'Add: Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)','Add: Flap disc 4.5 in, 60 grit zirconia (box of 10)',
       'Add: Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)','Apply: Bump cut-off wheels to 8 boxes (2 full cases)','Add: Safety glasses, clear anti-fog (box of 12)',
     ]);
     expect(within(section()).getByRole('button',{name:/^Apply: Bump cut-off wheels/})).toHaveTextContent('Apply');
-    expect(section()).toHaveTextContent('CW-45-045-T1 · 6 → 8 at $36.00 · 33.1% margin · +$23.80 GP');
+    expect(section()).toHaveTextContent('CW-45-045-T1, 6 to 8 at $36.00, 33.1% margin, +$23.80 GP');
   });
 
   it('says so when the ideas can\'t load, and offers none',async()=>{
     server.upsells=500;
     renderPage();
-    await waitFor(()=>expect(section().querySelector('summary')).toHaveTextContent('Suggestions aren’t available right now'));
+    await waitFor(()=>expect(head()).toHaveTextContent('Suggestions aren’t available right now'));
     expect(within(section()).queryAllByRole('listitem')).toEqual([]);
   });
 
   it('offers no chips on a quote that can\'t be edited, and doesn\'t ask for them; "Querent found" stays',()=>{
     renderPage(sampleDetail({editable:false,quote:{status:'sent',revision:1}}));
-    const box=screen.getByRole('region',{name:'Suggested by Querent'});
+    const box=section();
     expect(box).toHaveTextContent('Suggested by QuerentQuerent found +$11.50 GP');
     expect(box).toHaveTextContent('Offered while the quote can be edited');
+    // Its title bar is not a control, and clicking it opens nothing.
     expect(within(box).queryAllByRole('button')).toEqual([]);
+    fireEvent.click(within(box).getByText('Suggested by Querent'));
+    expect(within(box).queryAllByRole('listitem')).toEqual([]);
     expect(calls('GET',/\/upsells$/)).toHaveLength(0);
   });
 });
 
 describe('taking a chip',()=>{
-  it('adds the nut: the line arrives as Suggested, the totals and "Querent found" follow, the chip goes',async()=>{
+  it('adds the nut: the line arrives as SUGGESTED, the total and "Querent found" follow, the idea goes',async()=>{
     await openSection();
-    expect(totalsText()).toContain('Items$1,122.40');
+    expect(total()).toBe('$1,122.40');
     fireEvent.click(within(section()).getByRole('button',{name:/^Add: Hex nut/}));
     expect(within(section()).getByRole('button',{name:/^Add: Hex nut/})).toHaveTextContent('Adding…');
     await waitFor(()=>expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toBeInTheDocument());
     expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'matching_fastener:HN-12-13-G8',fingerprint:'matching_fastener:HN-12-13-G8|add 5|18.15'});
-    expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toHaveTextContent('Suggested');
+    expect(screen.getByRole('rowheader',{name:/HN-12-13-G8/})).toHaveTextContent('SUGGESTED');
     // 5 x $18.15 = $90.75 more. Querent found: the nut's broken-case price (customer + 10%) over its customer price, (18.15 - 16.50) x 5 = $8.25 more.
-    expect(totalsText()).toContain('Items$1,213.15');
-    expect(section().querySelector('summary')).toHaveTextContent('Querent found +$19.75 GP');
+    expect(total()).toBe('$1,213.15');
+    expect(head()).toHaveTextContent('Querent found +$19.75 GP');
     expect(chipTitles()).not.toContain(SAMPLE_UPSELLS[0].wording.title);
-    await loaded('4 ideas · up to +$121.20 gross profit');
+    await loaded('4 ideas, up to +$121.20 gross profit');
     expect(screen.getByText('Added Hex nut 1/2-13 from Suggested by Querent')).toBeInTheDocument();
   });
 
@@ -150,9 +153,9 @@ describe('taking a chip',()=>{
     fireEvent.click(screen.getByRole('button',{name:'Undo'}));
     await waitFor(()=>expect(calls('DELETE',/lines\/q-24817-5$/)).toHaveLength(1));
     await waitFor(()=>expect(screen.queryByRole('rowheader',{name:/HN-12-13-G8/})).toBeNull());
-    expect(totalsText()).toContain('Items$1,122.40');
-    await loaded('5 ideas · up to +$162.95 gross profit');
-    expect(section().querySelector('summary')).toHaveTextContent('Querent found +$11.50 GP');
+    expect(total()).toBe('$1,122.40');
+    await loaded('5 ideas, up to +$162.95 gross profit');
+    expect(head()).toHaveTextContent('Querent found +$11.50 GP');
     expect(chipTitles()[0]).toBe(SAMPLE_UPSELLS[0].wording.title);
   });
 
@@ -160,20 +163,20 @@ describe('taking a chip',()=>{
     await openSection();
     fireEvent.click(within(section()).getByRole('button',{name:/^Apply: Bump cut-off wheels/}));
     expect(screen.getByRole('textbox',{name:'Quantity for CW-45-045-T1'})).toHaveValue('8');
-    expect(totalsText()).toContain('Items$1,194.40');
+    expect(total()).toBe('$1,194.40');
     expect(chipTitles()).not.toContain('Bump cut-off wheels to 8 boxes (2 full cases)');
     await waitFor(()=>expect(calls('POST',/\/upsells$/)).toHaveLength(1));
     expect(JSON.parse(String(calls('POST',/\/upsells$/)[0][1]!.body))).toEqual({upsellId:'full_case:CW-45-045-T1',fingerprint:'full_case:CW-45-045-T1|q-24817-2 6->8|36.00'});
-    await loaded('4 ideas · up to +$139.15 gross profit');
+    await loaded('4 ideas, up to +$139.15 gross profit');
     // Contract lines add nothing to "Querent found" (spec §5.1).
-    expect(section().querySelector('summary')).toHaveTextContent('Querent found +$11.50 GP');
+    expect(head()).toHaveTextContent('Querent found +$11.50 GP');
     expect(screen.getByText('Changed qty on Cut-off wheel 4.5 x .045 x 7/8 in to 8 (Suggested by Querent)')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Undo'}));
     expect(screen.getByRole('textbox',{name:'Quantity for CW-45-045-T1'})).toHaveValue('6');
     await waitFor(()=>expect(calls('PATCH',/lines\/q-24817-2$/)).toHaveLength(1));
     expect(JSON.parse(String(calls('PATCH',/lines/)[0][1]!.body))).toEqual({qty:6,basis:'contract'});
-    await loaded('5 ideas · up to +$162.95 gross profit');
-    expect(totalsText()).toContain('Items$1,122.40');
+    await loaded('5 ideas, up to +$162.95 gross profit');
+    expect(total()).toBe('$1,122.40');
   });
 
   it('explains a chip the server refused as changed (409) next to the chips, and refreshes them and the quote',async()=>{
@@ -218,10 +221,10 @@ describe('what the section shows (pure)',()=>{
   });
 
   it('prints the figures and the header meta',()=>{
-    expect(SAMPLE_UPSELLS.map(chipFigures)).toEqual(['5 at $18.15 · 46.0% margin','3 at $44.25 · 29.9% margin','5 at $14.25 · 48.1% margin','6 → 8 at $36.00 · 33.1% margin','2 at $29.90 · 39.1% margin']);
+    expect(SAMPLE_UPSELLS.map(chipFigures)).toEqual(['5 at $18.15, 46.0% margin','3 at $44.25, 29.9% margin','5 at $14.25, 48.1% margin','6 to 8 at $36.00, 33.1% margin','2 at $29.90, 39.1% margin']);
     const chips:RepUpsell[]=SAMPLE_UPSELLS;
-    expect(upsellsMeta('ready',chips,true)).toBe('5 ideas · up to +$162.95 gross profit');
-    expect(upsellsMeta('ready',chips.slice(0,1),true)).toBe('1 idea · up to +$41.75 gross profit');
+    expect(upsellsMeta('ready',chips,true)).toBe('5 ideas, up to +$162.95 gross profit');
+    expect(upsellsMeta('ready',chips.slice(0,1),true)).toBe('1 idea, up to +$41.75 gross profit');
     expect(upsellsMeta('ready',[],true)).toBe('No ideas for this quote');
     expect(upsellsMeta('loading',[],true)).toBe('Looking for ideas…');
     expect(upsellsMeta('error',[],true)).toBe('Suggestions aren’t available right now');

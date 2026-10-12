@@ -2,15 +2,15 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 65. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 66. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
 | U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
-| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | fix round 1 (verifier FAIL: native date fields add copy and an icon; manager offered Send reply on another rep's quote; decision 63 reply to chat) |
-| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | in review |
+| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | merged (1 fix round) |
+| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | merged (1 fix round, 1 merge of main) |
 | U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | (PR pending) | in review |
@@ -24,7 +24,13 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 
 | What | Task | Why it exists | Asked |
 |---|---|---|---|
-| Blocked-send state: disabled Approve and send with the first blocker named under it and "+N more" | U4 | Decision 44 | made (decision 44) |
+| Blocked-send state (C_QEBase draws Approve and send enabled): disabled Approve and send with the first blocker named under it in red ("Line 2 (CW-45-045-T1) has a quantity of 0. +1 more", the server's own `sendBlockers()` messages) as a text button; clicking it jumps to the line's field (focused, its row outlined in red for 2.4 s), opens Quote details at the section (no ship-to, call for freight, expiration passed), or scrolls to + Add item (no lines) | U4 | Decision 44 | approved (decision 44, decision 64) |
+| Inline line notes (decision 44): stock short at the quote branch ("Short 5 at SLC. 20 at Ogden. 24 on order at SLC, due Sep 26") and a match below 0.75 ("Confirm the match for "<requested text>"") under the item name, styled like the below-floor note | U4 | Decision 44; the checks box is gone | approved (decision 64) |
+| Status banners removed (sent, changes requested with Dana's note, accepted with PO and pickup, declined with reason and note, expired): C_QEBase draws none. What they said is in Quote details, Activity (the server's own messages), and the status in the header | U4 | Minimal header (plan U4) | approved (decision 64) |
+| Read-only manager view (decision 22): one plain line under Approve and send, "Read only: Mara Jensen's quote. Reassign it to edit.", every edit control off, Reassign in More actions | U4 | Decision 22 | approved (decision 64) |
+| Editor toasts: Undo for the last edit ("Removed Ratchet strap 2 in x 27 ft", Undo), a refused save (alert with Dismiss), running and failed menu actions; all in the C_QE11 toast without its check | U4 | Undo and save errors must show | approved (decision 64) |
+| Line tags C_QEBase does not draw (it draws CONTRACT only): ADDED (the rep added the line), SUGGESTED (from Suggested by Querent), CHAT SUGGESTION (the customer added it from the item pop-up, task E1), in the CONTRACT tag's style | U4 | Who added a line was shown before (tasks 3.3, 3.6, E1) | approved (decision 64) |
+| Quote details parts C_QE4 does not draw: the delivery rows (Ship to, Distance, Formula), the Set freight by hand form with its required reason, over the credit limit (red value and "Over limit by $X"), notes already written, "Load earlier" in the chat drawer, the Confirm send dialog (C_QE1's tokens, centered on screen, red Cancel and green Send as spec §3 asks) and the Reassign dialog that shares it, and a send the server refused (one red line) | U4 | Existing behaviour (tasks 3.4, 3.7, B1) | approved (decision 64) |
 | `/test/ui` fixture page: renders the tokens and primitives for `e2e/frames-primitives.spec.ts`; 404 unless `QUERENT_E2E_RESET=1` | U0 | Test tooling, not a product screen | not needed (test tooling) |
 | Opened list of a filter panel select (C_QOB2 "Rep", "Customer"): the frame draws the closed field only; the list reuses the customer picker's rows | U0 | A select must open to work | approved (decision 57) |
 | Customer picker with 5 entries or fewer: no "Showing 5 of N" line (C_QOB1 draws it for a longer list); "0 matches" when a search finds nothing (C_QOT7 draws "2 matches") | U0 | Minimum to function | approved (decision 57) |
@@ -56,6 +62,17 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Add to quote after the frame (C_ST3): the quote opens after adding (POST /api/rep/quotes/<number>/lines); a refused add shows the server's reason in one red line and the dialog stays; the drafts are the rep's own (decision 22), newest quote first; the quantity starts at 1 (C_ST3 samples 2) and takes whole numbers of 1 or more | U5 | Minimum to function | approved (decision 62) |
 | "Start a new quote" in Add to quote: drawn and selectable, but no route starts a quote from Stock (quotes start from a customer's request or a duplicate), so its button reads "Start a new quote" and stays disabled; its picked look (2px dashed accent on the picked grey) has no frame | U5 | Product decision: what a rep-started quote needs (customer, fulfillment, branch) | approved (decision 62) |
 | Not found pages for a customer, order or item: the page title, one line and the way back, in the new tokens | U5 | Decision 52 | not needed (decision 52) |
+| Quotes page, Send reply (C_QOB6, C_QOT4): the frames draw the reply box and Send reply but not where the reply reaches the customer. Built: `POST /api/rep/quotes/<n>/reply` posts it into the customer's Querent conversation as a sent quote is (the quote's own conversation, else the latest), where the customer's chat shows it among the turns, and records it on the quote's Activity ("Brandi Gallegos replied to Dana Ortiz: …"); Send reply with nothing written goes back to the box | U3 | The frames draw the control; it must do something | approved (decision 63) |
+| Quotes page, the preview of a quote with no change request (C_QOB5 and C_QOT3 draw a change request): no note box and no "Reply to …" button; "Reply to <first name>" uses the customer's name when the quote has no contact | U3 | Minimum to function | approved (decision 63) |
+| Quotes page, the table's Rep, Valid until and Purchasing agent columns once ticked in the columns picker (C_QOT2 draws them unticked): each a fluid 1fr track in the row's cell style | U3 | C_QOT2 offers them | approved (decision 63) |
+| Quotes page, a status filter on the board (C_QOB2 draws every status ticked): only the ticked statuses' lanes show | U3 | Minimum to function | approved (decision 63) |
+| Quotes page, the customer picker and the filter panel's Customer field are one filter (`?customer=`); the Filter badge counts it | U3 | Both frames draw a customer choice (C_QOB1, C_QOB2) | approved (decision 63) |
+| Quotes page, a rep's picker line (C_RQB1 "Your 3 customers. Type to search."): "Your 1 customer. Type to search." for one; a rep with more than four customers gets the manager's "Showing 5 of N" line | U3 | No frame for a rep with one or many customers | approved (decision 63) |
+| Quotes page, a Team dashboard drill-down (`?rep=a,b&from=&to=&aging=ok`): the list opens filtered with no panel field or chip for the window, several reps or "on time" (the old "Created between" chip has no frame); Apply filters drops them. `aging=red` and `aging=amber` read as Only show Overdue and Aging | U3 | The drill-down links stay until U6 and U7 replace the Team dashboard | approved (decision 63) |
+| Quotes page, one plain line for an empty table ("No quotes here", the empty lane's words) and for a failed refresh ("Unable to refresh quotes. Trying again in a few seconds.") | U3 | Decision 52 | not needed (decision 52) |
+| Quotes page, the rep's reply in the customer's chat (decision 63): the "quote is ready" card (U10, `src/components/customer/RepReplyCard.tsx`) with a speech icon, "Brandi Gallegos replied about Q-24790" and the reply as typed, no button; it shows in its own conversation and in any other while the quote still has its change request open, as an unanswered sent quote does | U3 | No customer frame draws a rep's reply | approved (decision 66) |
+| Quotes page, the filter panel's Requested from and to: the frame's plain field box (C_QOB2, C_QOT1, C_RQB2) shows the picked day as "Sep 1" ("Sep 30, 2025" in another year, like the list) and nothing for any day; it opens the panel select's list (decision 57) with Any day, then the last 120 days, newest first | U3 | The frame draws the closed field with a day only; a day must be pickable | approved (decision 66) |
+| Quotes page, another rep's quote for the manager (decision 22: read-only): the preview has no "Reply to …" and View note shows the note and Close only, with focus on Close | U3 | The frames draw the owner's controls only | approved (decision 66) |
 | Teams and Reps **Save**: the frame draws Save on the Reps title bar without saying what it saves. It stores the Active switches changed on the page (one `PUT /api/rep/team/reps/<id>` each); a refusal shows the server's sentence in one red line under the title bar ("Mara Jensen still has 1 customer. Reassign it before marking Mara Jensen inactive.", decision 21). The switches are not dimmed for a rep with customers (C_TRBase draws them all bright) | U7 | Minimum to function | to ask |
 | Reps **Filter** panel ("Filter reps"): one group, Team, with each team and "No team"; a parent team takes in the reps of the teams inside it (decision 47). The count and "N reps. Managers are not listed." follow the filter | U7 | C_TRBase draws the button, no frame draws its panel | to ask |
 | Teams **Filter** panel ("Filter teams"): one group, Rep, listing the reps and team members; it keeps the teams a picked rep counts in. The panel opens under the button's right edge | U7 | As above | to ask |
@@ -84,37 +101,37 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_QOB3 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G, worded in the frame's sentence per status, each one row tall) |
 | C_QOB4 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G, worded in the frame's patterns: the contact who replied, the customer who accepted, by its full name (decision 59); no differences: a title too long for the panel stays on one row with an ellipsis and a tooltip, decision 60) |
 | C_QOB9 | U2 | PASS (`e2e/frames-shell.spec.ts`; the overlay is `position: fixed` where the frame's one-viewport root uses `absolute`) |
-| C_QOB1 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOB2 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOB5 | U3 | pending |
-| C_QOB6 | U3 | pending |
-| C_QOB7 | U3 | pending |
-| C_QOB8 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOBoard | U3 | pending |
-| C_QOT1 | U3 | pending |
-| C_QOT2 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOT3 | U3 | pending |
-| C_QOT4 | U3 | pending |
-| C_QOT5 | U3 | pending |
-| C_QOT6 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOT7 | U3 | pending |
-| C_QOTable | U3 | pending |
-| C_RQB1 | U3 | pending |
-| C_RQB2 | U3 | pending |
-| C_RQBoard | U3 | pending |
-| C_RQTable | U3 | pending |
-| C_QE1 | U4 | pending |
-| C_QE10 | U4 | pending |
-| C_QE11 | U4 | pending |
-| C_QE2 | U4 | pending |
-| C_QE3 | U4 | pending |
-| C_QE4 | U4 | pending |
-| C_QE5 | U4 | pending |
-| C_QE6 | U4 | pending |
-| C_QE7 | U4 | pending |
-| C_QE8 | U4 | pending |
-| C_QE9 | U4 | pending |
-| C_QEBase | U4 | pending |
+| C_QOB1 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the five visible rows both ways; component level in U0) |
+| C_QOB2 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the date fields compared fully with a picked day in the frame's "Mon D" form; the frame's days are placeholders, Appendix G) |
+| C_QOB5 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the sheet is fixed and 1080 tall where the one-viewport frame is absolute and 900; it scrolls, U0 Sheet) |
+| C_QOB6 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the reply box is a textarea with the frame's placeholder; the dialog is fixed where the frame's is absolute) |
+| C_QOB7 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the frame's "Scrolled down after Show more" pill is a design note, not drawn) |
+| C_QOB8 | U3 | PASS (`e2e/frames-quotes.spec.ts`; lifted and drop-target lanes; the order is the user's own) |
+| C_QOBoard | U3 | PASS (`e2e/frames-quotes.spec.ts`; toolbar, lanes and every card shape both ways; counts, quotes and customers are real data, Appendix G; lanes grow from 236px, decision 51) |
+| C_QOT1 | U3 | PASS (`e2e/frames-quotes.spec.ts`; date fields as C_QOB2) |
+| C_QOT2 | U3 | PASS (`e2e/frames-quotes.spec.ts`; component level in U0) |
+| C_QOT3 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT4 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT5 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT6 | U3 | PASS (`e2e/frames-quotes.spec.ts`; component level in U0) |
+| C_QOT7 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the frame's typed text is the real input's value; two seeded customers match "Basin" as two placeholders match "Wasat") |
+| C_QOTable | U3 | PASS (`e2e/frames-quotes.spec.ts`; caution border #E8A8A0 where the table frames draw #F1BEB8, decision 54; header cells are positioned for the drop line, U0) |
+| C_RQB1 | U3 | PASS (`e2e/frames-quotes.spec.ts`; Mara has one customer where the frame's rep has three placeholders) |
+| C_RQB2 | U3 | PASS (`e2e/frames-quotes.spec.ts`; date fields as C_QOB2) |
+| C_RQBoard | U3 | PASS (`e2e/frames-quotes.spec.ts`; Mara's one-line customer where the frame's placeholder wraps to two lines) |
+| C_RQTable | U3 | PASS (`e2e/frames-quotes.spec.ts`; decision 54 as C_QOTable) |
+| C_QE1 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; dates in the message and summary are real data, Appendix G; Cancel, Send quote and Preview PDF are real controls where the frame draws spans) |
+| C_QE10 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the paid date is real data, Appendix G; the pointer rests on Customer as drawn) |
+| C_QE11 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the saved time is the real time) |
+| C_QE2 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`) |
+| C_QE3 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`) |
+| C_QE4 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; dates, times and the win rate are real data, Appendix G; Copy, Set freight by hand and Add note are buttons where the frame draws spans) |
+| C_QE5 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`) |
+| C_QE6 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the chat is Q-24817's seeded conversation, so three messages are longer than the frame's samples and wrap to more lines, Appendix G) |
+| C_QE7 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; fixed widths Qty 60, Available, Cost, Unit price 118, Margin 78, Total 82 equal the frame's) |
+| C_QE8 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; the results are the catalog's real matches for "1/2", the frame's three are samples, Appendix G) |
+| C_QE9 | U4 | PASS (`e2e/frames-quote-editor.spec.ts`; last-paid date is real data, Appendix G; Use and Current are buttons where the frame draws spans) |
+| C_QEBase | U4 | PASS (`e2e/frames-quote-editor.spec.ts`, both directions, icons counted; dates are real data, Appendix G; the strap line's stock-short note is decision 44's inline note, approved in decision 64. The one explained addition, decision 64: a quote that carries freight recovery shows a "Freight recovery N%" chip in the header, in the CONTRACT tag's look; Q-24817 carries none, checked on Q-24763) |
 | C_CU1 | U5 | PASS (`e2e/frames-records.spec.ts`; Brandi and Eli picked as drawn; the seed's four reps pair with the frame's three by name, Brandi's count 2 for the sample 3, Appendix G) |
 | C_CU2 | U5 | PASS (`e2e/frames-records.spec.ts`; chip "Rep: Brandi Gallegos, Eli Porter" literal; the frame's Canyon Ridge row is drawn as Brandi's, Mara Jensen's in the seed, so 4 customers for the sample 5) |
 | C_CU3 | U5 | PASS (`e2e/frames-records.spec.ts`; Canyon Ridge's rep is Mara Jensen in the seed (the frame draws Brandi); the open quotes' requested days follow the clock, compared by place) |

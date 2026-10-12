@@ -35,7 +35,7 @@ async function signInAsDana(page: Page) {
   await expect(page.getByLabel("Ask a question")).toBeVisible();
 }
 
-/** Approve & send as Brandi (task 3.7's route), confirming the revision and total the send check shows. */
+/** Approve and send as Brandi (task 3.7's route), confirming the revision and total the send check shows. */
 async function send(number: string) {
   const status = await brandi.evaluate(async (number) => {
     const detail = await fetch(`/api/rep/quotes/${number}`).then((r) => r.json());
@@ -207,9 +207,16 @@ test("Accept at 1440px: the action bar, the form with branch and pickup locked, 
     expect(detail.quote).toMatchObject({ status: "accepted", customer_po: PO, fulfillment: "will_call", branch_code: "SLC", unread_for_rep: true });
     expect(detail.editable).toBe(false);
     await brandi.goto(`/rep/quotes/${SAMPLE}`);
-    await expect(brandi.getByText(new RegExp(`with PO ${PO}, pickup ${when} at SLC\\.$`))).toBeVisible();
-    await expect(brandi.getByRole("group", { name: "Pickup or delivery" }).locator("summary")).toContainText(`Will call · SLC · ${when}`);
-    await expect(brandi.getByRole("group", { name: "Quote terms" }).locator("summary")).toContainText(`PO ${PO}`);
+    // The editor (plan U4): Accepted in the header; the PO and the pickup time in Quote details (C_QE4),
+    // each section's value beside its title, and what Dana sent in Activity.
+    await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Accepted$/);
+    const button = brandi.getByRole("button", { name: /^Quote details/ });
+    await button.click();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    const details = brandi.getByRole("region", { name: "Quote details" });
+    await expect(details.getByRole("region", { name: "Pickup or delivery", exact: true })).toContainText(`Will call, SLC, ${when}`);
+    await expect(details.getByRole("region", { name: "Quote terms", exact: true })).toContainText(`PO ${PO}`);
+    await expect(details.getByRole("region", { name: "Activity", exact: true }).locator('[data-ui="activity-message"]').first()).toContainText(`with PO ${PO}, pickup at SLC`);
   });
 });
 
@@ -239,10 +246,14 @@ test("Request changes at 1440px: a required note, the centered Confirm, and Bran
   const detail = await repDetail(number);
   expect(detail.quote).toMatchObject({ status: "changes_requested", change_request_note: NOTE, unread_for_rep: true, branch_code: "SLC" });
   expect(detail.editable).toBe(true);
+  // The Quotes board (plan U3): the quote in the Changes requested lane, its note behind View note (C_QOB6).
   await brandi.goto("/rep/quotes");
-  const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: number, exact: true }) });
-  await expect(row).toHaveAttribute("data-status", "changes_requested");
-  await expect(row.getByText(NOTE)).toBeVisible();
+  const card = brandi.locator('section[data-lane][aria-label="Changes requested"]').getByRole("article", { name: number, exact: true });
+  await card.getByRole("button", { name: "View note" }).click();
+  const note = brandi.getByRole("dialog", { name: `Note on ${number}` });
+  await expect(note).toContainText(NOTE);
+  await brandi.keyboard.press("Escape");
+  await expect(note).toHaveCount(0);
 });
 
 test("what a crafted request can't do: change branch or pickup, answer twice, an older revision, an expired quote or another customer's quote", async () => {

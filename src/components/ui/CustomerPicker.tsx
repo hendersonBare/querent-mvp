@@ -7,7 +7,9 @@ import {cx} from './cx';
 // The page-local customer picker (plan U0; frames C_QOB1 open, C_QOT7 typed). The box shows the picked
 // customer, "All customers" by default. Focus opens the list: "All customers" first, then the customers
 // in the order given; five rows show and the rest scroll. Typing narrows the list by name or account
-// number. Arrow keys move, Enter or a click picks, Escape closes.
+// number. Arrow keys move, Enter or a click picks, Escape closes. A page may rename the first row
+// (`allLabel`: a rep's "All my customers", C_RQB1) and replace the line under the list before typing
+// (`summary`: "Your 3 customers. Type to search."); typing always counts the matches.
 
 export const PICKER_VISIBLE_ROWS=5;
 export const ALL_CUSTOMERS='All customers';
@@ -17,8 +19,12 @@ interface Option {id:string|null;name:string;code:string}
 
 const matches=(n:number)=>`${n} ${n===1?'match':'matches'}`;
 
-export function CustomerPicker({customers,value,onChange,label='Customer'}:{
+export function CustomerPicker({customers,value,onChange,label='Customer',allLabel=ALL_CUSTOMERS,summary}:{
   customers:readonly PickerCustomer[];value:string|null;onChange:(customerId:string|null)=>void;label?:string;
+  /** The first row and the box's words when no customer is picked. */
+  allLabel?:string;
+  /** The line under the list before typing, from the number of customers; null keeps the default. */
+  summary?:(count:number)=>string|null;
 }){
   const [open,setOpen]=useState(false);
   const [query,setQuery]=useState('');
@@ -26,14 +32,14 @@ export function CustomerPicker({customers,value,onChange,label='Customer'}:{
   const list=useRef<HTMLDivElement>(null);
   const id=useId();
   const picked=customers.find(c=>c.id===value);
-  const shownLabel=picked?.name??ALL_CUSTOMERS;
+  const shownLabel=picked?.name??allLabel;
   const options=useMemo<Option[]>(()=>{
     const q=query.trim().toLowerCase();
     const all=customers.map(c=>({id:c.id,name:c.name,code:c.account_number}));
-    return q?all.filter(o=>o.name.toLowerCase().includes(q)||o.code.toLowerCase().includes(q)):[{id:null,name:ALL_CUSTOMERS,code:''},...all];
-  },[customers,query]);
-  const hint=query.trim()?matches(options.length)
-    :options.length>PICKER_VISIBLE_ROWS?`Showing ${PICKER_VISIBLE_ROWS} of ${options.length}. Scroll to see more or type to search.`:null;
+    return q?all.filter(o=>o.name.toLowerCase().includes(q)||o.code.toLowerCase().includes(q)):[{id:null,name:allLabel,code:''},...all];
+  },[customers,query,allLabel]);
+  const hint=query.trim()?matches(options.length):summary?.(customers.length)
+    ??(options.length>PICKER_VISIBLE_ROWS?`Showing ${PICKER_VISIBLE_ROWS} of ${options.length}. Scroll to see more or type to search.`:null);
 
   // Five rows tall, measured from a drawn row so the list follows the row's own size.
   useLayoutEffect(()=>{

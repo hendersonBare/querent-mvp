@@ -256,11 +256,12 @@ test("Brandi compares two reps, reads the decline reasons, exports the CSV and d
   await row(page, "Leaderboard", "Mara Jensen").getByRole("link", { name: "3 declined" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?rep=mara&from=.+&to=.+&status=declined$/);
   await expect(page.getByText(otherQuote, { exact: true }).first()).toBeVisible();
-  // Carried over from e2e/team-dashboard.spec.ts (the old dashboard page is gone, plan U7): the drilled list
-  // holds exactly Mara's three declined quotes, and says which window it covers.
-  await expect(page.getByRole("table").getByRole("rowheader")).toHaveCount(3);
-  await expect(page.getByRole("table").getByRole("link", { name: otherQuote, exact: true })).toBeVisible();
-  await expect(page.getByText(/Created between/)).toBeVisible();
+  // Carried over from e2e/team-dashboard.spec.ts (the old dashboard page is gone, plan U7): the Quotes board
+  // (plan U3) keeps only the Declined lane, with exactly Mara's three declined quotes from the window. (Its
+  // old "Created between" line has no frame since U3: the window is in the URL, status.md "No frame".)
+  await expect(page.locator("section[data-lane]")).toHaveCount(1);
+  await expect(page.locator('section[data-lane][aria-label="Declined"] [role=article]')).toHaveCount(3);
+  await expect(page.getByRole("article", { name: otherQuote, exact: true })).toBeVisible();
   await shoot(page, testInfo, "u6-drill-down");
 });
 

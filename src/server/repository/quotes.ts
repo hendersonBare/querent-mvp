@@ -50,11 +50,11 @@ export interface QuoteFilter {customerId?:string|null;repId?:string|null;
 export function quotes({customerId=null,repId=null,repIds,statuses}:QuoteFilter={}):QuoteListRow[]{
   const rows=all<Omit<QuoteListRow,'margin'|'unread_for_rep'|'is_sample'>&{unread_for_rep:number;is_sample:number}>(`SELECT q.id,q.quote_number,q.customer_id,cu.name customer_name,q.rep_id,r.name rep_name,
       q.status,q.revision,q.requested_at,q.created_at,q.updated_at,q.sent_at,q.responded_at,q.valid_until,q.fulfillment,q.change_request_note,q.unread_for_rep,q.is_sample,
-      (SELECT count(*) FROM quote_lines l WHERE l.quote_id=q.id) line_count,
+      ct.name contact_name,(SELECT count(*) FROM quote_lines l WHERE l.quote_id=q.id) line_count,
       (SELECT coalesce(sum(l.qty*l.unit_price),0) FROM quote_lines l WHERE l.quote_id=q.id AND l.unit_price IS NOT NULL) subtotal,
       (SELECT coalesce(sum(l.qty*l.unit_cost),0) FROM quote_lines l WHERE l.quote_id=q.id AND l.unit_price IS NOT NULL) cost_total,
       q.freight_override,${LATEST_SENT_TOTAL} sent_total
-    FROM quotes q JOIN customers cu ON cu.id=q.customer_id JOIN reps r ON r.id=q.rep_id
+    FROM quotes q JOIN customers cu ON cu.id=q.customer_id JOIN reps r ON r.id=q.rep_id LEFT JOIN contacts ct ON ct.id=q.contact_id
     WHERE (@customerId IS NULL OR q.customer_id=@customerId) AND (@repId IS NULL OR q.rep_id=@repId) AND (@repIds IS NULL OR q.rep_id IN (SELECT value FROM json_each(@repIds)))
       AND (@statuses IS NULL OR q.status IN (SELECT value FROM json_each(@statuses)))
     ORDER BY q.requested_at DESC,q.quote_number DESC`,{customerId,repId,repIds:repIds?JSON.stringify(repIds):null,statuses:statuses?JSON.stringify(statuses):null});

@@ -18,9 +18,12 @@ export function Popover({open,label,onClose,ignore,className,style,children,...r
     if(!open)return;
     const before=document.activeElement as HTMLElement|null;
     ref.current?.focus({preventScroll:true});
+    // The event's path as dispatched: a press on a row that the press itself removed (a Select option
+    // picked inside the panel) is still inside.
     const press=(event:MouseEvent)=>{
-      const target=event.target as Node;
-      if(ref.current?.contains(target)||ignore?.current?.contains(target))return;
+      const path=event.composedPath();
+      const inside=(el:HTMLElement|null|undefined)=>!!el&&(path.includes(el)||el.contains(event.target as Node));
+      if(inside(ref.current)||inside(ignore?.current))return;
       close.current();
     };
     const key=(event:KeyboardEvent)=>{if(event.key==='Escape')close.current();};

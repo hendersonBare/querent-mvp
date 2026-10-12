@@ -53,6 +53,7 @@
   --q-red-border: #E8A8A0;
   --q-note: #FBE7A1;
   --q-note-text: #5C4300;
+  --q-note-quote: #3D2E00; /* the customer's words in a note box (C_QOB5, C_QOB6) */
   --q-toggle-off: #BFC3C1;
   --q-check-disabled: #B0B4B2;
 

@@ -1,10 +1,10 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 
-// The rep's quote detail (task 3.3; spec §4, §5.1, §5.2, §5.4; docs/design/screens/03-04, 08):
-// the header, the request and "things to check" panels, the line grid (price-basis dropdown with
-// Querent's pick in bold, the red below-floor warning above the price field, "Why this price?"),
-// add / remove / Undo with autosave, totals and the summary card, read-only states, and the
-// rep-only API. The seeded sample Q-24817 prices to $1,122.40 with the 1.1 engine (the mockup's
+// The rep's quote editor (plan U4, C_QEBase and its states; task 3.3; spec §4, §5.1, §5.2, §5.4) at
+// 1920x1080: the minimal header, the line grid (the price source list with Querent's pick, the red
+// below-floor note above the price field, stock and match notes, line details), + Add item, remove and
+// Undo with autosave, the total box, read-only states, and the rep-only API. Its look is proven against
+// the frames in e2e/frames-quote-editor.spec.ts. The seeded sample Q-24817 prices to $1,122.40 with the 1.1 engine (the mockup's
 // $1,109.50 used older prices).
 //
 // Before each test the database is reset to the seed pinned to the mockup's day
@@ -16,6 +16,7 @@ const SAMPLE = "Q-24817";
 let made: { changes_requested: string; sent: string; overdue: string; other_rep: string };
 
 test.describe.configure({ mode: "serial" });
+test.use({ viewport: { width: 1920, height: 1080 } });
 
 test.beforeEach(async ({ playwright }, testInfo) => {
   const api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL });
@@ -37,11 +38,10 @@ async function openQuote(page: Page, number = SAMPLE, query = "") {
   await page.goto(`/rep/quotes/${number}${query}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 }
-const line = (page: Page, sku: string) => page.getByRole("rowheader", { name: new RegExp(sku) }).locator("xpath=ancestor::tbody[1]");
+const line = (page: Page, sku: string) => page.getByRole("rowheader", { name: new RegExp(sku) }).locator("xpath=ancestor::*[@role='rowgroup'][1]");
 const price = (page: Page, sku: string) => page.getByRole("textbox", { name: `Unit price for ${sku}` });
 const qty = (page: Page, sku: string) => page.getByRole("textbox", { name: `Quantity for ${sku}` });
-const total = (row: Locator) => row.getByRole("cell").nth(5);
-const totals = (page: Page) => page.getByLabel("Quote totals");
+const total = (row: Locator) => row.locator('[data-ui="line-total"]');
 const summary = (page: Page) => page.getByRole("region", { name: "Quote summary" });
 const saved = (page: Page) => expect(page.getByText("All changes saved")).toBeVisible();
 async function noSidewaysScroll(page: Page) {
@@ -50,6 +50,7 @@ async function noSidewaysScroll(page: Page) {
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
+const approve = (page: Page) => page.getByRole("button", { name: "Approve and send" });
 /** Calls the API from the page, so the (Secure) session cookie goes with it. */
 const api = (page: Page, path: string, method = "GET", body?: unknown) =>
   page.evaluate(
@@ -60,25 +61,19 @@ const api = (page: Page, path: string, method = "GET", body?: unknown) =>
     [path, method, body] as const,
   );
 
-test("screen 03 at 1440px: header, panels, line grid, totals and summary card", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1057 });
+test("C_QEBase at 1920: header, line grid, notes, total box and Suggested by Querent", async ({ page }, testInfo) => {
   await openQuote(page, SAMPLE, "?customer=wasatch");
-  const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumbs).toHaveText(/Quotes\s*\/\s*Q-24817\s*Sample data/);
-  // A quote page's links never carry the ?customer= it was opened with (task U1).
-  await expect(crumbs.getByRole("link", { name: "Quotes" })).toHaveAttribute("href", "/rep/quotes");
-  await expect(page.getByText("Draft ready")).toBeVisible();
-  await expect(page.getByText(/^Q-24817 · Dana Ortiz, Purchasing · Requested Wed Sep 23, 10:14 AM · Valid until /)).toBeVisible();
-  for (const name of ["Save draft", "Export", "More actions", "Approve & send"]) await expect(page.getByRole("button", { name })).toBeVisible();
+  // The header: only customer, quote, status with Overdue or Aging, purchasing agent, requested, valid until.
+  await expect(page.getByRole("group", { name: "Quote facts" })).toHaveText(/^Quote\s*Q-24817\s*Status\s*Draft ready\s*(Overdue|Aging)?\s*Purchasing agent\s*Dana Ortiz\s*Requested\s*Wed Sep 23, 10:14 AM\s*Valid until\s*[A-Z][a-z]{2} \d{1,2}$/);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  await expect(page.getByText("Customer request")).toHaveCount(0);
+  await expect(page.getByText(/things to check before sending/)).toHaveCount(0);
+  // Links never carry the ?customer= the page was opened with (task U1): the rail's Quotes link.
+  await expect(page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Quotes" })).toHaveAttribute("href", "/rep/quotes");
+  for (const name of ["Save draft", "Export", "More actions", "Approve and send"]) await expect(page.getByRole("button", { name })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Customer chat, \d+ messages$/ })).toBeVisible();
 
-  await expect(page.getByText("Customer request")).toBeVisible();
-  const checks = page.getByRole("region", { name: "2 things to check before sending" });
-  await expect(checks.getByRole("listitem")).toHaveText([
-    /^Margin\s*Nitrile disposable gloves: 26\.6% margin, below Brandi's 30% Safety & PPE floor/,
-    /^Stock\s*Ratchet strap 2 in x 27 ft: short 5 at SLC\. 20 at Ogden\. 24 on order at SLC, due Sep 2\d/,
-  ]);
-
-  await expect(page.getByRole("columnheader")).toHaveText(["Why this price?", "Item", "Qty", "Available", "Unit price", "Margin", "Total", "Remove"]);
+  await expect(page.getByRole("columnheader")).toHaveText([":: Item", ":: Qty", ":: Unit price", ":: Margin", ":: Total", ""]);
   const expected: [string, string, string, string, string][] = [
     ["HCS-12-13-2G8", "10", "31.50", "Last paid", "$315.00"],
     ["CW-45-045-T1", "6", "36.00", "Contract", "$216.00"],
@@ -91,48 +86,52 @@ test("screen 03 at 1440px: header, panels, line grid, totals and summary card", 
     await expect(page.getByRole("button", { name: `Price basis for ${sku}: ${basis}` })).toBeVisible();
     await expect(total(line(page, sku))).toHaveText(t);
   }
-  await expect(line(page, "RS-2-27-JH").getByRole("cell").nth(2)).toHaveText(/7 at SLC\s*Short 5/);
-  // The one line under its floor carries the warning.
-  await expect(page.getByRole("note")).toHaveCount(1);
-  await expect(line(page, "GLV-N8-L-1000").getByRole("note")).toHaveText("Below Brandi's 30% Safety & PPE floor");
+  await expect(line(page, "CW-45-045-T1").getByRole("rowheader")).toContainText("CONTRACT");
+  // The one line under its floor carries the red note above its price; the ratchet straps, short at SLC, the stock note (decision 44).
+  await expect(page.getByText(/^Below /)).toHaveCount(1);
+  await expect(line(page, "GLV-N8-L-1000").getByText("Below Brandi's 30% Safety & PPE floor", { exact: true })).toBeVisible();
+  await expect(line(page, "RS-2-27-JH").locator('[data-note="stock"]')).toHaveText(/^Short 5 at SLC\. 20 at Ogden\. 24 on order at SLC, due Sep 2\d$/);
+  await expect(page.locator("[data-note]")).toHaveCount(1);
 
-  await expect(totals(page)).toHaveText(/Items\s*\$1,122\.40\s*Freight \(will call\)\s*\$0\.00\s*Sales tax\s*Added on invoice\s*Quote total\s*\$1,122\.40/);
+  // The total box; nothing blocks the send (below floor and stock only warn).
   await expect(summary(page)).toContainText("$1,122.40Quote total, before tax");
   await expect(summary(page)).toContainText("$361.40Gross profit");
-  await expect(summary(page)).toContainText("32.2%Margin");
-  await expect(summary(page)).toContainText("Bar shows quote margin. Marker is the 23.8% blended floor.");
-  // "Querent found" sits next to "Suggested by Querent" (spec §5.1 rule 4, task 3.6).
-  await expect(page.getByRole("group", { name: "Suggested by Querent" })).toContainText("Querent found +$11.50 GP");
+  await expect(summary(page)).toContainText("32.2%Margin, floor 23.8%");
+  await expect(approve(page)).toBeEnabled();
+  await expect(page.getByLabel("Quote totals")).toHaveCount(0);
+  // "Querent found" sits in the Suggested by Querent bar (spec §5.1 rule 4, task 3.6).
+  await expect(page.getByRole("region", { name: "Suggested by Querent" })).toContainText("Querent found +$11.50 GP");
   await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "quote-detail-1440");
+  await attachScreenshot(page, testInfo, "quote-editor-1920");
 
-  // Screen 04: Show cost adds the Cost column.
-  await page.getByRole("switch", { name: "Show cost" }).check();
-  await expect(page.getByRole("columnheader", { name: "Cost" })).toBeVisible();
-  await expect(line(page, "HCS-12-13-2G8").getByRole("cell").nth(3)).toHaveText("$21.40");
-  await attachScreenshot(page, testInfo, "quote-detail-1440-show-cost");
+  // C_QE7: Show cost and stock adds Available and Cost between Qty and Unit price.
+  await page.getByRole("switch", { name: "Show cost and stock" }).click();
+  await expect(page.getByRole("columnheader")).toHaveText([":: Item", ":: Qty", ":: Available", ":: Cost", ":: Unit price", ":: Margin", ":: Total", ""]);
+  await expect(line(page, "HCS-12-13-2G8").getByRole("cell").nth(1)).toHaveText("64 at SLC");
+  await expect(line(page, "HCS-12-13-2G8").getByRole("cell").nth(2)).toHaveText("$21.40");
+  await expect(line(page, "RS-2-27-JH").getByRole("cell").nth(1)).toHaveText(/7 at SLC\s*Short 5/);
+  await attachScreenshot(page, testInfo, "quote-editor-1920-show-cost");
 });
 
-test("the price-basis dropdown lists every basis with its $ value and Querent's pick in bold; switching autosaves", async ({ page }) => {
+test("the price source list (C_QE10) lists every basis with a price and Querent's pick; switching autosaves", async ({ page }) => {
   await openQuote(page);
   const basis = page.getByRole("button", { name: "Price basis for GLV-N8-L-1000: Last paid" });
   await basis.click();
-  const options = page.getByRole("listbox", { name: "Price basis for GLV-N8-L-1000" }).getByRole("option");
-  await expect(options).toHaveText(["Contract—", "Customer$77.50", "List$94.00", /^Last paid\s*Querent’s pick\s*Paid Sep 9\s*\$79\.00$/, "CustomType a price"]);
-  await expect(options.nth(0)).toHaveAttribute("aria-disabled", "true");
-  await expect(options.nth(3).locator("strong")).toHaveText(["Last paid", "$79.00"]);
-  await expect(options.nth(2).locator("strong")).toHaveCount(0);
-  // List clears the gloves' floor: the warning goes, the total and summary follow.
-  await options.nth(2).click();
+  const list = page.getByRole("listbox", { name: "Price basis for GLV-N8-L-1000" });
+  const options = list.getByRole("option");
+  // No contract for the gloves: not offered. The current one carries its note and the pick.
+  await expect(options).toHaveText(["Customer$77.50", "List$94.00", /^Last paid\s*QUERENT'S PICK\s*Paid Sep 9\s*\$79\.00$/, "CustomType a price"]);
+  await expect(options.nth(2)).toHaveAttribute("aria-selected", "true");
+  // List clears the gloves' floor: the note goes, the total and the total box follow.
+  await options.nth(1).click();
   await expect(price(page, "GLV-N8-L-1000")).toHaveValue("94.00");
   await expect(total(line(page, "GLV-N8-L-1000"))).toHaveText("$376.00");
-  await expect(page.getByRole("note")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "1 thing to check before sending" })).toBeVisible();
+  await expect(page.getByText(/^Below /)).toHaveCount(0);
   await expect(summary(page)).toContainText("$1,182.40");
   await saved(page);
   await page.reload();
   await expect(page.getByRole("button", { name: "Price basis for GLV-N8-L-1000: List" })).toBeVisible();
-  await expect(totals(page)).toContainText("$1,182.40");
+  await expect(summary(page)).toContainText("$1,182.40");
 });
 
 test("a typed below-floor price warns directly above its field, live, and never blocks", async ({ page }) => {
@@ -140,8 +139,8 @@ test("a typed below-floor price warns directly above its field, live, and never 
   const bolts = price(page, "HCS-12-13-2G8");
   await bolts.fill("22");
   // Live while typing, before the save.
-  const warning = line(page, "HCS-12-13-2G8").getByRole("note");
-  await expect(warning).toHaveText("Below Brandi's 20% Fasteners floor");
+  const warning = line(page, "HCS-12-13-2G8").getByText("Below Brandi's 20% Fasteners floor", { exact: true });
+  await expect(warning).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Margin for HCS-12-13-2G8" })).toHaveValue("2.7");
   await bolts.press("Enter");
   await expect(bolts).toHaveValue("22.00");
@@ -150,7 +149,7 @@ test("a typed below-floor price warns directly above its field, live, and never 
   expect(w.y + w.height).toBeLessThanOrEqual(p.y);
   expect(p.y - (w.y + w.height)).toBeLessThan(16);
   await expect(page.getByRole("button", { name: "Price basis for HCS-12-13-2G8: Custom" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve & send" })).toBeEnabled();
+  await expect(approve(page)).toBeEnabled();
   await saved(page);
   // The margin field sets a price too: 30% on $21.40 is $30.57, above the floor again.
   const margin = page.getByRole("textbox", { name: "Margin for HCS-12-13-2G8" });
@@ -160,38 +159,50 @@ test("a typed below-floor price warns directly above its field, live, and never 
   await expect(warning).toHaveCount(0);
 });
 
-test('"Why this price?" opens per line with Querent\'s explanation, the options and stock', async ({ page }) => {
+test("line details (C_QE9) open per line with Querent's explanation, the options and stock", async ({ page }) => {
   await openQuote(page);
-  const toggle = page.getByRole("button", { name: "Why this price? Hex cap screw 1/2-13 x 2 in" });
+  const toggle = page.getByRole("button", { name: "Line details for Hex cap screw 1/2-13 x 2 in" });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   const why = page.locator(`#${await toggle.getAttribute("aria-controls")}`);
-  await expect(why).toContainText("Last paid $31.50 on Aug 12, above customer price $30.95. +$5.50 GP vs customer price.");
-  await expect(why).toContainText("Brandi’s 20% Fasteners floor");
-  await expect(why).toContainText("What Dana asked for“1/2 in grade 8 hex bolts, 10 boxes”");
+  await expect(why).toContainText("Why this price?Last paid $31.50 on Aug 12, above customer price $30.95. +$5.50 GP vs customer price.");
+  await expect(why).toContainText("Brandi's 20% Fasteners floor. Last paid $31.50 on Aug 12.");
+  await expect(why).toContainText('What Dana asked for"1/2 in grade 8 hex bolts, 10 boxes"');
+  await expect(why).toContainText("Stock by branchBranchOn handOn orderSLC64");
   await why.getByRole("button", { name: "Use Customer for HCS-12-13-2G8" }).click();
   await expect(price(page, "HCS-12-13-2G8")).toHaveValue("30.95");
   await expect(why).toContainText("You priced it at Customer, $30.95.");
   await toggle.click();
-  await expect(why).toBeHidden();
+  await expect(why).toHaveCount(0);
 });
 
-test("add an item by SKU, change its qty, remove a line, and Undo each, all autosaved", async ({ page }) => {
+test("+ Add item (C_QE8), change its qty, remove a line, and Undo each, all autosaved", async ({ page }) => {
   await openQuote(page);
-  const box = page.getByRole("combobox", { name: "Add item by SKU or name" });
+  await page.getByRole("button", { name: "Add item" }).click();
+  const box = page.getByRole("combobox", { name: "Add item" });
   await box.fill("FD-45-60Z");
   const results = page.getByRole("listbox", { name: "Matching items" });
   await expect(results.getByRole("option").first()).toContainText("FD-45-60Z");
+  await expect(results.getByRole("option").first()).toContainText("Add");
+  await expect(page.getByText(/^1 match for "FD-45-60Z"\. Type a SKU or name\.$/)).toBeVisible();
   await box.press("Enter");
   await expect(qty(page, "FD-45-60Z")).toBeFocused();
-  await expect(line(page, "FD-45-60Z").getByRole("rowheader")).toContainText("Added");
-  await expect(page.getByText("5 items")).toBeVisible();
+  await expect(line(page, "FD-45-60Z").getByRole("rowheader")).toContainText("ADDED");
+  await expect(page.locator('[data-ui="item-count"]')).toHaveText("5");
   await page.keyboard.type("4");
   await page.keyboard.press("Enter");
   await saved(page);
   const discs = Number((await price(page, "FD-45-60Z").inputValue()));
   await expect(total(line(page, "FD-45-60Z"))).toHaveText(`$${(discs * 4).toFixed(2)}`);
+
+  // An item already on the quote is listed but can't be added twice.
+  await page.getByRole("button", { name: "Add item" }).click();
+  await page.getByRole("combobox", { name: "Add item" }).fill("RS-2-27-JH");
+  await expect(results.getByRole("option").first()).toContainText("Already on quote");
+  await expect(results.getByRole("option").first()).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("combobox", { name: "Add item" }).press("Escape");
+  await expect(page.getByRole("button", { name: "Add item" })).toBeVisible();
 
   await page.getByRole("button", { name: "Remove Ratchet strap 2 in x 27 ft" }).click();
   await expect(page.getByRole("rowheader", { name: /RS-2-27-JH/ })).toHaveCount(0);
@@ -209,7 +220,39 @@ test("add an item by SKU, change its qty, remove a line, and Undo each, all auto
   await saved(page);
   await page.reload();
   await expect(page.getByRole("rowheader", { name: /GLV-N8-L-1000/ })).toBeVisible();
-  await expect(line(page, "GLV-N8-L-1000").getByRole("note")).toHaveText("Below Brandi's 30% Safety & PPE floor");
+  await expect(line(page, "GLV-N8-L-1000").getByText("Below Brandi's 30% Safety & PPE floor", { exact: true })).toBeVisible();
+});
+
+test("send blockers (decision 44): a zero qty disables Approve and send, is named under it, and jumps to the field", async ({ page }) => {
+  await openQuote(page);
+  const wheels = qty(page, "CW-45-045-T1");
+  await wheels.fill("0");
+  await wheels.press("Enter");
+  await expect(approve(page)).toBeDisabled();
+  const reason = page.getByRole("button", { name: "Line 2 (CW-45-045-T1) has a quantity of 0." });
+  await expect(reason).toBeVisible();
+  await expect(approve(page)).toHaveAccessibleDescription("Line 2 (CW-45-045-T1) has a quantity of 0.");
+  // A second blocker adds "+1 more".
+  const gloves = qty(page, "GLV-N8-L-1000");
+  await gloves.fill("0");
+  await gloves.press("Enter");
+  await expect(page.getByRole("button", { name: "Line 2 (CW-45-045-T1) has a quantity of 0. +1 more" })).toBeVisible();
+  await page.getByRole("button", { name: /^Line 2 \(CW-45-045-T1\) has a quantity of 0\./ }).click();
+  await expect(wheels).toBeFocused();
+  await expect(line(page, "CW-45-045-T1")).toHaveAttribute("data-flash", "true");
+  // The server refuses a blocked send too (422).
+  await saved(page);
+  const check = await api(page, "/api/rep/quotes/Q-24817");
+  const refused = await api(page, "/api/rep/quotes/Q-24817/send", "POST", { message: "Hi", attach_pdf: true, revision: check.body.send_check.revision, total: check.body.send_check.total ?? 0 });
+  expect(refused.status).toBe(422);
+  expect(refused.body.code).toBe("send_blocked");
+  // Fixing both lets it go again.
+  await wheels.fill("6");
+  await wheels.press("Enter");
+  await gloves.fill("4");
+  await gloves.press("Enter");
+  await expect(approve(page)).toBeEnabled();
+  await expect(page.getByRole("button", { name: /has a quantity of 0/ })).toHaveCount(0);
 });
 
 test("a qty below a full case re-picks customer price + 10%, the ? says why, and Undo puts the qty and price back", async ({ page }, testInfo) => {
@@ -243,20 +286,23 @@ test("a qty below a full case re-picks customer price + 10%, the ? says why, and
 
 test("sent, accepted and expired quotes are read-only; changes_requested is editable (spec §5.4)", async ({ page }) => {
   await openQuote(page, made.sent);
-  await expect(page.getByText("Sent", { exact: true })).toBeVisible();
-  await expect(page.getByText(/^Sent to Dana as rev 1 on /)).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Add item by SKU or name" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Status" })).toContainText("Sent");
+  await expect(page.getByRole("button", { name: "Add item" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Remove / })).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: /^Unit price for / }).first()).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Approve & send" })).toBeDisabled();
+  await expect(approve(page)).toBeDisabled();
+  // What happened lives in Quote details, Activity.
+  await page.getByRole("button", { name: /^Quote details/ }).click();
+  await expect(page.getByRole("region", { name: "Activity" })).toContainText(/sent Q-\d+ rev 1 to Dana/);
 
   await page.goto(`/rep/quotes/${made.overdue}`);
-  await expect(page.getByText("Expired", { exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Status" })).toContainText("Expired");
   await expect(page.getByRole("textbox", { name: /^Unit price for / }).first()).toBeDisabled();
 
   await page.goto("/rep/quotes/Q-24816");
-  await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
-  await expect(page.getByText(/^Dana accepted rev 1/)).toBeVisible();
+  await expect(page.getByRole("group", { name: "Status" })).toContainText("Accepted");
+  await page.getByRole("button", { name: /^Quote details/ }).click();
+  await expect(page.getByRole("region", { name: "Activity" })).toContainText(/Dana accepted Q-24816 rev 1/);
 
   // A direct API call can't edit them either (the repository doesn't check status).
   const accepted = await api(page, "/api/rep/quotes/Q-24816");
@@ -269,9 +315,11 @@ test("sent, accepted and expired quotes are read-only; changes_requested is edit
   expect((await api(page, `/api/rep/quotes/${made.sent}/lines/${sent.body.lines[0].id}`, "PATCH", { qty: 1 })).status).toBe(409);
   expect((await api(page, "/api/rep/quotes/Q-24816")).body.lines[0].unit_price).toBe(accepted.body.lines[0].unit_price);
 
-  // Changes requested: the rep revises it, with Dana's note on top.
+  // Changes requested: the rep revises it; Dana's note is in Quote details, Activity.
   await page.goto(`/rep/quotes/${made.changes_requested}`);
-  await expect(page.getByText("Can you make the gloves 6 cases, and hold it for pickup at SLC instead?")).toBeVisible();
+  await expect(page.getByRole("group", { name: "Status" })).toContainText("Changes requested");
+  await page.getByRole("button", { name: /^Quote details/ }).click();
+  await expect(page.getByRole("region", { name: "Activity" })).toContainText("Can you make the gloves 6 cases, and hold it for pickup at SLC instead?");
   const first = page.getByRole("textbox", { name: /^Quantity for / }).first();
   await expect(first).toBeEnabled();
   await first.fill("6");

@@ -97,6 +97,29 @@ export interface QuoteNotice extends QuoteReadyPayload {
   text:string;
 }
 
+/** The kind of the message a rep's reply to a change request posts in the customer's chat (decision 63, plan U3). */
+export const REP_REPLY_KIND='rep_reply';
+
+/**
+ * Payload of a `rep_reply` message: the quote whose change request the rep answered from the Quotes
+ * page (C_QOB6 "Send reply"), and who wrote it. The message is a notice (role `system`); its `content`
+ * is the reply as the rep typed it, plain text (render it as text, never as Markdown or HTML).
+ */
+export interface RepReplyPayload {quote_id:string;quote_number:string;rep_name:string}
+
+/** Customer-safe: one `rep_reply` message as the customer's chat shows it, rebuilt field by field. */
+export interface RepReplyNotice extends RepReplyPayload {
+  kind:typeof REP_REPLY_KIND;
+  /** The message id. */
+  id:string;conversation_id:string;created_at:string;
+  /** The rep's reply: plain text. */
+  text:string;
+}
+
+/** What the customer's chat shows among its turns: a sent quote, or a rep's reply. */
+export type ChatNotice=QuoteNotice|RepReplyNotice;
+export const isRepReply=(notice:ChatNotice):notice is RepReplyNotice=>'kind' in notice&&notice.kind===REP_REPLY_KIND;
+
 /** What a chat reply's `kind` can be. The quote flow adds more (quote_ready is a notice, not a reply). */
 export type ChatReplyKind='text'|'clarify'|'item_popup'|'quote_requested';
 
