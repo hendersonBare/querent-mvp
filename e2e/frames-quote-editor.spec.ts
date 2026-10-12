@@ -377,6 +377,8 @@ test("fixed widths stay as drawn at 1440 (columns, inputs, the total column); th
       expect(await widthOf(appPage, { selector: `input[aria-label="${label}"]` }), `${state} ${label}`).toBe(await widthOf(frameSmall, { text: frameText }));
     }
     expect(await widthOf(appPage, { text: "$315.00" }), `${state} line total`).toBe(await widthOf(frameSmall, { text: "$315.00" }));
+    // The remove "x" fills the grid's last column (16px), as the frame's button does.
+    expect(await widthOf(appPage, { selector: 'button[aria-label^="Remove "]' }), `${state} remove x`).toBe(await widthOf(frameSmall, { selector: 'button[aria-label="Remove item"]' }));
   }
   await openFrame(frameSmall, frames.base, "QEBase");
   // The total column (flex 0 0 340px, as the frame lays it out) keeps its width; the rail is 216.
@@ -393,6 +395,33 @@ test("fixed widths stay as drawn at 1440 (columns, inputs, the total column); th
   expect(geometry.main).toBe(APP_SIZE.width - 216);
   expect(geometry.items).toBe(geometry.main - 64 - 20 - geometry.side);
   expect(geometry.scroll).toBe(APP_SIZE.width);
+});
+
+// ---- Decision 64: the one explained addition to C_QEBase ----
+
+// Decision 36 stands (decision 64): a quote that carries freight recovery shows its frozen rate as a
+// small "Freight recovery N%" chip in the header, in the editor's tokens (the frame's CONTRACT tag), in
+// addition to the rate and ramp step in Line details. Only such a quote has it: the sample Q-24817
+// carries none, so C_QEBase above compares with no chip. Q-24763 is Brandi's accepted delivery quote
+// from the free delivery pilot (src/server/db/seed/demo.ts), frozen at the 3.0% starting rate.
+test("decision 64: a quote that carries freight recovery adds the \"Freight recovery N%\" chip to the header, in the CONTRACT tag's look", async ({ browser }, testInfo) => {
+  await openEditor(browser, testInfo, "supplier", "/rep/quotes/Q-24763");
+  const facts = appPage.getByRole("group", { name: "Quote facts" });
+  const chip = facts.getByText("Freight recovery 3.0%", { exact: true });
+  await expect(chip).toBeVisible();
+  const frameM = await measureFrame("QEBase");
+  const contract = frameM.find((m) => m.tag === "span" && m.text === "CONTRACT")!;
+  const appM = await measureApp();
+  const mine = appM.find((m) => m.text === "Freight recovery 3.0%")!;
+  expect(mine.tag).toBe("span");
+  expect(mine.style).toEqual(contract.style);
+  // It sits on the facts' value line: centred with the quote number.
+  const quoteNo = appM.find((m) => m.text === "Q-24763")!;
+  expect(Math.abs(mine.rect.y + mine.rect.h / 2 - (quoteNo.rect.y + quoteNo.rect.h / 2))).toBeLessThanOrEqual(1);
+  // Nothing else is added to the header: the facts are the frame's five labels and the chip.
+  const labels = (q: Measure[]) => q.filter((m) => m.rect.y < 140 && ["Quote", "Status", "Purchasing agent", "Requested", "Valid until"].includes(m.text)).map((m) => m.text);
+  expect(labels(appM)).toEqual(labels(frameM));
+  expect(await facts.evaluate((el) => el.children.length)).toBe(6);
 });
 
 test("the item rows share the 34px centre line: name, inputs and total", async ({ browser }, testInfo) => {

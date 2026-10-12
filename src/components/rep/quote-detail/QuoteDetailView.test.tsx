@@ -245,6 +245,8 @@ describe('send blockers (decision 44)',()=>{
 
   it('call for freight opens Pickup or delivery at the freight',()=>{
     renderPage(blocked(SAMPLE_LINES,callForFreight));
+    // The total's caption stays the frame's: the blocker under Approve and send names the freight.
+    expect(within(summary()).getByText(/^Quote total, before tax/)).toHaveTextContent(/^Quote total, before tax$/);
     fireEvent.click(screen.getByRole('button',{name:/^Freight is still call for freight/}));
     expect(screen.getByRole('region',{name:'Pickup or delivery'})).toHaveAttribute('data-flash','true');
   });
@@ -366,6 +368,19 @@ describe('line grid (C_QEBase, C_QE7)',()=>{
     fireEvent.mouseEnter(tipButton.parentElement!);
     expect(screen.getByRole('tooltip')).toHaveTextContent('32.1% margin at this price, at or above Brandi\'s 20% Fasteners floor.');
   });
+
+  it('the "?" says so when the rep priced the line away from Querent’s pick, and shows on a contract line',()=>{
+    renderPage();
+    fireEvent.focus(priceField('HCS-12-13-2G8'));
+    fireEvent.change(priceField('HCS-12-13-2G8'),{target:{value:'33'}});
+    fireEvent.blur(priceField('HCS-12-13-2G8'));
+    const tipButton=screen.getByRole('button',{name:'Why Querent suggests $31.50 for HCS-12-13-2G8'});
+    expect(tipButton).toHaveAccessibleDescription(/You priced it at Custom, \$33\.00\.$/);
+    fireEvent.mouseEnter(tipButton.parentElement!);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/You priced it at Custom, \$33\.00\.$/);
+    fireEvent.mouseLeave(tipButton.parentElement!);
+    expect(screen.getByRole('button',{name:'Why Querent suggests $36.00 for CW-45-045-T1'})).toHaveAccessibleDescription(/Contract prices are binding/);
+  });
 });
 
 describe('free delivery pricing (spec §4.6, decision 36)',()=>{
@@ -375,6 +390,18 @@ describe('free delivery pricing (spec §4.6, decision 36)',()=>{
     return sampleDetail({lines,quote:{fulfillment:'delivery',freight_rate_bp:500,freight_ramp_step:2,freight_ramp_steps:3},
       freight:{computed:{rule:'free_delivery_pricing',amount:0,miles:15,formula:null,explanation:'Free delivery pricing: freight is recovered in item prices.'},override:null,amount:0,source:'computed',unresolved:false}});
   };
+
+  it('shows the quote\'s frozen rate as a "Freight recovery N%" chip in the header (decision 64), beside the facts',()=>{
+    renderPage(recovered());
+    const chip=screen.getByText('Freight recovery 5.0%');
+    expect(screen.getByRole('group',{name:'Quote facts'})).toContainElement(chip);
+    expect(chip).toHaveAttribute('title','Free delivery pricing: this rate of the goods value is recovered in item prices (rep-only)');
+  });
+
+  it('has no recovery chip on a quote without recovery',()=>{
+    renderPage();
+    expect(screen.queryByText(/Freight recovery/)).toBeNull();
+  });
 
   it('shows the line\'s recovery in line details; the price field keeps the rep\'s price and the total is the customer\'s',()=>{
     renderPage(recovered());
@@ -457,6 +484,27 @@ describe('add, remove and undo',()=>{
     fireEvent.click(screen.getByRole('button',{name:'Undo'}));
     expect(priceField('HCS-12-13-2G8')).toHaveValue('31.50');
     await waitFor(()=>expect(calls('PATCH',/lines/)).toHaveLength(4));
+  });
+
+  it('keeps one Undo for one field typed in one go, even when it saves partway',async()=>{
+    vi.useFakeTimers({shouldAdvanceTime:true});
+    renderPage();
+    const qty=screen.getByRole('textbox',{name:'Quantity for GLV-N8-L-1000'});
+    fireEvent.focus(qty);
+    fireEvent.change(qty,{target:{value:'6'}});
+    await act(async()=>{vi.advanceTimersByTime(1300);});
+    fireEvent.change(qty,{target:{value:'8'}});
+    fireEvent.blur(qty);
+    await waitFor(()=>expect(calls('PATCH',/lines/)).toHaveLength(2));
+    // One toast, one Undo, for the whole run of typing.
+    expect(screen.getAllByRole('button',{name:'Undo'})).toHaveLength(1);
+    expect(screen.getByText('Changed qty on Nitrile disposable gloves to 6')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Undo'}));
+    expect(screen.getByRole('textbox',{name:'Quantity for GLV-N8-L-1000'})).toHaveValue('4');
+    await waitFor(()=>expect(calls('PATCH',/lines/)).toHaveLength(3));
+    expect(JSON.parse(String(calls('PATCH',/lines/)[2][1]!.body))).toEqual({qty:4,basis:'last_paid'});
+    await settle();
+    expect(screen.queryByRole('button',{name:'Undo'})).toBeNull();
   });
 
   it('shows a refused save, and puts the quote back as the server has it',async()=>{

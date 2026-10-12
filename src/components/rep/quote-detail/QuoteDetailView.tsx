@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useId,useMemo,useRef,useState,type ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
 import {Toggle,PageHeader} from '@/components/ui';
+import {formatRateBp} from '@/server/freight/recovery';
 import {canEditDraft,sendBlockers,type SendBlocker} from '@/server/quotes';
 import {AGING_LABELS} from '@/server/quotes/aging';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
@@ -139,7 +140,10 @@ export function QuoteDetailView({initial,reassign}:{initial:QuoteDetail;reassign
   </div>;
 }
 
-/** Quote, Status (with Overdue or Aging), Purchasing agent, Requested, Valid until (C_QEBase). */
+/**
+ * Quote, Status (with Overdue or Aging), Purchasing agent, Requested, Valid until (C_QEBase), and on a
+ * quote that carries freight recovery its frozen rate as a small chip (decision 64, decision 36).
+ */
 function Facts({detail}:{detail:QuoteDetail}){
   const {quote,aging}=detail;
   const id=useId();
@@ -151,6 +155,9 @@ function Facts({detail}:{detail:QuoteDetail}){
     <Fact id={`${id}-a`} label="Purchasing agent">{quote.contact_name??'-'}</Fact>
     <Fact id={`${id}-r`} label="Requested">{requestedAt(quote.requested_at)}</Fact>
     <Fact id={`${id}-v`} label="Valid until">{day(detail.valid_until,detail.as_of)}</Fact>
+    {quote.freight_rate_bp!==null&&<div className={s.factChip}>
+      <span className={s.tag} title="Free delivery pricing: this rate of the goods value is recovered in item prices (rep-only)">{`Freight recovery ${formatRateBp(quote.freight_rate_bp)}`}</span>
+    </div>}
   </div>;
 }
 
@@ -169,7 +176,7 @@ function TotalBox({figures,editable,blockers,readOnlyRep,onApprove,onJump}:{figu
   const floor=figures.floor.value===null?null:`Margin, floor ${figures.floor.label}`;
   return <section className={s.totalBox} aria-label="Quote summary">
     <div className={s.big}>{money(figures.total)}</div>
-    <div className={s.cap}>{`Quote total, before tax${figures.freight.callForFreight?' (freight to set)':''}`}</div>
+    <div className={s.cap}>Quote total, before tax</div>
     <div className={s.pair}>
       <div className={s.stat}><div className={s.statValue}>{money(figures.gp)}</div><div className={s.statLabel}>Gross profit</div></div>
       <div className={s.stat}><div className={s.statValue} data-low={figures.belowFloor||undefined}>{figures.marginLabel}</div><div className={s.statLabel}>{floor??'Margin'}</div></div>

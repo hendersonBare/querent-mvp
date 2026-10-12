@@ -8,8 +8,9 @@ import { extractText, getDocumentProxy } from "unpdf";
 //     the impact preview (quotes affected, the change per category); she turns it on and sees the
 //     ramp (step 1 of 3) and the pool panel (the computed pool rate next to the starting rate, eligible
 //     quotes, cap, 90-day cost).
-//   - Dana's draft reprices on Brandi's next open: the line's "Freight recovery +$… (rate 0.5%, …)"
-//     in Line details, "Why this price?". Brandi sends it; Dana's PDF says Freight $0.00
+//   - Dana's draft reprices on Brandi's next open: the "Freight recovery 0.5%" chip in the quote header
+//     (decision 64) and the line's "Freight recovery +$… (rate 0.5%, …)" in Line details, "Why this
+//     price?". Brandi sends it; Dana's PDF says Freight $0.00
 //     and nothing about recovery, and her quote API carries no recovery field.
 // Mara's session is the demo cookie set directly, as in rep-roles.spec.ts.
 //
@@ -164,10 +165,11 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   await brandi.setViewportSize({ width: 1440, height: 1000 });
 });
 
-test("the delivery draft reprices on Brandi's open: the quote's rate and the line's recovery in Line details", async ({}, testInfo) => {
+test("the delivery draft reprices on Brandi's open: the recovery chip and the line's recovery in Line details", async ({}, testInfo) => {
   await brandi.goto(`/rep/quotes/${quoteNumber}`);
-  // The editor's minimal header (plan U4, C_QEBase) has no recovery chip: the quote's frozen rate and
-  // ramp step show with each line's recovery in Line details (C_QE9, Why this price?).
+  // Decision 64 (decision 36): the header keeps the quote's frozen rate as a small chip beside the facts;
+  // the rate and ramp step also show with each line's recovery in Line details (C_QE9, Why this price?).
+  await expect(brandi.getByRole("group", { name: "Quote facts" }).getByText("Freight recovery 0.5%", { exact: true })).toBeVisible();
   await brandi.getByRole("button", { name: "Line details for Hex cap screw 1/2-13 x 2 in" }).click();
   const details = brandi.getByRole("region", { name: "Line details for Hex cap screw 1/2-13 x 2 in" });
   await expect(details.getByText(/^Freight recovery \+\$\d+\.\d\d \(rate 0\.5%, ramp step 1 of 3\)$/)).toBeVisible();
