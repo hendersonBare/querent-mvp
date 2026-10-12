@@ -16,6 +16,8 @@ const headers=()=>screen.getAllByRole('columnheader').map(h=>h.textContent);
 const bodyRows=()=>screen.getAllByRole('row').slice(1);
 const card=(name:string)=>screen.getByRole('region',{name});
 const panel=()=>screen.getByRole('dialog',{name:'Filter orders'});
+/** Every rep with customers the reader may read (C_OR1 lists reps beyond those with orders). */
+const REPS=[{id:'brandi',name:'Brandi Gallegos'},{id:'mara',name:'Mara Jensen'}];
 const labels=(group:HTMLElement)=>within(group).getAllByRole('checkbox').map(c=>c.closest('label')!.textContent);
 /** 23 orders, as the seed has: Show N more after the first 10 (C_ORBase "Show 13 more orders"). */
 const MANY=Array.from({length:23},(_,i)=>({...ORDERS[i%2],id:`so-${i}`,order_number:`SO-${51300-i}`}));
@@ -24,7 +26,7 @@ beforeEach(()=>{router.push.mockClear();});
 
 describe('OrdersList, manager (C_ORBase)',()=>{
   it('has the customer picker, Filter and the count, and the columns with Rep',()=>{
-    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} manager/>);
+    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} reps={REPS} manager/>);
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Orders');
     expect(screen.getByRole('combobox',{name:'Customer, All customers'})).toBeInTheDocument();
     expect(screen.getByText('2 orders')).toBeInTheDocument();
@@ -33,7 +35,7 @@ describe('OrdersList, manager (C_ORBase)',()=>{
   });
 
   it('shows each order newest first with its PO and quote, customer and account, rep, day, fulfillment, status, lines and total',()=>{
-    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} manager/>);
+    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} reps={REPS} manager/>);
     expect(bodyRows().map(r=>within(r).getAllByRole('cell').map(c=>c.textContent))).toEqual([
       ['SO-51223PO 7777, from Q-24816','Wasatch Mechanical ContractorsWAS-1142','Brandi Gallegos','Sep 9, 2026','Delivery, SLC','Shipped','3','$698.22'],
       ['SO-51222PO 7776','Wasatch Mechanical ContractorsWAS-1142','Brandi Gallegos','Aug 26, 2026','Will call, Provo','Closed','2','$193.48'],
@@ -45,14 +47,14 @@ describe('OrdersList, manager (C_ORBase)',()=>{
   });
 
   it('shows the first 10, then "Show 13 more orders"',()=>{
-    render(<OrdersList rows={MANY} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} manager/>);
+    render(<OrdersList rows={MANY} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} reps={REPS} manager/>);
     expect(bodyRows()).toHaveLength(10);
     fireEvent.click(screen.getByRole('button',{name:'Show 13 more orders'}));
     expect(bodyRows()).toHaveLength(23);
   });
 
   it('the customer picker loads the page for that customer (?customer=, task U1)',()=>{
-    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} manager/>);
+    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} reps={REPS} manager/>);
     const box=screen.getByRole('combobox',{name:'Customer, All customers'});
     fireEvent.focus(box);
     fireEvent.mouseDown(screen.getByRole('option',{name:/Wasatch Mechanical Contractors/}));
@@ -60,10 +62,10 @@ describe('OrdersList, manager (C_ORBase)',()=>{
   });
 
   it('filter open (C_OR1): Rep, Status, Fulfillment, Branch and the ordered range; applying narrows the list',()=>{
-    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} manager/>);
+    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} reps={REPS} manager/>);
     fireEvent.click(screen.getByRole('button',{name:/^Filter/}));
     const p=within(panel());
-    expect(labels(p.getByRole('group',{name:'Rep'}))).toEqual(['Brandi Gallegos']);
+    expect(labels(p.getByRole('group',{name:'Rep'}))).toEqual(['Brandi Gallegos','Mara Jensen']);
     expect(labels(p.getByRole('group',{name:'Status'}))).toEqual(['Shipped','Closed']);
     expect(labels(p.getByRole('group',{name:'Fulfillment'}))).toEqual(['Delivery','Will call']);
     expect(labels(p.getByRole('group',{name:'Branch'}))).toEqual(['SLC','Ogden','Provo']);
@@ -77,7 +79,7 @@ describe('OrdersList, manager (C_ORBase)',()=>{
   });
 
   it('says so in one line when there are no orders',()=>{
-    render(<OrdersList rows={[]} customers={PICKER_CUSTOMERS} customerId="great-basin" branches={BRANCHES} manager/>);
+    render(<OrdersList rows={[]} customers={PICKER_CUSTOMERS} customerId="great-basin" branches={BRANCHES} reps={REPS} manager/>);
     expect(screen.getByRole('combobox',{name:'Customer, Great Basin Fabrication'})).toBeInTheDocument();
     expect(screen.getByText('No orders for Great Basin Fabrication yet.')).toBeInTheDocument();
     expect(screen.getByText('0 orders')).toBeInTheDocument();
@@ -86,7 +88,7 @@ describe('OrdersList, manager (C_ORBase)',()=>{
 
 describe('OrdersList, rep',()=>{
   it('has no Rep column and no Rep filter (own customers only)',()=>{
-    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} manager={false}/>);
+    render(<OrdersList rows={ORDERS} customers={PICKER_CUSTOMERS} customerId={null} branches={BRANCHES} reps={REPS} manager={false}/>);
     expect(headers()).toEqual([':: Order',':: Customer',':: Ordered',':: Fulfillment',':: Status',':: Lines',':: Total']);
     fireEvent.click(screen.getByRole('button',{name:/^Filter/}));
     expect(within(panel()).queryByRole('group',{name:'Rep'})).toBeNull();

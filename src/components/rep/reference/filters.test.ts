@@ -1,7 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {
   NO_CUSTOMER_FILTERS,NO_ORDER_FILTERS,NO_STOCK_FILTERS,customerChips,customerRepOptions,customerTermsOptions,filterCustomers,filterItems,filterOrders,
-  isLowStock,orderRepOptions,orderStatusOptions,parseMoney,searchCustomers,searchItems,stockSummary,
+  isLowStock,orderStatusOptions,parseMoney,searchCustomers,searchItems,stockSummary,
 } from './filters';
 import {BOLTS,DIRECTORY,ORDERS,STRAPS} from './test-fixtures';
 
@@ -64,8 +64,7 @@ describe('customer filters (C_CU1, C_RCU1)',()=>{
 
 describe('order filters (C_OR1)',()=>{
   const rows=[...ORDERS,{...ORDERS[1],id:'so-1',order_number:'SO-1',rep_id:'eli',rep_name:'Eli Porter',branch_id:'ogden',branch_code:'Ogden',order_date:'2025-12-03'}];
-  it('offers the reps and the statuses the orders have, in the frame\'s order',()=>{
-    expect(orderRepOptions(rows)).toEqual([{id:'brandi',name:'Brandi Gallegos'},{id:'eli',name:'Eli Porter'}]);
+  it('offers the statuses the orders have, in the frame\'s order (the reps are the reader\'s customers\' reps, customerRepOptions)',()=>{
     expect(orderStatusOptions(rows)).toEqual(['shipped','closed']);
   });
   it('filters by rep, status, fulfillment, branch and the ordered date range (inclusive)',()=>{

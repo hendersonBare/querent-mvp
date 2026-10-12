@@ -11,6 +11,7 @@ import {
 } from '../reference/filters';
 import {count,day,money} from '../reference/format';
 import s from '../reference/Records.module.css';
+import {CUSTOMERS_TABLE} from '../reference/tables';
 
 // Customers (plan U5; C_CUBase manager, C_RCUBase rep, C_CU1 and C_RCU1 filter open, C_CU2 filter applied):
 // every customer the signed-in rep may read (their own; the whole organization for the manager, task U1),
@@ -18,7 +19,6 @@ import s from '../reference/Records.module.css';
 // range and the Only show rules. The count follows what is shown. Placeholder customers (spec §2) have a
 // name, account number and rep only, so their other cells say so.
 
-export const CUSTOMERS_TABLE='customers';
 /** Rows shown before "Show N more" (no frame draws more than six customers). */
 const PAGE_SIZE=10;
 
@@ -29,17 +29,17 @@ const toggle=<T,>(list:readonly T[],value:T,on:boolean)=>on?[...list,value]:list
 
 function columns(manager:boolean):DataColumn<CustomerDirectoryRow>[]{
   const all:(DataColumn<CustomerDirectoryRow>|false)[]=[
-    {id:'customer',label:'Customer',track:'minmax(210px, 2fr)',alwaysShown:true,render:r=><>
+    {id:'customer',label:'Customer',track:'minmax(210px, 2fr)',align:'left',alwaysShown:true,render:r=><>
       <Link className={s.name} href={`/rep/customers/${encodeURIComponent(r.id)}`}>{r.name}</Link>
       <div className={s.code}>{r.account_number}</div>
     </>},
-    manager&&{id:'rep',label:'Rep',track:'1.2fr',render:r=><div className={s.semibold}>{r.rep_name??<span className={s.muted}>Unassigned</span>}</div>},
-    {id:'terms',label:'Terms',track:'0.8fr',render:r=>onFile(r)&&r.terms?<div>{r.terms}</div>:<div><span className={s.muted}>{onFile(r)?'-':NOT_ON_FILE}</span></div>},
+    manager&&{id:'rep',label:'Rep',track:'1.2fr',align:'left',render:r=><div className={s.semibold}>{r.rep_name??<span className={s.muted}>Unassigned</span>}</div>},
+    {id:'terms',label:'Terms',track:'0.8fr',align:'left',render:r=>onFile(r)&&r.terms?<div>{r.terms}</div>:<div><span className={s.muted}>{onFile(r)?'-':NOT_ON_FILE}</span></div>},
     {id:'balance',label:'Open balance',track:'1.3fr',align:'right',render:r=>onFile(r)?<>
       <div className={s.balance}>{money(r.open_balance??0)}</div>
       {r.credit_limit!==null&&<div className={s.balanceOf}>{`of ${money(r.credit_limit)}`}</div>}
     </>:<div><span className={s.muted}>-</span></div>},
-    {id:'last_order',label:'Last order',track:'1.1fr',render:r=>r.last_order_date?<div>{day(r.last_order_date)}</div>:<div><span className={s.muted}>No orders yet</span></div>},
+    {id:'last_order',label:'Last order',track:'1.1fr',align:'left',render:r=>r.last_order_date?<div>{day(r.last_order_date)}</div>:<div><span className={s.muted}>No orders yet</span></div>},
     {id:'orders',label:'Orders',track:'0.7fr',align:'right',render:r=><div className={s.num}>{r.order_count}</div>},
     {id:'quotes',label:'Quotes',track:'0.7fr',align:'right',render:r=><div className={s.num}>{r.quote_count}</div>},
   ];
@@ -53,7 +53,8 @@ export function CustomersList({rows,manager,initialPrefs=null}:{rows:CustomerDir
   const [filters,setFilters]=useState<CustomerFilters>(NO_CUSTOMER_FILTERS);
   const reps=useMemo(()=>customerRepOptions(rows),[rows]);
   const terms=useMemo(()=>customerTermsOptions(rows),[rows]);
-  const highest=useMemo(()=>Math.max(0,...rows.map(r=>r.open_balance??0)),[rows]);
+  // The open balance runs up to the credit limit: the highest one is the range's end (C_CU1 "$50,000.00").
+  const highest=useMemo(()=>Math.max(0,...rows.map(r=>r.credit_limit??0)),[rows]);
   const applied=manager?filters:{...filters,reps:[]};
   const chips=customerChips(applied,reps);
   const shown=filterCustomers(searchCustomers(rows,query),applied);

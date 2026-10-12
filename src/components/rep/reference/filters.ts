@@ -52,8 +52,8 @@ export const OVER_CREDIT_SHARE=0.8;
 const overCredit=(row:CustomerRow)=>!!row.credit_limit&&(row.open_balance??0)/row.credit_limit>OVER_CREDIT_SHARE;
 
 export interface RepOption {id:string;name:string;count:number}
-/** The reps who have customers in the list, by name, each with how many (C_CU1). */
-export function customerRepOptions(rows:readonly CustomerRow[]):RepOption[]{
+/** The reps who have customers in the list, by name, each with how many (C_CU1; C_OR1 lists them too). */
+export function customerRepOptions(rows:readonly Pick<CustomerRow,'rep_id'|'rep_name'>[]):RepOption[]{
   const reps=new Map<string,RepOption>();
   for(const row of rows){
     if(!row.rep_id||!row.rep_name)continue;
@@ -105,12 +105,6 @@ export const NO_ORDER_FILTERS:OrderFilters={reps:[],statuses:[],fulfillment:[],b
 export const FULFILLMENT_OPTIONS:readonly {value:Fulfillment;label:string}[]=[{value:'delivery',label:'Delivery'},{value:'will_call',label:'Will call'}];
 const STATUS_ORDER:readonly OrderStatus[]=['open','shipped','closed'];
 
-/** The reps whose customers have orders in the list, by name (C_OR1). */
-export function orderRepOptions(rows:readonly OrderListRow[]):{id:string;name:string}[]{
-  const reps=new Map<string,string>();
-  for(const row of rows)if(row.rep_id&&row.rep_name)reps.set(row.rep_id,row.rep_name);
-  return [...reps].map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
-}
 /** The statuses the orders have, in the ERP's order (C_OR1: Shipped, Closed). */
 export const orderStatusOptions=(rows:readonly OrderListRow[])=>STATUS_ORDER.filter(s=>rows.some(r=>r.status===s));
 

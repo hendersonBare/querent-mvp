@@ -118,4 +118,11 @@ describe('DataTable',()=>{
     expect((screen.getAllByRole('row')[0] as HTMLElement).style.gridTemplateColumns).toBe('1fr 2.2fr 1.5fr 1fr 0.9fr 28px');
     expect(within(bodyRows()[0]).getAllByRole('cell')).toHaveLength(5);
   });
+  it('aligns a left column\'s header to the left, as C_CUBase draws it, and leaves its cells alone',()=>{
+    renderTable({columns:COLUMNS.map(c=>c.id==='customer'?{...c,align:'left' as const}:c)});
+    const head=screen.getByRole('columnheader',{name:'Customer'});
+    expect(head.className).toMatch(/left/);
+    expect(within(bodyRows()[0]).getAllByRole('cell')[1].className).toBe('');
+    expect(screen.getByRole('columnheader',{name:'Quote'}).className).not.toMatch(/left/);
+  });
 });

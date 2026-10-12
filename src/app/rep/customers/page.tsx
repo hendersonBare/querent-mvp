@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
-import {CUSTOMERS_TABLE,CustomersList} from '@/components/rep/customers/CustomersList';
+import {CUSTOMERS_TABLE} from '@/components/rep/reference/tables';
+import {CustomersList} from '@/components/rep/customers/CustomersList';
 import {tablePrefs} from '@/server/repository';
 import {customerList,pickedCustomer} from '@/server/rep/reference';
 import {signedInRep} from '@/server/rep/session';

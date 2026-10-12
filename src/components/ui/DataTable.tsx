@@ -20,6 +20,7 @@ export interface DataColumn<Row> {
   label:string;
   /** The grid track: a fraction for fluid columns ("2.2fr"), px for fixed ones ("118px"). */
   track:string;
+  /** right aligns the header and the cells; left sets the header's text-align to left, as frames with explicit alignment draw it (C_CUBase), and leaves the cells as they are. */
   align?:'left'|'right';
   alwaysShown?:boolean;
   hiddenByDefault?:boolean;
@@ -106,7 +107,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
       const drop=slot&&(slot.to<slot.from?(slot.to===0&&i===0?'before':i===slot.to-1?'after':null):(i===slot.to?'after':null));
       const {ref,...drag}=header.itemProps(column.id);
       return <div key={column.id} ref={ref} role="columnheader" tabIndex={0} aria-label={column.label} aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
-        data-drop={drop??undefined} className={cx(s.headCell,column.align==='right'&&s.right,drop==='after'&&s.dropAfter,drop==='before'&&s.dropBefore)} {...drag}>
+        data-drop={drop??undefined} className={cx(s.headCell,column.align==='right'&&s.right,column.align==='left'&&s.left,drop==='after'&&s.dropAfter,drop==='before'&&s.dropBefore)} {...drag}>
         {lifted?<span data-ui="lifted" className={s.lifted}>{':: '}{column.label}</span>:<>{':: '}{column.label}</>}
       </div>;
     })}

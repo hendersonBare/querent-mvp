@@ -9,6 +9,7 @@ import {SearchBox} from '../reference/controls';
 import {NO_STOCK_FILTERS,STOCK_ONLY,filterItems,searchItems,stockFilterCount,stockSummary,type StockFilters} from '../reference/filters';
 import {count,money} from '../reference/format';
 import s from '../reference/Records.module.css';
+import {STOCK_TABLE} from '../reference/tables';
 import {AddToQuoteDialog} from './AddToQuote';
 
 // Stock (plan U5, decision 46: was Items; C_STBase, C_ST1, C_ST3): the catalog with list price, category
@@ -19,7 +20,6 @@ import {AddToQuoteDialog} from './AddToQuote';
 // No frame (docs/plans/status.md): the applied state shows the Filter button's count only; "Low stock"
 // means less than one full case at some branch (to ask).
 
-export const STOCK_TABLE='stock';
 /** C_STBase: nine items, then "Show 53 more items". */
 const PAGE_SIZE=9;
 /** C_ST1 draws its field boxes white (decision 55). */
@@ -31,11 +31,11 @@ const andList=(names:string[])=>names.length>1?`${names.slice(0,-1).join(', ')} 
 
 function columns(branches:ItemList['branches']):DataColumn<ItemRow>[]{
   return [
-    {id:'item',label:'Item',track:'minmax(250px, 3fr)',alwaysShown:true,render:i=><>
+    {id:'item',label:'Item',track:'minmax(250px, 3fr)',align:'left',alwaysShown:true,render:i=><>
       <Link className={s.desc} href={`/rep/stock/${encodeURIComponent(i.sku)}`}>{i.description}</Link>
       <div className={s.sub}><span className={s.mono}>{i.sku}</span>{`, ${i.pack}`}</div>
     </>},
-    {id:'category',label:'Category',track:'1.1fr',render:i=><div>{i.category_name}</div>},
+    {id:'category',label:'Category',track:'1.1fr',align:'left',render:i=><div>{i.category_name}</div>},
     {id:'list_price',label:'List price',track:'0.9fr',align:'right',render:i=><div className={s.balance}>{money(i.list_price)}</div>},
     ...branches.map(b=>({id:`branch-${b.id}`,label:b.code,track:'0.6fr',align:'right' as const,
       render:(i:ItemRow)=><div className={s.num}>{i.stock.find(x=>x.branch_id===b.id)?.available??0}</div>})),

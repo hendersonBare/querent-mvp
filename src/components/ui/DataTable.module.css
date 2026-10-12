@@ -40,6 +40,9 @@
 .right {
   text-align: right;
 }
+.left {
+  text-align: left;
+}
 .dropAfter {
   border-right: 3px solid var(--q-accent);
   padding-right: 8px;

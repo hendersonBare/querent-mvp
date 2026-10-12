@@ -61,7 +61,7 @@ describe('CustomersList, manager (C_CUBase)',()=>{
     expect(p.getByRole('group',{name:'Rep'})).toHaveTextContent('Brandi Gallegos2Mara Jensen1');
     expect(labels(p.getByRole('group',{name:'Terms'}))).toEqual(['Net 30','Not on file']);
     expect(p.getByRole('textbox',{name:'Open balance from'})).toHaveAttribute('placeholder','$0.00');
-    expect(p.getByRole('textbox',{name:'Open balance to'})).toHaveAttribute('placeholder','$18,420.00');
+    expect(p.getByRole('textbox',{name:'Open balance to'})).toHaveAttribute('placeholder','$50,000.00');
     expect(labels(p.getByRole('group',{name:'Only show'}))).toEqual(['Has open quotes','Over 80% of credit limit','Never ordered']);
   });
 

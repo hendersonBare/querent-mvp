@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
+import {STOCK_TABLE} from '@/components/rep/reference/tables';
 import {CATEGORY_PARAM} from '@/components/rep/stock/params';
-import {STOCK_TABLE,StockList} from '@/components/rep/stock/StockList';
+import {StockList} from '@/components/rep/stock/StockList';
 import {tablePrefs} from '@/server/repository';
 import {addToQuoteTargets} from '@/server/rep/add-to-quote';
 import {itemList} from '@/server/rep/reference';

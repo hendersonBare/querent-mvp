@@ -20,9 +20,12 @@ export interface AddToQuoteTarget {
   total:number|null;
 }
 
-/** The rep's own editable quotes, newest request first. */
+/** Quote numbers count up as quotes are made: the highest is the newest quote (C_ST3 lists Q-24817, Q-24788, Q-24785). */
+const byNumber=(a:{quote_number:string},b:{quote_number:string})=>b.quote_number.localeCompare(a.quote_number,undefined,{numeric:true});
+
+/** The rep's own editable quotes, newest quote first. */
 export async function addToQuoteTargets(repId:string,{now=clock(),provider}:{now?:string;provider?:DistanceProvider}={}):Promise<AddToQuoteTarget[]>{
-  const open=quotes({repId,statuses:['ready_for_review','changes_requested']}).filter(q=>canEditDraft(effectiveStatus(q,now)));
+  const open=quotes({repId,statuses:['ready_for_review','changes_requested']}).filter(q=>canEditDraft(effectiveStatus(q,now))).sort(byNumber);
   const targets:AddToQuoteTarget[]=[];
   for(const q of open){
     const check=await sendCheck(q.id,{provider});
