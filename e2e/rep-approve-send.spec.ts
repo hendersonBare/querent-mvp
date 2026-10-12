@@ -176,12 +176,3 @@ test.describe("desktop (1440px)", () => {
     expect(pdf).toMatchObject({ status: 200, type: "application/pdf", body: "%PDF-" });
   });
 });
-
-test.describe("phone (390px)", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
-
-  test("both dialogs fit, Confirm send is centered with Send away from Send quote, and the quote goes out", async ({ page }, testInfo) => {
-    const total = await sendSample(page, testInfo, "390");
-    await expectSent(page, total);
-  });
-});

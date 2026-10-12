@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 // Aging (v3 spec §3, §6; decisions 16 and 18; task A2): the Aging / Overdue markers with their text
-// labels, the Needs attention filter and its sort toggle, and the red header badge.
+// labels, the Needs attention filter and its sort toggle, and the header caution (plan U2, C_QOB3).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day (POST /api/test/reset). The
 // seed's aging quotes are dated from the reset time, so on any day the list holds:
@@ -10,8 +10,8 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 //   Q-24791  sent 20 h ago                               no marker
 //   Q-24817  the sample, requested on the pinned day      Overdue (red): weeks old on the server's clock
 // The reset hook exists only when the server runs with QUERENT_E2E_RESET=1 (playwright.config.ts).
-// Brandi is the manager: her list and red badge cover every rep (task U1), so the list checks narrow
-// it to her own quotes with the Rep filter (?rep=brandi); Mara's badge counts her own.
+// Brandi is the manager: her list and caution cover every rep (task U1), so the list checks narrow
+// it to her own quotes with the Rep filter (?rep=brandi); Mara's caution counts her own.
 
 const SEED_DATE = "2026-09-23";
 
@@ -40,16 +40,13 @@ const quote = (page: Page, number: string) =>
   quotesTable(page).getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) });
 /** The Status cell: a manager's rows start with the checkbox and carry a Rep cell (tasks D2, U1). */
 const statusCell = (page: Page, number: string) => quote(page, number).getByRole("cell").nth(4);
-/** Every rep's red quotes, as the manager's Needs attention view lists them (the header badge's count, task U1). */
+/** Every rep's red quotes, as the manager's Needs attention view lists them (the caution's count, task U1). */
 const everyRepRed = (page: Page) =>
   page.evaluate(() => fetch("/api/rep/quotes?attention=1").then((r) => r.json()).then((b) => b.rows.filter((r: { aging: { level: string } }) => r.aging.level === "red").length));
 const listed = (page: Page) => quotesTable(page).getByRole("rowheader").getByRole("link");
 const statusFilter = (page: Page) => page.getByRole("navigation", { name: "Filter by status" });
 const sortToggle = (page: Page) => page.getByRole("navigation", { name: "Sort quotes needing attention" });
-const attentionBadge = (page: Page) => page.getByRole("banner").getByRole("link", { name: /^Needs attention:/ });
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
+const caution = (page: Page) => page.getByRole("button", { name: /^Needs attention/ });
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
@@ -108,27 +105,35 @@ test("Needs attention filter: amber and red open quotes, red first then by total
   await expect(sortToggle(page)).toHaveCount(0);
 });
 
-test("header badge: counts red quotes only, beside the unread badge, and opens Needs attention", async ({ page, browser }, testInfo) => {
+test("header caution: its label counts red quotes only; its dropdown lists the amber and red quotes in place", async ({ page, browser }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  // The manager's badge counts every rep's red quotes (task U1): her own two and other reps'.
+  // The manager's caution counts every rep's red quotes (task U1): her own two and other reps'.
   const red = await everyRepRed(page);
   expect(red).toBeGreaterThan(2);
-  await expect(attentionBadge(page)).toHaveAccessibleName(`Needs attention: ${red} overdue quotes`);
-  await expect(attentionBadge(page)).toHaveText(new RegExp(`Needs attention\\s*${red}`));
-  // Unread stays her own: the sample.
-  await expect(page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ })).toHaveAccessibleName("Quotes 1 unread");
+  await expect(caution(page)).toHaveAccessibleName(`Needs attention, ${red} items`);
+  // Unread stays her own: the sample, in the bell.
+  expect(await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.quotes))).toBe(1);
   await page.goto("/rep/analytics");
-  await attentionBadge(page).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?attention=1$/);
-  for (const number of ["Q-24790", "Q-24817", "Q-24789"]) await expect(quote(page, number)).toHaveCount(1);
+  await caution(page).click();
+  // It opens in place (C_QOB3): the page does not change.
+  await expect(page).toHaveURL(/\/rep\/analytics$/);
+  const attention = await page.evaluate(() => fetch("/api/rep/quotes?attention=1").then((r) => r.json()).then((b) => b.rows.length));
+  const list = page.getByRole("dialog", { name: `${attention} need your attention` });
+  await expect(list.getByRole("button")).toHaveCount(attention);
+  for (const [number, tag] of [["Q-24790", "Overdue"], ["Q-24817", "Overdue"], ["Q-24789", "Aging"]])
+    await expect(list.getByRole("button", { name: new RegExp(`^${number}${tag}`) })).toHaveCount(1);
+  await expect(list.getByRole("button", { name: /^Q-24789Aging/ })).toHaveText("Q-24789AgingSent 4 days ago.");
+  // Red first.
+  const tags = await list.getByRole("button").evaluateAll((rows) => rows.map((r) => (r.textContent!.includes("Overdue") ? "red" : "amber")));
+  expect(tags).toEqual([...tags].sort((a, b) => (a === "red" ? 0 : 1) - (b === "red" ? 0 : 1)));
 
-  // A rep's badge counts their own red quotes: Mara's Overdue draft and change request.
+  // A rep's caution counts their own red quotes: Mara's Overdue draft and change request.
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   await context.addCookies([{ name: "querent-persona", value: "mara", url: String(testInfo.project.use.baseURL) }]);
   const mara = await context.newPage();
   await mara.goto("/rep/quotes");
-  await expect(attentionBadge(mara)).toHaveAccessibleName("Needs attention: 2 overdue quotes");
+  await expect(caution(mara)).toHaveAccessibleName("Needs attention, 2 items");
   await context.close();
 });
 
@@ -143,17 +148,4 @@ test("quote detail: the header shows the marker next to the status chip", async 
   await expect(page.getByRole("heading", { level: 1 }).locator("..").locator('[data-level="amber"]')).toHaveAttribute("title", "Sent 4 days ago");
   await page.goto("/rep/quotes/Q-24791");
   await expect(page.getByRole("heading", { level: 1 }).locator("..").locator("[data-level]")).toHaveCount(0);
-});
-
-test("phone (390px): the badge keeps its icon and count, and Needs attention never scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signInAsBrandi(page);
-  await expect(attentionBadge(page)).toBeVisible();
-  await expect(attentionBadge(page)).toHaveAccessibleName(`Needs attention: ${await everyRepRed(page)} overdue quotes`);
-  await attentionBadge(page).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?attention=1$/);
-  await expect(quote(page, "Q-24790").getByText("Overdue")).toBeVisible();
-  await expect(sortToggle(page)).toBeVisible();
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "needs-attention-390");
 });

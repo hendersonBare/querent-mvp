@@ -3,7 +3,7 @@ import { expect, test, type Browser, type BrowserContext, type Locator, type Pag
 // Decline (task A1; v3 spec §2.1, §6; decisions 13 to 15): the PDF preview modal's Decline opens a
 // centered dialog with five reasons (no "no response"), a 250-character field for Other, a red
 // Cancel, an X and a confirm button labelled Decline that works with no reason. Afterwards Dana's
-// chip reads Declined and the bar is off; Brandi gets an unread badge, the Declined filter and chip,
+// chip reads Declined and the bar is off; Brandi gets an unread notification in her bell, the Declined filter and chip,
 // and the reason (and the Other note, hers only) in the quote header and Activity.
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts): start
@@ -154,11 +154,14 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await modal.getByRole("button", { name: "Close" }).click();
   });
 
-  await test.step("Brandi: an unread badge, the Declined filter and chip, the reason in the header and Activity", async () => {
+  await test.step("Brandi: an unread notification, the Declined filter and chip, the reason in the header and Activity", async () => {
     expect(await repBadge()).toBe(before + 1);
     expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", decline_note: null, unread_for_rep: true });
     await brandi.goto("/rep/quotes?status=declined");
-    await expect(brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ })).toHaveAccessibleName(`Quotes ${before + 1} unread`);
+    // The unread decline is in Brandi's bell (plan U2, C_QOB4).
+    await brandi.getByRole("button", { name: "Notifications" }).click();
+    await expect(brandi.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: new RegExp(`^${number} declined by Dana Ortiz`) })).toHaveCount(1);
+    await brandi.keyboard.press("Escape");
     await expect(brandi.getByRole("navigation", { name: "Filter by status" }).locator("[aria-current=page]")).toHaveText(/^Declined\d+$/);
     const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: number, exact: true }) });
     await expect(row).toHaveAttribute("data-status", "declined");

@@ -28,22 +28,22 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 ## Act 2: Brandi opens it, reads the chat, sees what needs attention, and sends it
 
 1. In the other window, choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
-2. Brandi is the manager, so her Quotes list shows every rep's quotes, with a Rep column. The header shows the red **Needs attention** badge (overdue quotes only, across every rep) next to the unread Quotes badge. Click it: the Needs attention view lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue quotes, red first.
-3. Open Q-24818 from **All** (it is unread). In the Customer request box press **View full chat**: the drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
+2. Brandi is the manager, so her Quotes list shows every rep's quotes, with a Rep column. Press the red caution button at the top right of the page: the **Needs attention** dropdown lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue and aging quotes, red first. It opens in place; the list's **Needs attention** filter shows the same quotes.
+3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from **All**, where it is unread). In the Customer request box press **View full chat**: the drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
 4. The hex nut line is tagged **Chat suggestion**. Press **Approve & send**, then **Send quote**, then **Send**. The quote reads *Sent*.
 
 ## Act 3: Dana declines a different quote
 
 1. Back in Dana's window, open **Q-24791** from the Quotes sidebar (sent yesterday).
 2. Press **Decline**. The dialog offers five reasons and no "no response". Pick **Price too high** and press **Decline**.
-3. The chip reads **Declined**. Brandi gets an unread badge and the reason in the quote's header and Activity.
+3. The chip reads **Declined**. Brandi's bell lists *Q-24791 declined by Dana Ortiz*, and the quote's header and Activity give the reason.
 
 ## Act 4: Brandi compares reps, reads decline reasons, and reassigns a quote
 
-1. In Herrick's window open **Team** (managers only). The 30-day preset is on.
+1. In Herrick's window open **Teams and Reps** in the rail (managers only). The 30-day preset is on.
 2. Untick Brandi Gallegos and Nora Chen to compare **Mara Jensen** and **Eli Porter**: one row each and a totals row, with created, open quotes by aging, status counts, rates, times, values, freight recovered and suggestions taken.
 3. **Decline reasons** lists every reason with each rep's share, and the Other note in the customer's words. Press the declined-quotes link to drill into exactly those quotes in the Quotes list.
-4. Back on Team, press Mara's **overdue** count. Tick her overdue draft, press **Reassign…**, choose **Eli Porter** and **Reassign**. The list now shows it as Eli's, and its Activity says who moved it.
+4. Back on Teams and Reps, press Mara's **overdue** count. Tick her overdue draft, press **Reassign…**, choose **Eli Porter** and **Reassign**. The list now shows it as Eli's, and its Activity says who moved it.
 
 ## Act 5: Pricing & delivery, impact preview, free delivery and the ramp
 

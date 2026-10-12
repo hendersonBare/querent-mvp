@@ -53,7 +53,6 @@ async function openMenu(page: Page) {
 }
 const price = (page: Page, sku: string) => page.getByRole("textbox", { name: `Unit price for ${sku}` });
 const saved = (page: Page) => expect(page.getByText("All changes saved")).toBeVisible();
-const quotesNav = (page: Page) => page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ });
 /** Calls the API from the page, so the (Secure) session cookie goes with it. */
 const api = (page: Page, path: string, method = "GET", headers: Record<string, string> = {}) =>
   page.evaluate(
@@ -243,7 +242,10 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   // The reset sample is unread again, as seeded, and the page on screen reads it: the badge
   // and the list agree, and end where they were.
   await expect.poll(() => badge(page)).toBe(unread);
-  await expect(quotesNav(page)).toHaveAccessibleName(unread ? `Quotes ${unread} unread` : "Quotes");
+  // The header bell (plan U2) lists the same unread quotes, and not the sample on screen.
+  const bell = (await api(page, "/api/rep/badges")).body.bell as { quote_number: string }[];
+  expect(bell).toHaveLength(unread);
+  expect(bell.map((b) => b.quote_number)).not.toContain(SAMPLE);
   const list = (await api(page, "/api/rep/quotes")).body;
   expect(list.unread).toBe(await badge(page));
 

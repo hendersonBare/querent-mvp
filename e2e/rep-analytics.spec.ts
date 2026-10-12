@@ -185,7 +185,8 @@ test("desktop: the whole organization, Brandi's Wasatch, then a placeholder cust
   await expectSeedCards(page);
 });
 
-for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+// Desktop only: the rep portal has no phone layout (decision 43, plan U2).
+for (const viewport of [{ width: 1440, height: 900 }]) {
   test(`keyboard (${viewport.width}px): Tab to every "i", including below the fold, shows its tip`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await openAnalytics(page);

@@ -113,7 +113,7 @@ Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `agi
 - Worked example (`sent`, sent 2026-10-01T15:00Z, valid_until 2026-10-15): ok until 10-04T15:00Z; amber from 10-04T15:00Z (72 h); red from 10-08T15:00Z (168 h). A quote sent 10-10T09:00Z valid until 10-14 (expires 10-15T00:00Z): amber from 10-13T00:00Z (expiry rule), red from 10-14T00:00Z.
 - UI: amber shows a clock icon and the text "Aging", red shows an alert icon and "Overdue" (text label and icon besides colour). The tooltip gives the reason ("Sent 4 days ago", "Expires tomorrow").
 - Quotes list: a **Needs attention** filter shows amber and red open quotes. In that view the default sort is red first, then amber, then quoted total descending; a toggle switches to oldest clock first (OA-9). Other filters keep today's sort.
-- Header badge: a red "Needs attention" count in the rep header counts red quotes only, scoped like the list (own quotes; all reps for a manager in All-reps scope after D2). The existing unread badge stays (OA-8).
+- Header caution (U2, replacing the old red badge and the nav unread count): the caution button in every rep page header opens the "Needs attention" dropdown of amber and red open quotes, red first (C_QOB3); its accessible name counts the red ones only ("Needs attention, 2 items"). Scoped like the list: own quotes, every rep's for the manager (U1). Unread customer events are in the bell dropdown (C_QOB4).
 - Touch and view clocks (used by Team, section 7.3):
   - `last_rep_touch_at` is set to now when the owning rep opens the quote detail (`GET /api/rep/quotes/[id]` and the page load) or makes any edit (lines, terms, fulfillment, freight, notes, send). A manager's read-only open does not touch it.
   - `customer_viewed_at` is set to now when the customer opens the PDF preview of a sent revision (the existing customer read path that clears `unread_for_customer`).
@@ -241,7 +241,7 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 |---|---|---|---|
 | `POST /api/query/customer/quotes/[id]/decline` | A1 | customer | `{reason?:DeclineReason\|null, note?:string}`; Idempotency-Key replay like accept; 409 when not respondable |
 | `GET /api/rep/quotes?attention=1&sort=oldest` | A2 | rep | Needs-attention filter and sort; rows carry `aging` |
-| `GET /api/rep/badges` | A2 | rep | adds `attention` (red count) |
+| `GET /api/rep/badges` | A2, U2 | rep | `{quotes, attention, caution, bell}`: the unread count, the red count, and the two header dropdowns' rows `{id, quote_number, kind, label, tag, line, at}` (caution: amber and red open quotes, red first, tag "Overdue" or "Aging", one line from the aging reason; bell: the reader's own unread customer events, newest first, `line` null and `at` printed in the browser's time zone). Preferences (U9) filter the rows through one seam (`notify` in `src/server/rep/badges.ts`) |
 | `GET /api/rep/quotes/[id]/messages?before=&limit=50` | B1 | owner rep, manager (after D2) | `{total, messages:[{id,role,kind,content,created_at}], next_before}` oldest-first pages of 50, newest page first |
 | `GET/PUT /api/rep/settings/freight` | C3 | manager | toggle, cost inputs, rates, caps, ramp; GET returns pool, fuel status, warnings |
 | `GET /api/rep/settings/freight/preview` | C3 | manager | impact preview (4.7) |
@@ -274,9 +274,13 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - Manager: every rep's quotes by default (no "My quotes / All reps" switch, U1), Rep column, rep filter, team filter, row checkboxes and "Reassign…" bulk action (D2).
 - `?customer=` filters this page only (U1); its links keep it, no other page's links do.
 
-### Rep: header (`RepShell`)
-- Red Needs-attention badge (A2): the rep's own red quotes, every rep's for the manager (U1). Team nav item for managers (D3).
+### Rep: shell (`RepShell`, `Rail`, `RepPageHeader`; U2)
+- Left rail, 216px charcoal, sticky at the top at 100vh (every page frame; C_QOBoard, C_RQBoard): the Querent logo, the supplier name, the nav with icons, and the user block (initials, short name such as "Brandi G.", role Manager or Rep, **Sign out**). Manager nav: Quotes, Customers, Orders, Stock, Analytics, Teams and Reps, Settings. Rep nav: Quotes, Customers, Orders, Stock, My Analytics, Settings. No search, no avatar menu, no "Switch workspace", no role switch (decision 42), no count on the nav.
+- Sign out asks first ("Sign out of Querent?", C_QOB9); confirming calls `DELETE /api/session` and returns to `/` (decision 53).
+- Every rep page header (`RepPageHeader` on the U0 `PageHeader`): the title, the page's own picker or Filter (added by U3 to U9), then the caution and bell on the right. Each opens a dropdown and never navigates on open (C_QOB3, C_QOB4); choosing a row opens that quote (no frame, status.md).
+- Routes (decision 46): `/rep/items` is `/rep/stock` and `/rep/team` is `/rep/teams`; the old paths (and `/rep/items/<sku>`) answer 308 with the query kept (`next.config.ts`).
 - No "Viewing" customer picker and no `?customer=` on nav links (U1). Customer filters live on the pages that need them (Quotes, Customers, Orders, Analytics, Settings > Customer access).
+- No phone or tablet layout (decision 43): the old app bar, its scrolling nav strip and its breakpoints are gone.
 - Type (U0): every rep page renders in Albert Sans (UI) and Geist Mono (numbers, codes), loaded once by `next/font` in the root layout; Archivo and IBM Plex are gone. The layouts stay as they are until their lane U task rebuilds them on the shared primitives in `src/components/ui/` and the tokens in `src/app/tokens.css`.
 
 ### Rep: Quote detail (`/rep/quotes/[id]`)
@@ -291,7 +295,7 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - Aging thresholds card (D1, manager-only). Reps card: team label, active, deactivate blocked while customers are assigned (D1).
 - Rep assignments: "Also move this customer's open quotes" checkbox (D2).
 
-### Rep: Team (`/rep/team`, manager-only, D3)
+### Rep: Teams and Reps (`/rep/teams`, was `/rep/team`; manager-only, D3; rebuilt in U7)
 - Filters: rep multi-select, team label filter, presets 7 / 30 / 90 days and a custom range.
 - Leaderboard: one row per selected rep plus a totals row, columns per section 7.
 - Drill-down: any count or row links to `/rep/quotes?rep=…&from=…&to=…` filtered to those quotes; decline counts show reasons and Other text.

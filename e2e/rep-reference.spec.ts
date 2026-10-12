@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Browser, type Page, type TestInfo } from "@playwright/test";
 
-// The rep portal's read-only reference pages (task 3.8, spec §4): Customers, Orders and Items,
+// The rep portal's read-only reference pages (task 3.8, spec §4): Customers, Orders and Stock (was Items, decision 46),
 // each a list and a detail page, at desktop width and at 390px. Lists follow their own ?customer=
 // filter, and no link carries it to another page (task U1: no "Viewing" picker). Brandi is the
 // manager, so she reads every customer and order. Placeholder customers (spec §2) show empty
@@ -36,9 +36,6 @@ const panel = (page: Page, name: string) => page.getByRole("region", { name });
 const row = (page: Page, name: string | RegExp) => page.getByRole("row").filter({ has: page.getByRole("rowheader", { name }) });
 const bodyRows = (page: Page) => page.locator("main tbody tr");
 
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 async function noCostOrMargin(page: Page) {
   await expect(page.locator("main")).not.toContainText(/\bcost\b|margin/i);
 }
@@ -175,11 +172,11 @@ test("orders: the list follows its own ?customer=, and the detail shows the line
   await expect(title(page)).toHaveText("Order not found");
 });
 
-test("items: the catalog with stock per branch, list price and category, and an item page", async ({ page }, testInfo) => {
+test("stock: the catalog with stock per branch, list price and category, and an item page", async ({ page }, testInfo) => {
   await signInAsBrandi(page);
-  await section(page, "Items").click();
-  await expect(page).toHaveURL(/\/rep\/items$/);
-  await expect(title(page)).toHaveText("Items");
+  await section(page, "Stock").click();
+  await expect(page).toHaveURL(/\/rep\/stock$/);
+  await expect(title(page)).toHaveText("Stock");
   await expect(page.getByRole("columnheader")).toHaveText(["Item", "Category", "List price", "SLC", "Ogden", "Provo", "Total"]);
   await expect(bodyRows(page)).toHaveCount(62);
   const bolts = row(page, /HCS-12-13-2G8/);
@@ -192,18 +189,18 @@ test("items: the catalog with stock per branch, list price and category, and an 
   await expect(category).toHaveValue("");
   await expect(page.getByRole("navigation", { name: "Filter by category" })).toHaveCount(0);
   await category.selectOption("fasteners");
-  await expect(page).toHaveURL(/\/rep\/items\?category=fasteners$/);
+  await expect(page).toHaveURL(/\/rep\/stock\?category=fasteners$/);
   await expect(bodyRows(page)).toHaveCount(14);
   await expect(category).toHaveValue("fasteners");
   await attachScreenshot(page, testInfo, "items-fasteners");
   await category.selectOption("");
-  await expect(page).toHaveURL(/\/rep\/items$/);
+  await expect(page).toHaveURL(/\/rep\/stock$/);
   await expect(bodyRows(page)).toHaveCount(62);
   await category.selectOption("fasteners");
   await expect(bodyRows(page)).toHaveCount(14);
 
   await page.getByRole("link", { name: "Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc" }).click();
-  await expect(page).toHaveURL(/\/rep\/items\/HCS-12-13-2G8$/);
+  await expect(page).toHaveURL(/\/rep\/stock\/HCS-12-13-2G8$/);
   await expect(title(page)).toHaveText("Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc");
   await expect(page).toHaveTitle("HCS-12-13-2G8 · Querent");
   await expect(row(page, /Salt Lake City/).getByRole("cell").first()).toHaveText("64");
@@ -217,46 +214,12 @@ test("items: the catalog with stock per branch, list price and category, and an 
 
   // Recent orders are every customer's for the manager (a rep's own customers' otherwise, task U1); the catalog is the same for everyone.
   await expect(panel(page, "Recent orders")).toContainText("All customers");
-  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Items" }).click();
-  await expect(page).toHaveURL(/\/rep\/items$/);
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Stock" }).click();
+  await expect(page).toHaveURL(/\/rep\/stock$/);
   await expect(bodyRows(page)).toHaveCount(62);
 
-  await page.goto("/rep/items/NOPE-1");
+  await page.goto("/rep/stock/NOPE-1");
   await expect(title(page)).toHaveText("Item not found");
-});
-
-test("phone (390px): each list and detail fits, filtered or not, and nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signInAsBrandi(page);
-  const pages: [string, string][] = [
-    ["/rep/customers", "Customers"],
-    ["/rep/customers/wasatch", "Wasatch Mechanical Contractors"],
-    ["/rep/customers/great-basin", "Great Basin Fabrication"],
-    ["/rep/orders", "Orders"],
-    ["/rep/orders/SO-51223", "SO-51223"],
-    ["/rep/items", "Items"],
-    ["/rep/items/HCS-12-13-2G8", "Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc"],
-  ];
-  for (const [path, heading] of pages) {
-    await page.goto(path);
-    await expect(title(page)).toHaveText(heading);
-    await expect(title(page)).toBeInViewport();
-    await noSidewaysScroll(page);
-    await attachScreenshot(page, testInfo, `390${path.replaceAll("/", "-")}`);
-  }
-
-  // Filtered at 390px: Orders narrows to Wasatch, and the list still fits.
-  await page.goto("/rep/orders");
-  await expect(bodyRows(page)).toHaveCount(23);
-  await page.goto("/rep/orders?customer=wasatch");
-  await expect(page.getByText("Viewing Wasatch Mechanical Contractors · 23 orders")).toBeVisible();
-  await expect(bodyRows(page).first().getByRole("link", { name: "SO-51223" })).toBeInViewport();
-  await expect(bodyRows(page).first()).toContainText("$698.22");
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "390-rep-orders-wasatch");
-  await bodyRows(page).first().getByRole("link", { name: "SO-51223" }).click();
-  await expect(page).toHaveURL(/\/rep\/orders\/SO-51223$/);
-  await noSidewaysScroll(page);
 });
 
 /**
@@ -272,10 +235,10 @@ const ROUTES: [path: string, pageText: string][] = [
   ["/rep/orders", "Viewing All customers · 23 orders"],
   ["/rep/orders?customer=wasatch", "Viewing Wasatch Mechanical Contractors · 23 orders"],
   ["/rep/orders/SO-51223", "Price paid"],
-  ["/rep/items", "Wedge anchor 1/2 x 4-1/4 in, zinc plated"],
-  ["/rep/items?category=fasteners", "Hex nut 1/2-13, Grade 8, yellow zinc"],
-  ["/rep/items/HCS-12-13-2G8", "Stock by branch"],
-  ["/rep/items/HCS-12-13-2G8?customer=wasatch", "SO-51221"],
+  ["/rep/stock", "Wedge anchor 1/2 x 4-1/4 in, zinc plated"],
+  ["/rep/stock?category=fasteners", "Hex nut 1/2-13, Grade 8, yellow zinc"],
+  ["/rep/stock/HCS-12-13-2G8", "Stock by branch"],
+  ["/rep/stock/HCS-12-13-2G8?customer=wasatch", "SO-51221"],
 ];
 /** Record data from any of those pages: names, account numbers, balances, order numbers, item names and panel headings. */
 const RECORD_DATA =

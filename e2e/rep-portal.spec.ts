@@ -1,11 +1,12 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-// Rep portal shell (task 3.1; spec §4; docs/design/screens/03): the section nav and the Quotes
-// unread badge. Scope is role based (task U1): there is no "Viewing" customer picker, ?customer= is
-// each page's own filter, and no nav link carries it.
+// Rep portal shell (plan U2; spec §4): the rail's nav, Sign out, and the header bell listing the
+// rep's unread quotes. Scope is role based (task U1): there is no "Viewing" customer picker,
+// ?customer= is each page's own filter, and no nav link carries it. e2e/frames-shell.spec.ts diffs
+// the rail and the dropdowns with the frames. No phone layout (decision 43).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day through the test-only
-// POST /api/test/reset, so the badge starts at the seeded count: Q-24817 is unread for Brandi.
+// POST /api/test/reset, so the bell starts with the seeded unread quote: Q-24817 for Brandi.
 // That hook exists only when the server runs with QUERENT_E2E_RESET=1 (playwright.config.ts sets
 // it for the server it starts: CI, or locally with QUERENT_WEBSERVER=1).
 
@@ -14,10 +15,10 @@ const SECTIONS = [
   ["Quotes", "/rep/quotes"],
   ["Customers", "/rep/customers"],
   ["Orders", "/rep/orders"],
-  ["Items", "/rep/items"],
+  ["Stock", "/rep/stock"],
   ["Analytics", "/rep/analytics"],
-  // Brandi is the manager: Team is hers alone (v3 spec §6, task D3).
-  ["Team", "/rep/team"],
+  // Brandi is the manager: Teams and Reps is hers alone (v3 spec §6, task D3; decision 46).
+  ["Teams and Reps", "/rep/teams"],
   ["Settings", "/rep/settings"],
 ] as const;
 const CUSTOMERS = [
@@ -52,30 +53,27 @@ async function signInAsBrandi(page: Page) {
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }
 const portalNav = (page: Page) => page.getByRole("navigation", { name: "Rep portal" });
-const sectionLink = (page: Page, label: string) =>
-  portalNav(page).getByRole("link", { name: new RegExp(`^${label}\\b`) });
+const sectionLink = (page: Page, label: string) => portalNav(page).getByRole("link", { name: label, exact: true });
 const pageTitle = (page: Page) => page.getByRole("heading", { level: 1 });
 /** Analytics' "Total queries" number. */
 const totalQueries = (page: Page) => page.locator(".metric").filter({ hasText: "Total queries" }).locator("strong");
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
-test("nav: the header matches mockup 03 and every section opens its own page", async ({ page }, testInfo) => {
+test("nav: the rail names every section, with an icon, and each opens its own page", async ({ page }, testInfo) => {
   await signInAsBrandi(page);
-  const banner = page.getByRole("banner");
-  await expect(banner).toContainText("Querent");
-  await expect(banner).toContainText("Herrick Industrial Supply");
-  await expect(page.getByRole("searchbox", { name: "Search the portal" })).toHaveAttribute(
-    "placeholder",
-    "Search quotes, customers, SKUs",
-  );
-  await expect(page.getByRole("link", { name: /^Notifications/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Account: Brandi Gallegos" })).toHaveText("BG");
-  await expect(portalNav(page).getByRole("link")).toHaveText([/^Quotes/, "Customers", "Orders", "Items", "Analytics", "Team", "Settings"]);
+  const rail = page.getByRole("complementary").first();
+  await expect(rail.getByRole("img", { name: "Querent" })).toBeVisible();
+  await expect(rail).toContainText("Herrick Industrial Supply");
+  await expect(rail).toContainText("Brandi G.");
+  await expect(rail).toContainText("Manager");
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Account/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Needs attention, \d+ items?$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
+  await expect(portalNav(page).getByRole("link")).toHaveText(["Quotes", "Customers", "Orders", "Stock", "Analytics", "Teams and Reps", "Settings"]);
+  await expect(portalNav(page).locator("a svg")).toHaveCount(SECTIONS.length);
   await attachScreenshot(page, testInfo, "rep-portal-desktop-quotes");
 
   for (const [label, path] of SECTIONS) {
@@ -105,19 +103,18 @@ test("nav: the header matches mockup 03 and every section opens its own page", a
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 });
 
-test("nav: search is sample-only, and the account menu switches workspace", async ({ page }) => {
+test("Sign out asks first, then ends the session and returns to /", async ({ page }) => {
   await signInAsBrandi(page);
-  await page.getByRole("searchbox", { name: "Search the portal" }).fill("Q-24817");
-  await page.getByRole("searchbox", { name: "Search the portal" }).press("Enter");
-  await expect(page.getByRole("status").filter({ hasText: "Search isn’t available yet" })).toBeVisible();
-
-  await page.getByRole("button", { name: "Account: Brandi Gallegos" }).click();
-  const menu = page.getByRole("menu", { name: "Account" });
-  await expect(menu).toContainText("Brandi Gallegos");
-  await expect(menu).toContainText("Inside Sales · Herrick Industrial Supply");
-  await menu.getByRole("menuitem", { name: "Switch workspace" }).click();
-  await expect(page.getByText("Who would you like to explore as?")).toBeVisible();
-  // Without the supplier persona, the portal sends you back to the chooser.
+  await page.getByRole("button", { name: "Sign out" }).click();
+  const dialog = page.getByRole("dialog", { name: "Sign out of Querent?" });
+  await expect(dialog).toContainText("You are signed in as Brandi G., Manager at Herrick Industrial Supply.");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/rep\/quotes$/);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  // Without the supplier persona, the portal sends you back to /.
   await page.goto("/rep/settings");
   await expect(page).toHaveURL(/\/$/);
 });
@@ -162,39 +159,22 @@ test("customer filter: ?customer= narrows one page, and no nav link carries it (
   await expect(totalQueries(page)).toHaveText(String(all));
 });
 
-test("badge: Quotes shows the rep's unread count, whatever a page filters by", async ({ page }) => {
+test("bell: lists the rep's unread quotes, whatever a page filters by, and opens in place", async ({ page }) => {
   await signInAsBrandi(page);
   // The seed has one quote unread for Brandi: the sample Q-24817 (ready_for_review).
   // Fetched from the page: the production session cookie is Secure, which the browser sends to
   // 127.0.0.1 over http but Playwright's own request client does not.
-  // attention (task A2) counts her red quotes; e2e/rep-aging.spec.ts checks it.
-  expect(await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()))).toEqual({ quotes: 1, attention: expect.any(Number) });
-  await expect(sectionLink(page, "Quotes")).toHaveAccessibleName("Quotes 1 unread");
-  await expect(page.getByRole("link", { name: "Notifications: 1 unread quote" })).toBeVisible();
+  const badges = await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()));
+  expect(badges).toMatchObject({ quotes: 1, attention: expect.any(Number) });
+  expect(badges.bell.map((b: { label: string }) => b.label)).toEqual(["Q-24817 requested by Dana Ortiz"]);
   await expect(page.getByText("Viewing All customers · 1 unread quote")).toBeVisible();
-
-  await page.goto("/rep/customers?customer=great-basin");
-  await expect(sectionLink(page, "Quotes")).toHaveAccessibleName("Quotes 1 unread");
-});
-
-test("phone (390px): the nav scrolls, the badge fits, and nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await signInAsBrandi(page);
-  await expect(page.getByRole("searchbox", { name: "Search the portal" })).toBeHidden();
-  await expect(sectionLink(page, "Quotes")).toHaveAccessibleName("Quotes 1 unread");
-  await expect(page.getByLabel("Viewing")).toHaveCount(0);
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "rep-portal-390-quotes");
-
-  for (const [label, path] of SECTIONS) {
-    await sectionLink(page, label).click();
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
-    await expect(pageTitle(page)).toHaveText(label);
-    await expect(sectionLink(page, label)).toBeInViewport({ ratio: 1 });
-    await noSidewaysScroll(page);
+  for (const path of ["/rep/quotes", "/rep/customers?customer=great-basin"]) {
+    await page.goto(path);
+    await page.getByRole("button", { name: "Notifications" }).click();
+    const bell = page.getByRole("dialog", { name: "Notifications" });
+    await expect(bell.getByRole("button")).toHaveText([/^Q-24817 requested by Dana Ortiz/]);
+    expect(new URL(page.url()).pathname + new URL(page.url()).search).toBe(path);
+    await page.keyboard.press("Escape");
+    await expect(bell).toHaveCount(0);
   }
-  await page.goto("/rep/settings?tab=access&customer=wasatch");
-  await expect(accessCustomer(page)).toHaveValue("wasatch");
-  await noSidewaysScroll(page);
-  await attachScreenshot(page, testInfo, "rep-portal-390-settings");
 });

@@ -89,7 +89,7 @@ test("0. Setup: fresh seed on the mockup's day, scripted chat, both personas sig
   expect(reset).toEqual({ ok: true, seed_date: SEED_DATE, chat_mode: "scripted" });
   await expect(dana.getByLabel("Ask a question")).toBeVisible();
   await expect(dana.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
-  await expect(brandi.getByRole("button", { name: "Account: Brandi Gallegos" })).toHaveText("BG");
+  await expect(brandi.getByRole("complementary").first()).toContainText("BGBrandi G.Manager");
 });
 
 test(
@@ -198,7 +198,7 @@ test(
       await expect(button).toContainText("Awaiting rep");
       // Newest first.
       await expect(quotes.getByRole("button").first()).toContainText(flow.quoteNumber);
-      // Brandi's Quotes badge counts it (unread_for_rep).
+      // Brandi's unread count (the bell's rows) counts it (unread_for_rep).
       await expect.poll(badge).toBe(unread + 1);
     });
   },
@@ -215,20 +215,26 @@ test(
     const basis = () => line().getByRole("button", { name: new RegExp(`^Price basis for ${SKU}: `) });
     const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-    await test.step("open the quote from the unread badge", async () => {
+    await test.step("open the quote from the unread badge (the header bell, plan U2)", async () => {
+      const unread = () => brandi.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.quotes as number));
       await brandi.goto("/rep/quotes");
-      const quotes = brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ });
-      await expect(quotes).toHaveAccessibleName(/^Quotes \d+ unread$/);
-      const unread = Number((await quotes.textContent())!.match(/\d+/)![0]);
-      await quotes.click();
+      const before = await unread();
+      expect(before).toBeGreaterThan(0);
       const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: flow.quoteNumber, exact: true }) });
       await expect(row.getByRole("rowheader")).toHaveText(/^Unread: /);
-      await row.getByRole("link", { name: flow.quoteNumber, exact: true }).click();
+      const bell = brandi.getByRole("button", { name: /^Notifications/ });
+      await bell.click();
+      const notifications = brandi.getByRole("dialog", { name: "Notifications" });
+      await notifications.getByRole("button", { name: new RegExp(`^${flow.quoteNumber} requested by Dana Ortiz`) }).click();
       await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${flow.quoteNumber}$`));
       await expect(brandi.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
       await expect(brandi.getByText("Draft ready")).toBeVisible();
-      // Opening it cleared its unread flag, so the badge dropped by one.
-      await expect(quotes).toHaveAccessibleName(unread > 1 ? `Quotes ${unread - 1} unread` : "Quotes");
+      // Opening it cleared its unread flag: one fewer unread, and the bell no longer lists it.
+      await expect.poll(unread).toBe(before - 1);
+      await brandi.reload();
+      await bell.click();
+      await expect(notifications.getByRole("button", { name: new RegExp(`^${flow.quoteNumber} `) })).toHaveCount(0);
+      await brandi.keyboard.press("Escape");
     });
 
     await test.step("switch a line's price basis", async () => {

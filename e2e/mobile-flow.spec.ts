@@ -1,7 +1,8 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 
-// The quote flow on phones (task 7.1 mobile pass; spec §3, §4; docs/design/screens/08): Dana and
-// Brandi, each at 390×844, walk workflow steps 1–8 with the page's own controls. Every action is
+// The quote flow on a phone (task 7.1 mobile pass; spec §3, §4; docs/design/screens/08): Dana at
+// 390×844 and Brandi at her desk (1920×1080: the rep portal has no phone layout, decision 43, plan
+// U2) walk workflow steps 1–8 with the page's own controls. Every action is
 // scrolled to, fully on screen and pressed without force (so nothing covers it), and no page,
 // sheet or dialog scrolls sideways at any point:
 //   - Dana: chat, the clarifying buttons, the item pop-up (Request quote), the quote notice, the
@@ -9,13 +10,14 @@ import { expect, test, type Browser, type BrowserContext, type Locator, type Pag
 //   - Brandi: the Quotes list, the quote detail (price basis, a typed price, qty, the side panels,
 //     Export and ⋯), Approve & send, and Confirm send, for rev 1 and rev 2.
 // The per-screen 390px tests in the other specs check each layout in detail; this one proves the
-// whole flow can be done on a phone. Screenshots of each screen go to this test's output folder.
+// customer's whole flow can be done on a phone. Screenshots of each screen go to this test's output folder.
 //
 // beforeAll resets the database to the seed pinned to the mockup's day through the test-only
 // POST /api/test/reset (QUERENT_E2E_RESET=1, set by playwright.config.ts). Chat is scripted.
 
 const SEED_DATE = "2026-09-23";
 const PHONE = { width: 390, height: 844 };
+const DESK = { width: 1920, height: 1080 };
 const STOCK_QUESTION = "Do you have 1/2 in grade 8 hex bolts in stock?";
 const REQUEST = "Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We'll pick up at SLC.";
 const CHANGE_NOTE = "Can you make the bolts 12 boxes? Thanks, Dana";
@@ -28,8 +30,8 @@ let brandi: Page;
 const contexts: BrowserContext[] = [];
 const flow = { quoteNumber: "", total: "" };
 
-async function phone(browser: Browser, baseURL: string, workspace: RegExp) {
-  const context = await browser.newContext({ baseURL, viewport: PHONE });
+async function phone(browser: Browser, baseURL: string, workspace: RegExp, viewport = PHONE) {
+  const context = await browser.newContext({ baseURL, viewport });
   contexts.push(context);
   const page = await context.newPage();
   await page.goto("/");
@@ -47,13 +49,13 @@ test.beforeAll(async ({ browser, playwright }, testInfo) => {
     await api.dispose();
   }
   dana = await phone(browser, baseURL, /Wasatch Mechanical Contractors/);
-  brandi = await phone(browser, baseURL, /Herrick Industrial Supply/);
+  brandi = await phone(browser, baseURL, /Herrick Industrial Supply/, DESK);
 });
 test.afterAll(async () => {
   await Promise.all(contexts.map((context) => context.close()));
 });
 
-/** Scrolls `control` into view and checks it is wholly on the phone's screen: the caller then presses or fills it without force. */
+/** Scrolls `control` into view and checks it is wholly on screen: the caller then presses or fills it without force. */
 async function reach(control: Locator) {
   await control.scrollIntoViewIfNeeded();
   await expect(control).toBeVisible();
@@ -165,7 +167,7 @@ test("Dana on her phone: chat, the clarifying buttons and the item pop-up (steps
   await noSideways(dana);
 });
 
-test("Brandi on her phone: the quote detail, Approve & send and Confirm send (steps 5–6)", async ({}, testInfo) => {
+test("Brandi at her desk: the quote detail, Approve & send and Confirm send (steps 5–6)", async ({}, testInfo) => {
   await openFromList(flow.quoteNumber);
   const SKU = "HCS-12-13-2G8";
   // Every header action is on screen: Save draft, Export, More actions, Approve & send.
@@ -242,7 +244,7 @@ test("Dana on her phone: the quote notice, the PDF preview and Request changes (
   await noSideways(dana);
 });
 
-test("Brandi on her phone: edits and sends rev 2 (step 7)", async ({}, testInfo) => {
+test("Brandi at her desk: edits and sends rev 2 (step 7)", async ({}, testInfo) => {
   await openFromList(flow.quoteNumber);
   await expect(brandi.locator("h1 + *")).toHaveText("Changes requested");
   await reach(brandi.getByText(CHANGE_NOTE));
@@ -282,7 +284,7 @@ test("Dana on her phone: opens rev 2 from the Quotes tab and accepts it (step 8)
   await noSideways(dana);
 });
 
-test("Brandi on her phone: sees it accepted (step 8)", async ({}, testInfo) => {
+test("Brandi at her desk: sees it accepted (step 8)", async ({}, testInfo) => {
   await openFromList(flow.quoteNumber);
   await expect(brandi.locator("h1 + *")).toHaveText("Accepted");
   await reach(brandi.getByText(new RegExp(`^Dana accepted rev 2 on .* with PO ${PO}`)));

@@ -3,8 +3,8 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 // "View full chat" on the rep's quote detail (B1; decision 26; spec §6, §9): the compact Customer
 // request box stays, with a button that shows the message count and opens a side drawer with the
 // whole conversation. Dana's messages are emphasised, Querent's turns are one line until expanded,
-// notices (item pop-up, quote requested) are one muted line. Escape and the X close it. At 390px
-// the drawer takes the full width.
+// notices (item pop-up, quote requested) are one muted line. Escape and the X close it. (No phone
+// check: the rep portal has no phone layout, decision 43, plan U2.)
 //
 // Before each test the database is reset to the seed pinned to the mockup's day (POST
 // /api/test/reset, only with QUERENT_E2E_RESET=1, which playwright.config.ts sets).
@@ -90,25 +90,6 @@ test("opens Dana's whole chat from the Customer request box and closes it", asyn
   await expect(drawer).toHaveCount(0);
   await expect(button).toBeFocused();
   await button.click();
-  await drawer.getByRole("button", { name: "Close chat" }).click();
-  await expect(drawer).toHaveCount(0);
-});
-
-test("phone (390px): the drawer takes the full width and nothing scrolls sideways", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openQuote(page);
-  const button = page.getByRole("button", { name: "View full chat, 5 messages" });
-  await expect(button).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-  await attachScreenshot(page, testInfo, "request-box-390");
-  await button.click();
-  const drawer = page.getByRole("dialog", { name: "Full chat" });
-  await expect(drawer.getByRole("listitem")).toHaveCount(5);
-  const box = (await drawer.boundingBox())!;
-  expect(box.x).toBe(0);
-  expect(box.width).toBe(390);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-  await attachScreenshot(page, testInfo, "chat-drawer-390");
   await drawer.getByRole("button", { name: "Close chat" }).click();
   await expect(drawer).toHaveCount(0);
 });

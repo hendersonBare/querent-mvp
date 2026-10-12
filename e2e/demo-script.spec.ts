@@ -3,10 +3,10 @@ import { expect, test, type APIRequest, type Browser, type BrowserContext, type 
 // The demo script (v3 decision 38; docs/demo-script.md; task F1): the five acts, in order, in scripted
 // LLM mode on a fresh reset.
 //   1. Dana chats, sees two or more suggestions in the item pop-up, and requests a quote.
-//   2. Brandi opens it with View full chat, sees an amber and a red quote, the Needs attention
-//      filter and badge, and sends the quote.
+//   2. Brandi sees an amber and a red quote in the header caution's Needs attention dropdown and the
+//      list's Needs attention filter, opens Dana's quote from the bell, uses View full chat, and sends it.
 //   3. Dana declines a different quote and picks a reason.
-//   4. Brandi (the manager) opens Team, compares Mara and Eli, drills into the decline reasons, and
+//   4. Brandi (the manager) opens Teams and Reps, compares Mara and Eli, drills into the decline reasons, and
 //      reassigns one of Mara's overdue quotes to Eli.
 //   5. Brandi opens Pricing & delivery, views the impact preview, turns free delivery pricing on and
 //      sees the ramp, with the computed pool rate next to the starting rate.
@@ -96,7 +96,7 @@ test("Act 1: Dana chats, sees two or more suggestions in the pop-up, and request
   expect(quoteNumber).toBe("Q-24818");
 });
 
-test("Act 2: Brandi opens it, uses View full chat, sees the aging quotes, the Needs attention filter and badge, and sends it", async ({}, testInfo) => {
+test("Act 2: Brandi sees the aging quotes in the caution dropdown and the Needs attention filter, opens it from the bell, uses View full chat, and sends it", async ({}, testInfo) => {
   // The chooser offers the rep personas next to Brandi, each with its role.
   await expect(brandi.getByRole("button", { name: /Herrick Industrial Supply.*Manager/ })).toBeVisible();
   const reps = brandi.getByRole("group", { name: "Herrick reps" });
@@ -106,23 +106,33 @@ test("Act 2: Brandi opens it, uses View full chat, sees the aging quotes, the Ne
   await brandi.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes$/);
 
-  // The red badge counts overdue quotes only (every rep's: Brandi is the manager, task U1), and opens
-  // Needs attention: red first, then amber.
-  const badge = brandi.getByRole("banner").getByRole("link", { name: /^Needs attention:/ });
-  await expect(badge).toHaveAccessibleName(/^Needs attention: \d+ overdue quotes$/);
-  const overdue = Number((await badge.getAttribute("aria-label"))!.match(/\d+/)![0]);
+  // The caution's label counts overdue quotes only (every rep's: Brandi is the manager, task U1); its
+  // dropdown lists the amber and red quotes, red first, in place (plan U2, C_QOB3).
+  const caution = brandi.getByRole("button", { name: /^Needs attention/ });
+  await expect(caution).toHaveAccessibleName(/^Needs attention, \d+ items$/);
+  const overdue = Number((await caution.getAttribute("aria-label"))!.match(/\d+/)![0]);
   expect(overdue).toBeGreaterThanOrEqual(2);
-  await badge.click();
+  await caution.click();
+  await expect(brandi).toHaveURL(/\/rep\/quotes$/);
+  const attention = brandi.getByRole("dialog", { name: /need your attention$/ });
+  await expect(attention.getByRole("button", { name: /^Q-24790Overdue/ })).toHaveCount(1);
+  await expect(attention.getByRole("button", { name: /^Q-24817Overdue/ })).toHaveCount(1);
+  await expect(attention.getByRole("button", { name: /^Q-24789Aging/ })).toHaveCount(1);
+  await expect(attention.getByRole("button").filter({ hasText: "Overdue" })).toHaveCount(overdue);
+  await screenshot(brandi, testInfo, "act2-caution");
+  await brandi.keyboard.press("Escape");
+
+  // The list's Needs attention filter holds the same quotes: red first, then amber.
+  await brandi.getByRole("navigation", { name: "Filter by status" }).getByRole("link", { name: /^Needs attention/ }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?attention=1$/);
   await expect(brandi.getByRole("table").locator('[data-level="red"]')).toHaveCount(overdue);
-  await expect(brandi.getByRole("navigation", { name: "Filter by status" }).getByRole("link", { name: /^Needs attention/ })).toHaveAttribute("aria-current", "page");
   await expect(quoteRow(brandi, "Q-24790").locator('[data-level="red"]')).toHaveText(/^Overdue/);
   await expect(quoteRow(brandi, "Q-24789").locator('[data-level="amber"]')).toHaveText(/^Aging/);
   await screenshot(brandi, testInfo, "act2-needs-attention");
 
-  // Dana's new quote, unread, from All.
-  await brandi.getByRole("navigation", { name: "Filter by status" }).getByRole("link", { name: /^All/ }).click();
-  await quoteRow(brandi, quoteNumber).getByRole("link", { name: quoteNumber, exact: true }).click();
+  // Dana's new quote, unread: the bell lists it and opens it.
+  await brandi.getByRole("button", { name: "Notifications" }).click();
+  await brandi.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: new RegExp(`^${quoteNumber} requested by Dana Ortiz`) }).click();
   await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${quoteNumber}$`));
   await expect(brandi.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
 
@@ -163,9 +173,13 @@ test("Act 3: Dana declines a different quote and picks a reason", async ({}, tes
   expect((await repDetail("Q-24791")).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", unread_for_rep: true });
 });
 
-test("Act 4: Brandi compares Mara and Eli on Team, drills into the decline reasons, and reassigns a quote", async ({}, testInfo) => {
-  await brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Team" }).click();
-  await expect(brandi).toHaveURL(/\/rep\/team$/);
+test("Act 4: Brandi compares Mara and Eli on Teams and Reps, drills into the decline reasons, and reassigns a quote", async ({}, testInfo) => {
+  // Act 3's decline is in Brandi's bell.
+  await brandi.getByRole("button", { name: "Notifications" }).click();
+  await expect(brandi.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: /^Q-24791 declined by Dana Ortiz/ })).toHaveCount(1);
+  await brandi.keyboard.press("Escape");
+  await brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Teams and Reps" }).click();
+  await expect(brandi).toHaveURL(/\/rep\/teams$/);
   await expect(brandi.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
 
   // Compare Mara and Eli: untick Brandi and Nora. Their books are dated from the reset time.
@@ -190,7 +204,7 @@ test("Act 4: Brandi compares Mara and Eli on Team, drills into the decline reaso
   await screenshot(brandi, testInfo, "act4-declined-quotes");
 
   // Mara's overdue quotes, from her row: move her overdue draft to Eli.
-  await brandi.goto("/rep/team");
+  await brandi.goto("/rep/teams");
   await repRow(brandi, "Mara Jensen").getByRole("link", { name: "2 overdue" }).click();
   await expect(brandi).toHaveURL(/\/rep\/quotes\?rep=mara&.*aging=red/);
   const draft = brandi.getByRole("table").getByRole("rowgroup").filter({ hasText: "Draft ready" });

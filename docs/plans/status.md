@@ -8,7 +8,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 56. Started 2026-10-11.
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
-| U2 | | in progress (`task/U2-shell`) |
+| U2 | | in review (`task/U2-shell`) |
 | U3 | | not started |
 | U4 | | not started |
 | U5 | | not started |
@@ -29,6 +29,9 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Opened list of a filter panel select (C_QOB2 "Rep", "Customer"): the frame draws the closed field only; the list reuses the customer picker's rows | U0 | A select must open to work | to ask |
 | Customer picker with 5 entries or fewer: no "Showing 5 of N" line (C_QOB1 draws it for a longer list); "0 matches" when a search finds nothing (C_QOT7 draws "2 matches") | U0 | Minimum to function | to ask |
 | Reorder states the frames do not draw: the drop line on the left edge of the first column when a header is dragged to the start (C_QOT6 draws the line on a right edge); dragging a row in the columns picker has no lifted look | U0 | Minimum to function | to ask |
+| Caution and bell rows open their quote (`/rep/quotes/<number>`): C_QOB3 and C_QOB4 draw the rows as plain boxes, not links. Opening a dropdown never navigates | U2 | A list of quotes must lead to them | to ask |
+| Bell row wording for events C_QOB4 does not sample: "Q-24818 requested by Dana Ortiz" and "Q-24791 declined by Dana Ortiz", by analogy with its "Dana Ortiz replied on Q-24790" and "Q-24763 accepted by Canyon Ridge". Caution rows' line is the aging reason ("Sent 4 days ago, expires tomorrow."), where C_QOB3 samples sentences | U2 | The frames' rows are samples (Appendix G); the words come from real data | to ask |
+| Empty dropdowns: the caution shows only its heading ("0 need your attention"); the bell shows "No notifications" (decision 52: one plain line) | U2 | Minimum to function | to ask |
 | Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
@@ -40,11 +43,13 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 ### Lane U frame ledger
 Every board in `canvas.json` (89). State is PASS (frame spec diff with zero unexplained differences), deferred (with reason) or no-frame. The rail on every page frame is proven in U2.
 
+Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) against C_QOBoard as the manager and C_RQBoard as a rep, scoped to the `aside`: every element and computed style, both directions (nothing missing, nothing added), 216px wide, sticky at the top at 100vh after scrolling a long page, the page area taking the rest of the width; every rep route renders in the shell. The frames' user names (Brian G., Brandi G.) are placeholders.
+
 | Frame | Task | State |
 |---|---|---|
-| C_QOB3 | U2 | pending |
-| C_QOB4 | U2 | pending |
-| C_QOB9 | U2 | pending |
+| C_QOB3 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G) |
+| C_QOB4 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G) |
+| C_QOB9 | U2 | PASS (`e2e/frames-shell.spec.ts`; the overlay is `position: fixed` where the frame's one-viewport root uses `absolute`) |
 | C_QOB1 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
 | C_QOB2 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
 | C_QOB5 | U3 | pending |

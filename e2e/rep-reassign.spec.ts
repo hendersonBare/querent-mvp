@@ -45,9 +45,6 @@ async function signInAsMara(browser: Browser, testInfo: TestInfo) {
 }
 const quoteRow = (page: Page, number: string) =>
   page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) });
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
@@ -117,13 +114,7 @@ test("Brandi reassigns two quotes to Eli in bulk from her Quotes list", async ({
   await expect(page.getByRole("table").getByRole("rowheader").filter({ hasText: /Q-\d+/ })).not.toHaveCount(0);
   expect(await page.getByRole("table").getByRole("rowgroup").filter({ hasText: "Mara Jensen" }).count()).toBe(0);
   await screenshot(page, testInfo, "filtered-eli");
-
-  // Phone: the manager's list fits without sideways scrolling.
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/rep/quotes");
-  await expect(page.getByRole("checkbox", { name: `Select ${fixture.sent}` })).toBeVisible();
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "all-reps-390");
+  // No phone check: the portal has no phone layout (decision 43, plan U2).
 });
 
 test("Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees only her own quotes", async ({ browser }, testInfo) => {
