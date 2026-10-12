@@ -17,7 +17,7 @@ const SECTIONS = [
   ["Orders", "/rep/orders"],
   ["Stock", "/rep/stock"],
   ["Analytics", "/rep/analytics"],
-  // Brandi is the manager: Teams and Reps is hers alone (v3 spec §6, task D3; decision 46).
+  // Brandi is the manager: Teams and Reps is hers alone (decision 46; plan U7).
   ["Teams and Reps", "/rep/teams"],
   ["Settings", "/rep/settings"],
 ] as const;
@@ -97,8 +97,8 @@ test("nav: the rail names every section, with an icon, and each opens its own pa
   await expect(page.getByRole("heading", { name: "Queries by category" })).toBeVisible();
   await sectionLink(page, "Settings").click();
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
-  // Brandi is the manager: Reps and Aging are hers alone (task D1).
-  await expect(tabs.getByRole("link")).toHaveText(["Rep assignments", "Reps", "Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"]);
+  // Brandi is the manager: Aging is hers alone (task D1); Rep assignments and Reps are on Teams and Reps (plan U7).
+  await expect(tabs.getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"]);
   await tabs.getByRole("link", { name: "Customer access" }).click();
   await expect(page.getByRole("switch", { name: "Pricing" })).toBeVisible();
   await tabs.getByRole("link", { name: "Data sources" }).click();

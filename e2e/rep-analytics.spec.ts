@@ -241,7 +241,7 @@ test("Brandi compares two reps, reads the decline reasons, exports the CSV and d
   await tab(page, "Untouched quotes").click();
   await expect(page.getByRole("table", { name: "Why quotes went untouched" }).getByRole("rowheader")).toHaveText(["Eli Porter", "Mara Jensen", "Total"]);
 
-  // Break the numbers down by team: one row per team label.
+  // Break the numbers down by team: one row per team (teams are entities, plan U7).
   await page.getByRole("button", { name: "Filter, 2 applied" }).click();
   await page.getByRole("button", { name: "Clear all" }).click();
   await page.getByRole("radio", { name: "Team" }).click();
@@ -256,6 +256,11 @@ test("Brandi compares two reps, reads the decline reasons, exports the CSV and d
   await row(page, "Leaderboard", "Mara Jensen").getByRole("link", { name: "3 declined" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?rep=mara&from=.+&to=.+&status=declined$/);
   await expect(page.getByText(otherQuote, { exact: true }).first()).toBeVisible();
+  // Carried over from e2e/team-dashboard.spec.ts (the old dashboard page is gone, plan U7): the drilled list
+  // holds exactly Mara's three declined quotes, and says which window it covers.
+  await expect(page.getByRole("table").getByRole("rowheader")).toHaveCount(3);
+  await expect(page.getByRole("table").getByRole("link", { name: otherQuote, exact: true })).toBeVisible();
+  await expect(page.getByText(/Created between/)).toBeVisible();
   await shoot(page, testInfo, "u6-drill-down");
 });
 
@@ -279,5 +284,8 @@ test("Mara (a rep): My Analytics with her own numbers, no Rep leaderboard, whate
   expect(asked.groups.totals.created).toBe(own.groups.totals.created);
   expect(asked.scope).toEqual(own.scope);
   expect((await page.request.get("/api/rep/analytics/csv")).status()).toBe(403);
+  // Carried over from e2e/team-dashboard.spec.ts: the old team metrics routes stay the manager's.
+  expect((await page.request.get("/api/rep/team/metrics?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(403);
+  expect((await page.request.get("/api/rep/team/metrics.csv?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(403);
   await page.context().close();
 });
