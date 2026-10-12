@@ -7,8 +7,8 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
-| U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | fix round 1 (verifier FAIL: rep analytics counted by customer, not quote owner) |
-| U2 | | not started |
+| U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
+| U2 | | in progress (`task/U2-shell`) |
 | U3 | | not started |
 | U4 | | not started |
 | U5 | | not started |
