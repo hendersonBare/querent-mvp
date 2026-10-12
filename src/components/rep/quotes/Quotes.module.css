@@ -91,18 +91,9 @@
   color: var(--q-text-muted);
 }
 
-/* The quote number: a button (it opens the preview) drawn as the frame's bold text. */
+/* The quote number: the frame's bold text, pressed like a button (it opens the preview). */
 .number {
-  display: inline;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
   font-weight: 800;
-  letter-spacing: inherit;
-  text-align: inherit;
   cursor: pointer;
 }
 
@@ -184,6 +175,7 @@
 .openQuote,
 .replyButton {
   height: 44px;
+  text-align: start;
   margin: 0;
   border-radius: var(--q-radius-control);
   font-family: inherit;
@@ -260,6 +252,7 @@
 }
 .close {
   box-sizing: border-box;
+  text-align: start;
   flex: none;
   width: 32px;
   height: 32px;
@@ -344,6 +337,7 @@
   background: var(--q-lane);
 }
 .send {
+  box-sizing: content-box;
   padding: 0 22px;
   border: 0;
   background: var(--q-accent);

@@ -42,12 +42,21 @@ function BoardLane({status,rows,asOf,onPreview,onNote,...lane}:LaneSlot&{status:
   </Lane>;
 }
 
+/**
+ * The quote number, which opens the preview: the frame's bold text (an inline span), focusable and pressed
+ * with Enter or Space like a button. A click on it reaches the card or row, which opens the preview.
+ */
+export function QuoteNumber({number,onOpen}:{number:string;onOpen:()=>void}){
+  return <span role="button" tabIndex={0} className={s.number}
+    onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();onOpen();}}}>{number}</span>;
+}
+
 /** One quote on the board, as C_QOBoard draws it. Each value sits in an inline span, like the frame's filled-in values. */
 function QuoteCard({row,asOf,onPreview,onNote}:{row:RepQuoteRow;asOf:string}&QuoteActions){
   const flag=flagText(row);
   return <div role="article" aria-label={row.quote_number} data-ui="quote-card" className={s.card} onClick={()=>onPreview(row)}>
     <div className={s.cardTop}>
-      <span><button type="button" className={s.number}>{row.quote_number}</button></span>
+      <span><QuoteNumber number={row.quote_number} onOpen={()=>onPreview(row)}/></span>
       <span className={s.cardDate}><span>{listDate(row.requested_at,asOf)}</span></span>
     </div>
     <div className={s.cardCustomer}><span>{row.customer_name}</span></div>

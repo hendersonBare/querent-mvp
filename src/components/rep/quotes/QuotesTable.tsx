@@ -1,7 +1,7 @@
 'use client';
 import type {RepQuoteRow} from '@/server/rep/quotes';
 import {DataTable,StatusText,ViewNoteButton,type DataColumn,type TablePrefs} from '@/components/ui';
-import type {QuoteActions} from './QuotesBoard';
+import {QuoteNumber,type QuoteActions} from './QuotesBoard';
 import {TABLE_ID} from './filters';
 import {EMPTY_LANE,REP_STATUS,flagText,listDate,marginText,money,validUntil} from './labels';
 import s from './Quotes.module.css';
@@ -18,7 +18,7 @@ export const TABLE_PAGE=14;
 export function quoteColumns({manager,asOf,onPreview,onNote}:{manager:boolean;asOf:string}&QuoteActions):DataColumn<RepQuoteRow>[]{
   const columns:(DataColumn<RepQuoteRow>|false)[]=[
     {id:'quote',label:'Quote',track:'1fr',alwaysShown:true,
-      render:row=><button type="button" className={s.number} onClick={event=>{event.stopPropagation();onPreview(row);}}>{row.quote_number}</button>},
+      render:row=><QuoteNumber number={row.quote_number} onOpen={()=>onPreview(row)}/>},
     {id:'customer',label:'Customer',track:'2.2fr',render:row=><span>{row.customer_name}</span>},
     {id:'requested',label:'Requested',track:'0.9fr',render:row=><span className={s.requested}>{listDate(row.requested_at,asOf)}</span>},
     {id:'status',label:'Status',track:'1.5fr',render:row=><>

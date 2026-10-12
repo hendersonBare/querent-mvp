@@ -42,6 +42,8 @@ function NoteBody({row,onClose}:{row:RepQuoteRow;onClose:()=>void}){
     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
   }
   async function send(){
+    // Nothing written yet: back to the reply box (C_QOB6 draws Send reply ready before any text).
+    if(!text.trim()){reply.current?.focus();return;}
     setSending(true);setProblem('');
     try{
       const response=await fetch(`/api/rep/quotes/${encodeURIComponent(row.quote_number)}/reply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:text})});
@@ -67,7 +69,7 @@ function NoteBody({row,onClose}:{row:RepQuoteRow;onClose:()=>void}){
       {problem&&<p role="alert" className={s.problem}>{problem}</p>}
       <div className={s.dialogActions}>
         <button type="button" className={s.dialogClose} onClick={onClose}>Close</button>
-        <button type="button" className={s.send} disabled={sending||!text.trim()} onClick={()=>void send()}>Send reply</button>
+        <button type="button" className={s.send} disabled={sending} onClick={()=>void send()}>Send reply</button>
       </div>
     </div>
   </>;

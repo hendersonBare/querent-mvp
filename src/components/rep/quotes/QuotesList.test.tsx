@@ -248,6 +248,12 @@ describe('the quote preview (C_QOB5, C_QOT3)',()=>{
     expect(screen.getByRole('textbox',{name:'Reply to Dana'})).toHaveFocus();
   });
 
+  it('opens from the keyboard: Enter on a quote number, in the board or the table',()=>{
+    renderList(quoteList({scope:[SAMPLE]}));
+    fireEvent.keyDown(within(card('Q-24817')).getByRole('button',{name:'Q-24817'}),{key:'Enter'});
+    expect(screen.getByRole('dialog',{name:'Q-24817'})).toBeInTheDocument();
+  });
+
   it('opens from a table row; a quote without a note has no note box and no Reply',()=>{
     renderList(quoteList({scope:[SAMPLE]}),{view:'table'});
     fireEvent.click(within(bodyRows()[0]).getAllByRole('cell')[1]);
@@ -270,7 +276,10 @@ describe('View note (C_QOB6, C_QOT4)',()=>{
     expect(within(note).getByText(/^Dana Ortiz, Sep 2[456], \d{1,2}:\d{2} (AM|PM)$/)).toBeInTheDocument();
     const reply=within(note).getByRole('textbox',{name:'Reply to Dana'});
     expect(reply).toHaveAttribute('placeholder','Write a reply');
-    expect(within(note).getByRole('button',{name:'Send reply'})).toBeDisabled();
+    // Nothing written: Send reply sends nothing and goes back to the reply box.
+    reply.blur();
+    fireEvent.click(within(note).getByRole('button',{name:'Send reply'}));
+    expect(reply).toHaveFocus();
     fireEvent.click(within(note).getAllByRole('button',{name:'Close'}).at(-1)!);
     expect(screen.queryByRole('dialog',{name:'Note on Q-24818'})).toBeNull();
     expect(sent('POST')).toEqual([]);

@@ -38,6 +38,8 @@ export function Select<V extends string>({label,labelledBy,value,options,onChang
     }else if(event.key==='Escape'){
       event.preventDefault();
       event.stopPropagation();
+      // The app's React root is the document, where the panel's own Escape listener also sits: stop that one too.
+      event.nativeEvent.stopImmediatePropagation();
       setOpen(false);
       button.current?.focus({preventScroll:true});
     }
