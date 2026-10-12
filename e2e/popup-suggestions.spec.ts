@@ -28,7 +28,7 @@ async function signIn(browser: Browser, baseURL: string, workspace: RegExp) {
   const context = await browser.newContext({ baseURL });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: workspace }).click();
   return page;
 }
@@ -62,6 +62,9 @@ test("Dana adds a suggested nut from the pop-up, and Brandi sees it on the draft
     await expect(suggestions).toContainText("Hex nut 1/2-13, Grade 8, yellow zinc");
     await expect(suggestions).toContainText("Box of 100");
     await expect(suggestions).toContainText("Matches the 1/2-13 Grade 8 bolts on your list.");
+    // The flap disc goes with the cut-off wheels.
+    await expect(suggestions).toContainText("Flap disc 4.5 in, 60 grit zirconia");
+    await expect(suggestions.getByRole("button", { name: "Add FD-45-60Z to your list" })).toBeVisible();
     await expect(popup).not.toContainText("$");
   });
 
@@ -101,27 +104,3 @@ test("Dana adds a suggested nut from the pop-up, and Brandi sees it on the draft
   });
 });
 
-test("at 390px the suggestions fit the bottom sheet, and Add works", async ({ browser }, testInfo) => {
-  const baseURL = testInfo.project.use.baseURL!;
-  const dana = await signIn(browser, baseURL, /Wasatch Mechanical Contractors/);
-  await dana.setViewportSize({ width: 390, height: 844 });
-  await expect(await ask(dana, REQUEST)).toContainText("Type 1 or Type 27 cut-off wheels?");
-  await expect(await ask(dana, "Type 1")).toContainText("Here is your list");
-  const popup = dana.getByRole("dialog", { name: "Review your list" });
-  const suggestions = popup.getByRole("region", { name: "Frequently bought together" });
-  await expect.poll(async () => (await popup.boundingBox())!.x).toBe(0);
-  const add = suggestions.getByRole("button", { name: "Add FD-45-60Z to your list" });
-  await add.scrollIntoViewIfNeeded();
-  await expect(add).toBeInViewport();
-  // The Add button sits at the right of its suggestion, beside the description (not on a row of its own).
-  const button = (await add.boundingBox())!;
-  const name = (await suggestions.getByText("Flap disc 4.5 in, 60 grit zirconia").boundingBox())!;
-  expect(button.x + button.width).toBeLessThanOrEqual(390);
-  expect(button.x).toBeGreaterThan(name.x + 150);
-  expect(button.y).toBeLessThan(name.y + name.height + 40);
-  expect(await popup.evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
-  expect(await dana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await add.click();
-  await expect(popup.getByLabel("Qty for FD-45-60Z")).toHaveValue("1");
-  await expect(popup.getByRole("button", { name: "Request quote" })).toBeInViewport();
-});

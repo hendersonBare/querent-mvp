@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 // e2e/golden-quote-flow.spec.ts, which grows with the build. Chat is scripted (spec §6.5).
 const BASE_URL = process.env.QUERENT_BASE_URL || "http://127.0.0.1:3000";
 async function choose(page: Page, name: string) {
-  await page.goto(BASE_URL);
+  await page.goto(`${BASE_URL}/demo`);
   await page.getByRole("button", { name: new RegExp(name) }).click();
 }
 
@@ -12,12 +12,11 @@ test("customer persona: Dana at Wasatch chats and has Brandi as her rep", async 
   page,
 }) => {
   await choose(page, "Wasatch Mechanical Contractors");
-  await expect(page.locator(".customer-header")).toContainText(
-    "Wasatch Mechanical Contractors",
-  );
-  await expect(
-    page.getByRole("complementary", { name: "Contacts" }).getByRole("region", { name: "Your rep" }),
-  ).toContainText("Brandi Gallegos");
+  // The customer site (plan U10): the account chip names Wasatch; My rep opens Brandi's sheet.
+  await expect(page.getByRole("button", { name: /Wasatch Mechanical Contractors/ })).toContainText("Signed in");
+  await page.getByRole("button", { name: "My rep" }).click();
+  await expect(page.getByRole("dialog", { name: "Your rep" })).toContainText("Brandi Gallegos");
+  await page.keyboard.press("Escape");
   const box = page.getByLabel("Ask a question");
   await box.fill("Do you have 1/2 in grade 8 hex bolts in stock?");
   await box.press("Enter");
@@ -74,11 +73,4 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await expect(pricing).toHaveAttribute("aria-checked", "false");
   await pricing.click();
   await expect(pricing).toHaveAttribute("aria-checked", "true");
-});
-
-test("customer experience fits a phone viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await choose(page, "Wasatch Mechanical Contractors");
-  await expect(page.getByLabel("Ask a question")).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Contacts" })).toBeVisible();
 });

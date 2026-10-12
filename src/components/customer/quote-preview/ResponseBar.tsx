@@ -26,9 +26,9 @@ import {newResponseKey,postResponse,ResponseRefused,type AcceptBody,type Changes
 // retry after no answer reuses, so the server replays instead of answering twice. A refusal of the
 // input (400) goes back to the form; any other refusal (expired, already answered, a newer revision)
 // closes the form and reloads the quote to show where it stands. On success the modal shows the
-// quote as answered and the sidebar's chip follows.
+// quote as answered, and the quote's bell notification reads as read.
 //
-// No chat message is posted (a flagged 5.2 default): the modal and the sidebar confirm the answer.
+// No chat message is posted (a flagged 5.2 default): the modal and the bell confirm the answer.
 
 export type ResponseStep='idle'|'accept'|'changes';
 
@@ -71,7 +71,7 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
   const running=useRef(false);
   /** The key of an answer that got no reply: trying again reuses it, so the server can't take it twice. */
   const unanswered=useRef<string|null>(null);
-  const acceptButton=useRef<HTMLButtonElement>(null),changesButton=useRef<HTMLButtonElement>(null),noteRef=useRef<HTMLParagraphElement>(null);
+  const acceptButton=useRef<HTMLButtonElement>(null),changesButton=useRef<HTMLButtonElement>(null),noteRef=useRef<HTMLSpanElement>(null);
   const previous=useRef<ResponseStep>(step);
   const focusNote=useRef(false);
 
@@ -178,14 +178,14 @@ export function ResponseBar({preview,now,step,onStep,onAnswered,onStale}:Respons
         ?<ChangesForm preview={preview} rep={rep} note={note} problem={formProblem} onNote={value=>{setNote(value);setFormProblem(null);}} onBack={back} onReview={reviewChanges}/>
         :<>
           <div className="qp-status">
-            {preview&&<p className="qp-note" id={noteId} ref={noteRef} tabIndex={-1} aria-live="polite">{actionNote(preview,now)}</p>}
+            {preview&&<span className="qp-note" id={noteId} ref={noteRef} tabIndex={-1} aria-live="polite">{actionNote(preview,now)}</span>}
             {preview?.status==='changes_requested'&&preview.response?.kind==='changes_requested'&&<q className="qp-said">{preview.response.note}</q>}
             {barProblem&&<p className="qp-problem" role="alert">{barProblem}</p>}
           </div>
           <div className="qp-buttons">
-            <button type="button" className="ip-secondary qp-decline" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={startDecline}>Decline</button>
-            <button type="button" ref={changesButton} className="ip-secondary" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={()=>start('changes')}>Request changes</button>
-            <button type="button" ref={acceptButton} className="ip-primary" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={()=>start('accept')}>Accept</button>
+            <button type="button" className="qp-decline" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={startDecline}>Decline</button>
+            <button type="button" ref={changesButton} className="qp-changes" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={()=>start('changes')}>Request changes</button>
+            <button type="button" ref={acceptButton} className="qp-accept" disabled={!open} aria-describedby={preview?noteId:undefined} onClick={()=>start('accept')}>Accept</button>
           </div>
         </>}
     </footer>

@@ -1,7 +1,7 @@
 import {afterEach,beforeEach,describe,expect,it} from 'vitest';
 import type {ClarifyPayload} from '@/domain';
 import {CANDIDATE_ROUND,present} from '@/server/chat/clarify';
-import {customerContacts} from '@/server/customer/sidebar';
+import {customerRepContact} from '@/server/customer/sidebar';
 import {quoteFloors} from '@/server/floors/service';
 import {ask} from '@/server/pipeline';
 import {priceLines} from '@/server/pricing/service';
@@ -110,7 +110,7 @@ describe('assignRep: one rep per customer',()=>{
     expect(assignments.find(a=>a.id==='wasatch')).toMatchObject({rep_id:'mara',rep_name:'Mara Jensen'});
     expect(assignedRep('wasatch')?.name).toBe('Mara Jensen');
     // The 2.4 sidebar and the access rules (the chat's rep panel) read the assignment live.
-    expect(customerContacts('wasatch').rep).toMatchObject({name:'Mara Jensen',phone:'(801) 555-0102'});
+    expect(customerRepContact('wasatch').rep).toMatchObject({name:'Mara Jensen',phone:'(801) 555-0102'});
     expect(access('wasatch')[0]).toMatchObject({rep_id:'mara',rep_name:'Mara Jensen'});
     // The 2.2 rep card, shown with the candidate buttons from the second round.
     const secondRound={open:[{round:CANDIDATE_ROUND,candidates:[]}],cart:{lines:[]}} as unknown as ClarifyPayload;

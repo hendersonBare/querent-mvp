@@ -24,7 +24,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsBrandi(page: Page) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }
@@ -286,7 +286,7 @@ async function personaCookie(browser: Browser, baseURL: string, workspace: RegEx
   const context = await browser.newContext({ baseURL });
   try {
     const page = await context.newPage();
-    await page.goto("/");
+    await page.goto("/demo");
     await page.getByRole("button", { name: workspace }).click();
     await signedIn(page);
     const cookie = (await context.cookies()).find((c) => c.name === "querent-persona");
@@ -321,7 +321,7 @@ test("access: every reference route answers a customer or no session with a redi
   // so each page must check the rep session itself. This reads the raw responses to prove it.
   const baseURL = testInfo.project.use.baseURL!;
   const dana = await personaCookie(browser, baseURL, /Wasatch Mechanical Contractors/, (page) =>
-    expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors"));
+    expect(page.getByRole("button", { name: /Wasatch Mechanical Contractors/ })).toContainText("Signed in"));
   const brandi = await personaCookie(browser, baseURL, /Herrick Industrial Supply/, (page) => expect(page).toHaveURL(/\/rep\/quotes$/));
   const api = await playwright.request.newContext({ baseURL });
   try {
@@ -354,13 +354,13 @@ test("access: every reference route answers a customer or no session with a redi
 });
 
 test("access: in the browser, Dana and a visitor with no session are sent back to / from every route", async ({ page, browser }, testInfo) => {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
-  await expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
+  await expect(page.getByRole("button", { name: /Wasatch Mechanical Contractors/ })).toContainText("Signed in");
   for (const [path] of ROUTES) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator(".customer-header")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/18,420|SO-51223|Stock by branch|Price paid/);
   }
 
@@ -369,7 +369,8 @@ test("access: in the browser, Dana and a visitor with no session are sent back t
     const anonymous = await context.newPage();
     await anonymous.goto("/rep/customers/wasatch");
     await expect(anonymous).toHaveURL(/\/$/);
-    await expect(anonymous.getByText("Who would you like to explore as?")).toBeVisible();
+    // / with no session is the visitor box (decision 53).
+    await expect(anonymous.getByRole("button", { name: "Sign in" })).toBeVisible();
   } finally {
     await context.close();
   }

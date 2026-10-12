@@ -20,9 +20,9 @@ const markers=()=>files(join(ROOT,'src')).filter(f=>relative(ROOT,f)!==SELF)
 const rows=()=>[...readFileSync(REGISTRY,'utf8').matchAll(/^\|\s*(R-\d+)\s*\|([^|]+)\|([^|]+)\|/gm)].map(m=>({id:m[1],todo:m[2].trim(),where:m[3].trim()}));
 
 describe('the TODO registry',()=>{
-  it('exists and lists R-1 to R-13, once each and in order',()=>{
+  it('exists and lists R-1 to R-14, once each and in order',()=>{
     expect(existsSync(REGISTRY)).toBe(true);
-    expect(rows().map(r=>r.id)).toEqual(Array.from({length:13},(_,i)=>`R-${i+1}`));
+    expect(rows().map(r=>r.id)).toEqual(Array.from({length:14},(_,i)=>`R-${i+1}`));
   });
 
   it('carries the decision log\'s wording for each TODO',()=>{
@@ -48,5 +48,10 @@ describe('the TODO registry',()=>{
     expect(at('R-4')).toContain('src/server/session.ts');
     expect(at('R-5')).toContain('src/server/repository/chat.ts');
     for(const route of ['reset','rep-quotes'])expect(at('R-6'),route).toContain(`src/app/api/test/${route}/route.ts`);
+  });
+
+  it('marks the visitor box\'s stub (R-14, decision 49) where the real anonymous route will go',()=>{
+    const at=new Set(markers().filter(([,m])=>m==='R-14').map(([file])=>file));
+    expect(at).toContain('src/app/api/query/visitor/chat/route.ts');
   });
 });

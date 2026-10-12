@@ -3,29 +3,21 @@ import {useSeededDatabase} from '@/server/repository/test-db';
 
 useSeededDatabase();
 
-// The customer's two sidebars (spec §3, task 2.4): contacts on the left, quote buttons on the right.
+// The customer's rep (the My rep sheet, plan U10) and quote list (spec §3, task 2.4).
 
 const FORBIDDEN=/cost|margin|floor|suggest|explanation|internal/i;
 const keys=(value:unknown):string[]=>Array.isArray(value)?value.flatMap(keys):value&&typeof value==='object'?Object.entries(value).flatMap(([k,v])=>[k,...keys(v)]):[];
 
-describe('customerContacts',()=>{
-  it('puts the assigned rep first, then Customer Service, AR/Finance and will-call per branch',async()=>{
-    const {customerContacts}=await import('./sidebar');
-    const contacts=customerContacts('wasatch');
-    expect(contacts.supplier).toBe('Herrick Industrial Supply');
-    expect(contacts.rep).toMatchObject({name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'});
-    expect(contacts.departments.map(d=>d.name)).toEqual(['Customer Service','Accounts Receivable / Finance']);
-    expect(contacts.departments[0]).toMatchObject({phone:'(801) 555-0110',email:'customerservice@herrickindustrial.com'});
-    expect(contacts.willCall.map(b=>[b.code,b.name,b.phone])).toEqual([
-      ['SLC','Salt Lake City','(801) 555-0120'],['Ogden','Ogden','(801) 555-0130'],['Provo','Provo','(801) 555-0140'],
-    ]);
-    expect(contacts.willCall[0].hours).toMatch(/Mon–Fri/);
+describe('customerRepContact',()=>{
+  it("gives the assigned rep only, for the My rep sheet (C_CVL3; Appendix D: departments stay with the chat's answers)",async()=>{
+    const {customerRepContact}=await import('./sidebar');
+    expect(customerRepContact('wasatch')).toEqual({rep:{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'}});
   });
 
   it('shows no rep for a customer without one, and never carries internal fields',async()=>{
-    const {customerContacts}=await import('./sidebar');
-    expect(customerContacts('nobody').rep).toBeNull();
-    expect(keys(customerContacts('wasatch')).filter(k=>FORBIDDEN.test(k))).toEqual([]);
+    const {customerRepContact}=await import('./sidebar');
+    expect(customerRepContact('nobody')).toEqual({rep:null});
+    expect(keys(customerRepContact('wasatch')).filter(k=>FORBIDDEN.test(k))).toEqual([]);
   });
 });
 

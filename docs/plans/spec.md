@@ -37,6 +37,7 @@ Numbers below are the expected order. Each slice takes the next free number on `
 | `007_original_rep.sql` | D2 | `quotes.original_rep_id TEXT REFERENCES reps(id)`, backfilled from `rep_id` |
 | `008_suggestion_lines.sql` | E1 | Rebuild `quote_lines` and `quote_removed_lines`: `added_by` CHECK adds `'suggestion'` |
 | `009_ui_table_prefs.sql` | U0 | `ui_table_prefs(user_id TEXT NOT NULL, table_id TEXT NOT NULL, column_order TEXT NOT NULL, hidden_columns TEXT NOT NULL, PRIMARY KEY(user_id,table_id))`; both lists are JSON arrays of column ids (CHECKed) |
+| `010_customer_notification_reads.sql` | U10 | `customer_notification_reads(customer_id TEXT NOT NULL REFERENCES customers(id), notification_id TEXT NOT NULL, read_at TEXT NOT NULL, PRIMARY KEY(customer_id,notification_id))`: the bell's read marks; the notifications themselves are derived on read |
 
 Rebuild migrations (002, 008) follow SQLite's 12-step recipe: create `<t>_new` with the new definition, `INSERT INTO <t>_new SELECT …` with explicit columns, `DROP TABLE <t>`, `ALTER TABLE <t>_new RENAME TO <t>`, recreate the table's indexes, and rely on the runner's `foreign_key_check`. Each has a Vitest test that builds a database at the previous migration, inserts rows that reference the rebuilt table (`quote_lines`, `quote_revisions`, `quote_activity`, `orders.quote_id`, `quotes.duplicated_from`), migrates, and asserts row counts, values and that foreign keys still resolve.
 
@@ -255,6 +256,11 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 | `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
 | `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
 | line add with `added_by:'suggestion'` | E1 | customer | adding a suggestion to the cart at qty 1 |
+| `GET /api/query/customer/orders` | U10 | customer | the session customer's own orders, newest first: `[{id, order_number, order_date, status, fulfillment, branch_code, total, quote_number}]`; no lines, subtotal, freight, tax, cost or margin |
+| `GET /api/query/customer/notifications` | U10 | customer | the bell: `{unread, items:[{id, kind, title, body, at, day_only, read, quote}]}`, newest ten, derived on read |
+| `POST /api/query/customer/notifications/read` | U10 | customer | `{ids:[…]}` (1 to 100) or `{all:true}`; ids that are not the customer's notifications are ignored; answers the bell as it now reads |
+| `GET /api/query/customer/contacts` | U10 | customer | trimmed to `{rep}` for the My rep sheet (departments stay with the chat's answers) |
+| `POST /api/query/visitor/chat` | U10 | anyone | the visitor box's stub: always `{answer:"Sign in to continue."}`, imports nothing (decision 49, `TODO(R-14)`) |
 | `GET /api/rep/table-prefs?table=<id>`, `PUT /api/rep/table-prefs` | U0 | rep, manager | the signed-in user's column order and hidden columns for one table: `{table_id, prefs:{column_order, hidden_columns}\|null}`; PUT takes `{table_id, column_order, hidden_columns}` and refuses any other field (a `user_id` included) with 400 |
 
 Rep write routes refuse a quote the caller does not own (existing "not found"), including managers: a manager reads any quote but edits only after reassigning it to themselves (D2).
@@ -263,8 +269,13 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 
 ## 6. UI changes by page
 
-### Customer workspace (`/`)
-- Quotes sidebar chip: "Declined" (A1).
+### Customer site (`/`, U10; frames C_CVE0 to C_CVL5)
+- Querent is a box on the supplier's own site; only the box, the Orders and My rep sheets, the bell and the account chip are built (the frames' Herrick header and page are a stand-in).
+- No session: the visitor box (C_CVE0) with the four public starter questions and a Sign in button that opens the demo chooser at `/demo` (decision 53). Every question goes to `POST /api/query/visitor/chat`, a stub that always answers "Sign in to continue." and never calls the model or a tool (decision 49, `TODO(R-14)`).
+- Customer session: the same box with the logged-in starter questions (C_CVL1), Orders (C_CVL2: previous orders, five then "Show N more") and My rep (C_CVL3) side sheets, the notification bell with its unread count, and the account chip (its Sign out menu has no frame and returns to the visitor box). The contacts and quotes sidebars, the three panes, the phone tabs, the ERP indicator and "Switch workspace" are gone; there is no phone layout (decision 43). New conversation shows next to Orders once the conversation has turns (no frame).
+- Bell (C_CVL4, decision 41): notifications derived from quote activity and order status, newest ten, one per quote (its latest news): a quote sent ("Quote Q-… is ready to review"), sent again after Dana asked for changes ("Brandi updated Q-…"), expired ("Quote Q-… expired", no frame copy), and an order whose status is shipped ("Order SO-… has shipped"). Read per customer: pressing one or "Mark all read" marks it read, and a quote Dana answered or opened after the news counts as read. Polled every 5 s like the rep badges, and re-read when a quote changes. A quote notification opens the quote preview (C_CVL5) with Decline, Request changes and Accept.
+- Quote preview (C_CVL5): the existing preview and its three routes, restyled to the frame; its status is plain text ("Sent" in the accent).
+- `QuoteNoticeCard` stays in the chat as the in-conversation twin of the bell's quote notices.
 - PDF preview modal action bar: **Decline** next to Accept / Request changes, opening a centered dialog with the five reasons as radio buttons, a 250-character field for Other, red Cancel, and a **Decline** confirm button (A1).
 - Item pop-up: "Frequently bought together" below the cart, at least 2 suggestions when the pool allows, each with its reason and an "Add" button that adds qty 1 (E1).
 
@@ -298,7 +309,8 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - "Why quotes went untouched" table: counts per reason per rep.
 - Export CSV.
 
-### Workspace chooser
+### Workspace chooser (`/demo`)
+- Moved unchanged from `/` to `/demo` (decision 53); the visitor box's Sign in opens it, and it shows even with a session, to switch workspaces. Choosing the customer opens `/`; a rep persona opens the rep portal.
 - Rep personas: Brandi (manager), Mara (rep), Eli (rep) (F1; server personas in D1).
 
 ---

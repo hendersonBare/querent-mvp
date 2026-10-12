@@ -1,44 +1,4 @@
-/* Customer workspace (spec §3, task 2.4): contacts on the left, the chat in the center, quote
-   buttons on the right. Below 960px the columns become Chat / Contacts / Quotes tabs. */
-
-.cx-tabs {
-  display: none;
-}
-.cx-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-.cx-center {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-.cx-left,
-.cx-right {
-  flex-shrink: 0;
-  background: white;
-  overflow-y: auto;
-}
-.cx-left {
-  width: 275px;
-  border-right: 1px solid var(--line);
-  padding: 24px 22px;
-}
-.cx-right {
-  width: 300px;
-  border-left: 1px solid var(--line);
-  padding: 24px 18px;
-}
-.cx-eyebrow {
-  text-transform: uppercase;
-  margin: 0 0 12px;
-}
-.cx-note {
-  font-size: 14px;
-}
+/* The rep's phone and email under the clarifying reply (./contact-links). */
 .cx-link {
   display: flex;
   align-items: center;
@@ -54,29 +14,6 @@
 .cx-link svg {
   flex-shrink: 0;
 }
-.cx-hours {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-/* Left: the rep first, then the departments */
-.cx-section + .cx-section {
-  margin-top: 28px;
-}
-.cx-rep {
-  background: var(--pale);
-  border: 1px solid #cfe5df;
-  border-radius: 14px;
-  padding: 16px;
-}
-.cx-rep-who {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-}
 .cx-rep-initials {
   display: grid;
   place-items: center;
@@ -88,162 +25,6 @@
   color: white;
   font-size: 14px;
   font-weight: 600;
-}
-.cx-rep-who strong {
-  display: block;
-  font-size: 16px;
-  line-height: 1.3;
-}
-.cx-rep-who small {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-.cx-contact {
-  padding: 14px 0;
-  border-top: 1px solid var(--line);
-}
-.cx-contact h3 {
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-.cx-branches {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-.cx-branches li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.cx-branches .cx-link {
-  margin-top: 0;
-}
-.cx-branch-code {
-  flex-shrink: 0;
-  min-width: 60px;
-  margin-top: 1px;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: #f1f5f3;
-  color: #465451;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-/* Right: quote buttons, "Quote · date · $total" with a status chip */
-.cx-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.cx-panel-head .cx-eyebrow {
-  margin: 0;
-}
-.cx-quotes {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-.cx-quote {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: white;
-  color: var(--ink);
-  text-align: left;
-}
-.cx-quote:hover {
-  border-color: #9fc7bd;
-  background: #fafffd;
-}
-.cx-quote:focus-visible {
-  outline: 2px solid var(--teal);
-}
-.cx-quote-label {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.35;
-  font-variant-numeric: tabular-nums;
-}
-.cx-quote-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 8px;
-}
-.cx-quote-number {
-  white-space: nowrap;
-  color: var(--muted);
-  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-}
-.cx-chip {
-  margin-left: auto;
-  padding: 3px 7px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  line-height: 1.4;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.cx-chip-waiting {
-  background: #fbf0d8;
-  color: #82590e;
-}
-.cx-chip-action {
-  background: var(--teal);
-  color: white;
-}
-.cx-chip-done {
-  background: var(--pale);
-  color: var(--teal-dark);
-}
-.cx-chip-changes {
-  background: #e9edf9;
-  color: #3b4b8c;
-}
-.cx-chip-closed {
-  border-color: var(--line);
-  background: white;
-  color: var(--muted);
-}
-
-/* Center: the chat, with New conversation above it */
-.chat-column {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-.chat-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 20px 0;
-}
-.chat-toolbar .new-chat {
-  width: auto;
-  gap: 6px;
-  padding: 7px 12px;
-  font-size: 13px;
 }
 
 /* Clarifying reply (task 2.2): from round 2, under Querent's question, each open line's top
@@ -345,121 +126,10 @@
   flex-wrap: wrap;
   gap: 0 18px;
 }
-@media (max-width: 600px) {
-  .clarify-choice {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .clarify-choice .clarify-desc {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .clarify-choice {
     transition: none;
-  }
-}
-
-/* Header: the company name gives way (and wraps) before it can run into the status badge. */
-.customer-shell .header-brand {
-  flex: 1 1 auto;
-}
-.customer-shell .header-brand strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.customer-shell .header-actions {
-  flex-shrink: 0;
-}
-
-@media (min-width: 1600px) {
-  .cx-left,
-  .cx-right {
-    width: 320px;
-  }
-}
-@media (max-width: 1150px) {
-  .cx-left {
-    width: 240px;
-    padding: 20px 18px;
-  }
-  .cx-right {
-    width: 260px;
-    padding: 20px 14px;
-  }
-}
-@media (max-width: 960px) {
-  .cx-tabs {
-    display: flex;
-    background: white;
-    border-bottom: 1px solid var(--line);
-    padding: 0 8px;
-  }
-  .cx-tab {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 11px 6px 9px;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    background: transparent;
-    color: var(--muted);
-    font-size: 14px;
-  }
-  .cx-tab[aria-selected="true"] {
-    border-bottom-color: var(--teal);
-    color: var(--teal);
-    font-weight: 600;
-  }
-  .cx-tab:focus-visible {
-    outline-offset: -2px;
-  }
-  .cx-left,
-  .cx-right {
-    flex: 1;
-    width: auto;
-    border: 0;
-    padding: 20px 16px;
-  }
-  .cx-body[data-pane="chat"] > .cx-left,
-  .cx-body[data-pane="chat"] > .cx-right,
-  .cx-body[data-pane="contacts"] > .cx-center,
-  .cx-body[data-pane="contacts"] > .cx-right,
-  .cx-body[data-pane="quotes"] > .cx-center,
-  .cx-body[data-pane="quotes"] > .cx-left {
-    display: none;
-  }
-  .chat-toolbar {
-    padding: 10px 14px 0;
-  }
-  .customer-shell .header-brand strong {
-    max-width: none;
-  }
-}
-@media (max-width: 600px) {
-  .customer-shell .customer-header {
-    min-height: 64px;
-    padding: 10px 12px;
-    gap: 10px;
-  }
-  .customer-shell .header-brand {
-    gap: 8px;
-  }
-  .customer-shell .header-brand strong {
-    font-size: 13px;
-    line-height: 1.25;
-    white-space: normal;
-  }
-  .customer-shell .header-actions {
-    gap: 4px;
-  }
-  .customer-shell .workspace-switch {
-    padding: 8px;
-  }
-  .customer-shell .workspace-switch span {
-    display: none;
   }
 }
 
@@ -813,78 +483,6 @@
 .ip-primary:hover:not(:disabled) {
   background: var(--teal-dark);
 }
-@media (max-width: 600px) {
-  .ip-backdrop {
-    align-items: end;
-    padding: 0;
-  }
-  .ip-dialog {
-    width: 100%;
-    max-height: 92dvh;
-    border-radius: 16px 16px 0 0;
-  }
-  .ip-head {
-    padding: 18px 16px 0;
-  }
-  .ip-body {
-    padding: 16px 16px 8px;
-  }
-  .ip-where {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-  .ip-segment {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .ip-option span {
-    width: 100%;
-    text-align: center;
-  }
-  .ip-branch select {
-    flex: 1;
-    min-width: 0;
-  }
-  .ip-line-head {
-    display: none;
-  }
-  .ip-line {
-    grid-template-columns: 84px minmax(0, 1fr) 32px;
-    grid-template-areas:
-      "item item remove"
-      "qty stock stock";
-    gap: 10px 12px;
-  }
-  .ip-item {
-    grid-area: item;
-  }
-  .ip-qty {
-    grid-area: qty;
-  }
-  .ip-stock {
-    grid-area: stock;
-  }
-  .ip-remove {
-    grid-area: remove;
-    align-self: start;
-  }
-  .ip-suggestion {
-    gap: 8px 12px;
-  }
-  .ip-suggestion .ip-item {
-    grid-area: auto;
-  }
-  .ip-add {
-    align-self: start;
-  }
-  .ip-foot {
-    padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
-  }
-  .ip-actions {
-    flex: 1;
-    justify-content: flex-end;
-  }
-}
 
 /* "Quote is ready" in the chat (spec §3, task 5.1): the headline, the rep's message as they typed
    it (plain text, line breaks kept), then View quote. It sits on Querent's side of the chat. */
@@ -942,163 +540,162 @@
   background: var(--teal-dark);
 }
 .turns + .turns,
-.chat-welcome + .turns {
-  margin-top: 8px;
-}
-@media (max-width: 800px) {
-  .qn-card {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-    padding: 14px 16px 16px;
-  }
-  .qn-doc {
-    display: none;
-  }
-  .qn-headline {
-    font-size: 15px;
-  }
-  .qn-text {
-    font-size: 14px;
-  }
-}
 
-/* PDF preview modal (spec §3, task 5.1): the quote's title and facts, Download at the top right,
-   the customer PDF's pages on a quiet desk surface, and the action bar (Accept / Request changes,
-   task 5.2) at the bottom. Below 600px it fills the screen. */
+/* The quote preview (spec §3, task 5.1; plan U10, C_CVL5): opened from the bell (decision 41) or the
+   chat's View quote. A 920 x 820 dialog: the title with its status, the facts (Total, Valid until,
+   Revision), Download and the close button; the customer PDF's pages on a #F0F1F0 desk; and the bar
+   with Decline, Request changes and Accept (task 5.2). It sits outside the site's page, so it sets the
+   new UI's type itself. */
 .qp-backdrop {
   position: fixed;
   inset: 0;
   z-index: 60;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(25, 35, 34, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 30, 20, 0.5);
+  font-family: var(--q-font-sans);
+  font-size: var(--q-text-body);
+  line-height: normal;
+  color: var(--q-text);
 }
 .qp-dialog {
   display: flex;
   flex-direction: column;
-  width: min(940px, 100%);
-  height: min(940px, calc(100dvh - 48px));
+  box-sizing: content-box;
+  width: 920px;
+  height: 820px;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: white;
-  box-shadow: 0 24px 60px rgba(23, 50, 45, 0.24);
-  animation: ip-in 0.16s ease-out;
+  border-radius: 16px;
+  background: var(--q-card);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+}
+.qp-backdrop button {
+  transition: none;
 }
 .qp-dialog:focus,
 .qp-dialog:focus-visible {
   outline: none;
 }
+.qp-dialog :focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
 .qp-head {
+  flex: none;
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 16px;
-  padding: 18px 18px 16px 24px;
-  border-bottom: 1px solid var(--line);
-}
-.qp-title {
-  min-width: 0;
+  padding: 22px 32px 18px;
+  background: var(--q-card);
 }
 .qp-title-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
+  align-items: baseline;
+  gap: 12px;
 }
-.qp-title-row h2 {
-  font-size: 21px;
-  line-height: 1.3;
+.qp-title-row .qp-quote {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
-.qp-title-row .cx-chip {
-  margin-left: 0;
+.qp-state {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--q-text-2);
+}
+.qp-state[data-tone="action"] {
+  color: var(--q-accent);
 }
 .qp-facts {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 28px;
-  margin: 10px 0 0;
+  gap: 32px;
+  margin-top: 12px;
 }
-.qp-facts dt {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.3;
+.qp-fact-label {
+  color: var(--q-text-muted);
+  font-size: var(--q-text-secondary);
 }
-.qp-facts dd {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  font-variant-numeric: tabular-nums;
+.qp-fact-value {
+  font-weight: 800;
+  font-size: 17px;
+  margin-top: 2px;
 }
 .qp-tools {
+  margin-left: auto;
   display: flex;
-  flex-shrink: 0;
+  gap: 12px;
   align-items: center;
-  gap: 6px;
 }
 .qp-download {
-  display: inline-flex;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  border-radius: var(--q-radius-control);
+  font-size: var(--q-text-button);
+  font-weight: 700;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
-  border: 1px solid #cfd9d6;
-  border-radius: 9px;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
+  gap: 8px;
+  text-align: center;
+  color: var(--q-button-text);
 }
 .qp-download:hover {
-  border-color: #9fc7bd;
-  background: #f3faf8;
-  color: var(--teal-dark);
+  background: var(--q-lane);
   text-decoration: none;
 }
 .qp-close {
-  color: var(--ink);
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 1px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--q-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 .qp-desk {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 24px;
-  background: #e8eeec;
+  padding: 20px 40px 0;
+  background: var(--q-lane);
 }
 .qp-pdf-bar {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  max-width: 780px;
-  margin: 0 auto 12px;
-  color: var(--muted);
-  font-size: 13px;
+  align-items: center;
+  color: var(--q-text-2);
+  font-size: 13.5px;
 }
 .qp-zoom {
-  display: inline-flex;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  border-radius: var(--q-radius-button);
+  font-size: var(--q-text-button);
+  font-weight: 700;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid #cfd9d6;
-  border-radius: 8px;
-  background: white;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
+  gap: 7px;
+  color: var(--q-text);
+  cursor: pointer;
 }
 .qp-zoom:hover {
-  border-color: #9fc7bd;
-  color: var(--teal-dark);
+  background: var(--q-lane);
 }
-/* Zoomed in, a page is at least 820px wide (its print about screen size on a phone); the desk scrolls. */
 .qp-pdf[data-zoom="in"] .qp-sheets {
   justify-items: start;
 }
 .qp-pdf[data-zoom="in"] .qp-sheet {
   width: max(820px, 150%);
-  max-width: none;
 }
 .qp-pdf {
   position: relative;
@@ -1107,24 +704,21 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
-  gap: 18px;
+  gap: 14px;
+  margin-top: 14px;
 }
 .qp-sheet {
   display: block;
   width: 100%;
-  max-width: 780px;
   height: auto;
-  border-radius: 2px;
-  background: white;
-  box-shadow: 0 1px 2px rgba(23, 50, 45, 0.14), 0 10px 28px rgba(23, 50, 45, 0.1);
+  background: var(--q-card);
 }
 .qp-pdf-note {
   display: grid;
   justify-items: center;
   gap: 12px;
   padding: 48px 16px;
-  color: var(--muted);
-  font-size: 14px;
+  color: var(--q-text-2);
   text-align: center;
 }
 .qp-sr {
@@ -1135,49 +729,41 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+/* An older revision a chat message announced (no frame): one line and the way to the latest. */
 .qp-older {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 16px;
-  max-width: 780px;
-  margin: 0 auto 16px;
+  gap: 16px;
+  margin-bottom: 14px;
   padding: 10px 12px 10px 16px;
-  border: 1px solid #cfe5df;
-  border-radius: 10px;
-  background: var(--pale);
-  font-size: 14px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-control);
+  background: var(--q-card);
 }
-.qp-older .ip-secondary {
-  padding: 7px 14px;
-}
+/* Before the first send (no frame): the rep is pricing it, in one card. */
 .qp-empty {
   display: grid;
   justify-items: center;
   gap: 8px;
-  max-width: 460px;
   margin: 48px auto;
   padding: 28px 28px 24px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: white;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.55;
+  border: 1px solid var(--q-card-border);
+  border-radius: var(--q-radius-card);
+  background: var(--q-card);
+  color: var(--q-text-2);
   text-align: center;
 }
 .qp-empty-icon {
-  color: var(--teal-dark);
+  color: var(--q-accent);
 }
 .qp-empty-title {
-  color: var(--ink);
+  color: var(--q-text);
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .qp-empty-links {
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   gap: 4px 18px;
   margin-top: 6px;
@@ -1187,32 +773,61 @@
   align-items: center;
   gap: 6px;
   overflow-wrap: anywhere;
+  color: var(--q-accent);
 }
 .qp-actions {
+  flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px 20px;
-  padding: 14px 24px 18px;
-  border-top: 1px solid var(--line);
-  background: white;
+  gap: 12px;
+  padding: 16px 32px;
+  border-top: 1px solid var(--q-row-divider);
+  background: var(--q-card);
 }
 .qp-note {
-  max-width: 56ch;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
+  color: var(--q-text-2);
 }
 .qp-buttons {
   display: flex;
-  flex-shrink: 0;
-  gap: 10px;
-  margin-left: auto;
+  gap: 12px;
+}
+.qp-buttons button {
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: var(--q-radius-control);
+  font-size: var(--q-text-button);
+  font-weight: 800;
+  line-height: normal;
+  cursor: pointer;
+}
+.qp-buttons .qp-decline {
+  background: var(--q-card);
+  color: var(--q-red);
+  border: 1px solid var(--q-red-border);
+}
+.qp-buttons .qp-changes {
+  background: var(--q-card);
+  color: var(--q-text);
+  border: 1px solid var(--q-border);
+}
+.qp-buttons .qp-accept {
+  background: var(--q-accent);
+  color: #fff;
+  border: 0;
+}
+.qp-buttons .qp-decline:hover:not(:disabled),
+.qp-buttons .qp-changes:hover:not(:disabled) {
+  background: var(--q-lane);
+}
+.qp-buttons .qp-accept:hover:not(:disabled) {
+  background: var(--q-accent-hover);
 }
 
 /* Accept / Request changes (task 5.2): the bar's note says how to answer or what was answered; each
    button opens its form in the bar, above which the PDF stays in view. */
 .qp-status {
+  flex: 1;
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -1566,120 +1181,4 @@
   line-height: 1.4;
   resize: vertical;
 }
-/* The bar's Decline: a quiet secondary button, its text in the Cancel red. */
-.qp-buttons .qp-decline:not(:disabled) {
-  color: #a34231;
-}
-@media (max-width: 600px) {
-  .qp-backdrop {
-    padding: 0;
-  }
-  .qp-dialog {
-    width: 100%;
-    height: 100dvh;
-    border: 0;
-    border-radius: 0;
-  }
-  .qp-head {
-    gap: 10px;
-    padding: 12px 10px 12px 16px;
-  }
-  .qp-title-row h2 {
-    font-size: 18px;
-  }
-  .qp-facts {
-    gap: 4px 18px;
-    margin-top: 8px;
-  }
-  .qp-facts dd {
-    font-size: 14px;
-  }
-  .qp-tools {
-    gap: 2px;
-  }
-  .qp-download {
-    padding: 7px 10px;
-  }
-  .qp-desk {
-    padding: 12px;
-  }
-  .qp-sheets {
-    gap: 12px;
-  }
-  .qp-empty {
-    margin: 24px auto;
-    padding: 22px 18px 20px;
-  }
-  .qp-actions {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
-  }
-  .qp-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin-left: 0;
-  }
-  /* Decline goes on its own row under Request changes and Accept. */
-  .qp-buttons .qp-decline {
-    grid-column: 1 / -1;
-    order: 1;
-  }
-  .qp-actions[data-step="accept"],
-  .qp-actions[data-step="changes"] {
-    max-height: 72%;
-    padding-top: 14px;
-  }
-  .qp-form {
-    gap: 12px;
-  }
-  .qp-locked {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    padding: 10px 12px;
-  }
-  .qp-locked .ip-segment {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .qp-locked .ip-option span {
-    width: 100%;
-    text-align: center;
-  }
-  .qp-locked .ip-branch select {
-    flex: 1;
-    min-width: 0;
-  }
-  .qp-fields {
-    grid-template-columns: 1fr 1fr;
-  }
-  .qp-fields .qp-field:last-child {
-    grid-column: 1 / -1;
-  }
-  .qp-form-buttons {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .qc-head {
-    padding: 18px 16px 4px;
-  }
-  .qc-facts {
-    margin: 12px 16px 4px;
-  }
-  .qd-reasons,
-  .qd-other {
-    margin-right: 16px;
-    margin-left: 16px;
-  }
-  .qc-problem {
-    margin: 10px 16px 0;
-  }
-  .qc-foot {
-    padding: 16px 16px 18px;
-  }
-  .qc-cancel,
-  .qc-send {
-    flex: 1;
-    min-width: 0;
-  }
-}
+

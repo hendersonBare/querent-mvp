@@ -39,7 +39,7 @@ test.beforeAll(async ({ playwright }, testInfo) => {
 });
 
 async function signInAsBrandi(page: Page, { own = true }: { own?: boolean } = {}) {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   if (own) {
@@ -184,7 +184,7 @@ test("rep-only: a customer can't read the list or open the page", async ({ brows
   const context = await browser.newContext({ baseURL });
   try {
     const page = await context.newPage();
-    await page.goto("/");
+    await page.goto("/demo");
     await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
     await expect(page.getByLabel("Ask a question")).toBeVisible();
     // Fetched from the page: the session cookie is Secure, which Playwright's own client won't send over http.

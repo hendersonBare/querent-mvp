@@ -91,7 +91,7 @@ describe('the Decline dialog',()=>{
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(post).not.toHaveBeenCalled();
     expect(bar(dialog).getByRole('button',{name:'Decline'})).toBeEnabled();
-    expect(within(dialog).getByText('Sent',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(dialog).getByText('Sent',{selector:'.qp-state'})).toBeInTheDocument();
     // Opening it again starts over.
     fireEvent.click(bar(dialog).getByRole('button',{name:'Decline'}));
     for(const r of within(declineDialog()).getAllByRole('radio'))expect(r).not.toBeChecked();
@@ -121,7 +121,7 @@ describe('the Decline dialog',()=>{
     expect(within(declineDialog()).getByRole('button',{name:'Declining…'})).toBeDisabled();
     await act(async()=>resolve({quote:DECLINED,replayed:false}));
     expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(within(dialog).getByText('Declined',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(dialog).getByText('Declined',{selector:'.qp-state'})).toBeInTheDocument();
     expect(bar(dialog).getByText('You declined rev 1. Ask Brandi for a new quote if you still need these items.')).toHaveFocus();
     for(const name of ['Decline','Request changes','Accept'])expect(bar(dialog).getByRole('button',{name})).toBeDisabled();
     expect(changed).toHaveBeenCalledTimes(1);

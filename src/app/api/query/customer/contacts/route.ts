@@ -1,6 +1,6 @@
 import {customerGet} from '@/server/customer/http';
-import {customerContacts} from '@/server/customer/sidebar';
+import {customerRepContact} from '@/server/customer/sidebar';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 
-/** The customer's left sidebar (spec §3): assigned rep, departments, will-call per branch. */
-export const GET=customerGet(customerContacts);
+/** The My rep sheet (plan U10, C_CVL3): the customer's assigned rep only (new-ui-implementation-prompt Appendix D). */
+export const GET=customerGet(customerId=>customerRepContact(customerId));
