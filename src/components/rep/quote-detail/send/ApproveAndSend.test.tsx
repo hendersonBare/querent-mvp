@@ -145,8 +145,9 @@ describe('Confirm send',()=>{
     expect(confirm).toHaveAccessibleDescription('Quote Q-24817 rev 1 To Dana Ortiz, Wasatch Mechanical Contractors Querent chat, PDF attached Total $1,122.40 before tax Below floor 1 line a warning only');
     const [cancel,send]=within(confirm).getAllByRole('button');
     expect([cancel.textContent,send.textContent]).toEqual(['Cancel','Send']);
-    // Red Cancel, Querent-green Send (Send.module.css .cancel / .go).
+    // Red Cancel, Querent-green Send (Send.module.css .cancel.danger / .go).
     expect(cancel.className).toMatch(/cancel/);
+    expect(cancel.className).toMatch(/danger/);
     expect(send.className).toMatch(/go/);
     expect(confirm).toHaveFocus();
     expect(sends()).toHaveLength(0);

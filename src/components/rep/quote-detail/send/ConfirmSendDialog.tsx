@@ -49,7 +49,7 @@ export function ConfirmSendDialog({quoteNumber,revision,recipient,company,total,
       </dl>
       {error&&<p className={`${s.problem} ${s.confirmProblem}`} role="alert">{error}</p>}
       <footer className={s.confirmFoot}>
-        <button type="button" className={s.cancel} onClick={onCancel} disabled={busy}>Cancel</button>
+        <button type="button" className={`${s.cancel} ${s.danger}`} onClick={onCancel} disabled={busy}>Cancel</button>
         <button type="button" className={s.go} onClick={onSend} disabled={busy||!canSend}>{busy?'Sending…':'Send'}</button>
       </footer>
     </div>

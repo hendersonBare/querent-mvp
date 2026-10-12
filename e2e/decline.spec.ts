@@ -4,7 +4,7 @@ import { expect, test, type Browser, type BrowserContext, type Locator, type Pag
 // centered dialog with five reasons (no "no response"), a 250-character field for Other, a red
 // Cancel, an X and a confirm button labelled Decline that works with no reason. Afterwards Dana's
 // chip reads Declined and the bar is off; Brandi gets an unread notification in her bell, the Declined filter and chip,
-// and the reason (and the Other note, hers only) in the quote header and Activity.
+// Declined in the editor's header, and the reason (and the Other note, hers only) in Quote details, Activity (plan U4).
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts): start
 // your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots of the
@@ -28,7 +28,7 @@ async function newPage(browser: Browser, baseURL: string, viewport = { width: 14
   return page;
 }
 
-/** Approve & send as Brandi, confirming the revision and total the send check shows. */
+/** Approve and send as Brandi, confirming the revision and total the send check shows. */
 async function send(number: string) {
   const status = await brandi.evaluate(async (number) => {
     const detail = await fetch(`/api/rep/quotes/${number}`).then((r) => r.json());
@@ -64,6 +64,13 @@ async function bellRead(number: string) {
 }
 const repBadge = () => brandi.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.quotes as number));
 const repDetail = (number: string) => brandi.evaluate((n) => fetch(`/api/rep/quotes/${n}`).then((r) => r.json()), number);
+/** Opens Quote details on the rep's editor (plan U4, C_QE4) and returns its Activity section. */
+async function openActivity(page: Page) {
+  const button = page.getByRole("button", { name: /^Quote details/ });
+  await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  return page.getByRole("region", { name: "Quote details" }).getByRole("region", { name: "Activity", exact: true });
+}
 /** Dana's POST, from her page so her session goes with it. */
 async function decline(number: string, body: unknown) {
   return dana.evaluate(
@@ -160,7 +167,7 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await expect.poll(() => bellRead(number)).toBe("true");
   });
 
-  await test.step("Brandi: an unread notification, the Declined filter and chip, the reason in the header and Activity", async () => {
+  await test.step("Brandi: an unread notification, the Declined filter and chip, Declined in the header and the reason in Activity", async () => {
     expect(await repBadge()).toBe(before + 1);
     expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", decline_note: null, unread_for_rep: true });
     await brandi.goto("/rep/quotes?status=declined");
@@ -174,11 +181,11 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await expect(row).toHaveAttribute("data-unread", "true");
     await expect(row.getByText("Declined", { exact: true })).toBeVisible();
     await row.getByRole("link", { name: number, exact: true }).click();
-    await expect(brandi.getByText(/^Dana declined rev 1 on .+: Price too high\.$/)).toBeVisible();
-    const activity = brandi.getByRole("group", { name: "Activity" });
-    await activity.locator("summary").click();
-    await expect(activity.getByRole("list", { name: "Activity, newest first" }).getByRole("listitem").first()).toContainText(`Dana declined ${number} rev 1: Price too high`);
-    await expect(brandi.getByRole("button", { name: "Approve & send" })).toBeDisabled();
+    // The editor's header (plan U4, C_QEBase) says Declined; the reason is in Quote details, Activity.
+    await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Declined/);
+    const activity = await openActivity(brandi);
+    await expect(activity.locator('[data-ui="activity-message"]').first()).toHaveText(`Dana declined ${number} rev 1: Price too high`);
+    await expect(brandi.getByRole("button", { name: "Approve and send" })).toBeDisabled();
   });
 });
 
@@ -209,11 +216,10 @@ test("Decline with Other: the 250-character note reaches Brandi only", async ({}
 
   expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: "other", decline_note: NOTE });
   await brandi.goto(`/rep/quotes/${number}`);
-  await expect(brandi.getByText(/^Dana declined rev 1 on .+: Other\.$/)).toBeVisible();
-  await expect(brandi.getByText(NOTE, { exact: true })).toBeVisible();
-  const activity = brandi.getByRole("group", { name: "Activity" });
-  await activity.locator("summary").click();
-  await expect(activity.getByRole("listitem").first()).toContainText(`Dana declined ${number} rev 1: Other: "${NOTE}"`);
+  // The reason and the Other note reach Brandi in Quote details, Activity (the header has no banner, plan U4).
+  await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Declined/);
+  const activity = await openActivity(brandi);
+  await expect(activity.locator('[data-ui="activity-message"]').first()).toHaveText(`Dana declined ${number} rev 1: Other: "${NOTE}"`);
 });
 
 test("Decline with no reason is recorded; a second decline and an expired quote are refused", async () => {

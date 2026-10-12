@@ -154,6 +154,16 @@
 .cancel:hover:not(:disabled) {
   background: var(--q-lane);
 }
+/* Confirm send's Cancel (no frame; spec §3): red, so the second click can't be mistaken for Send. */
+.cancel.danger {
+  border-color: var(--q-red);
+  background: var(--q-red);
+  color: #fff;
+}
+.cancel.danger:hover:not(:disabled) {
+  background: var(--q-red);
+  filter: brightness(0.9);
+}
 .go:hover:not(:disabled) {
   background: var(--q-accent-hover);
 }

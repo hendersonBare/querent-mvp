@@ -37,7 +37,7 @@ export const GOLDEN_TESTS:readonly [title:string,tag:string|null][]=[
   ['3. Querent asks a clarifying question → Dana answers → item pop-up opens','@step3'],
   ['4. Dana presses Request quote → quote is ready_for_review','@step4'],
   ['5. Brandi opens it from the unread badge, switches a price basis, types a below-floor price → red warning','@step5'],
-  ['6. Brandi Approve & send → Confirm (rep half)','@step6'],
+  ['6. Brandi Approve and send → Confirm (rep half)','@step6'],
   ['6. Dana receives it and opens the PDF preview (customer half)','@step6'],
   ['7. Dana Request changes (note) → Confirm → Brandi edits and sends rev 2','@step7'],
   ['8. Dana Accept (pickup time, PO) → Confirm → Brandi sees Accepted; both PDFs download and validate','@step8'],

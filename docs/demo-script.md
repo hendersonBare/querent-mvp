@@ -29,8 +29,8 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 
 1. In the other window, open `/demo` and choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
 2. Brandi is the manager, so her Quotes list shows every rep's quotes, with a Rep column. Press the red caution button at the top right of the page: the **Needs attention** dropdown lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue and aging quotes, red first. It opens in place; the list's **Needs attention** filter shows the same quotes.
-3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from **All**, where it is unread). In the Customer request box press **View full chat**: the drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
-4. The hex nut line is tagged **Chat suggestion**. Press **Approve & send**, then **Send quote**, then **Send**. The quote reads *Sent*.
+3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from **All**, where it is unread). Press the **Chat** button under the total box: the Full chat drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
+4. The hex nut line is tagged **CHAT SUGGESTION**. Press **Approve and send**, then **Send quote**, then **Send**. The quote reads *Sent*.
 
 ## Act 3: Dana declines a different quote
 
