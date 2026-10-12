@@ -1,10 +1,11 @@
 import Link from 'next/link';
+import {HeaderAlertsBar} from '@/components/rep/HeaderAlerts';
 import page from '@/components/rep/RepPage.module.css';
 
 /** /rep/quotes/<number> for a quote that doesn't exist or isn't this rep's. */
 export default function QuoteNotFound(){
   return <>
-    <div className={page.top}><h1 className={page.title}>Quote not found</h1></div>
+    <div className={page.top}><h1 className={page.title}>Quote not found</h1><HeaderAlertsBar/></div>
     <section className={page.card} aria-labelledby="quote-not-found">
       <div className={page.empty}>
         <h2 id="quote-not-found">This quote isn’t in your list</h2>

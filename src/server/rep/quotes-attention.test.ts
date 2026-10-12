@@ -100,10 +100,10 @@ describe('attentionOrder',()=>{
 
 describe('the header badge counts red quotes only',()=>{
   it('adds attention beside the unread count (OA-8)',()=>{
-    expect(repBadges('brandi',{now:now()})).toEqual({quotes:1,attention:2});
-    expect(repBadges('nora',{now:now()})).toEqual({quotes:0,attention:0});
+    expect(repBadges('brandi',{now:now()})).toMatchObject({quotes:1,attention:2});
+    expect(repBadges('nora',{now:now()})).toMatchObject({quotes:0,attention:0});
     // Mara's demo book (task F1): a new draft she hasn't opened; an Overdue draft and change request.
-    expect(repBadges('mara',{now:now()})).toEqual({quotes:1,attention:2});
+    expect(repBadges('mara',{now:now()})).toMatchObject({quotes:1,attention:2});
   });
 
   it('honours the supplier’s thresholds',async()=>{

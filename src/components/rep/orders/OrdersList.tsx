@@ -11,7 +11,7 @@ import {Empty,pageStyles as page,OrderStatusChip,referenceStyles as s,type Viewi
 export function OrdersList({rows,viewing}:{rows:OrderListRow[];viewing:Viewing}){
   const allCustomers=viewing.customerId===null;
   return <>
-    <RepPageHeader title="Orders" description={`Viewing ${viewing.label} · ${count(rows.length,'order')}`}/>
+    <RepPageHeader spaced title="Orders" description={`Viewing ${viewing.label} · ${count(rows.length,'order')}`}/>
     <section className={page.card} aria-label={`Orders: ${viewing.label}`}>
       {rows.length?<div className={s.tableWrap}>
         <table className={s.table}>

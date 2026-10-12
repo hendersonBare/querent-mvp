@@ -101,12 +101,12 @@ describe('GET /api/rep/badges',()=>{
     const red=(await (await list('?attention=1')).json()).rows.filter((r:Row&{aging:{level:string}})=>r.aging.level==='red');
     const ownRed=red.filter((r:Row)=>r.rep_id==='brandi').length;
     expect(red.length-ownRed).toBeGreaterThan(1);
-    expect(all).toEqual({quotes:1,attention:red.length});
+    expect(all).toMatchObject({quotes:1,attention:red.length});
     expect(await (await badges('?scope=all')).json()).toEqual(all);
   });
   it('counts a rep’s own; ?scope=all is ignored for them, not refused',async()=>{
     expect((await badges('?scope=all','mara')).status).toBe(200);
     // The two made above and her new demo draft are unread; this Overdue one and her demo book's Overdue draft and change request.
-    expect(await (await badges('','mara')).json()).toEqual({quotes:3,attention:3});
+    expect(await (await badges('','mara')).json()).toMatchObject({quotes:3,attention:3});
   });
 });

@@ -34,7 +34,7 @@ const stillApply=(lines:DetailLine[])=>SAMPLE_UPSELLS.filter(u=>u.action.type===
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input),method=init?.method??'GET';
   const body=init?.body?JSON.parse(String(init.body)):undefined;
-  if(url==='/api/rep/badges')return Response.json({quotes:0});
+  if(url==='/api/rep/badges')return Response.json({quotes:0,attention:0,caution:[],bell:[]});
   if(url==='/api/rep/quotes/q-24817/read')return Response.json({id:'q-24817',quote_number:'Q-24817',unread:false});
   if(url==='/api/rep/quotes/q-24817/upsells'&&method==='GET'){
     if(server.upsells!==200)return Response.json({detail:'Something went wrong.'},{status:server.upsells});
@@ -70,7 +70,7 @@ afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
-    initialBadges={{quotes:0,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:0,attention:0,caution:[],bell:[]}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const section=()=>screen.getByRole('group',{name:'Suggested by Querent'}) as HTMLDetailsElement;
 const chipTitles=()=>within(section()).queryAllByRole('listitem').map(li=>li.querySelector('p')!.textContent);

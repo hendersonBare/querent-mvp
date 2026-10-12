@@ -4,13 +4,13 @@ import {referenceStyles as s} from '../reference/parts';
 import {CATEGORY_PARAM} from './params';
 
 // The Items page's only category filter: a dropdown, All by default. Choosing a category loads
-// /rep/items?category=<id>, so the page stays server-rendered
+// /rep/stock?category=<id>, so the page stays server-rendered
 // and a filtered list can still be linked to.
 
 export const ALL_CATEGORIES='';
 
 /** The Items URL for one category, or every category. */
-export const itemsHref=(categoryId:string|null)=>categoryId?`/rep/items?${CATEGORY_PARAM}=${encodeURIComponent(categoryId)}`:'/rep/items';
+export const itemsHref=(categoryId:string|null)=>categoryId?`/rep/stock?${CATEGORY_PARAM}=${encodeURIComponent(categoryId)}`:'/rep/stock';
 
 export interface CategoryOption {id:string;name:string;count:number}
 

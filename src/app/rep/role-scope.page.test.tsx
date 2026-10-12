@@ -124,8 +124,8 @@ describe('/rep/orders/[id]',()=>{
   });
 });
 
-describe('/rep/items/[id]',()=>{
-  const page=async(id:string)=>props(await (await import('./items/[id]/page')).default(routeParams(id))).view;
+describe('/rep/stock/[id]',()=>{
+  const page=async(id:string)=>props(await (await import('./stock/[id]/page')).default(routeParams(id))).view;
   it('a rep sees the item but only their own customers’ sales of it',async()=>{
     as('mara');
     const view=await page(wasatchSku);
@@ -152,10 +152,10 @@ describe('/rep/settings',()=>{
   });
 });
 
-describe('/rep/team and /rep',()=>{
-  it('a rep has no Team page',async()=>{
+describe('/rep/teams and /rep',()=>{
+  it('a rep has no Teams and Reps page',async()=>{
     as('mara');
-    expect(await thrown(async()=>(await import('./team/page')).default())).toBe('NEXT_REDIRECT;replace;/rep/quotes;307;');
+    expect(await thrown(async()=>(await import('./teams/page')).default())).toBe('NEXT_REDIRECT;replace;/rep/quotes;307;');
   });
   it('/rep opens Quotes without carrying ?customer=',async()=>{
     as('mara');

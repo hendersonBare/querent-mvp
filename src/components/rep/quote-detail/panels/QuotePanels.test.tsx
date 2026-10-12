@@ -54,7 +54,7 @@ const log=(message:string)=>{server.activity=[...server.activity,{id:server.acti
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input),method=init?.method??'GET';
   const body=init?.body?JSON.parse(String(init.body)):undefined;
-  if(url==='/api/rep/badges')return Response.json({quotes:0});
+  if(url==='/api/rep/badges')return Response.json({quotes:0,attention:0,caution:[],bell:[]});
   if(url==='/api/rep/quotes/q-24817/read')return Response.json({id:'q-24817',quote_number:'Q-24817',unread:false});
   if(url==='/api/rep/quotes/q-24817')return Response.json(detailOf(server));
   if(server.refuse)return Response.json({detail:'Q-24817 was sent to the customer. It can\'t be edited unless they ask for changes.',code:'illegal_transition'},{status:server.refuse});
@@ -86,7 +86,7 @@ afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail=detailOf(server)){
   return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
-    initialBadges={{quotes:1,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
+    initialBadges={{quotes:1,attention:0,caution:[],bell:[]}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 const settle=()=>act(async()=>{await new Promise(resolve=>setTimeout(resolve,0));});
 /** The panel labelled `label`, opened (a closed panel renders only its summary). */

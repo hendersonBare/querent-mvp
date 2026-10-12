@@ -24,7 +24,7 @@ export function OrderDetail({order}:{order:CustomerOrder}){
             </tr></thead>
             <tbody>{order.lines.map(l=><tr key={l.line_no}>
               <th scope="row">
-                <Link className={s.desc} href={`/rep/items/${encodeURIComponent(l.sku)}`}>{l.description}</Link>
+                <Link className={s.desc} href={`/rep/stock/${encodeURIComponent(l.sku)}`}>{l.description}</Link>
                 <span className={s.sub}><span className={s.sku}>{l.sku}</span> · {l.pack}</span>
               </th>
               <td className={s.num}>{l.qty}</td>

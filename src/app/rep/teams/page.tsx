@@ -4,11 +4,11 @@ import {TeamDashboard} from '@/components/rep/team/TeamDashboard';
 import {managerListOptions} from '@/server/rep/quotes';
 import {signedInRep} from '@/server/rep/session';
 
-export const metadata:Metadata={title:'Team'};
+export const metadata:Metadata={title:'Teams and Reps'};
 
 /**
- * Team (v3 spec §6 Team, §7; decisions 23–25; task D3): the manager's dashboard. A rep has no Team
- * section and goes to their Quotes; anyone else goes back to the workspace chooser (signedInRep).
+ * Teams and Reps (/rep/teams, decision 46; v3 spec §6 Team, §7; decisions 23–25; task D3): the
+ * manager's dashboard, unchanged until U7. A rep has no Teams and Reps section and goes to their Quotes; anyone else goes back to the workspace chooser (signedInRep).
  * The page renders the rep and team options; the browser picks its window (its own local midnights,
  * OA-19) and reads GET /api/rep/team/metrics.
  */

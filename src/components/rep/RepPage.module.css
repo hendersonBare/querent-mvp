@@ -1,4 +1,12 @@
-/* Rep portal page primitives: the page title block (mockup .qtop/.qtitle/.qmeta), cards, empty states and sub-tabs. */
+/* Rep portal page primitives. The page header is RepPageHeader (the U0 PageHeader, plan U2); the rest
+   (cards, empty states, sub-tabs, the detail title block) serve page bodies not rebuilt yet (U3 to U9). */
+.pageHeader {
+  background: transparent;
+}
+/* A page body not rebuilt yet: 18px under the header (the frames draw 14 to 24px, set by each page). */
+.spaced {
+  margin-bottom: 18px;
+}
 .top {
   display: flex;
   flex-wrap: wrap;
@@ -18,12 +26,6 @@
   margin-top: 5px;
   font-size: 13px;
   color: var(--rep-muted);
-}
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
 }
 .card {
   background: var(--rep-surface);

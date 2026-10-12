@@ -19,3 +19,8 @@
   gap: 10px;
   margin-left: auto;
 }
+/* C_ANBase: the line under the title. */
+.subtitle {
+  color: var(--q-text-2);
+  margin-top: 2px;
+}

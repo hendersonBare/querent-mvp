@@ -46,7 +46,7 @@ export function AnalyticsPage(){
   const customer=data?.scope.customer??null;
   const who=customer?customer.name:rep.manager?'all customers':'all your customers';
   return <>
-    <RepPageHeader title="Analytics" description={`Quotes and customer questions for ${who}`}/>
+    <RepPageHeader spaced title={rep.manager?'Analytics':'My Analytics'} description={`Quotes and customer questions for ${who}`}/>
     {error&&<p className="error" role="alert">{error}</p>}
     {!data?(error?null:<div className={s.loading} role="status">Loading analytics…</div>):
       <div className={s.body} data-stale={stale||undefined} aria-busy={stale}>

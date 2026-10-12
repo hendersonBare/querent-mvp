@@ -64,7 +64,7 @@ export function TeamDashboard({reps,teams}:{reps:TeamRepOption[];teams:string[]}
   const shown=query?data:null;
   const window=shown?.window??null;
   return <>
-    <RepPageHeader title="Team"
+    <RepPageHeader spaced title="Teams and Reps"
       description={window?<>Quotes created {longDay(window.from)} to {longDay(window.to,true)}, counted under the rep who owns them now</>:'Quotes created in the window, counted under the rep who owns them now'}
       actions={query&&<a className={s.export} href={`/api/rep/team/metrics.csv?${query}`} download><Download aria-hidden="true" size={15} strokeWidth={1.8}/>Export CSV</a>}/>
     <TeamFilters reps={shownReps} teams={teams} picked={picked} onPick={setPicked} team={team} onTeam={setTeam}

@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import Link from 'next/link';
 import type {OrderStatus,QuoteStatus} from '@/domain';
+import {HeaderAlertsBar} from '../HeaderAlerts';
 import page from '../RepPage.module.css';
 import {REP_STATUS} from '../quotes/labels';
 import {ORDER_STATUS} from './format';
@@ -22,7 +23,8 @@ export function Crumbs({section,href,current}:{section:string;href:string;curren
 
 /**
  * A detail page's title block (mockup .qtop/.qtitle): the record's name with an optional status
- * chip beside it, and one line of facts. List pages use RepPageHeader.
+ * chip beside it, and one line of facts, with the shell's caution and bell on the right (plan U2).
+ * List pages use RepPageHeader. U5 rebuilds these pages on PageHeader (C_CU3, C_OR2, C_ST2).
  */
 export function DetailHeader({title,chip,meta}:{title:string;chip?:ReactNode;meta?:ReactNode}){
   return <div className={page.top}>
@@ -30,6 +32,7 @@ export function DetailHeader({title,chip,meta}:{title:string;chip?:ReactNode;met
       <div className={s.titleRow}><h1 className={page.title}>{title}</h1>{chip}</div>
       {meta&&<p className={page.meta}>{meta}</p>}
     </div>
+    <HeaderAlertsBar/>
   </div>;
 }
 
@@ -58,7 +61,7 @@ export function Empty({heading,children}:{heading:string;children?:ReactNode}){
  */
 export function RecordNotFound({title,heading,body,back}:{title:string;heading:string;body:string;back:{href:string;label:string}}){
   return <>
-    <div className={page.top}><h1 className={page.title}>{title}</h1></div>
+    <div className={page.top}><h1 className={page.title}>{title}</h1><HeaderAlertsBar/></div>
     <section className={page.card} aria-labelledby="record-not-found">
       <div className={page.empty}>
         <h2 id="record-not-found">{heading}</h2>

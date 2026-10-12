@@ -27,7 +27,7 @@ const marasDraft=()=>sampleDetail({editable:false,read_only:{rep_id:'mara',rep_n
 
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
-  if(url.startsWith('/api/rep/badges'))return Response.json({quotes:0,attention:0});
+  if(url.startsWith('/api/rep/badges'))return Response.json({quotes:0,attention:0,caution:[],bell:[]});
   if(url==='/api/rep/quotes/q-24817/messages')return Response.json({total:5,messages:[],next_before:null});
   if(url==='/api/rep/quotes/reassign'&&init?.method==='POST'){
     const body=JSON.parse(String(init.body));
@@ -41,7 +41,7 @@ beforeEach(()=>{fetchMock.mockClear();router.refresh.mockClear();vi.stubGlobal('
 afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail,{rep=brandi,reassign=REASSIGN}:{rep?:{id:string;name:string;initials:string;title:string;manager?:boolean};reassign?:typeof REASSIGN|null}={}){
-  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:0,attention:0}}>
+  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:0,attention:0,caution:[],bell:[]}}>
     <QuoteDetailView initial={detail} reassign={reassign??undefined}/></RepShell>);
 }
 
@@ -92,7 +92,7 @@ describe('the manager on another rep’s quote',()=>{
   it('shows the server’s reason when the reassignment is refused, and keeps the dialog open',async()=>{
     fetchMock.mockImplementation(async(input:RequestInfo|URL)=>String(input)==='/api/rep/quotes/reassign'
       ?Response.json({detail:'Eli Porter is inactive. Choose an active rep.'},{status:400})
-      :String(input).startsWith('/api/rep/badges')?Response.json({quotes:0,attention:0}):Response.json({total:0,messages:[],next_before:null}));
+      :String(input).startsWith('/api/rep/badges')?Response.json({quotes:0,attention:0,caution:[],bell:[]}):Response.json({total:0,messages:[],next_before:null}));
     renderPage(marasDraft());
     fireEvent.click(within(screen.getByRole('region',{name:'Read only'})).getByRole('button',{name:'Reassign…'}));
     const dialog=screen.getByRole('dialog',{name:'Reassign Q-24817'});

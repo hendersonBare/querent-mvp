@@ -1,38 +1,93 @@
 import 'server-only';
+import {AGING_LABELS} from '@/server/quotes/aging';
 import {expireOverdueQuotes} from '@/server/quotes/service';
-import {unreadQuoteCount} from '@/server/repository';
+import {unreadQuoteCount,unreadQuoteEvents,type UnreadQuoteEvent} from '@/server/repository';
 import {ownerFilter} from './access';
-import {redQuoteCount} from './quotes';
+import {attentionQuotes,redQuoteCount} from './quotes';
 
-// The rep portal's nav badges (spec §4: "Unread badges on Quotes").
+// The rep portal's header badges (spec §4; plan U2): counts plus short summaries for the page
+// header's two dropdowns, the caution (Needs attention, C_QOB3) and the bell (Notifications, C_QOB4).
 //
-// "Unread" is the quote's unread_for_rep flag (task 0.2). The spec doesn't define it further, so
-// task 3.1 keeps the flag's existing meaning:
+// "Unread" is the quote's unread_for_rep flag (task 0.2):
 //   set    when the customer presses Request quote (a new ready_for_review quote, spec §3),
-//          accepts, or requests changes (spec §5.4: "badge + activity for the rep");
+//          accepts, requests changes (spec §5.4) or declines (decision 15);
 //   clear  when the rep sends the quote, or opens it (markQuoteRead(id,'rep'), which the quote
 //          detail page calls, task 3.3).
-// The badge counts the signed-in rep's unread quotes across all their customers. It follows no
-// page filter, so a request from another customer is never hidden.
+// The bell lists the reader's own unread quotes, one row each for the customer's latest event, and
+// `quotes` counts them. Unread stays each owner's flag, for the manager too (task U1).
 //
-// Beside it (OA-8), the red "Needs attention" badge counts red quotes (v3 spec §3, decision 18)
-// over the same quotes as the Quotes list: the rep's own, or every rep's for the manager, who reads
-// the whole organization (task U1). Amber quotes show only in the Quotes list's Needs attention
-// filter. The unread badge stays each rep's own (it is each owner's flag).
+// The caution lists the amber and red open quotes, the same quotes as the Quotes list's Needs
+// attention view (decision 18, aging rules unchanged): the rep's own, or every rep's for the manager
+// (task U1). `attention` counts the red ones only (decision 18: the header badge counts red).
+//
+// Notification preferences (Appendix C rep_notification_prefs) come with plan U9: it passes the
+// reader's choices as `notify`, which keeps or drops each summary by its kind. Counts ignore it.
+
+/** What a summary is about: the event keys of Appendix C where one exists, plus a new quote request. */
+export type NotificationKind='quote_overdue'|'quote_aging'|'quote_requested'|'change_requested'|'quote_accepted'|'quote_declined'|'quote_expired';
+
+/** One row of a header dropdown. Selecting it opens /rep/quotes/<quote_number>. */
+export interface BadgeSummary {
+  /** The quote's id. */
+  id:string;
+  quote_number:string;
+  kind:NotificationKind;
+  /** The row's bold text: "Q-24790" (caution) or "Dana Ortiz replied on Q-24790" (bell). */
+  label:string;
+  /** The word on the right: "Overdue" or "Aging" (caution); null on the bell. */
+  tag:string|null;
+  /** The one line under it (caution). Null on the bell, which prints `at` in the browser's time zone. */
+  line:string|null;
+  /** When the event happened (bell), or when the quote's aging clock started (caution). */
+  at:string;
+}
 
 export interface RepBadges {
-  /** The rep's unread quotes. */
+  /** The reader's unread quotes (the bell's rows before preferences). */
   quotes:number;
   /** The red (Overdue) open quotes: the rep's own, or every rep's for the manager (task U1). */
   attention:number;
+  /** The caution dropdown: amber and red open quotes, red first, then the longest waiting. */
+  caution:BadgeSummary[];
+  /** The bell dropdown: the reader's unread customer events, newest first. */
+  bell:BadgeSummary[];
 }
 
+/** "Sent 4 days ago · Expires today" -> "sent 4 days ago, expires today" (aging reasons, quotes/aging.ts). */
+const clause=(reason:string)=>reason.split(' · ').map(part=>part.charAt(0).toLowerCase()+part.slice(1)).join(', ');
+
+/** The bell's words for an unread quote (C_QOB4: "Dana Ortiz replied on Q-24790", "Q-24763 accepted by Canyon Ridge"). */
+function bellSummary(e:UnreadQuoteEvent):BadgeSummary{
+  const base={id:e.id,quote_number:e.quote_number,tag:null,line:null};
+  const responded=e.responded_at??e.requested_at;
+  switch(e.status){
+    case 'changes_requested':return {...base,kind:'change_requested',label:`${e.contact_name??e.customer_name} replied on ${e.quote_number}`,at:responded};
+    case 'accepted':return {...base,kind:'quote_accepted',label:`${e.quote_number} accepted by ${e.customer_name}`,at:responded};
+    case 'declined':return {...base,kind:'quote_declined',label:`${e.quote_number} declined by ${e.customer_name}`,at:responded};
+    case 'expired':return {...base,kind:'quote_expired',label:`${e.quote_number} expired`,at:responded};
+    default:return {...base,kind:'quote_requested',label:`${e.quote_number} requested by ${e.customer_name}`,at:e.requested_at};
+  }
+}
+
+const RANK={red:0,amber:1,ok:2} as const;
+
 /**
- * The badge counts for one rep. Expiry is lazy (task 1.5), so this stores the expiry of every
- * sent quote past valid_until first; counts then read effective statuses. `manager` (repAccess):
- * the red count covers every rep (task U1). `now` is for tests.
+ * The header badges for one rep. Expiry is lazy (task 1.5), so this stores the expiry of every sent
+ * quote past valid_until first; everything then reads effective statuses. `manager` (repAccess): the
+ * caution covers every rep (task U1). `notify`: the reader's notification preferences (plan U9).
+ * `now` is for tests.
  */
-export function repBadges(repId:string,{now=new Date().toISOString(),manager=false}:{now?:string;manager?:boolean}={}):RepBadges{
+export function repBadges(repId:string,{now=new Date().toISOString(),manager=false,notify=()=>true}:{now?:string;manager?:boolean;notify?:(kind:NotificationKind)=>boolean}={}):RepBadges{
   expireOverdueQuotes({now});
-  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(ownerFilter({repId,manager}),now)};
+  const owner=ownerFilter({repId,manager});
+  const caution=attentionQuotes(owner,now)
+    .sort((a,b)=>RANK[a.aging.level]-RANK[b.aging.level]||Date.parse(a.aging.since)-Date.parse(b.aging.since))
+    .map((row):BadgeSummary=>{
+      const red=row.aging.level==='red';
+      return {id:row.id,quote_number:row.quote_number,kind:red?'quote_overdue':'quote_aging',label:row.quote_number,
+        tag:AGING_LABELS[red?'red':'amber'],line:`${row.customer_name}, ${clause(row.aging.reason)}.`,at:row.aging.since};
+    });
+  const bell=unreadQuoteEvents(repId).map(bellSummary).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+  return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(owner,now),
+    caution:caution.filter(item=>notify(item.kind)),bell:bell.filter(item=>notify(item.kind))};
 }

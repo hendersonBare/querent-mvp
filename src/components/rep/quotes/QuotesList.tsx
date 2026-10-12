@@ -111,7 +111,7 @@ export function QuotesList({initial}:{initial:RepQuoteList}){
     void refresh();refreshBadges();
   }
   return <>
-    <RepPageHeader title="Quotes" description={<>Viewing {label}{list.unread>0&&<> · {unreadLabel(list.unread)}</>}</>}/>
+    <RepPageHeader spaced title="Quotes" description={<>Viewing {label}{list.unread>0&&<> · {unreadLabel(list.unread)}</>}</>}/>
     {list.manager&&list.scope==='all'&&<RepFilterBar list={list}/>}
     {list.counts.all>0&&<StatusFilter list={list}/>}
     {list.attention&&list.rows.length>0&&<SortToggle list={list}/>}

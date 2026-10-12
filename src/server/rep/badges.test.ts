@@ -72,13 +72,16 @@ describe('repBadges: the caution dropdown (Needs attention, C_QOB3)',()=>{
   });
 
   it('holds the same quotes as the Quotes list\'s Needs attention view: the rep\'s own, or every rep\'s for the manager (task U1)',async()=>{
+    // The demo books' aging quotes are seeded relative to the reset time (task F1), so read them now.
+    const now=new Date().toISOString();
     const ids=(rows:{id:string}[])=>rows.map(r=>r.id).sort();
-    for(const [rep,manager] of [['brandi',true],['mara',false],['eli',false]] as const){
-      const list=await repQuoteList(rep,{attention:true,manager,now:TWO_DAYS});
-      expect(ids(repBadges(rep,{manager,now:TWO_DAYS}).caution)).toEqual(ids(list.rows));
+    for(const [rep,manager] of [['brandi',true],['brandi',false],['mara',false],['eli',false]] as const){
+      const list=await repQuoteList(rep,{attention:true,manager,now});
+      expect(ids(repBadges(rep,{manager,now}).caution)).toEqual(ids(list.rows));
     }
-    const managers=repBadges('brandi',{manager:true,now:TWO_DAYS}).caution;
-    expect(managers.length).toBeGreaterThan(repBadges('brandi',{now:TWO_DAYS}).caution.length);
+    const managers=repBadges('brandi',{manager:true,now}).caution;
+    expect(managers.length).toBeGreaterThan(repBadges('brandi',{now}).caution.length);
+    expect(repBadges('mara',{now}).caution.length).toBeGreaterThan(0);
   });
 });
 

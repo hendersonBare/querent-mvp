@@ -9,11 +9,11 @@ type Params=Promise<{id:string}>;
 
 export async function generateMetadata({params}:{params:Params}):Promise<Metadata>{
   const {id}=await params;
-  return {title:await detailTitle('Items',()=>catalogItem(id)?.sku)};
+  return {title:await detailTitle('Stock',()=>catalogItem(id)?.sku)};
 }
 
 /**
- * One item, by SKU (/rep/items/HCS-12-13-2G8) or id (spec §4, task 3.8): stock per branch, and its
+ * One item, by SKU (/rep/stock/HCS-12-13-2G8) or id (spec §4, task 3.8): stock per branch, and its
  * recent orders: a rep's own customers' only, every customer's for the manager (task U1).
  */
 export default async function ItemPage({params}:{params:Params}){
