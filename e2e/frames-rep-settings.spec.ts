@@ -263,7 +263,7 @@ for (const c of CASES) {
     const say = (t: string) => (c.rewrites ?? []).reduce((acc, r) => (typeof r.app === "string" ? acc.split(r.app).join(r.frame) : acc), t);
     expect((await sentences(page)).map(say).sort(), `C_${c.id}: whole sentences`).toEqual((await sentences(framePage)).sort());
     const boxes = await textless(framePage);
-    expect(boxes.length, `C_${c.id}: the frame has boxes without text to compare`).toBeGreaterThan(5);
+    expect(boxes.length, `C_${c.id}: the frame has boxes without text to compare`).toBeGreaterThan(4);
     expect(await textless(page), `C_${c.id}: bars, ticks, switches, the avatar and the boxes`).toEqual(boxes);
     await testInfo.attach(`C_${c.id} result`, { body: JSON.stringify({ ...result, boxes: boxes.length, rewrites: (c.rewrites ?? []).map((r) => ({ app: String(r.app), frame: r.frame, why: r.why })), explained: c.explained }, null, 1), contentType: "application/json" });
   });

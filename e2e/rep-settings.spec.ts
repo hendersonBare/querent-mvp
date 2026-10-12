@@ -250,7 +250,7 @@ test("profile: Mara's name, phone, email and picture are what her customer sees 
 
     // Dana sees it in My rep: the name, title, new phone and email, and the picture; nothing else of the rep.
     const dana = await signInAsDana(browser);
-    const contacts = await (await dana.request.get("/api/query/customer/contacts")).json();
+    const contacts = await dana.evaluate(async () => (await fetch("/api/query/customer/contacts")).json());
     expect(Object.keys(contacts.rep).sort()).toEqual(["email", "initials", "name", "phone", "picture_url", "title"]);
     await dana.getByRole("button", { name: "My rep" }).click();
     const sheet = dana.getByRole("dialog", { name: "Your rep" });
