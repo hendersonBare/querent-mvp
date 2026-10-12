@@ -27,7 +27,7 @@ export function NotesPanel({detail,save}:{detail:QuoteDetail;save:SavePanel}){
   return <Panel label="Internal notes" value={notes.length?count(notes.length,'note'):'None'}>
     <div className={p.muted}>Only your team sees these.</div>
     {notes.length>0&&<div role="list" aria-label="Internal notes">
-      {notes.map(n=><div key={n.id} role="listitem" className={p.note}>{n.body}<div className={p.small}>{firstName(n.rep_name)}, {stamp(n.created_at,as_of)}</div></div>)}
+      {notes.map(n=><div key={n.id} role="listitem" className={p.note}>{n.body}<div className={p.small}>{`${firstName(n.rep_name)}, ${stamp(n.created_at,as_of)}`}</div></div>)}
     </div>}
     {editable
       ?<form onSubmit={add}>

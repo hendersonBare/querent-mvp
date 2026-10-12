@@ -127,8 +127,8 @@ export function FulfillmentPanel({detail,items,save,flash=false}:{detail:QuoteDe
     {quote.requested_date&&<Row label={`${kind} requested for`}>{dayWithWeekday(quote.requested_date)}</Row>}
     {confirmed&&<Row label={`${kind} time ${who} chose on accepting`}>{confirmed}</Row>}
     <Row label={freight.source==='override'?'Freight (set by rep)':'Freight'} tone={freight.callForFreight?'bad':undefined}>{freight.callForFreight?'Call for freight':money(freight.amount)}</Row>
-    {freight.override&&<div className={p.line}>Override: {freight.override.reason}</div>}
-    {freight.override&&<div className={p.line}>Distance-based freight would be {freight.computedAmount===null?'call for freight':money(freight.computedAmount)}.</div>}
+    {freight.override&&<div className={p.line}>{`Override: ${freight.override.reason}`}</div>}
+    {freight.override&&<div className={p.line}>{`Distance-based freight would be ${freight.computedAmount===null?'call for freight':money(freight.computedAmount)}.`}</div>}
     <FreightDetails freight={freight} origin={quote.branch_code}/>
     {editable&&(overriding
       ?<OverrideForm draft={override} onChange={setOverride} busy={busy} onSave={saveOverride} onCancel={()=>setOverride(null)}/>

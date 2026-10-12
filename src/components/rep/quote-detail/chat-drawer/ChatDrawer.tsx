@@ -57,9 +57,9 @@ export function ChatDrawer({customer,total,messages,hasEarlier,loading,error,onL
       <div className={s.head}>
         <div>
           <div id={titleId} className={s.title} role="heading" aria-level={2}>Full chat</div>
-          <div className={s.sub}>{customer}{total!==null&&`, ${messageCount(total)}`}, via Querent chat</div>
+          <div className={s.sub}>{`${customer}${total!==null?`, ${messageCount(total)}`:''}, via Querent chat`}</div>
         </div>
-        <button type="button" className={s.close} onClick={onClose} aria-label="Close chat">x</button>
+        <button type="button" className={s.closeButton} onClick={onClose} aria-label="Close chat"><span className={s.close}>x</span></button>
       </div>
       {hasEarlier&&<button type="button" className={s.earlier} onClick={onLoadEarlier} disabled={loading}>Load earlier</button>}
       {error&&<p className={s.error} role="alert">{error}{total===null&&<button type="button" className={s.retry} onClick={onRetry} disabled={loading}>Try again</button>}</p>}
@@ -77,7 +77,7 @@ export function ChatDrawer({customer,total,messages,hasEarlier,loading,error,onL
 function Message({message:m,customer,notice,firstNotice}:{message:TranscriptMessage;customer:string;notice:boolean;firstNotice:boolean}){
   const when=requestedAt(m.created_at);
   if(notice)return <div role="listitem" className={s.notice} data-first={firstNotice||undefined} data-role={m.role} data-kind={m.kind}>
-    {noticeLabel(m.kind)}{m.content&&`: ${m.content}`} {when}
+    {`${noticeLabel(m.kind)}${m.content?`: ${m.content}`:''} ${when}`}
   </div>;
   const customerSaid=m.role==='customer';
   return <div role="listitem" className={s.message} data-role={m.role}>

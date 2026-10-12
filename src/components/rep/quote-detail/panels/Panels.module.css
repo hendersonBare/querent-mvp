@@ -42,8 +42,9 @@
   color: var(--q-text-2);
 }
 .mini {
-  box-sizing: border-box;
+  box-sizing: content-box;
   height: 28px;
+  text-align: start;
   margin: 0;
   padding: 0 12px;
   border: 1px solid var(--q-border);
@@ -151,6 +152,7 @@
 }
 .handButton {
   display: inline-block;
+  text-align: start;
   margin: 0;
   padding: 7px 12px;
   border: 1px solid var(--q-border);
@@ -179,6 +181,7 @@
 }
 .go {
   margin: 0;
+  text-align: start;
   border: 0;
   padding: 7px 16px;
   border-radius: var(--q-radius-field);

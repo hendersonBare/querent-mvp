@@ -169,15 +169,15 @@ function TotalBox({figures,editable,blockers,readOnlyRep,onApprove,onJump}:{figu
   const floor=figures.floor.value===null?null:`Margin, floor ${figures.floor.label}`;
   return <section className={s.totalBox} aria-label="Quote summary">
     <div className={s.big}>{money(figures.total)}</div>
-    <div className={s.cap}>Quote total, before tax{figures.freight.callForFreight&&' (freight to set)'}</div>
+    <div className={s.cap}>{`Quote total, before tax${figures.freight.callForFreight?' (freight to set)':''}`}</div>
     <div className={s.pair}>
       <div className={s.stat}><div className={s.statValue}>{money(figures.gp)}</div><div className={s.statLabel}>Gross profit</div></div>
       <div className={s.stat}><div className={s.statValue} data-low={figures.belowFloor||undefined}>{figures.marginLabel}</div><div className={s.statLabel}>{floor??'Margin'}</div></div>
     </div>
     <div className={s.approveWrap}>
       <button type="button" className={s.approve} onClick={onApprove} disabled={!editable||blocked!==null} aria-describedby={blocked?reasonId:undefined}>Approve and send</button>
-      {blocked&&<button type="button" id={reasonId} className={s.blocker} onClick={()=>onJump(blockers[0])}>{blocked.first}{blocked.more&&` ${blocked.more}`}</button>}
-      {readOnlyRep&&<div className={s.readOnly}>Read only: {readOnlyRep}&apos;s quote. Reassign it to edit.</div>}
+      {blocked&&<button type="button" id={reasonId} className={s.blocker} onClick={()=>onJump(blockers[0])}>{`${blocked.first}${blocked.more?` ${blocked.more}`:''}`}</button>}
+      {readOnlyRep&&<div className={s.readOnly}>{`Read only: ${readOnlyRep}'s quote. Reassign it to edit.`}</div>}
     </div>
   </section>;
 }

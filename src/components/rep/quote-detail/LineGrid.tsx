@@ -110,7 +110,7 @@ function LineRow({line,editor,floor,customerFirstName,asOf,showCost,editable,ope
           aria-label={`Quantity for ${line.sku}`} onDraft={qty=>editor.draft(line.id,qty===null?null:{qty})} onCommit={(qty,session)=>editor.edit(line.id,{qty},session)}/>
       </div>
       {showCost&&<div role="cell" className={s.avail}>
-        {stock.available===null?<div>-</div>:<><div>{stock.available} at {stock.branchCode}</div>{stock.short>0&&<div className={s.short}>Short {stock.short}</div>}</>}
+        {stock.available===null?<div>-</div>:<><div>{`${stock.available} at ${stock.branchCode}`}</div>{stock.short>0&&<div className={s.short}>{`Short ${stock.short}`}</div>}</>}
       </div>}
       {showCost&&<div role="cell" className={s.cost}>{money(line.unit_cost)}</div>}
       <div role="cell" className={s.priceCell}>
@@ -204,12 +204,12 @@ function LineDetails({id,name,line,figures,floorLabel,recovery,customerFirstName
     <div>
       <div className={s.dHead}>Why this price?</div>
       <div className={s.dText}>{priced?priced.explanation:'No price facts on file for this item. Price it by hand.'}</div>
-      {offPick&&line.unit_price!==null&&<div className={s.dNote}>You priced it at {line.price_basis?BASIS_LABELS[line.price_basis]:'Custom'}, {money(line.unit_price)}.</div>}
-      <div className={s.dNote}>{floorLabel}.{lastPaid&&` Last paid ${money(lastPaid.price)} on ${day(lastPaid.date,asOf)}.`}</div>
+      {offPick&&line.unit_price!==null&&<div className={s.dNote}>{`You priced it at ${line.price_basis?BASIS_LABELS[line.price_basis]:'Custom'}, ${money(line.unit_price)}.`}</div>}
+      <div className={s.dNote}>{`${floorLabel}.${lastPaid?` Last paid ${money(lastPaid.price)} on ${day(lastPaid.date,asOf)}.`:''}`}</div>
       {recovery&&line.freight_recovery>0&&<div className={s.dNote}>{recoveryText(line.freight_recovery,recovery)}</div>}
       {line.requested_text&&<div className={s.dAsked}>
-        <div className={s.dHead}>What {customerFirstName} asked for</div>
-        <div className={s.dText}>&quot;{line.requested_text}&quot;</div>
+        <div className={s.dHead}>{`What ${customerFirstName} asked for`}</div>
+        <div className={s.dText}>{`"${line.requested_text}"`}</div>
       </div>}
     </div>
     <div>

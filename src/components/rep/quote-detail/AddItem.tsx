@@ -88,7 +88,7 @@ export function AddItem({quoteId,onAdd,onOpenChange,flash=false}:{quoteId:string
               data-active={i===active||undefined} className={s.result} onPointerDown={event=>event.preventDefault()} onClick={()=>pick(i)} onPointerEnter={()=>setActive(i)}>
               <div>
                 <div className={s.resultName}>{m.description}</div>
-                <div className={s.resultMeta}><span className={s.mono}>{m.sku}</span>, {m.available} at {m.branch_code}, {money(m.price)}</div>
+                <div className={s.resultMeta}><span className={s.mono}>{m.sku}</span>{`, ${m.available} at ${m.branch_code}, ${money(m.price)}`}</div>
               </div>
               <span className={s.resultAction}>{m.on_quote?'Already on quote':'Add'}</span>
             </div>)}

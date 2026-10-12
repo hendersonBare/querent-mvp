@@ -62,7 +62,7 @@ export function TermsPanel({detail,save,flash=false}:{detail:QuoteDetail;save:Sa
     </div>
     {editable&&<div className={p.small} id={`${id}-note`}>
       {quote.expires_on
-        ?<>{daysLeft===null?'Pick a date after today.':`${daysLeft} ${daysLeft===1?'day':'days'} from today.`}<button type="button" className={p.linkButton} disabled={busy} onClick={()=>void saveTerms({expiresOn:null})}>Use the default ({quote.valid_days} days after sending)</button></>
+        ?<>{daysLeft===null?'Pick a date after today.':`${daysLeft} ${daysLeft===1?'day':'days'} from today.`}<button type="button" className={p.linkButton} disabled={busy} onClick={()=>void saveTerms({expiresOn:null})}>{`Use the default (${quote.valid_days} days after sending)`}</button></>
         :`Default: ${quote.valid_days} days after it is sent. Pick any date to change it.`}
     </div>}
     <div className={p.field}>

@@ -47,7 +47,7 @@ function Idea({chip,taking,onTake}:{chip:RepUpsell;taking:boolean;onTake:()=>voi
     <div>
       <div className={s.ideaTitle}>{chip.wording.title}</div>
       <div className={s.ideaReason}>{chip.wording.reason}</div>
-      <div className={s.ideaFigures}><span className={s.mono}>{chip.item.sku}</span>, {chipFigures(chip)}, <b>{chipGain(chip)}</b></div>
+      <div className={s.ideaFigures}><span className={s.mono}>{chip.item.sku}</span>{`, ${chipFigures(chip)}, `}<b>{chipGain(chip)}</b></div>
     </div>
     <button type="button" className={s.ideaButton} onClick={onTake} disabled={taking} aria-label={`${verb}: ${chip.wording.title}`}>{taking?(verb==='Add'?'Adding…':'Applying…'):verb}</button>
   </div>;

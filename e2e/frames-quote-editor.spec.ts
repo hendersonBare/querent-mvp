@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
 import { FONT_USER_AGENT, FRAME_SIZE, STYLE_PROPS, diffMeasures, measureAll, openFrame, startFrameServer } from "../scripts/frames/lib.mjs";
 
@@ -22,14 +23,36 @@ const APP_SIZE = { width: 1920, height: 1080 };
 const SEED_DATE = "2026-09-23";
 const QUOTE = "/rep/quotes/Q-24817";
 
-type Measure = { path: number; tag: string; text: string; rect: { x: number; y: number; w: number; h: number }; style: Record<string, string> };
+type Measure = { path: number; tag: string; text: string; rect: { x: number; y: number; w: number; h: number }; style: Record<string, string>; field?: boolean };
+
+/**
+ * A form field reads as the frame's div holding its text, with one explained difference: an input aligns
+ * its value with text-align (right for numbers), where the frame's div aligns its text with flex
+ * (justify-content: flex-end) and keeps text-align: start.
+ */
+const FIELD_EXPLAINED: Record<string, { frame: string; app: string }> = { textAlign: { frame: "start", app: "right" } };
+type Diff = { element: string } & Record<string, unknown>;
+function withoutExplained(diffs: Diff[], app: Measure[], wraps: Set<string>) {
+  const fields = new Set(app.filter((m) => m.field).map((m) => `${m.tag} "${m.text}"`));
+  return diffs
+    .map((d) => {
+      if (!fields.has(d.element) && !wraps.has(d.element)) return d;
+      const rest: Diff = { element: d.element };
+      for (const [k, v] of Object.entries(d)) {
+        if (k === "element" || (k === "height" && wraps.has(d.element))) continue;
+        const ok = fields.has(d.element) ? FIELD_EXPLAINED[k] : undefined;
+        const pair = v as { frame: string; app: string };
+        if (!(ok && ok.frame === pair.frame && ok.app === pair.app)) rest[k] = v;
+      }
+      return rest;
+    })
+    .filter((d) => Object.keys(d).length > 1);
+}
 
 let frames: { base: string; close: () => void };
 let framePage: Page;
 let frameSmall: Page;
 let appPage: Page;
-
-test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async ({ browser }) => {
   frames = await startFrameServer();
@@ -119,12 +142,12 @@ async function measureApp(page = appPage) {
       if (!["input", "textarea", "select"].includes(m.tag)) return m;
       const field = fields[k++];
       if (!field || (m.tag === "input" && /checkbox|radio/.test(field.text))) return m;
-      return { ...m, tag: "div", text: field.text, style: field.placeholderColor ? { ...m.style, color: field.placeholderColor } : m.style };
+      return { ...m, tag: "div", text: field.text.slice(0, 80), field: true, style: field.placeholderColor ? { ...m.style, color: field.placeholderColor } : m.style };
     });
 }
 
 /** A frame text the app shows with real data (Appendix G placeholders: dates, times): the app element matching `app` takes the frame's text, so its look is compared. */
-interface Placeholder { frame: string; app: RegExp; why: string }
+interface Placeholder { frame: string; app: RegExp; why: string; /** The real text is longer, so it wraps to more lines: its height may differ. */ wraps?: boolean }
 /** An app element whose tag differs from the frame's drawing (a real control where the frame draws a span or div). */
 interface Alias { text: string; app: string; frame: string; why: string }
 /** App text the frame does not draw, each explained. */
@@ -152,6 +175,11 @@ const BASE_PLACEHOLDERS: Placeholder[] = [
   { frame: 'div "Oct 25"', app: day(), why: WHY_DATES },
   { frame: 'span "Net 30, will call SLC, valid until Oct 25"', app: day("Net 30, will call SLC, valid until "), why: WHY_DATES },
 ];
+const WHY_CHAT = "the chat is Q-24817's seeded conversation: Querent's answer and the two notices are its own words and times; the frame shortens them (sample text, Appendix G), so they wrap to more lines";
+const WHY_SEARCH = "search results: the frame samples three matches for \"1/2\" (Appendix G); the app lists what the catalog search really returns, the active row first and the item on the quote as \"Already on quote\"";
+const SEARCH_NAME = /^(?!Hex cap screw 1\/2-13 x 2 in, Grade 8, yellow zinc$).*1\/2.*$/;
+const SEARCH_SKU = /^[A-Z]{2,3}(-[A-Z0-9]+)+$/;
+const SEARCH_META = /^, \d+ at SLC, \$[\d,]+\.\d\d$/;
 const STOCK_NOTE: Extra = {
   app: /^div "Short 5 at SLC\. 20 at Ogden\. 24 on order at SLC, due [A-Z][a-z]{2} \d{1,2}"$/,
   why: "decision 44 (no frame): stock short at the quote branch shows as an inline note on its line, styled like the below-floor note; the ratchet strap line is 5 short at SLC",
@@ -189,6 +217,7 @@ const CASES: FrameCase[] = [
       { frame: 'span "Valid until Oct 25"', app: day("Valid until "), why: WHY_DATES },
       { frame: 'div "10/25/2026"', app: /^\d\d\/\d\d\/\d{4}$/, why: WHY_DATES },
       { frame: 'span "Sep 25, SO-51223"', app: day("", ", SO-51223"), why: WHY_DATES },
+      { frame: 'span "71% over 12 months"', app: /^\d+% over 12 months$/, why: "win rate: counted from Wasatch's quotes over the 12 months before today; the frame's 71% is the mockup's sample (Appendix G)" },
       ...[0, 1, 2].map((i) => ({ frame: `span "Oct 9, 10:1${i === 2 ? 4 : 3} AM"`, app: day("", ", \\d{1,2}:\\d\\d [AP]M"), why: `activity time: ${WHY_DATES}` })),
     ],
     aliases: [
@@ -203,14 +232,25 @@ const CASES: FrameCase[] = [
     drive: async (page) => page.getByRole("button", { name: /^Customer chat/ }).click(),
     placeholders: [
       ...[0, 1, 2].map((i) => ({ frame: `span "Fri Oct 9, 10:1${i === 2 ? 3 : 2} AM"`, app: /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d\d [AP]M$/, why: `message time: ${WHY_DATES}` })),
-      { frame: 'div "Item pop-up: Here is your list. Check the quantities. Fri Oct 9, 10:13 AM"', app: /^Item pop-up: Here is your list\. Check the quantities\. [A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d\d [AP]M$/, why: `notice time: ${WHY_DATES}` },
-      { frame: 'div "Quote requested: Thanks, Dana. Brandi Gallego has your quote. Fri Oct 9, 10:14 AM"', app: /^Quote requested: Thanks, Dana\. Brandi Gallegos? has your quote\. [A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d\d [AP]M$/, why: `notice time: ${WHY_DATES}; the seeded notice names Brandi Gallegos in full` },
+      { frame: 'div "Yes, the 1/2-13 x 2 in Grade 8 hex cap screws are in stock at SLC."', app: /^Yes, the 1\/2-13 x 2 in Grade 8 hex cap screws are in stock at SLC/, wraps: true, why: WHY_CHAT },
+      { frame: 'div "Item pop-up: Here is your list. Check the quantities. Fri Oct 9, 10:13 AM"', app: /^Item pop-up: Here is your list\. Check the quantities/, wraps: true, why: WHY_CHAT },
+      { frame: 'div "Quote requested: Thanks, Dana. Brandi Gallego has your quote. Fri Oct 9, 10:14 AM"', app: /^Quote requested: Thanks, Dana\. Brandi Gallegos/, wraps: true, why: WHY_CHAT },
     ],
-    aliases: [{ text: "x", app: "button", frame: "span", why: "the drawer's close is a button; the frame draws a span" }],
   },
   { id: "QE7", drive: async (page) => page.getByRole("switch", { name: "Show cost and stock" }).click() },
   {
     id: "QE8",
+    placeholders: [
+      ...["Hex nut 1/2-13, Grade 8, yellow zinc (box of 100)", "Flat washer 1/2 in, Grade 8, yellow zinc (box of 100)"].map((name) => ({ frame: `div "${name}"`, app: SEARCH_NAME, why: WHY_SEARCH })),
+      { frame: 'span "HN-12-13-G8"', app: SEARCH_SKU, why: WHY_SEARCH },
+      ...[", 41 at SLC, $18.15", ", 88 at SLC, $14.25", ", 64 at SLC, $31.50"].map((meta) => ({ frame: `div "${meta}"`, app: SEARCH_META, why: WHY_SEARCH })),
+      { frame: 'div "3 matches for "1/2". Type a SKU or name."', app: /^\d+ matches for "1\/2"\. Type a SKU or name\.$/, why: WHY_SEARCH },
+    ],
+    aliases: [{ text: "1/2", app: "div", frame: "span", why: "the search's text is a real input; the frame draws what was typed as a span" }],
+    extras: [
+      { app: /^div ".*1\/2.*"$/, why: WHY_SEARCH }, { app: /^div ", \d+ at SLC, \$[\d,]+\.\d\d"$/, why: WHY_SEARCH },
+      { app: /^span "[A-Z]{2,3}(-[A-Z0-9]+)+"$/, why: WHY_SEARCH }, { app: /^span "Add"$/, why: WHY_SEARCH },
+    ],
     drive: async (page) => {
       await page.getByRole("button", { name: "Add item" }).click();
       await page.getByRole("combobox", { name: "Add item" }).fill("1/2");
@@ -221,7 +261,7 @@ const CASES: FrameCase[] = [
     id: "QE9",
     drive: async (page) => page.getByRole("button", { name: "Line details for Hex cap screw 1/2-13 x 2 in" }).click(),
     placeholders: [
-      { frame: 'div "Last paid $31.50 on Aug 28, above customer price $30.95. +$5.50 GP vs customer price."', app: day("Last paid \\$31\\.50 on ", ", above customer price \\$30\\.95\\. \\+\\$5\\.50 GP vs customer price\\."), why: WHY_DATES },
+      { frame: 'div "Last paid $31.50 on Aug 28, above customer price $30.95. +$5.50 GP vs customer price."', app: /^Last paid \$31\.50 on [A-Z][a-z]{2} \d{1,2}, above customer price \$30\.95\. \+\$5\.50 GP vs customer p/, why: WHY_DATES },
       { frame: "div \"Brandi's 20% Fasteners floor. Last paid $31.50 on Aug 28.\"", app: day("Brandi's 20% Fasteners floor\\. Last paid \\$31\\.50 on ", "\\."), why: WHY_DATES },
     ],
     aliases: [
@@ -251,24 +291,32 @@ const CASES: FrameCase[] = [
 /** "tag "text"" of a measure. */
 const key = (m: Measure) => `${m.tag} "${m.text}"`;
 
-/** Rewrites placeholder app elements to the frame's text, and aliased tags to the frame's; returns the app list to compare. */
+/**
+ * Rewrites placeholder app elements to the frame's text (measureAll keeps a text's first 80 characters,
+ * so a long placeholder is matched on those), and aliased tags to the frame's; returns the app list to
+ * compare and the elements whose real text wraps differently.
+ */
 function prepare(frameM: Measure[], appM: Measure[], c: FrameCase) {
+  const wraps = new Set<string>();
   const frameKeys = new Set(frameM.map(key));
   const app = appM.map((m) => {
     const alias = c.aliases?.find((a) => a.text === m.text && a.app === m.tag);
     return alias ? { ...m, tag: alias.frame } : m;
   });
   const used = new Set<number>();
+  const count = (list: Measure[], tag: string, text: string) => list.filter((m) => m.tag === tag && m.text === text).length;
   for (const p of [...BASE_PLACEHOLDERS, ...(c.placeholders ?? [])]) {
-    const [, tag, text] = /^(\w+) "([\s\S]*)"$/.exec(p.frame)!;
-    if (!frameM.some((f) => f.tag === tag && f.text === text)) continue; // not in this state
-    if (app.some((a) => a.tag === tag && a.text === text)) continue; // the app shows the frame's own text
+    const [, tag, full] = /^(\w+) "([\s\S]*)"$/.exec(p.frame)!;
+    const text = full.slice(0, 80);
+    // Only as many as the frame has and the app lacks: none when the app shows the frame's own text.
+    if (count(frameM, tag, text) <= count(app, tag, text)) continue;
     const i = app.findIndex((a, n) => !used.has(n) && a.tag === tag && p.app.test(a.text) && !frameKeys.has(key(a)));
     expect(i, `${c.id}: no app element for the placeholder ${p.frame} (${p.app})`).toBeGreaterThanOrEqual(0);
     used.add(i);
     app[i] = { ...app[i], text };
+    if (p.wraps) wraps.add(`${tag} "${text}"`);
   }
-  return app;
+  return { app, wraps };
 }
 
 /** Icons and icon-only buttons (no text at all), per side. */
@@ -288,16 +336,18 @@ for (const c of CASES) {
     await restMouse();
     if (c.id === "QE10") await appPage.getByRole("option", { name: /^Customer/ }).hover();
     const frameM = await measureFrame(c.id);
-    const appM = prepare(frameM, await measureApp(), c);
+    const { app: appM, wraps } = prepare(frameM, await measureApp(), c);
     const forward = diffMeasures(frameM, appM);
     const backward = diffMeasures(appM, frameM);
     const extras = [STOCK_NOTE, ...(c.extras ?? [])];
     const added = (backward.missing as string[]).filter((m) => !extras.some((e) => e.app.test(m)));
     const frameIcons = await iconCounts(framePage);
     const appIcons = await iconCounts(appPage, [TOGGLE.selector, ...(c.iconOnly ?? []).map((i) => i.selector)]);
-    await testInfo.attach(`C_${c.id}-diff.json`, { body: JSON.stringify({ forward, added, frameIcons, appIcons }, null, 1), contentType: "application/json" });
+    const report = testInfo.outputPath(`C_${c.id}-diff.json`);
+    await writeFile(report, JSON.stringify({ forward, added, frameIcons, appIcons, frame: frameM.map(key), app: appM.map(key) }, null, 1));
+    await testInfo.attach(`C_${c.id}-diff.json`, { path: report, contentType: "application/json" });
     expect(forward.missing, `C_${c.id}: frame elements missing in the app`).toEqual([]);
-    expect(forward.diffs, `C_${c.id}: style and height differences`).toEqual([]);
+    expect(withoutExplained(forward.diffs as Diff[], appM, wraps), `C_${c.id}: style and height differences`).toEqual([]);
     expect(added, `C_${c.id}: app text the frame does not draw`).toEqual([]);
     expect(appIcons, `C_${c.id}: icons and icon-only buttons`).toEqual(frameIcons);
   });

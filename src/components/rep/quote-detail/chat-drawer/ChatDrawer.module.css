@@ -40,22 +40,27 @@
   font-size: var(--q-text-secondary);
   margin-top: 2px;
 }
-.close {
-  box-sizing: border-box;
+/* The close is a button around the frame's 32px "x" box. */
+.closeButton {
   flex: none;
-  width: 32px;
-  height: 32px;
+  display: flex;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: var(--q-radius-field);
-  background: var(--q-close);
+  background: transparent;
   color: inherit;
   font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--q-radius-field);
+  background: var(--q-close);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
 }
 .message {
   background: var(--q-table-header);

@@ -56,7 +56,7 @@ export function SendDialog({recipient,recipientFirstName,summary,warnings,blocke
       <div id={summaryId} className={s.sum}>{summary}</div>
       {blocked&&<div id={blockedId} className={s.blocked} role="alert">Can&apos;t send yet:
         <ul>{blockers.map((text,i)=><li key={i}>{text}</li>)}</ul></div>}
-      {warnings.length>0&&<div className={s.open}><b>Still open:</b> {stillOpenText(warnings)}</div>}
+      {warnings.length>0&&<div className={s.open}><b>Still open:</b>{` ${stillOpenText(warnings)}`}</div>}
       {error&&<p className={s.problem} role="alert">{error}</p>}
       <div className={s.via} role="group" aria-labelledby={viaId}>
         <span id={viaId} className={s.viaLabel}>Send by</span>
@@ -67,7 +67,7 @@ export function SendDialog({recipient,recipientFirstName,summary,warnings,blocke
       <div id={labelId} className={s.fieldLabel}>Message to {recipientFirstName}</div>
       <textarea ref={field} aria-labelledby={labelId} className={s.message} rows={3} maxLength={QUOTE_MESSAGE_MAX} value={message} aria-describedby={noteId}
         onChange={event=>onMessage(event.target.value)}/>
-      <div id={noteId} className={s.note}>{recipientFirstName}&apos;s chat shows it under &quot;{headline} - View quote&quot;.</div>
+      <div id={noteId} className={s.note}>{`${recipientFirstName}'s chat shows it under "${headline} - View quote".`}</div>
       <div className={s.foot}>
         {saving&&<span className={s.saving} role="status">Saving your changes…</span>}
         <button type="button" className={s.cancel} onClick={onCancel}>Cancel</button>

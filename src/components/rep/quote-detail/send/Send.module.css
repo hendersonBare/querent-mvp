@@ -24,7 +24,7 @@
   font-family: var(--q-font-sans);
   font-size: var(--q-text-body);
   line-height: normal;
-  text-align: left;
+  text-align: start;
 }
 .dialog:focus {
   outline: none;
@@ -107,7 +107,7 @@
   border: 1px solid var(--q-border);
   border-radius: var(--q-radius-control);
   padding: 12px 14px;
-  background: #fff;
+  background: transparent;
   font: inherit;
   line-height: 1.5;
   color: inherit;
@@ -128,7 +128,9 @@
 /* Cancel and the green button (Send quote; Send and Reassign in the narrower dialogs). */
 .cancel,
 .go {
+  box-sizing: content-box;
   height: 42px;
+  text-align: start;
   border-radius: var(--q-radius-control);
   font: inherit;
   display: flex;

@@ -275,6 +275,7 @@
   justify-content: flex-end;
 }
 .remove {
+  display: block;
   border: 0;
   background: transparent;
   color: var(--q-text-muted);
@@ -492,6 +493,7 @@
 }
 .use {
   justify-self: end;
+  text-align: start;
   margin: 0;
   padding: 3px 12px;
   border: 1px solid var(--q-border);
@@ -509,6 +511,7 @@
   background: transparent;
   font-weight: 600;
   color: var(--q-icon-muted);
+  opacity: 1;
   cursor: default;
 }
 
@@ -554,6 +557,7 @@
 }
 .searchInput {
   flex: 1;
+  border-radius: 0;
   min-width: 0;
   height: 18px;
   margin: 0;
@@ -749,6 +753,7 @@
 }
 .menuItem {
   display: block;
+  text-align: start;
   box-sizing: border-box;
   width: 100%;
   margin: 0;
@@ -758,7 +763,6 @@
   background: transparent;
   font: inherit;
   color: inherit;
-  text-align: left;
   cursor: pointer;
 }
 .menuItem:hover:not([aria-disabled="true"]),
@@ -982,6 +986,7 @@
 /* The "?" button around the circle: no look of its own. */
 .helpButton {
   display: flex;
+  text-align: start;
   margin: 0;
   border: 0;
   padding: 0;
