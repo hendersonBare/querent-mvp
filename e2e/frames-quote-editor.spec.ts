@@ -69,7 +69,7 @@ async function resetDemo(browser: Browser, testInfo: TestInfo) {
   await context.close();
 }
 
-/** The sample quote at 1920x1080 as the manager, settled: suggestions and the chat count loaded. */
+/** The sample quote at 1920x1080 as the manager, settled: suggestions and the chat count loaded (another quote: its header shown). */
 async function openEditor(browser: Browser, testInfo: TestInfo, persona = "supplier", path = QUOTE) {
   await resetDemo(browser, testInfo);
   const baseURL = String(testInfo.project.use.baseURL);
@@ -78,8 +78,10 @@ async function openEditor(browser: Browser, testInfo: TestInfo, persona = "suppl
   appPage = await context.newPage();
   await appPage.goto(path);
   await appPage.evaluate(() => document.fonts.ready);
-  await expect(appPage.getByRole("button", { name: /^Customer chat, \d+ messages$/ })).toBeVisible();
-  await expect(appPage.getByText(/ideas?, up to/)).toBeVisible();
+  if (path === QUOTE) {
+    await expect(appPage.getByRole("button", { name: /^Customer chat, \d+ messages$/ })).toBeVisible();
+    await expect(appPage.getByText(/ideas?, up to/)).toBeVisible();
+  } else await expect(appPage.getByRole("group", { name: "Quote facts" })).toBeVisible();
   await restMouse();
   return appPage;
 }
