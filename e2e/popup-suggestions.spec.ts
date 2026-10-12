@@ -62,6 +62,9 @@ test("Dana adds a suggested nut from the pop-up, and Brandi sees it on the draft
     await expect(suggestions).toContainText("Hex nut 1/2-13, Grade 8, yellow zinc");
     await expect(suggestions).toContainText("Box of 100");
     await expect(suggestions).toContainText("Matches the 1/2-13 Grade 8 bolts on your list.");
+    // The flap disc goes with the cut-off wheels.
+    await expect(suggestions).toContainText("Flap disc 4.5 in, 60 grit zirconia");
+    await expect(suggestions.getByRole("button", { name: "Add FD-45-60Z to your list" })).toBeVisible();
     await expect(popup).not.toContainText("$");
   });
 

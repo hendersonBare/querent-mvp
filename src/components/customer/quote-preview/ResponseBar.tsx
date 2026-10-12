@@ -26,9 +26,9 @@ import {newResponseKey,postResponse,ResponseRefused,type AcceptBody,type Changes
 // retry after no answer reuses, so the server replays instead of answering twice. A refusal of the
 // input (400) goes back to the form; any other refusal (expired, already answered, a newer revision)
 // closes the form and reloads the quote to show where it stands. On success the modal shows the
-// quote as answered and the sidebar's chip follows.
+// quote as answered, and the quote's bell notification reads as read.
 //
-// No chat message is posted (a flagged 5.2 default): the modal and the sidebar confirm the answer.
+// No chat message is posted (a flagged 5.2 default): the modal and the bell confirm the answer.
 
 export type ResponseStep='idle'|'accept'|'changes';
 

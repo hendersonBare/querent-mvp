@@ -8,8 +8,8 @@ import { expect, test, type Browser, type BrowserContext, type Locator, type Pag
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts): start
 // your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots of
-// the action bar, both forms and both Confirm dialogs at 1440px go to this test's output
-// folder.
+// the action bar, both forms and both Confirm dialogs at 1440px, and of a delivery quote's form and
+// Confirm at 1920px, go to this test's output folder.
 
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
@@ -295,6 +295,83 @@ test("what a crafted request can't do: change branch or pickup, answer twice, an
 
   await test.step("another customer's quote and an unknown one are not found", async () => {
     for (const id of [made.other_rep, "Q-99999"]) expect(await answer("accept", id, body), id).toMatchObject({ status: 404, json: { detail: "Quote not found." } });
+  });
+});
+
+test("a delivery quote at 1920px, opened from the bell: Delivery and Provo locked, where it goes, the delivery day and time, and both Confirms", async ({ browser }, testInfo) => {
+  // Q-24814 is a delivery from Provo: the form and the Confirm say delivery, and where it goes.
+  const number = await sentCopy("Q-24814");
+  const desk = await newPage(browser, testInfo.project.use.baseURL!, { width: 1920, height: 1080 });
+  await signInAsDana(desk);
+  const { weekday } = days();
+  const when = `${weekdayDay(weekday)}, 9:30 AM`;
+
+  // The bell is how Dana finds a sent quote (plan U10, decision 41); it polls every 5 s.
+  await desk.getByRole("button", { name: "Notifications" }).click();
+  const row = desk.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: number });
+  await expect(row).toContainText(`Quote ${number} is ready to review`);
+  await row.click();
+  const modal = desk.getByRole("dialog", { name: `Quote ${number}` });
+  await expect(modal.getByRole("document")).toHaveAttribute("data-state", "ready");
+  await expect(bar(modal)).toContainText("Accept it with a delivery time and your PO, or ask Brandi for changes.");
+
+  const form = modal.getByRole("form", { name: `Accept ${number} rev 1` });
+  await test.step("the Accept form: Delivery and the Provo branch locked, the address, a delivery day and time and the PO", async () => {
+    await bar(modal).getByRole("button", { name: "Accept" }).click();
+    await expect(form.getByRole("radio", { name: "Delivery" })).toBeChecked();
+    for (const control of [form.getByRole("radio", { name: "Pickup" }), form.getByRole("radio", { name: "Delivery" }), form.getByRole("combobox", { name: "Branch" })])
+      await expect(control).toBeDisabled();
+    await expect(form.getByRole("combobox", { name: "Branch" })).toHaveValue("Provo");
+    await expect(form).toContainText("Delivers to 1800 W 10950 S, South Jordan, UT 84095.");
+    await expect(form).toContainText("To change the branch or delivery, use Request changes.");
+    await form.getByLabel("Delivery day").fill(weekday);
+    await form.getByLabel("Delivery time").selectOption({ label: "9:30 AM" });
+    await form.getByLabel("PO number").fill(PO);
+    await screenshot(desk, testInfo, "5.2-delivery-accept-form-1920");
+  });
+
+  const accept = desk.getByRole("alertdialog", { name: "Confirm acceptance" });
+  await test.step("the Confirm says delivery, from Provo, and to where; Cancel and Back send nothing", async () => {
+    const review = form.getByRole("button", { name: "Review and accept" });
+    const opener = (await review.boundingBox())!;
+    await review.click();
+    await expect(accept).toContainText(`delivery ${when} from Provo, PO ${PO}?`);
+    await expect(accept).toContainText("to 1800 W 10950 S, South Jordan, UT 84095");
+    await expectConfirm(desk, accept, opener);
+    await screenshot(desk, testInfo, "5.2-delivery-accept-confirm-1920");
+    await accept.getByRole("button", { name: "Cancel" }).click();
+    await expect(accept).toBeHidden();
+    await form.getByRole("button", { name: "Back" }).click();
+    await expect(form).toBeHidden();
+  });
+
+  await test.step("Request changes: its Confirm, and Cancel sends nothing", async () => {
+    await bar(modal).getByRole("button", { name: "Request changes" }).click();
+    const changes = modal.getByRole("form", { name: `Request changes to ${number} rev 1` });
+    await changes.getByLabel("What should Brandi change?").fill(NOTE);
+    const reviewChanges = changes.getByRole("button", { name: "Review request" });
+    const opener = (await reviewChanges.boundingBox())!;
+    await reviewChanges.click();
+    const confirm = desk.getByRole("alertdialog", { name: "Confirm change request" });
+    await expectConfirm(desk, confirm, opener);
+    await confirm.getByRole("button", { name: "Cancel" }).click();
+    await expect(confirm).toBeHidden();
+    expect((await repDetail(number)).quote.status).toBe("sent");
+    await changes.getByRole("button", { name: "Back" }).click();
+  });
+
+  await test.step("Send: accepted for delivery from Provo, for Dana and Brandi", async () => {
+    await bar(modal).getByRole("button", { name: "Accept" }).click();
+    await form.getByLabel("Delivery day").fill(weekday);
+    await form.getByLabel("Delivery time").selectOption({ label: "9:30 AM" });
+    await form.getByLabel("PO number").fill(PO);
+    await form.getByRole("button", { name: "Review and accept" }).click();
+    await accept.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(accept).toBeHidden();
+    await expect(modal.locator(".qp-state")).toHaveText("Accepted");
+    await expect(bar(modal)).toContainText(`You accepted rev 1 with PO ${PO}: delivery ${when} from Provo.`);
+    await modal.getByRole("button", { name: "Close" }).click();
+    expect((await repDetail(number)).quote).toMatchObject({ status: "accepted", customer_po: PO, fulfillment: "delivery", unread_for_rep: true });
   });
 });
 

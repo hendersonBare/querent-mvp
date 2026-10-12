@@ -9,7 +9,8 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts):
 // start your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots
-// of the chat message and the modal at 1440px go to this test's output folder.
+// of the chat message and the modal at 1440px, and of the zoomed PDF at 1920px, go to this test's
+// output folder.
 
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
@@ -167,6 +168,53 @@ test("View quote opens the preview: the customer PDF inline, Download at the top
     const headers = await dana.evaluate((url) => fetch(url).then((r) => ({ type: r.headers.get("content-type"), disposition: r.headers.get("content-disposition") })), file.url());
     expect(headers.type).toBe("application/pdf");
     expect(headers.disposition).toContain(`filename="Herrick Industrial Supply quote ${SAMPLE} rev 1.pdf"`);
+  });
+  await modal.getByRole("button", { name: "Close" }).click();
+  await expect(modal).toBeHidden();
+});
+
+test("at 1920px, from the bell: Zoom in enlarges the real PDF page and the preview scrolls, not the page; Fit to width puts it back", async ({ browser }, testInfo) => {
+  const wide = await newPage(browser, testInfo.project.use.baseURL!, { width: 1920, height: 1080 });
+  await signInAsDana(wide);
+  await wide.getByRole("button", { name: "Notifications" }).click();
+  await wide.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: SAMPLE }).click();
+  const modal = preview(wide, SAMPLE);
+  const pdf = modal.getByRole("document", { name: `Quote ${SAMPLE}, revision 1` });
+  await expect(pdf).toHaveAttribute("data-state", "ready");
+  const sheet = pdf.locator("canvas.qp-sheet");
+  const deskArea = modal.locator(".qp-desk");
+  const pageScroll = () => wide.evaluate(() => document.documentElement.scrollWidth);
+  const deskScroll = () => deskArea.evaluate((el) => el.scrollWidth - el.clientWidth);
+  // Close sits right of Download, at the top right.
+  const d = (await modal.getByRole("link", { name: "Download" }).boundingBox())!;
+  expect((await modal.getByRole("button", { name: "Close" }).boundingBox())!.x).toBeGreaterThanOrEqual(d.x + d.width);
+
+  // Fit to width: the page fits the preview's desk.
+  await expect(pdf.getByRole("button", { name: "Zoom in" })).toHaveAttribute("aria-pressed", "false");
+  const fit = (await sheet.boundingBox())!;
+  const area = (await deskArea.boundingBox())!;
+  expect(fit.x).toBeGreaterThanOrEqual(area.x);
+  expect(fit.x + fit.width).toBeLessThanOrEqual(area.x + area.width);
+  expect(await deskScroll()).toBeLessThanOrEqual(1);
+
+  await test.step("Zoom in: the page is drawn wider than the desk; the desk scrolls sideways, the page doesn't", async () => {
+    await pdf.getByRole("button", { name: "Zoom in" }).click();
+    await expect(pdf).toHaveAttribute("data-zoom", "in");
+    await expect(pdf.getByRole("button", { name: "Fit to width" })).toHaveAttribute("aria-pressed", "true");
+    const zoomed = (await sheet.boundingBox())!;
+    expect(zoomed.width).toBeGreaterThan(fit.width * 1.4);
+    expect(zoomed.width).toBeGreaterThan(area.width);
+    expect(await deskScroll()).toBeGreaterThan(100);
+    expect(await pageScroll()).toBe(1920);
+    await wide.screenshot({ path: testInfo.outputPath("5.1-modal-zoomed-1920.png") });
+  });
+
+  await test.step("Fit to width: back to the desk's width", async () => {
+    await pdf.getByRole("button", { name: "Fit to width" }).click();
+    await expect(pdf).toHaveAttribute("data-zoom", "fit");
+    await expect(pdf.getByRole("button", { name: "Zoom in" })).toHaveAttribute("aria-pressed", "false");
+    expect((await sheet.boundingBox())!.width).toBeCloseTo(fit.width, 0);
+    expect(await deskScroll()).toBeLessThanOrEqual(1);
   });
   await modal.getByRole("button", { name: "Close" }).click();
   await expect(modal).toBeHidden();

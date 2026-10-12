@@ -47,11 +47,9 @@ export interface Contact {id:string;customer_id:string;name:string;title:string|
 export interface Department {id:string;name:string;branch_id:string|null;phone:string;email:string|null;hours:string;sort_order:number}
 
 /**
- * The customer's left sidebar (spec §3), all static seed data: the assigned rep at the very top,
- * then the departments without a branch (Customer Service, Accounts Receivable / Finance), then
- * Warehouse / Will-call with one phone per branch.
+ * GET /api/query/customer/contacts: the customer's assigned rep, shown in the My rep sheet (plan U10,
+ * C_CVL3). Only the rep: the departments stay in the chat's answers.
  */
-/** GET /api/query/customer/contacts: the customer's rep, for the My rep sheet (plan U10, C_CVL3). */
 export interface CustomerRepContact {rep:Rep|null}
 
 /** Freight rates (spec §5.3), shown read-only in Settings. */
