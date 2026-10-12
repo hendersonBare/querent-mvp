@@ -5,6 +5,8 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 //   - Brandi is the manager: she edits an aging threshold (the Quotes list follows it) and a team
 //     label, and can mark a rep inactive only once that rep's customers are reassigned. An inactive
 //     rep's session is refused.
+//   - Scope is role based (task U1): Mara reads only her own customers, quotes, orders and analytics,
+//     whatever ?scope= or ?customer= say; Brandi reads the whole organization. No nav link carries a query.
 // Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
 // beforeAll/afterAll reset the database to the seed pinned to the mockup's day (POST /api/test/reset;
@@ -45,8 +47,9 @@ async function signInAsMara(browser: Browser, testInfo: TestInfo) {
   return context.newPage();
 }
 const settingsTabs = (page: Page) => page.getByRole("navigation", { name: "Settings sections" });
+/** A quote's Status cell on the manager's list: her rows start with the checkbox and carry a Rep cell (tasks D2, U1). */
 const quoteStatus = (page: Page, number: string) =>
-  page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) }).getByRole("cell").nth(2);
+  page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) }).getByRole("cell").nth(4);
 async function noSidewaysScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 }
@@ -77,6 +80,49 @@ test("Mara (a rep) has no manager settings, and the manager APIs refuse her", as
   expect(settings.rep_id).toBe("mara");
   expect(settings.manager).toBeNull();
   await page.context().close();
+});
+
+test("Scope is role based: Mara reads only her own records, Brandi the whole organization (task U1)", async ({ page, browser }, testInfo) => {
+  const mara = await signInAsMara(browser, testInfo);
+  // No "Viewing" picker, and nav links carry no ?customer= even when the page has one.
+  await mara.goto("/rep/quotes?customer=wasatch&scope=all");
+  await expect(mara.getByLabel("Viewing")).toHaveCount(0);
+  const nav = mara.getByRole("navigation", { name: "Rep portal" }).getByRole("link");
+  for (const href of await nav.evaluateAll((links) => links.map((l) => l.getAttribute("href")))) expect(href).not.toMatch(/\?/);
+  // Her Quotes: her own only; Wasatch (Brandi's customer) is ignored, and Brandi's sample quote isn't there.
+  await expect(mara.getByText("Viewing All customers", { exact: false })).toBeVisible();
+  await expect(mara.getByRole("columnheader", { name: "Rep" })).toHaveCount(0);
+  await expect(mara.getByRole("link", { name: "Q-24817", exact: true })).toHaveCount(0);
+  // Customers: Canyon Ridge only; Wasatch's page and orders are not found for her.
+  await mara.goto("/rep/customers");
+  await expect(mara.getByText("Viewing All customers · 1 customer")).toBeVisible();
+  await expect(mara.getByRole("link", { name: "Canyon Ridge Builders" })).toBeVisible();
+  await mara.goto("/rep/customers/wasatch");
+  await expect(mara.getByRole("heading", { name: "There’s no customer at that address" })).toBeVisible();
+  await mara.goto("/rep/orders");
+  await expect(mara.getByText("Viewing All customers · 0 orders")).toBeVisible();
+  await mara.goto("/rep/orders/SO-51223");
+  await expect(mara.getByRole("heading", { name: "There’s no order with that number" })).toBeVisible();
+  const api = mara.request;
+  expect((await (await api.get("/api/rep/analytics?customer=wasatch")).json()).scope).toEqual({ customer: null, customer_ids: ["canyon-ridge"], rep_id: "mara" });
+  // Her Analytics count the quotes she owns, the same as her Quotes list (OA-67).
+  const { win_rate: winRate, quoted } = await (await api.get("/api/rep/analytics")).json();
+  const { counts } = await (await api.get("/api/rep/quotes")).json();
+  expect({ quotes: winRate.won + winRate.lost + winRate.open, won: winRate.won, accepted: quoted.accepted_count }).toEqual({ quotes: counts.all, won: counts.accepted, accepted: counts.accepted });
+  expect((await api.get("/api/rep/badges?scope=all")).status()).toBe(200);
+  expect((await api.get("/api/rep/quotes/Q-24817")).status()).toBe(404);
+  await screenshot(mara, testInfo, "mara-customers-scope");
+  await mara.context().close();
+
+  // Brandi (the manager) reads every customer and every rep's quotes, with no switch.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signInAsBrandi(page);
+  await expect(page.getByRole("columnheader", { name: "Rep" })).toBeVisible();
+  await expect(page.getByRole("table").getByRole("cell").filter({ hasText: "Mara Jensen" }).first()).toBeVisible();
+  await page.goto("/rep/customers");
+  await expect(page.getByText("Viewing All customers · 6 customers")).toBeVisible();
+  await page.goto("/rep/customers/canyon-ridge");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Canyon Ridge Builders");
 });
 
 test("Brandi edits an aging threshold, and the Quotes list follows it", async ({ page }, testInfo) => {

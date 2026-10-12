@@ -1,7 +1,8 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-// Rep portal shell (task 3.1; spec §4; docs/design/screens/03): the section nav, the "Viewing"
-// customer picker (kept in ?customer=) and the Quotes unread badge.
+// Rep portal shell (task 3.1; spec §4; docs/design/screens/03): the section nav and the Quotes
+// unread badge. Scope is role based (task U1): there is no "Viewing" customer picker, ?customer= is
+// each page's own filter, and no nav link carries it.
 //
 // beforeAll resets the database to the seed pinned to the mockup's day through the test-only
 // POST /api/test/reset, so the badge starts at the seeded count: Q-24817 is unread for Brandi.
@@ -28,6 +29,7 @@ const CUSTOMERS = [
   "Wasatch Mechanical Contractors",
   "Weber Basin Fabricators",
 ];
+const accessCustomer = (page: Page) => page.getByRole("combobox", { name: "Customer" });
 
 test.describe.configure({ mode: "serial" });
 
@@ -120,11 +122,9 @@ test("nav: search is sample-only, and the account menu switches workspace", asyn
   await expect(page).toHaveURL(/\/$/);
 });
 
-test("picker: Viewing changes the scope of analytics and lists, and every nav link keeps it", async ({ page }) => {
+test("customer filter: ?customer= narrows one page, and no nav link carries it (task U1)", async ({ page }) => {
   await signInAsBrandi(page);
-  const viewing = page.getByLabel("Viewing");
-  await expect(viewing.locator("option")).toHaveText(CUSTOMERS);
-  await expect(viewing).toHaveValue("all");
+  await expect(page.getByLabel("Viewing")).toHaveCount(0);
 
   await sectionLink(page, "Analytics").click();
   await expect(totalQueries(page)).not.toHaveText("");
@@ -132,45 +132,37 @@ test("picker: Viewing changes the scope of analytics and lists, and every nav li
   expect(all).toBeGreaterThan(0);
 
   // A placeholder customer has no chat history (spec §2).
-  await viewing.selectOption("great-basin");
-  await expect(page).toHaveURL(/\/rep\/analytics\?customer=great-basin$/);
+  await page.goto("/rep/analytics?customer=great-basin");
   await expect(totalQueries(page)).toHaveText("0");
   await expect(page.getByText("Quotes and customer questions for Great Basin Fabrication")).toBeVisible();
-  await expect(page.getByRole("banner")).toContainText("GBF-2207 · Rep Brandi Gallegos");
 
-  // Every section link and the Settings tabs carry the scope.
-  for (const [label, path] of SECTIONS)
-    await expect(sectionLink(page, label)).toHaveAttribute("href", `${path}?customer=great-basin`);
+  // No section link carries the filter, and following one drops it.
+  for (const [label, path] of SECTIONS) await expect(sectionLink(page, label)).toHaveAttribute("href", path);
   await sectionLink(page, "Orders").click();
-  await expect(page).toHaveURL(/\/rep\/orders\?customer=great-basin$/);
-  await expect(page.getByText("Viewing Great Basin Fabrication")).toBeVisible();
+  await expect(page).toHaveURL(/\/rep\/orders$/);
+  await expect(page.getByText("Viewing All customers")).toBeVisible();
+
+  // Settings > Customer access picks its own customer.
   await sectionLink(page, "Settings").click();
-  await expect(viewing).toHaveValue("great-basin");
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Customer access" }).click();
+  await expect(page).toHaveURL(/\/rep\/settings\?tab=access$/);
+  await expect(accessCustomer(page).locator("option")).toHaveText(CUSTOMERS);
+  await accessCustomer(page).selectOption("great-basin");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=great-basin$/);
   await expect(page.getByText("What Querent answers in chat for Great Basin Fabrication.")).toBeVisible();
-
-  // Switching customer keeps the page and its tab.
-  await viewing.selectOption("wasatch");
+  await accessCustomer(page).selectOption("wasatch");
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
   await expect(page.getByText("What Querent answers in chat for Wasatch Mechanical Contractors.")).toBeVisible();
 
-  // A reload keeps the scope.
+  // A reload keeps the page's filter; leaving the page drops it.
   await page.reload();
-  await expect(viewing).toHaveValue("wasatch");
+  await expect(accessCustomer(page)).toHaveValue("wasatch");
   await sectionLink(page, "Analytics").click();
-  await expect(totalQueries(page)).toHaveText(String(all)); // only Wasatch has chat history
-
-  // All customers drops the param; an unknown customer reads as All customers.
-  await viewing.selectOption("all");
   await expect(page).toHaveURL(/\/rep\/analytics$/);
   await expect(totalQueries(page)).toHaveText(String(all));
-  await page.goto("/rep/items?customer=nobody");
-  await expect(page).toHaveURL(/\/rep\/items$/);
-  await expect(viewing).toHaveValue("all");
 });
 
-test("badge: Quotes shows the rep's unread count, whatever the picker shows", async ({ page }) => {
+test("badge: Quotes shows the rep's unread count, whatever a page filters by", async ({ page }) => {
   await signInAsBrandi(page);
   // The seed has one quote unread for Brandi: the sample Q-24817 (ready_for_review).
   // Fetched from the page: the production session cookie is Secure, which the browser sends to
@@ -181,17 +173,16 @@ test("badge: Quotes shows the rep's unread count, whatever the picker shows", as
   await expect(page.getByRole("link", { name: "Notifications: 1 unread quote" })).toBeVisible();
   await expect(page.getByText("Viewing All customers · 1 unread quote")).toBeVisible();
 
-  await page.getByLabel("Viewing").selectOption("great-basin");
-  await sectionLink(page, "Customers").click();
+  await page.goto("/rep/customers?customer=great-basin");
   await expect(sectionLink(page, "Quotes")).toHaveAccessibleName("Quotes 1 unread");
 });
 
-test("phone (390px): the nav scrolls, the picker and badge fit, and nothing scrolls sideways", async ({ page }, testInfo) => {
+test("phone (390px): the nav scrolls, the badge fits, and nothing scrolls sideways", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signInAsBrandi(page);
   await expect(page.getByRole("searchbox", { name: "Search the portal" })).toBeHidden();
   await expect(sectionLink(page, "Quotes")).toHaveAccessibleName("Quotes 1 unread");
-  await expect(page.getByLabel("Viewing")).toBeVisible();
+  await expect(page.getByLabel("Viewing")).toHaveCount(0);
   await noSidewaysScroll(page);
   await attachScreenshot(page, testInfo, "rep-portal-390-quotes");
 
@@ -202,9 +193,8 @@ test("phone (390px): the nav scrolls, the picker and badge fit, and nothing scro
     await expect(sectionLink(page, label)).toBeInViewport({ ratio: 1 });
     await noSidewaysScroll(page);
   }
-  await page.getByLabel("Viewing").selectOption("wasatch");
-  await expect(page).toHaveURL(/\/rep\/settings\?customer=wasatch$/);
-  await expect(page.getByRole("banner")).toContainText("WAS-1142");
+  await page.goto("/rep/settings?tab=access&customer=wasatch");
+  await expect(accessCustomer(page)).toHaveValue("wasatch");
   await noSidewaysScroll(page);
   await attachScreenshot(page, testInfo, "rep-portal-390-settings");
 });

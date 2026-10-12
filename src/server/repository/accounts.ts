@@ -10,12 +10,15 @@ export function customerIds(){return all<{id:string}>('SELECT id FROM customers 
 /** Every customer with its one rep: the customer picker, Customers list and Rep assignments. */
 export function customers(){return all<CustomerListItem>('SELECT c.id,c.name,c.account_number,r.id rep_id,r.name rep_name FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id ORDER BY c.name');}
 
-/** Internal: the rep's Customers list (task 3.8). Every customer by name with its rep, terms, balance and order and quote counts. */
-export function customerDirectory(){
+/**
+ * Internal: the rep's Customers list (task 3.8). Every customer by name with its rep, terms, balance
+ * and order and quote counts; `repId` keeps only that rep's customers, and counts only their own quotes (task U1).
+ */
+export function customerDirectory({repId=null}:{repId?:string|null}={}){
   return all<CustomerDirectoryRow>(`SELECT c.id,c.name,c.account_number,r.id rep_id,r.name rep_name,c.terms,c.credit_limit,c.open_balance,
       (SELECT count(*) FROM orders o WHERE o.customer_id=c.id) order_count,(SELECT max(o.order_date) FROM orders o WHERE o.customer_id=c.id) last_order_date,
-      (SELECT count(*) FROM quotes q WHERE q.customer_id=c.id) quote_count
-    FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id ORDER BY c.name`);
+      (SELECT count(*) FROM quotes q WHERE q.customer_id=c.id AND (@repId IS NULL OR q.rep_id=@repId)) quote_count
+    FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id WHERE (@repId IS NULL OR cr.rep_id=@repId) ORDER BY c.name`,{repId});
 }
 
 type CustomerRow=Omit<CustomerAccount,'ship_to'|'rep'>&{ship_to_name:string|null;ship_to_address:string|null;ship_to_city:string|null;ship_to_state:string|null;ship_to_zip:string|null;ship_to_lat:number|null;ship_to_lng:number|null};

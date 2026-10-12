@@ -249,7 +249,8 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 | `GET /api/rep/team/reps`, `PUT /api/rep/team/reps/[id]` | D1 | manager | list reps; set `team`, `active` (deactivate refused 409 `has_customers` while the rep has customers) |
 | `POST /api/rep/quotes/reassign` | D2 | manager | `{quoteIds:string[], toRepId}` single or bulk; writes `quote_activity` (`kind='reassigned'`, actor manager, message "from A to B") per quote |
 | `PUT /api/rep/settings/assignments` | D2 | manager | adds `{moveOpenQuotes:boolean}` |
-| `GET /api/rep/quotes?scope=all&rep=<id>&team=<label>` | D2 | manager | All-reps scope with rep and team filters |
+| `GET /api/rep/quotes?rep=<id>&team=<label>` | D2, U1 | rep, manager | Scope is role based (U1): a rep's own quotes, every rep's for the manager, who also filters by rep and team. `?scope=all` is ignored (no switch, never a 403) |
+| `GET /api/rep/badges`, `/api/rep/analytics`, `/api/rep/settings` | U1 | rep, manager | Role based: a rep's own customers and quotes, the whole organization for the manager. `?customer=` is a page's own filter; a customer the rep can't read is ignored |
 | `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone |
 | `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
 | `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
@@ -270,10 +271,12 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 ### Rep: Quotes list (`/rep/quotes`)
 - Aging marker (icon + "Aging"/"Overdue") per row; Needs attention filter with sort toggle (A2).
 - "Declined" filter and chip (A1).
-- Manager: scope switch "My quotes / All reps", Rep column, rep filter, team filter, row checkboxes and "Reassign…" bulk action (D2).
+- Manager: every rep's quotes by default (no "My quotes / All reps" switch, U1), Rep column, rep filter, team filter, row checkboxes and "Reassign…" bulk action (D2).
+- `?customer=` filters this page only (U1); its links keep it, no other page's links do.
 
 ### Rep: header (`RepShell`)
-- Red Needs-attention badge (A2). Team nav item for managers (D3).
+- Red Needs-attention badge (A2): the rep's own red quotes, every rep's for the manager (U1). Team nav item for managers (D3).
+- No "Viewing" customer picker and no `?customer=` on nav links (U1). Customer filters live on the pages that need them (Quotes, Customers, Orders, Analytics, Settings > Customer access).
 - Type (U0): every rep page renders in Albert Sans (UI) and Geist Mono (numbers, codes), loaded once by `next/font` in the root layout; Archivo and IBM Plex are gone. The layouts stay as they are until their lane U task rebuilds them on the shared primitives in `src/components/ui/` and the tokens in `src/app/tokens.css`.
 
 ### Rep: Quote detail (`/rep/quotes/[id]`)
@@ -291,7 +294,7 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 ### Rep: Team (`/rep/team`, manager-only, D3)
 - Filters: rep multi-select, team label filter, presets 7 / 30 / 90 days and a custom range.
 - Leaderboard: one row per selected rep plus a totals row, columns per section 7.
-- Drill-down: any count or row links to `/rep/quotes?scope=all&…` filtered to those quotes; decline counts show reasons and Other text.
+- Drill-down: any count or row links to `/rep/quotes?rep=…&from=…&to=…` filtered to those quotes; decline counts show reasons and Other text.
 - "Why quotes went untouched" table: counts per reason per rep.
 - Export CSV.
 
@@ -341,7 +344,7 @@ All queries are live SQL in `src/server/repository/team.ts`; no materialised tab
 ## 8. Roles, reassignment and scope (D1, D2)
 
 - Roles `rep | manager` on `reps.role`. `Principal.role` stays `supplier_admin` for every supplier persona; a new `Principal.rep_role` (from the session persona, checked against `reps.role` in `managerRoute`) decides manager features (OA-12). Personas: `brandi` (manager), `mara` and `eli` (rep).
-- A manager sees all reps; a rep sees only their own quotes (unchanged).
+- Scope is purely role based on the server (U1; Appendix B of `docs/design/new-ui-implementation-prompt.md`): a rep reads only their own customers (`customer_rep`), those customers' orders, their own quotes (`quotes.rep_id`) and their own analytics (quote numbers from the quotes they own, chat-question numbers from their own customers; OA-67); a manager reads the whole organization. No request parameter widens it: the "Viewing" picker and the "My quotes / All reps" switch (`?scope=all`) are gone, and `?customer=` only narrows a page. Another rep's customer, order or quote reads as not found (404) for a rep. The manager still edits only her own quotes and opens other reps' read-only until she reassigns them (decision 22). The role switch is not built (decision 42).
 - Deactivation: refused while any customer has the rep in `customer_rep`. Inactive reps cannot be chosen as a reassignment target, do not appear in the workspace chooser, and stay in Team history.
 - Reassignment: `quotes.rep_id` becomes the new owner; `original_rep_id` keeps the first owner (set at creation, never changed). Open and closed quotes can both be moved. Each move writes `quote_activity` (`actor='rep'`, `actor_id`=manager, `kind='reassigned'`, "Brandi Gallegos reassigned Q-24817 from Mara Jensen to Eli Porter"). Reassigning a customer's rep (Settings) offers "Also move this customer's open quotes".
 - Hierarchies and named groups: `TODO(R-12)`.

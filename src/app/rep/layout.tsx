@@ -6,7 +6,7 @@ import {RepShell} from '@/components/rep/RepShell';
 import {initials} from '@/lib/initials';
 import {repAccess} from '@/server/rep/access';
 import {repBadges} from '@/server/rep/badges';
-import {customers,rep} from '@/server/repository';
+import {rep} from '@/server/repository';
 import {COOKIE,principalFromCookie} from '@/server/session';
 
 // The rep portal (spec §4): every /rep/* page renders inside this frame. Only a supplier persona
@@ -24,6 +24,6 @@ export default async function RepLayout({children}:{children:ReactNode}){
   if(!user||!access.ok)redirect('/');
   const me=rep(access.repId);
   const identity={id:access.repId,name:me?.name??user.user_name,initials:me?.initials||initials(user.user_name),title:me?.title??'Rep',manager:access.manager};
-  return <RepShell rep={identity} org={user.name} customers={customers()} initialBadges={repBadges(access.repId)}
+  return <RepShell rep={identity} org={user.name} initialBadges={repBadges(access.repId,{manager:access.manager})}
     className="rep-fonts">{children}</RepShell>;
 }

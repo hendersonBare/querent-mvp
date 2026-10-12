@@ -3,7 +3,7 @@ import { expect, test, type APIRequest, type Browser, type Page, type TestInfo }
 
 // The Team dashboard (v3 spec §6 Team, §7; decisions 23–25; task D3):
 //   - Brandi (the manager) opens Team, ticks two reps to compare them, reads the decline reasons with
-//     the Other text, drills from a count into the All reps Quotes list, and exports the CSV.
+//     the Other text, drills from a count into the manager’s Quotes list, and exports the CSV.
 //   - On a phone the leaderboard scrolls inside its own box; the page never scrolls sideways.
 //   - Mara (a rep) has no Team section: /rep/team sends her to her Quotes and the API answers 403.
 // Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
@@ -85,9 +85,9 @@ test("Brandi compares two reps, reads the decline reasons, drills into the quote
   expect(lines.map((l) => l.split(",")[0])).toEqual(["Rep", "Eli Porter", "Mara Jensen", "Total"]);
   expect(lines[0]).toContain("Quote-to-order rate (%)");
 
-  // Drill into Mara's declined count: the All reps Quotes list, filtered to those quotes.
+  // Drill into Mara's declined count: the manager's Quotes list (no ?scope=all, task U1), filtered to those quotes.
   await repRow(page, "Mara Jensen").getByRole("link", { name: "3 declined" }).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?scope=all&rep=mara&from=.+&to=.+&status=declined$/);
+  await expect(page).toHaveURL(/\/rep\/quotes\?rep=mara&from=.+&to=.+&status=declined$/);
   const rows = page.getByRole("table").getByRole("rowheader");
   await expect(rows).toHaveCount(3);
   await expect(page.getByRole("table").getByRole("link", { name: otherQuote, exact: true })).toBeVisible();

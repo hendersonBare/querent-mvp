@@ -40,9 +40,9 @@ describe('links',()=>{
     expect(metricsQuery(window,['mara','eli'],'Inside Sales')).toBe('from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z&reps=mara%2Celi&team=Inside+Sales');
     expect(metricsQuery(window,['mara'],null)).toBe('from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z&reps=mara');
   });
-  it('drills into the All reps Quotes list for one rep or a group, a status or an aging level',()=>{
-    expect(drillHref(window,['mara'])).toBe('/rep/quotes?scope=all&rep=mara&from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z');
-    expect(drillHref(window,['mara','eli'],{status:'declined'})).toBe('/rep/quotes?scope=all&rep=mara%2Celi&from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z&status=declined');
-    expect(drillHref(window,['eli'],{aging:'red'})).toBe('/rep/quotes?scope=all&rep=eli&from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z&aging=red');
+  it('drills into the manager’s Quotes list (no ?scope=all) for one rep or a group, a status or an aging level',()=>{
+    expect(drillHref(window,['mara'])).toBe('/rep/quotes?rep=mara&from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z');
+    expect(drillHref(window,['mara','eli'],{status:'declined'})).toBe('/rep/quotes?rep=mara%2Celi&from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z&status=declined');
+    expect(drillHref(window,['eli'],{aging:'red'})).toBe('/rep/quotes?rep=eli&from=2026-09-11T06%3A00%3A00.000Z&to=2026-10-11T06%3A00%3A00.000Z&aging=red');
   });
 });

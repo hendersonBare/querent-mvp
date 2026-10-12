@@ -28,11 +28,11 @@ describe('OrdersList',()=>{
     expect(within(rows[0]).getByRole('link',{name:'SO-51223'})).toHaveAttribute('href','/rep/orders/SO-51223');
   });
 
-  it('follows the picker: one customer\'s orders without the customer column, links keeping it',()=>{
+  it('follows its own ?customer=: one customer\'s orders without the customer column; links don\'t carry it (task U1)',()=>{
     render(<OrdersList rows={ORDERS} viewing={WASATCH}/>);
     expect(screen.getByText('Viewing Wasatch Mechanical Contractors · 2 orders')).toBeInTheDocument();
     expect(screen.queryByRole('columnheader',{name:'Customer'})).toBeNull();
-    expect(screen.getByRole('link',{name:'SO-51223'})).toHaveAttribute('href','/rep/orders/SO-51223?customer=wasatch');
+    expect(screen.getByRole('link',{name:'SO-51223'})).toHaveAttribute('href','/rep/orders/SO-51223');
   });
 
   it('shows an empty state for a placeholder customer',()=>{
@@ -45,7 +45,7 @@ describe('OrdersList',()=>{
 
 describe('OrderDetail',()=>{
   it('shows the lines at the prices paid, and the totals',()=>{
-    render(<OrderDetail order={ORDER} viewing={ALL}/>);
+    render(<OrderDetail order={ORDER}/>);
     expect(screen.getByRole('navigation',{name:'Breadcrumb'})).toHaveTextContent('Orders/SO-51223');
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('SO-51223');
     expect(screen.getByRole('heading',{level:1}).parentElement).toHaveTextContent('SO-51223Shipped');
@@ -63,22 +63,22 @@ describe('OrderDetail',()=>{
   });
 
   it('shows the order facts, linking the customer and the quote it came from',()=>{
-    render(<OrderDetail order={ORDER} viewing={WASATCH}/>);
+    render(<OrderDetail order={ORDER}/>);
     const facts=within(screen.getByRole('region',{name:'Order'}));
     expect(Object.fromEntries(facts.getAllByRole('term').map(dt=>[dt.textContent,dt.nextElementSibling?.textContent]))).toEqual({
       'Customer':'Wasatch Mechanical Contractors','Account':'WAS-1142','Customer PO':'7777','Ordered':'Sep 9, 2026','Fulfillment':'Delivery · SLC','Shipped':'Sep 10, 2026','From quote':'Q-24816',
     });
-    expect(facts.getByRole('link',{name:'Wasatch Mechanical Contractors'})).toHaveAttribute('href','/rep/customers/wasatch?customer=wasatch');
-    expect(facts.getByRole('link',{name:'Q-24816'})).toHaveAttribute('href','/rep/quotes/Q-24816?customer=wasatch');
-    expect(screen.getByRole('link',{name:'Orders'})).toHaveAttribute('href','/rep/orders?customer=wasatch');
-    // Each line opens its item, keeping the picked customer.
+    expect(facts.getByRole('link',{name:'Wasatch Mechanical Contractors'})).toHaveAttribute('href','/rep/customers/wasatch');
+    expect(facts.getByRole('link',{name:'Q-24816'})).toHaveAttribute('href','/rep/quotes/Q-24816');
+    expect(screen.getByRole('link',{name:'Orders'})).toHaveAttribute('href','/rep/orders');
+    // Each line opens its item; no link carries a customer filter (task U1).
     expect(within(screen.getByRole('region',{name:'Items'})).getAllByRole('link').map(l=>l.getAttribute('href'))).toEqual([
-      '/rep/items/CW-45-045-T1?customer=wasatch','/rep/items/GLV-N8-L-1000?customer=wasatch','/rep/items/FD-45-60Z?customer=wasatch',
+      '/rep/items/CW-45-045-T1','/rep/items/GLV-N8-L-1000','/rep/items/FD-45-60Z',
     ]);
   });
 
   it('says a will-call order was picked up and has no quote, and carries no cost or margin',()=>{
-    render(<OrderDetail order={{...ORDER,fulfillment:'will_call',branch_code:'Provo',freight:0,quote_number:null}} viewing={ALL}/>);
+    render(<OrderDetail order={{...ORDER,fulfillment:'will_call',branch_code:'Provo',freight:0,quote_number:null}}/>);
     const facts=within(screen.getByRole('region',{name:'Order'}));
     expect(facts.getByText('Picked up')).toBeInTheDocument();
     expect(facts.getByText('Direct order')).toBeInTheDocument();

@@ -22,3 +22,4 @@ Issues noticed during the v3 build that are outside its scope. Not fixed here.
 | `src/app/globals.css` | A global `input{width:100%;padding…}` rule stretches checkboxes and date inputs across the rep portal (overridden locally on the Team page). |
 | `src/server/repository/team.ts:29-31` | Copies the latest-sent-total and priced subtotal subqueries from `repository/quotes.ts` instead of sharing them. |
 | Team page | Still shows the Viewing customer picker, which has no effect there. |
+| `GET /api/rep/settings` as a rep (U8) | Still returns the every-customer Customer access aggregate and other reps' margin floors (`floors.others`). U8 replaces these Settings reads; see OA-69. |

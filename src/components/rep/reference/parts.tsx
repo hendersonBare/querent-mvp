@@ -2,19 +2,16 @@ import type {ReactNode} from 'react';
 import Link from 'next/link';
 import type {OrderStatus,QuoteStatus} from '@/domain';
 import page from '../RepPage.module.css';
-import {scopedHref} from '../scope';
 import {REP_STATUS} from '../quotes/labels';
 import {ORDER_STATUS} from './format';
 import s from './Reference.module.css';
 
 // Building blocks for the rep's Customers, Orders and Items pages (task 3.8). No hooks: the pages
-// are Server Components, so they read the "Viewing" picker from searchParams and pass it down.
+// are Server Components, so they read their own ?customer= filter from searchParams and pass it
+// down. Links never carry it to another page (task U1).
 
-/** The "Viewing" picker as a page read it: the picked customer's id (null for All customers) and its label. */
+/** A list page's own ?customer= filter as the page read it: the customer's id (null for All customers) and its label. */
 export interface Viewing {customerId:string|null;label:string}
-
-/** A portal link that keeps the picked customer, like useRepScope().href. */
-export const hrefFor=(viewing:Pick<Viewing,'customerId'>,path:string)=>scopedHref(path,viewing.customerId);
 
 /** "Customers / WAS-1142": the section link, then where you are. */
 export function Crumbs({section,href,current}:{section:string;href:string;current:string}){

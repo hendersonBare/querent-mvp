@@ -19,14 +19,6 @@
 .body[data-stale] {
   opacity: 0.55;
 }
-.notice {
-  margin: 0 0 14px;
-  padding: 10px 14px;
-  border: 1px solid #efd9ae;
-  border-radius: 8px;
-  background: var(--rep-warn-soft);
-  font-size: 13.5px;
-}
 .muted {
   color: var(--rep-muted);
 }

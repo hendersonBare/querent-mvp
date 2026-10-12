@@ -11,6 +11,7 @@ import {
 } from '@/server/repository';
 import {effectiveStatus} from '@/server/quotes/lifecycle';
 import {expireOverdueQuotes} from '@/server/quotes/service';
+import {customerFilterFor,ownerFilter,readableCustomers,type RepReader} from './access';
 import {moveQuotes,type ReassignResult} from './reassign';
 
 // Settings (spec §4, task 6.1) for the signed-in rep: Rep assignments, Customer access, My margin
@@ -55,7 +56,7 @@ export interface AssignmentRow extends CustomerListItem {
 export interface FloorCell {category_id:string;category_name:string;margin_floor:number;label:string;updated_at:string}
 export interface RepFloorSet {rep:SettingsRep;floors:FloorCell[]}
 
-/** Customer access for the "Viewing" picker: one customer, or every customer (customer_id null). */
+/** Customer access for the page's own ?customer= filter: one customer, or every customer (customer_id null). */
 export interface AccessSettings {customer_id:string|null;rules:AccessRule[]}
 
 export interface DataSources {database:DemoDatabase;erp:ERPStatus}
@@ -88,15 +89,18 @@ function body(input:unknown,message:string){
   return input;
 }
 
-/** Every customer by name with its rep, whether it's a placeholder, and its quotes by rep. */
-export function assignmentRows():AssignmentRow[]{
+/**
+ * Every customer by name with its rep, whether it's a placeholder, and its quotes by rep; with a
+ * rep `reader`, only that rep's customers and their own quotes (task U1). The manager reads them all.
+ */
+export function assignmentRows(reader?:RepReader):AssignmentRow[]{
   const byCustomer=new Map<string,Map<string,{rep_id:string;rep_name:string;count:number}>>();
-  for(const q of quotes()){
+  for(const q of quotes({repId:reader?ownerFilter(reader):null})){
     const reps=byCustomer.get(q.customer_id)??new Map();
     const entry=reps.get(q.rep_id)??{rep_id:q.rep_id,rep_name:q.rep_name,count:0};
     entry.count++;reps.set(q.rep_id,entry);byCustomer.set(q.customer_id,reps);
   }
-  return customers().map(c=>{
+  return (reader?readableCustomers(reader):customers()).map(c=>{
     const account=customerAccount(c.id);
     return {...c,placeholder:!account||(account.terms===null&&account.credit_limit===null),
       quotes:[...(byCustomer.get(c.id)?.values()??[])].sort((a,b)=>b.count-a.count||a.rep_name.localeCompare(b.rep_name))};
@@ -105,8 +109,6 @@ export function assignmentRows():AssignmentRow[]{
 
 function floorSet(rep:Rep):RepFloorSet{return {rep:asRep(rep),floors:repFloors(rep.id).map(toCell)};}
 
-/** The picked customer's id, or null for All customers; an unknown id reads as All customers, as the picker does. */
-const pickedCustomer=(customerId:string|null|undefined)=>customerId&&customerIds().includes(customerId)?customerId:null;
 
 function accessFor(customerId:string|null):AccessSettings{
   return {customer_id:customerId,rules:aggregateAccess(customerId?[customerId]:customerIds())};
@@ -118,16 +120,22 @@ export function dataSources():DataSources{return {database:demoDatabase(),erp:ev
 /** The manager's Reps and Aging thresholds cards (task D1). */
 export function managerSettings():ManagerSettings{return {reps:teamReps(),aging:agingThresholds()};}
 
-/** Everything Settings shows, for the signed-in rep (`manager`: they are the manager) and the "Viewing" picker. */
+/**
+ * Everything Settings shows, for the signed-in rep (`manager`: they are the manager). Rep
+ * assignments list a rep's own customers only, every customer for the manager (task U1). Customer
+ * access is for the page's own ?customer= filter: one customer the rep may read, or every customer
+ * (an unknown id, or another rep's customer, reads as every customer).
+ */
 export function repSettings(repId:string,{customerId=null,manager=false}:{customerId?:string|null;manager?:boolean}={}):RepSettings{
+  const reader={repId,manager};
   const everyone=reps();
   const me=everyone.find(r=>r.id===repId);
   return {
     rep_id:repId,
     manager:manager?managerSettings():null,
     reps:reps({activeOnly:true}).map(asRep),
-    assignments:assignmentRows(),
-    access:accessFor(pickedCustomer(customerId)),
+    assignments:assignmentRows(reader),
+    access:accessFor(customerFilterFor(reader,customerId)?.id??null),
     floors:{
       mine:me?floorSet(me):{rep:{id:repId,name:repId,initials:'',title:''},floors:[]},
       others:everyone.filter(r=>r.id!==repId).map(floorSet),
@@ -170,7 +178,7 @@ export function assignRep(managerId:string,input:unknown,{now=new Date().toISOSt
 
 /**
  * Customer access: PUT {customer_id, category, enabled}. customer_id null sets the category for
- * every customer (the picker's All customers). The chat tools read these on every call (spec §6.3).
+ * every customer (All customers). The chat tools read these on every call (spec §6.3).
  */
 export function updateAccess(input:unknown):AccessSettings{
   const request=body(input,'Invalid setting.');

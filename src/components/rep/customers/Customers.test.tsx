@@ -36,11 +36,12 @@ describe('CustomersList',()=>{
     expect(cells).toEqual(['Brandi GallegosYou','Not on file','—','No orders yet','0','0']);
   });
 
-  it('keeps the picked customer on its links and says the list is narrowed',()=>{
+  it('says the list is narrowed by its own ?customer=, offers every customer, and carries the filter on no link (task U1)',()=>{
     render(<CustomersList rows={DIRECTORY.filter(c=>c.id==='wasatch')} viewing={WASATCH} repId="brandi"/>);
     expect(screen.getByText('Viewing Wasatch Mechanical Contractors · 1 customer')).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Wasatch Mechanical Contractors'})).toHaveAttribute('href','/rep/customers/wasatch?customer=wasatch');
+    expect(screen.getByRole('link',{name:'Wasatch Mechanical Contractors'})).toHaveAttribute('href','/rep/customers/wasatch');
     expect(screen.getByText(/Showing Wasatch Mechanical Contractors only/)).toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'Show every customer'})).toHaveAttribute('href','/rep/customers');
   });
 
   it('carries no cost or margin column',()=>{
@@ -51,7 +52,7 @@ describe('CustomersList',()=>{
 
 describe('CustomerDetail',()=>{
   it('shows the account, terms, credit, win rate, rep and contacts',()=>{
-    render(<CustomerDetail view={WASATCH_VIEW} viewing={ALL} repId="brandi"/>);
+    render(<CustomerDetail view={WASATCH_VIEW} repId="brandi"/>);
     expect(screen.getByRole('navigation',{name:'Breadcrumb'})).toHaveTextContent('Customers/WAS-1142');
     expect(screen.getByRole('link',{name:'Customers'})).toHaveAttribute('href','/rep/customers');
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Wasatch Mechanical Contractors');
@@ -67,7 +68,7 @@ describe('CustomerDetail',()=>{
   });
 
   it('lists recent orders and quotes, linking to each and to the full lists for this customer',()=>{
-    render(<CustomerDetail view={WASATCH_VIEW} viewing={ALL} repId="brandi"/>);
+    render(<CustomerDetail view={WASATCH_VIEW} repId="brandi"/>);
     const orders=within(panel('Recent orders'));
     expect(orders.getByRole('link',{name:'SO-51223'})).toHaveAttribute('href','/rep/orders/SO-51223');
     expect(orders.getByRole('link',{name:'View all 23 orders'})).toHaveAttribute('href','/rep/orders?customer=wasatch');
@@ -84,15 +85,14 @@ describe('CustomerDetail',()=>{
     ]);
   });
 
-  it('keeps the picked customer on its links',()=>{
-    render(<CustomerDetail view={WASATCH_VIEW} viewing={WASATCH} repId="brandi"/>);
-    expect(screen.getByRole('link',{name:'Customers'})).toHaveAttribute('href','/rep/customers?customer=wasatch');
-    expect(screen.getByRole('link',{name:'SO-51223'})).toHaveAttribute('href','/rep/orders/SO-51223?customer=wasatch');
-    expect(screen.getByRole('link',{name:'Q-24817'})).toHaveAttribute('href','/rep/quotes/Q-24817?customer=wasatch');
+  it('carries no ?customer= on its links except the two "View all" filters (task U1)',()=>{
+    render(<CustomerDetail view={WASATCH_VIEW} repId="brandi"/>);
+    const filtered=screen.getAllByRole('link').map(l=>l.getAttribute('href')!).filter(href=>href.includes('customer='));
+    expect(filtered).toEqual(['/rep/orders?customer=wasatch','/rep/quotes?customer=wasatch']);
   });
 
   it('shows a placeholder customer\'s rep, and empty states for its account, contacts, orders and quotes',()=>{
-    render(<CustomerDetail view={GREAT_BASIN_VIEW} viewing={ALL} repId="brandi"/>);
+    render(<CustomerDetail view={GREAT_BASIN_VIEW} repId="brandi"/>);
     expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Great Basin Fabrication');
     expect(panel('Account')).toHaveTextContent('Terms, credit and ship-to aren’t on file for Great Basin Fabrication yet.');
     expect(panel('Rep')).toHaveTextContent('Brandi Gallegos');
@@ -104,13 +104,13 @@ describe('CustomerDetail',()=>{
   });
 
   it('marks another rep\'s customer without "you"',()=>{
-    render(<CustomerDetail view={{...GREAT_BASIN_VIEW,account:{...GREAT_BASIN_VIEW.account,rep:{...GREAT_BASIN_VIEW.account.rep!,id:'mara',name:'Mara Jensen'}}}} viewing={ALL} repId="brandi"/>);
+    render(<CustomerDetail view={{...GREAT_BASIN_VIEW,account:{...GREAT_BASIN_VIEW.account,rep:{...GREAT_BASIN_VIEW.account.rep!,id:'mara',name:'Mara Jensen'}}}} repId="brandi"/>);
     expect(screen.getByText(/Rep Mara Jensen/)).not.toHaveTextContent('(you)');
     expect(within(panel('Rep')).queryByText('You')).toBeNull();
   });
 
   it('carries no cost or margin',()=>{
-    render(<CustomerDetail view={WASATCH_VIEW} viewing={ALL} repId="brandi"/>);
+    render(<CustomerDetail view={WASATCH_VIEW} repId="brandi"/>);
     expect(document.body.textContent).not.toMatch(/cost|margin/i);
   });
 });

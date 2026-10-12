@@ -8,25 +8,25 @@ import {usePoll} from '@/lib/use-poll';
 import type {ReassignResult} from '@/server/rep/reassign';
 import type {AgingLevel} from '@/server/quotes';
 import type {AttentionSort,RepQuoteList,RepQuoteRow} from '@/server/rep/quotes';
-import {useRepPortal,useRepScope} from '../context';
+import {useRepPortal} from '../context';
 import {ReassignDialog} from '../reassign/ReassignDialog';
 import {RepPageHeader,repPageStyles as page} from '../RepPage';
 import {BADGE_POLL_MS} from '../RepShell';
-import {ALL_REPS,FROM_PARAM,REPS_PARAM,REP_PARAM,SCOPE_PARAM,TEAM_PARAM,TO_PARAM} from '../scope';
+import {CUSTOMER_PARAM,FROM_PARAM,REP_PARAM,TEAM_PARAM,TO_PARAM} from '../scope';
 import {AgingMarker} from './AgingMarker';
 import {AGING_PARAM,ATTENTION_PARAM,EMPTY_ATTENTION,EMPTY_STATUS,REP_STATUS,SORT_PARAM,STATUS_FILTERS,STATUS_PARAM,belowFloorNote,listDate,money,reassignedLabel,revisionLabel,totalNote,unreadLabel} from './labels';
 import s from './QuotesList.module.css';
 
 // The rep's queue (spec §4, task 3.2): every quote of the signed-in rep with its status,
-// customer, requested date, total and margin, newest request first. It follows the "Viewing"
-// picker (?customer=) and a status filter (?status=). Quotes where the customer asked for changes
+// customer, requested date, total and margin, newest request first. It follows the page's own
+// customer filter (?customer=, kept on this page's links only) and a status filter (?status=). Quotes where the customer asked for changes
 // are highlighted with their note; unread quotes carry a dot until the rep opens them.
 // Aging quotes carry an Aging or Overdue marker, and the Needs attention filter (?attention=1)
 // lists only those, most urgent first or oldest first (v3 spec §3, §6; task A2).
-// The manager (v3 spec §6; decisions 21, 22; task D2) also gets a "My quotes / All reps" switch
-// (?scope=all), and in All reps a Rep column with rep and team filters (?rep=, ?team=) and row
-// checkboxes with a "Reassign…" bulk action.
-// The Team dashboard (task D3) drills into All reps with a window (?from=&to=, quotes created in
+// Scope is role based on the server (task U1): the manager's list is every rep's quotes, with a Rep
+// column, rep and team filters (?rep=, ?team=) and row checkboxes with a "Reassign…" bulk action
+// (task D2). There is no "My quotes / All reps" switch any more.
+// The Team dashboard (task D3) drills into the manager's list with a window (?from=&to=, quotes created in
 // [from, to)), an aging level of the open quotes (?aging=) and several reps (?rep=a,b); the list
 // keeps the window on its links and says what it is narrowed to.
 
@@ -36,7 +36,7 @@ export const LIST_POLL_MS=BADGE_POLL_MS;
 /** The Needs attention view and its order, or null for the status filter. */
 export type AttentionView={attention:true;sort:AttentionSort}|null;
 
-/** The All reps scope's filters (task D2): a rep (or several, "a,b"), a team label, or neither; and the Team dashboard's window (task D3). */
+/** The manager's filters (task D2): a rep (or several, "a,b"), a team label, or neither; and the Team dashboard's window (task D3). */
 export type RepFilters={rep:string|null;team:string|null;from?:string|null;to?:string|null};
 
 function setFilters(params:URLSearchParams,filters:RepFilters|null){
@@ -45,30 +45,29 @@ function setFilters(params:URLSearchParams,filters:RepFilters|null){
   if(filters?.from&&filters.to){params.set(FROM_PARAM,filters.from);params.set(TO_PARAM,filters.to);}
 }
 
-/** The list page's own path and query for a status or the Needs attention view, with the All reps filters (the scope adds ?customer= and ?scope=all). */
-function listHref(status:QuoteStatus|null,view:AttentionView=null,filters:RepFilters|null=null){
+/** The list page's own path and query for a status or the Needs attention view, with the manager's filters and the page's own customer filter. */
+function listHref(status:QuoteStatus|null,view:AttentionView=null,filters:RepFilters|null=null,customerId:string|null=null){
   const params=new URLSearchParams();
   if(view){params.set(ATTENTION_PARAM,'1');if(view.sort==='oldest')params.set(SORT_PARAM,'oldest');}
   else if(status)params.set(STATUS_PARAM,status);
   setFilters(params,filters);
+  if(customerId)params.set(CUSTOMER_PARAM,customerId);
   const query=params.toString();
   return query?`/rep/quotes?${query}`:'/rep/quotes';
 }
 
 /**
- * GET /api/rep/quotes for the picked customer and status, or the Needs attention view; with `reps`,
- * the manager's All reps scope and its filters, and with `aging` one aging level (task D3).
+ * GET /api/rep/quotes for the filtered customer and status, or the Needs attention view; with
+ * `reps`, the manager's filters, and with `aging` one aging level (task D3). The server scopes the
+ * list by role (task U1), so no parameter asks for every rep.
  */
 export function quotesApiPath(customerId:string|null,status:QuoteStatus|null,view:AttentionView=null,reps:RepFilters|null=null,aging:AgingLevel|null=null){
   const params=new URLSearchParams();
-  if(customerId)params.set(SCOPE_PARAM,customerId);
+  if(customerId)params.set(CUSTOMER_PARAM,customerId);
   if(view){params.set(ATTENTION_PARAM,'1');if(view.sort==='oldest')params.set(SORT_PARAM,'oldest');}
   else if(aging&&reps)params.set(AGING_PARAM,aging);
   else if(status)params.set(STATUS_PARAM,status);
-  if(reps){
-    params.set(REPS_PARAM,ALL_REPS);
-    setFilters(params,reps);
-  }
+  setFilters(params,reps);
   const query=params.toString();
   return query?`/api/rep/quotes?${query}`:'/api/rep/quotes';
 }
@@ -80,7 +79,7 @@ async function loadQuotes(customerId:string|null,status:QuoteStatus|null,view:At
   return response.json();
 }
 
-/** The filters a list's links keep: the All reps scope's rep, team and window, or none. */
+/** The filters a list's links keep: the manager's rep, team and window, or none. */
 const filtersOf=(list:RepQuoteList):RepFilters|null=>list.scope==='all'?{rep:list.rep_filter,team:list.team_filter,from:list.window?.from,to:list.window?.to}:null;
 
 /** The manager's row checkboxes (task D2). */
@@ -105,15 +104,14 @@ export function QuotesList({initial}:{initial:RepQuoteList}){
   useEffect(()=>{setPicked(current=>{const kept=new Set([...current].filter(id=>shown.includes(id)));return kept.size===current.size?current:kept;});},[shown]);
   const toggle=useCallback((id:string)=>setPicked(current=>{const next=new Set(current);if(!next.delete(id))next.add(id);return next;}),[]);
   const toggleAll=useCallback(()=>setPicked(current=>current.size===shown.length?new Set():new Set(shown)),[shown]);
-  // Ticking and bulk Reassign live in All reps, where every quote shows its rep; My quotes stays as a rep sees it.
+  // Ticking and bulk Reassign are the manager's, whose list shows every rep's quotes.
   const selection=useMemo<Selection|null>(()=>list.manager&&list.scope==='all'?{picked,toggle,toggleAll}:null,[list.manager,list.scope,picked,toggle,toggleAll]);
   function done(result:ReassignResult){
     setReassigning(false);setPicked(new Set());setNotice(reassignedLabel(result));
     void refresh();refreshBadges();
   }
   return <>
-    <RepPageHeader title="Quotes" description={<>Viewing {label}{list.unread>0&&<> · {unreadLabel(list.unread)}</>}</>}
-      actions={list.manager&&<ScopeSwitch all={list.scope==='all'}/>}/>
+    <RepPageHeader title="Quotes" description={<>Viewing {label}{list.unread>0&&<> · {unreadLabel(list.unread)}</>}</>}/>
     {list.manager&&list.scope==='all'&&<RepFilterBar list={list}/>}
     {list.counts.all>0&&<StatusFilter list={list}/>}
     {list.attention&&list.rows.length>0&&<SortToggle list={list}/>}
@@ -141,22 +139,15 @@ function ManagerReassign({list,picked,onClose,onDone}:{list:RepQuoteList;picked:
     currentRep={owners.size===1?[...owners][0]:null} onClose={onClose} onDone={onDone}/>;
 }
 
-/** The manager's "My quotes / All reps" switch, beside the page title (task D2). */
-function ScopeSwitch({all}:{all:boolean}){
-  const scope=useRepScope();
-  return <nav className={s.scopeSwitch} aria-label="Whose quotes">
-    <Link href={scope.href('/rep/quotes',false)} aria-current={all?undefined:'page'}>My quotes</Link>
-    <Link href={scope.href('/rep/quotes',true)} aria-current={all?'page':undefined}>All reps</Link>
-  </nav>;
-}
+/** The page's own customer filter, kept on the list's links (never carried to another page, task U1). */
+const customerOf=(list:RepQuoteList)=>list.customer?.id??null;
 
-/** All reps' rep and team filters (task D2): each choice is a new URL, keeping the status filter. */
+/** The manager's rep and team filters (task D2): each choice is a new URL, keeping the status filter. */
 function RepFilterBar({list}:{list:RepQuoteList}){
-  const scope=useRepScope();
   const router=useRouter();
   const view:AttentionView=list.attention?{attention:true,sort:list.sort}:null;
   const window={from:list.window?.from,to:list.window?.to};
-  const go=(filters:RepFilters)=>router.push(scope.href(listHref(list.status,view,{...window,...filters}),true));
+  const go=(filters:RepFilters)=>router.push(listHref(list.status,view,{...window,...filters},customerOf(list)));
   const several=list.rep_filter?.includes(',')?list.rep_filter.split(',').length:0;
   return <div className={s.scopebar}>
     {list.manager&&<>
@@ -175,11 +166,11 @@ function RepFilterBar({list}:{list:RepQuoteList}){
       </label>}
       {list.window&&<span className={s.drillChip}>
         <span>Created between <LocalDay at={list.window.from}/> and <LocalDay at={list.window.to} dayBefore/></span>
-        <Link href={scope.href(listHref(list.status,view,{rep:list.rep_filter,team:list.team_filter}),true)}>Show all dates</Link>
+        <Link href={listHref(list.status,view,{rep:list.rep_filter,team:list.team_filter},customerOf(list))}>Show all dates</Link>
       </span>}
       {list.aging_filter&&<span className={s.drillChip}>
         <span>Open quotes: {AGING_WORDS[list.aging_filter]}</span>
-        <Link href={scope.href(listHref(null,null,filtersOf(list)),true)}>Show every status</Link>
+        <Link href={listHref(null,null,filtersOf(list),customerOf(list))}>Show every status</Link>
       </span>}
     </>}
   </div>;
@@ -199,13 +190,12 @@ function LocalDay({at,dayBefore=false}:{at:string;dayBefore?:boolean}){
 }
 
 function StatusFilter({list}:{list:RepQuoteList}){
-  const scope=useRepScope();
-  const filters=filtersOf(list);
-  const link=(status:QuoteStatus|null,text:string,count:number)=><Link key={status??'all'} className={s.filter} href={scope.href(listHref(status,null,filters))}
+  const filters=filtersOf(list),customerId=customerOf(list);
+  const link=(status:QuoteStatus|null,text:string,count:number)=><Link key={status??'all'} className={s.filter} href={listHref(status,null,filters,customerId)}
     aria-current={!list.attention&&!list.aging_filter&&list.status===status?'page':undefined} data-empty={count===0||undefined}>{text}<span className={s.filterCount}>{count}</span></Link>;
   return <nav className={s.filters} aria-label="Filter by status">
     {link(null,'All',list.counts.all)}
-    <Link className={s.filter} href={scope.href(listHref(null,{attention:true,sort:'urgent'},filters))} aria-current={list.attention?'page':undefined}
+    <Link className={s.filter} href={listHref(null,{attention:true,sort:'urgent'},filters,customerId)} aria-current={list.attention?'page':undefined}
       data-attention="" data-empty={list.attention_count===0||undefined}>Needs attention<span className={s.filterCount}>{list.attention_count}</span></Link>
     {STATUS_FILTERS.map(status=>link(status,REP_STATUS[status].label,list.counts[status]))}
   </nav>;
@@ -213,8 +203,7 @@ function StatusFilter({list}:{list:RepQuoteList}){
 
 /** The Needs attention view's order (decision 18): most urgent (red, amber, then the largest total) or oldest first. */
 function SortToggle({list}:{list:RepQuoteList}){
-  const scope=useRepScope();
-  const option=(sort:AttentionSort,text:string)=><Link href={scope.href(listHref(null,{attention:true,sort},filtersOf(list)))} aria-current={list.sort===sort?'page':undefined}>{text}</Link>;
+  const option=(sort:AttentionSort,text:string)=><Link href={listHref(null,{attention:true,sort},filtersOf(list),customerOf(list))} aria-current={list.sort===sort?'page':undefined}>{text}</Link>;
   return <div className={s.sortbar}>
     <span aria-hidden="true">Sort</span>
     <nav aria-label="Sort quotes needing attention">{option('urgent','Most urgent')}{option('oldest','Oldest first')}</nav>
@@ -226,7 +215,7 @@ export function StatusChip({status}:{status:QuoteStatus}){
   return <span className={s.chip} data-tone={tone}>{label}</span>;
 }
 
-/** Whose quotes a caption names: "all your customers", or in All reps "all customers of every rep". */
+/** Whose quotes a caption names: "all your customers", or for the manager "all customers of every rep". */
 function captionWho(list:RepQuoteList){
   if(list.scope!=='all')return list.customer?list.customer.name:'all your customers';
   const reps=list.rep_filter?.includes(',')?`${list.rep_filter.split(',').length} reps`
@@ -235,7 +224,6 @@ function captionWho(list:RepQuoteList){
 }
 
 function QuotesTable({list,selection}:{list:RepQuoteList;selection:Selection|null}){
-  const scope=useRepScope();
   const who=captionWho(list);
   const showRep=list.scope==='all';
   const caption=list.attention
@@ -260,7 +248,7 @@ function QuotesTable({list,selection}:{list:RepQuoteList;selection:Selection|nul
         <th className={s.go} aria-hidden="true"/>
       </tr>
     </thead>
-    {list.rows.map(row=><QuoteRow key={row.id} row={row} asOf={list.as_of} href={scope.href(`/rep/quotes/${encodeURIComponent(row.quote_number)}`)}
+    {list.rows.map(row=><QuoteRow key={row.id} row={row} asOf={list.as_of} href={`/rep/quotes/${encodeURIComponent(row.quote_number)}`}
       showRep={showRep} selection={selection}/>)}
   </table>;
 }
@@ -301,27 +289,23 @@ function QuoteRow({row,asOf,href,showRep,selection}:{row:RepQuoteRow;asOf:string
 }
 
 function EmptyQuotes({list}:{list:RepQuoteList}){
-  const scope=useRepScope();
   const {customer}=list;
+  const customerId=customerOf(list);
   let heading:string,body:string,action:{href:string;label:string}|null=null;
-  if(list.scope==='all'&&list.counts.all===0){
+  if(list.scope==='all'&&list.counts.all===0&&(list.rep_filter||list.team_filter||list.window)){
     heading='No quotes match';
     body='None of the reps you picked has a quote for this customer yet.';
-    if(list.rep_filter||list.team_filter)action={href:scope.href('/rep/quotes',true),label:'Show every rep’s quotes'};
-  }else if(customer&&list.other_rep&&list.counts.all===0){
-    heading=`${customer.name} is ${customer.rep_name?`${customer.rep_name}’s`:'another rep’s'} customer`;
-    body='Your Quotes list shows quotes for your own customers. A quote stays with the rep it was requested for unless a manager reassigns it.';
-    action={href:'/rep/quotes',label:'Show all your quotes'};
+    action={href:listHref(null,null,null,customerId),label:'Show every rep’s quotes'};
   }else if(list.attention&&list.counts.all>0){
     ({heading,body}=EMPTY_ATTENTION);
-    action={href:scope.href(listHref(null,null,filtersOf(list))),label:'Show every status'};
+    action={href:listHref(null,null,filtersOf(list),customerId),label:'Show every status'};
   }else if(list.aging_filter&&list.counts.all>0){
     heading=`No open ${AGING_WORDS[list.aging_filter]} quotes`;
     body='None of these quotes is open at that aging level any more.';
-    action={href:scope.href(listHref(null,null,filtersOf(list))),label:'Show every status'};
+    action={href:listHref(null,null,filtersOf(list),customerId),label:'Show every status'};
   }else if(list.status&&list.counts.all>0){
     ({heading,body}=EMPTY_STATUS[list.status]);
-    action={href:scope.href(listHref(null,null,filtersOf(list))),label:'Show every status'};
+    action={href:listHref(null,null,filtersOf(list),customerId),label:'Show every status'};
   }else if(customer){
     heading=`No quotes for ${customer.name} yet`;
     body=`A quote shows up here when someone at ${customer.name} asks for goods in Querent chat and presses Request quote.`;

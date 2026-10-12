@@ -1,60 +1,64 @@
 import 'server-only';
 import {cookies} from 'next/headers';
 import type {
-  BranchStock,CatalogItem,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,ItemSale,OrderListRow,ProductCategory,QuoteStatus,
+  BranchStock,CatalogItem,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerOrder,ItemSale,OrderListRow,ProductCategory,QuoteStatus,
 } from '@/domain';
-import {scopeFrom} from '@/components/rep/scope';
+import {CUSTOMER_PARAM,customerFilter} from '@/components/rep/scope';
 import {effectiveStatus} from '@/server/quotes';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {
-  allOrders,branches,catalogItem,catalogItems,contacts,customerAccount,customerDirectory,customers,customerStats,itemSales,productCategories,quotes,stockForItems,
+  allOrders,branches,catalogItem,catalogItems,contacts,customerAccount,customerDirectory,customers,customerStats,findOrder,itemSales,productCategories,quotes,stockForItems,
 } from '@/server/repository';
 import {COOKIE,principalFromCookie} from '@/server/session';
-import {repAccess} from './access';
+import {customerFilterFor,ownerFilter,readsCustomer,repAccess,type RepReader} from './access';
 
 // The rep portal's reference views (spec §4 "Customers / Orders / Items: read-only list and detail
 // views", task 3.8). Each function gathers what one page shows from the repository. None of them
 // returns cost or margin: the spec and mockup show those on quotes only.
 //
-// The "Viewing" picker (?customer=) scopes them: the Customers list narrows to the picked customer,
-// Orders and an item's recent sales cover only its orders. The catalog is the same for everyone.
+// Whose records (Appendix B; task U1): a rep reads only their own customers, those customers'
+// orders and their own quotes; the manager reads the whole organization. A page's own ?customer=
+// filter narrows further: the Customers list to that customer, Orders and an item's recent sales to
+// its orders. A customer the reader can't read is ignored like an unknown one. The catalog is the
+// same for everyone.
 
 type SearchParams=Record<string,string|string[]|undefined>;
 const clock=()=>new Date().toISOString();
 
-// ---- The picker ----
+// ---- The page's own customer filter ----
 
 export interface PickedCustomer {
-  /** The picked customer's id, or null for All customers (an unknown id reads as All customers, as in the shell). */
+  /** The filtered customer's id, or null for All customers (an unknown id, or one the reader can't read, reads as All customers). */
   customerId:string|null;
   customer:CustomerListItem|null;
   /** "All customers" or the customer's name. */
   label:string;
 }
 
-/** The "Viewing" picker's customer from a page's searchParams, checked against the customer list like the shell does. */
-export function pickedCustomer(params:SearchParams):PickedCustomer{
-  const list=customers();
-  const customerId=scopeFrom({get:name=>{const value=params[name];return typeof value==='string'?value:null;}},list);
-  const customer=list.find(c=>c.id===customerId)??null;
-  return {customerId,customer,label:customer?.name??'All customers'};
+/** A page's ?customer= filter from its searchParams, kept only when the reader may read that customer (task U1). */
+export function pickedCustomer(params:SearchParams,reader:RepReader):PickedCustomer{
+  const value=params[CUSTOMER_PARAM];
+  const customer=customerFilterFor(reader,customerFilter({get:()=>typeof value==='string'?value:null}),customers());
+  return {customerId:customer?.id??null,customer,label:customer?.name??'All customers'};
 }
 
 /**
  * A detail page's title: the record's name for the signed-in rep, and the section name for anyone
  * else. Metadata renders beside the page, so it checks the session itself rather than leaking a
- * name while the page redirects.
+ * name while the page redirects; `name` gets the reader, so a record the rep can't read (another
+ * rep's customer or order, task U1) leaks no name either.
  */
-export async function detailTitle(section:string,name:()=>string|undefined):Promise<string>{
-  if(!repAccess(principalFromCookie((await cookies()).get(COOKIE)?.value)).ok)return section;
-  return name()??section;
+export async function detailTitle(section:string,name:(reader:RepReader)=>string|undefined):Promise<string>{
+  const access=repAccess(principalFromCookie((await cookies()).get(COOKIE)?.value));
+  if(!access.ok)return section;
+  return name(access)??section;
 }
 
 // ---- Customers ----
 
-/** The Customers list: every customer by name, or just the picked one. */
-export function customerList(customerId:string|null=null):CustomerDirectoryRow[]{
-  return customerDirectory().filter(c=>customerId===null||c.id===customerId);
+/** The Customers list: the reader's customers by name (every customer for the manager), or just the filtered one. */
+export function customerList(reader:RepReader,customerId:string|null=null):CustomerDirectoryRow[]{
+  return customerDirectory({repId:ownerFilter(reader)}).filter(c=>customerId===null||c.id===customerId);
 }
 
 /** One of the customer's quotes as the customer page lists it: no cost or margin. */
@@ -85,16 +89,19 @@ export interface CustomerDetail {
 export const RECENT=5;
 
 /**
- * Everything the customer page shows. Expiry is lazy (task 1.5), so this stores the expiry of the
- * customer's overdue sent quotes first; statuses and the win rate then agree with the Quotes list.
+ * Everything the customer page shows, or undefined when there is no such customer or the reader
+ * can't read it (another rep's customer, task U1). The recent quotes are the reader's own (every
+ * rep's for the manager). Expiry is lazy (task 1.5), so this stores the expiry of the customer's
+ * overdue sent quotes first; statuses and the win rate then agree with the Quotes list.
  */
-export function customerDetail(customerId:string,{now=clock()}:{now?:string}={}):CustomerDetail|undefined{
+export function customerDetail(customerId:string,reader:RepReader,{now=clock()}:{now?:string}={}):CustomerDetail|undefined{
+  if(!readsCustomer(reader,customerId))return undefined;
   const account=customerAccount(customerId);
   if(!account)return undefined;
   expireOverdueQuotes({customerId,now});
   const stats=customerStats(customerId);
   const orderRows=allOrders({customerId});
-  const quoteRows=quotes({customerId});
+  const quoteRows=quotes({customerId,repId:ownerFilter(reader)});
   return {
     account,
     on_file:account.terms!==null||account.credit_limit!==null||account.open_balance!==null,
@@ -141,9 +148,20 @@ export function itemList({category=null}:{category?:string|null}={}):ItemList{
 
 export interface ItemDetail {item:ItemRow;branches:{id:string;code:string;name:string}[];sales:ItemSale[]}
 
-/** One item (by id or SKU) with stock per branch and its recent sales, the picked customer's only when one is picked. */
-export function itemDetail(idOrSku:string,{customerId=null}:{customerId?:string|null}={}):ItemDetail|undefined{
+/** One item (by id or SKU) with stock per branch and its recent sales to the reader's customers (every customer for the manager), or the filtered customer's. */
+export function itemDetail(idOrSku:string,reader:RepReader,{customerId=null}:{customerId?:string|null}={}):ItemDetail|undefined{
   const item=catalogItem(idOrSku);
   if(!item)return undefined;
-  return {item:withStock([item])[0],branches:branches().map(({id,code,name})=>({id,code,name})),sales:itemSales(item.id,{customerId})};
+  return {item:withStock([item])[0],branches:branches().map(({id,code,name})=>({id,code,name})),sales:itemSales(item.id,{customerId,repId:ownerFilter(reader)})};
+}
+
+// ---- Orders ----
+
+/** The Orders list: the reader's customers' orders (every order for the manager), newest first, or the filtered customer's. */
+export const orderList=(reader:RepReader,customerId:string|null=null)=>allOrders({customerId,repId:ownerFilter(reader)});
+
+/** One order by id or number, or undefined when there is none or it is for a customer the reader can't read (task U1). */
+export function orderDetail(orderIdOrNumber:string,reader:RepReader):CustomerOrder|undefined{
+  const order=findOrder(orderIdOrNumber);
+  return order&&readsCustomer(reader,order.customer_id)?order:undefined;
 }

@@ -45,7 +45,7 @@ beforeEach(()=>{
 afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
 function renderMenu(quote=SAMPLE,flush=vi.fn(async()=>{})){
-  render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
+  render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
     initialBadges={{quotes:1,attention:0}}><MoreMenu quote={quote} flush={flush}/></RepShell>);
   return {flush};
 }
@@ -101,14 +101,14 @@ describe('the items (screen 06, without Reassign)',()=>{
 });
 
 describe('Duplicate quote',()=>{
-  it('saves pending edits first, posts once with an Idempotency-Key, then opens the copy keeping ?customer=',async()=>{
+  it('saves pending edits first, posts once with an Idempotency-Key, then opens the copy (no ?customer= carried, task U1)',async()=>{
     const order:string[]=[];
     const flush=vi.fn(async()=>{order.push('flush');});
     answers['POST /api/rep/quotes/q-24817/duplicate']=()=>{order.push('duplicate');return Response.json(COPY,{status:201});};
     renderMenu(SAMPLE,flush);
     openMenu();
     fireEvent.click(item('Duplicate quote'));
-    await waitFor(()=>expect(nav.push).toHaveBeenCalledWith('/rep/quotes/Q-24830?customer=wasatch'));
+    await waitFor(()=>expect(nav.push).toHaveBeenCalledWith('/rep/quotes/Q-24830'));
     expect(order).toEqual(['flush','duplicate']);
     const [[,init]]=posts('/api/rep/quotes/q-24817/duplicate');
     expect(new Headers(init!.headers).get('idempotency-key')).toMatch(/^[\w.:-]{8,128}$/);
@@ -149,7 +149,7 @@ describe('Duplicate quote',()=>{
     expect(nav.push).not.toHaveBeenCalled();
     openMenu();
     fireEvent.click(item('Duplicate quote'));
-    await waitFor(()=>expect(nav.push).toHaveBeenCalledWith('/rep/quotes/Q-24830?customer=wasatch'));
+    await waitFor(()=>expect(nav.push).toHaveBeenCalledWith('/rep/quotes/Q-24830'));
     const keys=posts('/api/rep/quotes/q-24817/duplicate').map(([,init])=>new Headers(init!.headers).get('idempotency-key'));
     expect(keys).toHaveLength(2);
     expect(keys[1]).toBe(keys[0]);
@@ -178,7 +178,7 @@ describe('Duplicate quote',()=>{
     fireEvent.click(item('Duplicate quote'));
     await waitFor(()=>expect(nav.push).toHaveBeenCalled());
     // The copy's page mounts its own menu, which shows the note once.
-    render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
+    render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
       initialBadges={{quotes:1,attention:0}}><MoreMenu quote={{id:'q-24830',quote_number:'Q-24830',is_sample:false}} flush={async()=>{}}/></RepShell>);
     expect(await screen.findByText('Duplicated Q-24817 as Q-24830')).toBeInTheDocument();
     expect(sessionStorage.length).toBe(0);

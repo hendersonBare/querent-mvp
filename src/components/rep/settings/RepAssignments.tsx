@@ -34,7 +34,7 @@ export function RepAssignments({rows,reps,repId,manager,onChange}:{rows:Assignme
       onChange(assignments);
       const updated=assignments.find(a=>a.id===row.id);
       if(updated)setNotice(reassignedNote(updated,moved?moved.moved.length:null));
-      // The header's "Viewing" picker shows each customer's rep: re-read it.
+      // Server-rendered views read each customer's rep: re-read them.
       router.refresh();
     }catch(e){setError(e instanceof Error?e.message:'That change wasn’t saved. Try again.');}
     finally{setPending(null);}

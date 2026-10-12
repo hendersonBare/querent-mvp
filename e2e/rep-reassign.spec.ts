@@ -1,11 +1,12 @@
 import { expect, test, type APIRequest, type Browser, type Page, type TestInfo } from "@playwright/test";
 
-// Reassignment and the All reps scope (v3 spec §5, §6 Quotes list and Quote detail, §8; decisions
-// 21, 22; task D2):
-//   - Brandi (the manager) opens Mara's quote from All reps: a read-only banner, every edit control
-//     disabled. She reassigns it to herself and can edit it after; Activity says who moved it.
-//   - Brandi ticks two quotes in All reps and reassigns them to Eli in bulk; the rep filter shows them as Eli's.
-//   - Mara (a rep) can't use the All reps scope or reassign, and still sees only her own quotes.
+// Reassignment and role-based scope (v3 spec §5, §6 Quotes list and Quote detail, §8; decisions
+// 21, 22; tasks D2, U1):
+//   - Brandi (the manager) sees every rep's quotes by default (no All reps switch) and opens Mara's
+//     quote: a read-only banner, every edit control disabled. She reassigns it to herself and can
+//     edit it after; Activity says who moved it.
+//   - Brandi ticks two quotes and reassigns them to Eli in bulk; the rep filter shows them as Eli's.
+//   - Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees only her own quotes.
 // Mara's session is the demo cookie set directly (her chooser button is walked in e2e/demo-script.spec.ts).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day (POST /api/test/reset; the
@@ -54,16 +55,14 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
 test("Brandi opens Mara's quote read-only, reassigns it to herself, and can edit it after", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  // My quotes never shows Mara's quote; All reps does, with its rep.
-  await expect(quoteRow(page, fixture.other_rep)).toHaveCount(0);
-  await page.getByRole("navigation", { name: "Whose quotes" }).getByRole("link", { name: "All reps" }).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?scope=all$/);
+  // Her list is the whole organization by default: no switch, and Mara's quote shows with its rep.
+  await expect(page.getByRole("navigation", { name: "Whose quotes" })).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Rep" })).toBeVisible();
   await expect(quoteRow(page, fixture.other_rep)).toContainText("Mara Jensen");
   await screenshot(page, testInfo, "all-reps");
 
   await quoteRow(page, fixture.other_rep).getByRole("link", { name: fixture.other_rep, exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/rep/quotes/${fixture.other_rep}\\?scope=all$`));
+  await expect(page).toHaveURL(new RegExp(`/rep/quotes/${fixture.other_rep}$`));
   const banner = page.getByRole("region", { name: "Read only" });
   await expect(banner).toHaveText(/Read only: Mara Jensen’s quote\. Reassign it to edit\./);
   for (const name of ["Save draft", "Approve & send"]) await expect(page.getByRole("button", { name })).toBeDisabled();
@@ -90,15 +89,15 @@ test("Brandi opens Mara's quote read-only, reassigns it to herself, and can edit
   await expect(entries.nth(1)).toContainText(`Brandi Gallegos reassigned ${fixture.other_rep} from Mara Jensen to Brandi Gallegos`);
   await screenshot(page, testInfo, "reassigned-to-brandi");
 
-  // My quotes lists it now.
-  await page.goto("/rep/quotes");
+  // Her own quotes (the Rep filter) list it now.
+  await page.goto("/rep/quotes?rep=brandi");
   await expect(quoteRow(page, fixture.other_rep)).toHaveCount(1);
+  await expect(quoteRow(page, fixture.other_rep)).toContainText("Brandi Gallegos");
 });
 
-test("Brandi reassigns two quotes to Eli in bulk from All reps", async ({ page }, testInfo) => {
+test("Brandi reassigns two quotes to Eli in bulk from her Quotes list", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  await page.goto("/rep/quotes?scope=all");
   await page.getByRole("checkbox", { name: `Select ${fixture.sent}` }).check();
   await page.getByRole("checkbox", { name: `Select ${fixture.changes_requested}` }).check();
   const bar = page.getByRole("region", { name: "Selected quotes" });
@@ -119,18 +118,22 @@ test("Brandi reassigns two quotes to Eli in bulk from All reps", async ({ page }
   expect(await page.getByRole("table").getByRole("rowgroup").filter({ hasText: "Mara Jensen" }).count()).toBe(0);
   await screenshot(page, testInfo, "filtered-eli");
 
-  // Phone: the All reps list fits without sideways scrolling.
+  // Phone: the manager's list fits without sideways scrolling.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/rep/quotes?scope=all");
+  await page.goto("/rep/quotes");
   await expect(page.getByRole("checkbox", { name: `Select ${fixture.sent}` })).toBeVisible();
   await noSidewaysScroll(page);
   await screenshot(page, testInfo, "all-reps-390");
 });
 
-test("Mara (a rep) can't use All reps or reassign, and sees only her own quotes", async ({ browser }, testInfo) => {
+test("Mara (a rep) can't reassign, ?scope=all does nothing for her, and she sees only her own quotes", async ({ browser }, testInfo) => {
   const page = await signInAsMara(browser, testInfo);
   const api = page.request;
-  expect((await api.get("/api/rep/quotes?scope=all")).status()).toBe(403);
+  const scoped = await api.get("/api/rep/quotes?scope=all");
+  expect(scoped.status()).toBe(200);
+  const list = await scoped.json();
+  expect(list).toMatchObject({ scope: "mine", manager: null });
+  expect(list.rows.every((row: { rep_id: string }) => row.rep_id === "mara")).toBe(true);
   expect((await api.post("/api/rep/quotes/reassign", { data: { quoteIds: ["Q-24817"], toRepId: "mara" } })).status()).toBe(403);
   expect((await api.put("/api/rep/settings/assignments", { data: { customer_id: "wasatch", rep_id: "mara" } })).status()).toBe(403);
 

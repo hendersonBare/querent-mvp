@@ -1,48 +1,59 @@
 import 'server-only';
 import type {CustomerListItem} from '@/domain';
 import {expireOverdueQuotes} from '@/server/quotes/service';
-import {aggregateAccess,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems} from '@/server/repository';
+import {customerFilterFor,ownerFilter,readableCustomers,type RepReader} from '@/server/rep/access';
+import {aggregateAccess,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems,type QuoteScope} from '@/server/repository';
 import {
   TOP_ITEMS,extraGp,hoursSaved,marginVsFloor,questionsAnswered,quotedVsAccepted,turnaround,weeklyTrend,winRateCard,type RepAnalytics,
 } from './metrics';
 
 // The Analytics page's data (spec §4, task 6.2) for the signed-in rep.
 //
-// Whose numbers: the rep's own customers (customer_rep), narrowed by the "Viewing" picker. A
-// quote's rep is the customer's assigned rep when it was requested and quotes are never
-// reassigned (spec §5.2), so this is the same set of quotes as the rep's Quotes list (task 3.2,
-// quotes.rep_id) unless a customer has since been reassigned in Settings. Chat questions have no
-// rep, so going by customer keeps the quote and question numbers on one footing. Picking another
-// rep's customer shows empty numbers (other_rep), as the Quotes list does. This is task 6.2's
-// default, flagged for review: the spec doesn't say whether a rep sees colleagues' analytics.
+// Whose numbers (Appendix B "own data"; task U1; OA-67), narrowed by the page's own ?customer=:
+//   quotes     a rep's own quotes (quotes.rep_id, the current owner), the same quotes as their
+//              Quotes list, whichever customer they are for; every rep's for the manager. Everything
+//              read off quotes follows: turnaround, win rate, $ quoted vs accepted, hours saved, GP
+//              Querent found, the weekly trend, margin vs floor and top requested items.
+//   questions  chat questions (and the old query analytics and Customer access) have no rep, so
+//              they follow the customer: a rep's own customers (customer_rep), every customer for
+//              the manager.
+// The filter names only a customer the reader may read: another rep's customer is ignored like an
+// unknown one, so nothing about it leaks, and a rep's quote for another rep's customer counts only
+// under All customers (as in the Quotes list).
 
 const clock=()=>new Date().toISOString();
 
 export interface RepAnalyticsOptions {
-  /** The "Viewing" picker (?customer=). An unknown id reads as All customers, as the picker does. */
+  /** The signed-in rep is the manager (repAccess): the numbers cover every customer (task U1). */
+  manager?:boolean;
+  /** The page's own ?customer=. An unknown id, or one the rep can't read, reads as All customers. */
   customerId?:string|null;
   /** For tests. */
   now?:string;
 }
 
-/** Which customers the numbers cover. */
-export function analyticsScope(repId:string,customerId:string|null,everyone:readonly CustomerListItem[]=customers()):RepAnalytics['scope']{
-  const picked=customerId?everyone.find(c=>c.id===customerId)??null:null;
-  if(!picked)return {customer:null,customer_ids:everyone.filter(c=>c.rep_id===repId).map(c=>c.id),other_rep:false};
-  const mine=picked.rep_id===repId;
-  return {customer:picked,customer_ids:mine?[picked.id]:[],other_rep:!mine};
+/**
+ * Whose numbers: the quotes' owner (the rep, or null for every rep), and the customers whose chat
+ * questions count (the reader's, every customer for the manager), or the one filtered customer
+ * they may read.
+ */
+export function analyticsScope(reader:RepReader,customerId:string|null,everyone:readonly CustomerListItem[]=customers()):RepAnalytics['scope']{
+  const picked=customerFilterFor(reader,customerId,everyone);
+  return {customer:picked,customer_ids:picked?[picked.id]:readableCustomers(reader,everyone).map(c=>c.id),rep_id:ownerFilter(reader)};
 }
 
 /**
- * The five stat cards, the trends and the old query analytics for the rep's customers. Expiry is
- * lazy (task 1.5), so this first stores the expiry of every sent quote past valid_until; the win
- * rate also reads effective statuses, so the two agree either way.
+ * The five stat cards, the trends and the old query analytics for the rep's own quotes and
+ * customers. Expiry is lazy (task 1.5), so this first stores the expiry of every sent quote past
+ * valid_until; the win rate also reads effective statuses, so the two agree either way.
  */
-export function repAnalytics(repId:string,{customerId=null,now=clock()}:RepAnalyticsOptions={}):RepAnalytics{
+export function repAnalytics(repId:string,{manager=false,customerId=null,now=clock()}:RepAnalyticsOptions={}):RepAnalytics{
   expireOverdueQuotes({now});
-  const scope=analyticsScope(repId,customerId);
+  const scope=analyticsScope({repId,manager},customerId);
   const ids=scope.customer_ids;
-  const quotes=quoteFacts(ids),lines=quoteLineFacts(ids);
+  // The owner's quotes for any customer, or for the filtered one.
+  const owned:QuoteScope={customers:scope.customer?scope.customer.id:null,repId:scope.rep_id};
+  const quotes=quoteFacts(owned),lines=quoteLineFacts(owned);
   return {
     as_of:now,scope,
     turnaround:turnaround(quotes),
@@ -51,8 +62,8 @@ export function repAnalytics(repId:string,{customerId=null,now=clock()}:RepAnaly
     hours_saved:hoursSaved(quotes),
     extra_gp:extraGp(quotes,lines),
     weekly:weeklyTrend(quotes,now),
-    margin:marginVsFloor(sentLineFacts(ids),productCategories()),
-    top_items:topRequestedItems(ids,TOP_ITEMS),
+    margin:marginVsFloor(sentLineFacts(owned),productCategories()),
+    top_items:topRequestedItems(owned,TOP_ITEMS),
     questions:questionsAnswered(questionOutcomes(ids)),
     queries:analytics(ids),
     access:ids.length?aggregateAccess(ids):[],

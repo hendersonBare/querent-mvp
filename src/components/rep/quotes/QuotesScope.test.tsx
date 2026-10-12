@@ -4,9 +4,10 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {RepQuoteList} from '@/server/rep/quotes';
 import {CUSTOMERS,MANAGER_OPTIONS,SAMPLE,quoteList,quoteRow} from './test-fixtures';
 
-// The manager's Quotes list (v3 spec §6 Quotes list; decisions 21, 22; task D2): a "My quotes / All
-// reps" switch, a Rep column with rep and team filters in All reps, row checkboxes and a
-// "Reassign…" bulk action (All reps) that moves the ticked quotes to an active rep. A rep gets none of it.
+// The manager's Quotes list (v3 spec §6 Quotes list; decisions 21, 22; tasks D2, U1): the whole
+// organization by default, with no "My quotes / All reps" switch (?scope=all is gone), a Rep column
+// with rep and team filters, row checkboxes and a "Reassign…" bulk action that moves the ticked
+// quotes to an active rep. A rep gets none of it: their list is their own quotes.
 
 const nav=vi.hoisted(()=>({query:'',push:vi.fn(),replace:vi.fn()}));
 vi.mock('next/navigation',()=>({
@@ -41,7 +42,7 @@ const posts=()=>fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').ma
 
 function renderList(initial:RepQuoteList,{query='',rep=brandi}:{query?:string;rep?:typeof brandi|typeof mara}={}){
   nav.query=query;served=initial;
-  return render(<RepShell rep={rep} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:1,attention:0}}><QuotesList initial={initial}/></RepShell>);
+  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><QuotesList initial={initial}/></RepShell>);
 }
 const table=()=>screen.getByRole('table');
 const quoteBlock=(number:string)=>within(table()).getAllByRole('rowgroup').find(g=>within(g).queryByRole('link',{name:number}))!;
@@ -50,8 +51,9 @@ beforeEach(()=>{nav.query='';nav.push.mockClear();nav.replace.mockClear();fetchM
 afterEach(()=>{vi.unstubAllGlobals();});
 
 describe('a rep',()=>{
-  it('gets no scope switch, no Rep column and no checkboxes',()=>{
-    renderList(quoteList(),{rep:mara});
+  it('gets no scope switch, no Rep column, no rep filters and no checkboxes',()=>{
+    renderList(quoteList(),{rep:mara,query:'scope=all'});
+    expect(screen.queryByRole('combobox',{name:'Rep'})).not.toBeInTheDocument();
     expect(screen.queryByRole('navigation',{name:'Whose quotes'})).not.toBeInTheDocument();
     expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Quote','Customer','Requested','Status','Total','Margin']);
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
@@ -59,49 +61,44 @@ describe('a rep',()=>{
 });
 
 describe('the manager',()=>{
-  it('switches between My quotes and All reps, keeping the picked customer',()=>{
-    renderList(quoteList({manager:MANAGER_OPTIONS,customer:CUSTOMERS[2]}),{query:'customer=wasatch'});
-    const scope=screen.getByRole('navigation',{name:'Whose quotes'});
-    expect(within(scope).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
-      ['My quotes','/rep/quotes?customer=wasatch'],['All reps','/rep/quotes?customer=wasatch&scope=all']]);
-    expect(within(scope).getByRole('link',{current:'page'})).toHaveTextContent('My quotes');
-    // My quotes: as a rep sees it, with no Rep column, filters or checkboxes (those are All reps').
-    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Quote','Customer','Requested','Status','Total','Margin']);
-    expect(screen.queryByRole('combobox',{name:'Rep'})).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-  });
-
-  it('in All reps shows the Rep column and the rep and team filters, and keeps the scope in the status links',()=>{
-    renderList(quoteList({scope:[MARAS,NORAS,SAMPLE],manager:MANAGER_OPTIONS,reps:'all'}),{query:'scope=all'});
-    expect(within(screen.getByRole('navigation',{name:'Whose quotes'})).getByRole('link',{current:'page'})).toHaveTextContent('All reps');
+  it('has no My quotes / All reps switch: her list is the whole organization, with the Rep column, filters and checkboxes',()=>{
+    renderList(quoteList({scope:[MARAS,NORAS,SAMPLE],manager:MANAGER_OPTIONS}));
+    expect(screen.queryByRole('navigation',{name:'Whose quotes'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'My quotes'})).not.toBeInTheDocument();
     expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Select','Quote','Customer','Rep','Requested','Status','Total','Margin']);
     expect(within(quoteBlock('Q-30001')).getAllByRole('cell')[2]).toHaveTextContent('Mara Jensen');
     expect(within(table()).getByText(/^Quotes for all customers of every rep, newest request first$/)).toBeInTheDocument();
+  });
+
+  it('filters by rep and team, and no link or request carries ?scope=all',()=>{
+    renderList(quoteList({scope:[MARAS,NORAS,SAMPLE],manager:MANAGER_OPTIONS}),{query:'scope=all'});
     const rep=screen.getByRole('combobox',{name:'Rep'});
     expect(within(rep).getAllByRole('option').map(o=>o.textContent)).toEqual(['All reps','Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);
     fireEvent.change(rep,{target:{value:'mara'}});
-    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?rep=mara&scope=all');
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?rep=mara');
     const team=screen.getByRole('combobox',{name:'Team'});
     expect(within(team).getAllByRole('option').map(o=>o.textContent)).toEqual(['All teams','Inside Sales','Outside Sales']);
     fireEvent.change(team,{target:{value:'Outside Sales'}});
-    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?team=Outside+Sales&scope=all');
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?team=Outside+Sales');
     const sent=within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{name:/^Sent/});
-    expect(sent).toHaveAttribute('href','/rep/quotes?status=sent&scope=all');
+    expect(sent).toHaveAttribute('href','/rep/quotes?status=sent');
+    for(const link of screen.getAllByRole('link'))expect(link.getAttribute('href')).not.toContain('scope=');
   });
 
-  it('keeps the rep and team filters in the status links and polls them',async()=>{
-    renderList(quoteList({scope:[MARAS],manager:MANAGER_OPTIONS,reps:'all',rep_filter:'mara'}),{query:'scope=all&rep=mara'});
+  it('keeps the rep filter and the page’s own ?customer= in the status links and polls them',async()=>{
+    renderList(quoteList({scope:[MARAS],manager:MANAGER_OPTIONS,rep_filter:'mara',customer:CUSTOMERS[0]}),{query:'rep=mara&customer=canyon-ridge'});
     expect(screen.getByRole('combobox',{name:'Rep'})).toHaveValue('mara');
-    expect(within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{name:/^Needs attention/})).toHaveAttribute('href','/rep/quotes?attention=1&rep=mara&scope=all');
-    expect(quotesApiPath(null,null,null,{rep:'mara',team:null})).toBe('/api/rep/quotes?scope=all&rep=mara');
-    expect(quotesApiPath('wasatch','sent',null,{rep:null,team:'Inside Sales'})).toBe('/api/rep/quotes?customer=wasatch&status=sent&scope=all&team=Inside+Sales');
-    await waitFor(()=>expect(fetchMock.mock.calls.map(([u])=>String(u))).toContain('/api/rep/quotes?scope=all&rep=mara'));
-    // The header badge follows the scope too (OA-52).
-    expect(fetchMock.mock.calls.map(([u])=>String(u))).toContain('/api/rep/badges?scope=all');
+    expect(within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{name:/^Needs attention/})).toHaveAttribute('href','/rep/quotes?attention=1&rep=mara&customer=canyon-ridge');
+    expect(quotesApiPath(null,null,null,{rep:'mara',team:null})).toBe('/api/rep/quotes?rep=mara');
+    expect(quotesApiPath('wasatch','sent',null,{rep:null,team:'Inside Sales'})).toBe('/api/rep/quotes?customer=wasatch&status=sent&team=Inside+Sales');
+    await waitFor(()=>expect(fetchMock.mock.calls.map(([u])=>String(u))).toContain('/api/rep/quotes?customer=canyon-ridge&rep=mara'));
+    // The header badge is scoped by role on the server, never by a param.
+    expect(fetchMock.mock.calls.map(([u])=>String(u)).filter(u=>u.startsWith('/api/rep/badges'))).toEqual(expect.arrayContaining(['/api/rep/badges']));
+    expect(fetchMock.mock.calls.map(([u])=>String(u)).some(u=>u.includes('scope='))).toBe(false);
   });
 
   it('ticks quotes and reassigns them to an active rep in bulk',async()=>{
-    renderList(quoteList({scope:[MARAS,NORAS,SAMPLE],manager:MANAGER_OPTIONS,reps:'all'}),{query:'scope=all'});
+    renderList(quoteList({scope:[MARAS,NORAS,SAMPLE],manager:MANAGER_OPTIONS}));
     expect(screen.queryByRole('region',{name:'Selected quotes'})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox',{name:'Select Q-30001'}));
     fireEvent.click(screen.getByRole('checkbox',{name:'Select Q-30002'}));
@@ -122,7 +119,7 @@ describe('the manager',()=>{
   });
 
   it('selects every shown quote at once, and Cancel closes the dialog with nothing sent',()=>{
-    renderList(quoteList({scope:[MARAS,NORAS],manager:MANAGER_OPTIONS,reps:'all'}),{query:'scope=all'});
+    renderList(quoteList({scope:[MARAS,NORAS],manager:MANAGER_OPTIONS}));
     fireEvent.click(screen.getByRole('checkbox',{name:'Select every quote shown'}));
     expect(screen.getByRole('region',{name:'Selected quotes'})).toHaveTextContent('2 selected');
     fireEvent.click(screen.getByRole('button',{name:'Reassign…'}));

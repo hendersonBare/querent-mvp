@@ -7,8 +7,8 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
-| U1 | | in review ([#53](https://github.com/hendersonBare/querent-mvp/pull/53)) |
-| U2 | | not started |
+| U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
+| U2 | | in progress (`task/U2-shell`) |
 | U3 | | not started |
 | U4 | | not started |
 | U5 | | not started |
@@ -16,7 +16,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
-| U10 | | not started |
+| U10 | | in progress (`task/U10-customer-site`) |
 | U11 | | not started |
 
 ### No frame
@@ -29,6 +29,7 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Opened list of a filter panel select (C_QOB2 "Rep", "Customer"): the frame draws the closed field only; the list reuses the customer picker's rows | U0 | A select must open to work | to ask |
 | Customer picker with 5 entries or fewer: no "Showing 5 of N" line (C_QOB1 draws it for a longer list); "0 matches" when a search finds nothing (C_QOT7 draws "2 matches") | U0 | Minimum to function | to ask |
 | Reorder states the frames do not draw: the drop line on the left edge of the first column when a header is dragged to the start (C_QOT6 draws the line on a right edge); dragging a row in the columns picker has no lifted look | U0 | Minimum to function | to ask |
+| Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
 | What | Task | Reason |

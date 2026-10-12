@@ -49,7 +49,7 @@ afterEach(()=>{vi.unstubAllGlobals();});
 
 function renderPage(detail:QuoteDetail=sampleDetail()){
   api.detail=detail;
-  return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply" customers={CUSTOMERS}
+  return render(<RepShell rep={{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'}} org="Herrick Industrial Supply"
     initialBadges={{quotes:0,attention:0}}><QuoteDetailView initial={detail}/></RepShell>);
 }
 /** Clicks Approve & send; a real click focuses the button first (jsdom doesn't). */

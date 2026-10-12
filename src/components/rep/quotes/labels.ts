@@ -5,7 +5,7 @@ import type {RepQuoteRow} from '@/server/rep/quotes';
 // Words and formats for the rep's Quotes list (task 3.2). Pure, so the list, the quote page and
 // the server (the page, the API route) share them.
 
-/** The Quotes list's status filter lives in ?status= (the picker's customer in ?customer=). */
+/** The Quotes list's status filter lives in ?status= (its own customer filter in ?customer=). */
 export const STATUS_PARAM='status';
 /** The Needs attention filter (v3 spec §3, task A2): ?attention=1, sorted oldest first with ?sort=oldest. */
 export const ATTENTION_PARAM='attention';
