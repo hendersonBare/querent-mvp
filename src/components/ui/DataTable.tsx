@@ -20,6 +20,7 @@ export interface DataColumn<Row> {
   label:string;
   /** The grid track: a fraction for fluid columns ("2.2fr"), px for fixed ones ("118px"). */
   track:string;
+  /** right aligns the header and the cells; left sets the header's text-align to left, as frames with explicit alignment draw it (C_CUBase), and leaves the cells as they are. */
   align?:'left'|'right';
   alwaysShown?:boolean;
   hiddenByDefault?:boolean;
@@ -53,6 +54,10 @@ export interface DataTableProps<Row> {
   onRowClick?:(row:Row)=>void;
   /** What the body shows with no rows (decision 52: one plain line), e.g. a <div> in the page's own style. */
   empty?:ReactNode;
+  /** The last track, which holds the columns picker in the header (C_QOTable 28px; C_STBase 124px, wide enough for a row action). */
+  pickerTrack?:string;
+  /** A per-row control in that last track, under the columns picker (C_STBase "Add to quote"). */
+  rowEnd?:(row:Row)=>ReactNode;
   className?:string;
   style?:CSSProperties;
 }
@@ -60,7 +65,7 @@ export interface DataTableProps<Row> {
 const PICKER_TRACK='28px';
 
 export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreLabel,lessLabel,layout='card',divider='default',gap=16,splitGap=14,
-  minWidth,initialPrefs=null,onPrefsChange,onRowClick,empty,className,style}:DataTableProps<Row>){
+  minWidth,initialPrefs=null,onPrefsChange,onRowClick,empty,pickerTrack=PICKER_TRACK,rowEnd,className,style}:DataTableProps<Row>){
   const [prefs,setPrefs]=useState(()=>{const r=resolveColumns(columns,initialPrefs);return {column_order:r.order,hidden_columns:r.hidden};});
   const [expanded,setExpanded]=useState(false);
   const [picking,setPicking]=useState(false);
@@ -72,7 +77,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
   const {order,hidden}=resolveColumns(columns,prefs);
   const visible=order.filter(id=>!hidden.includes(id)).map(id=>byId.get(id)!);
   const visibleIds=visible.map(c=>c.id);
-  const template=[...visible.map(c=>c.track),PICKER_TRACK].join(' ');
+  const template=[...visible.map(c=>c.track),pickerTrack].join(' ');
   const grid:CSSProperties={gridTemplateColumns:template,gap};
 
   function update(next:TablePrefs){
@@ -104,7 +109,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
       const drop=slot&&(slot.to<slot.from?(slot.to===0&&i===0?'before':i===slot.to-1?'after':null):(i===slot.to?'after':null));
       const {ref,...drag}=header.itemProps(column.id);
       return <div key={column.id} ref={ref} role="columnheader" tabIndex={0} aria-label={column.label} aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
-        data-drop={drop??undefined} className={cx(s.headCell,column.align==='right'&&s.right,drop==='after'&&s.dropAfter,drop==='before'&&s.dropBefore)} {...drag}>
+        data-drop={drop??undefined} className={cx(s.headCell,column.align==='right'&&s.right,column.align==='left'&&s.left,drop==='after'&&s.dropAfter,drop==='before'&&s.dropBefore)} {...drag}>
         {lifted?<span data-ui="lifted" className={s.lifted}>{':: '}{column.label}</span>:<>{':: '}{column.label}</>}
       </div>;
     })}
@@ -117,6 +122,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
   const bodyRows=rows.length===0&&empty?empty:shownRows.map(row=><div key={rowKey(row)} role="row" className={cx(s.row,divider==='soft'&&s.soft,onRowClick&&s.clickable)} style={grid}
     onClick={onRowClick?()=>onRowClick(row):undefined}>
     {visible.map(column=><div key={column.id} role="cell" className={column.align==='right'?s.right:undefined}>{column.render(row)}</div>)}
+    {rowEnd&&<div role="cell" className={s.rowEnd}>{rowEnd(row)}</div>}
   </div>);
   const foot=remaining>0&&<div className={cx(s.foot,divider==='soft'&&s.soft,layout==='card'?s.cardFoot:s.splitFoot)}>
     <ShowMoreButton onClick={()=>setExpanded(!expanded)}>{expanded?lessLabel:moreLabel(remaining)}</ShowMoreButton>

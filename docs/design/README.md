@@ -59,7 +59,7 @@ The build follows the mockup except where the spec decided otherwise. Verifiers:
 - "Valid until" on a draft follows the day it is read (the quote's valid days from now), and the bell's dropdown lists what is unread at the time, so neither matches the mockup's fixed Oct 7 and "3".
 
 **Rep pages the mockup doesn't show**
-- **Stock** (was Items): the category filter is **one dropdown, "All categories" by default**, and it is the only way to filter by category (an item's page shows its category as plain text, not a link).
+- **Customers, Orders, Stock (lane U, U5):** the canvas frames C_CUBase to C_ST3 replace the old reference pages. Lists have the page's own search or customer picker, the **Filter** panel (Stock's replaces the old category dropdown), the count, the columns picker and "Show N more"; record pages have no breadcrumb. **Add to quote** works from a Stock row and the item page and adds to one of the rep's own drafts. Built with no frame (listed in `docs/plans/status.md`): the applied-filter chips only on Customers (C_CU2), the Orders and Stock badge only; "Low stock" as less than one full case at a branch; the Recent orders table on a customer page; the Closed and Open order chips; opening the quote after Add to quote, the refused-add line, and the disabled "Start a new quote" button.
 - **Settings > Pricing & delivery:** the Pricing card lists the scarcity switch and the fixed broken-case rule (customer price + 10%). **Every delivery rate is editable** (base fee, per mile, minimum, free-delivery threshold, radius and the road-miles factor), with a worked example that follows the typing and one Save for all six.
 
 **Customer view (lane U task U10: canvas frames C_CVE0 to C_CVL5 are the source; the old mockup does not apply)**

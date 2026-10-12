@@ -13,7 +13,7 @@ import {COOKIE,principalFromCookie} from '@/server/session';
 import {customerFilterFor,ownerFilter,readsCustomer,repAccess,type RepReader} from './access';
 
 // The rep portal's reference views (spec §4 "Customers / Orders / Items: read-only list and detail
-// views", task 3.8). Each function gathers what one page shows from the repository. None of them
+// views", task 3.8; plan U5 restyles them as Customers, Orders and Stock). Each function gathers what one page shows from the repository. None of them
 // returns cost or margin: the spec and mockup show those on quotes only.
 //
 // Whose records (Appendix B; task U1): a rep reads only their own customers, those customers'
@@ -56,8 +56,13 @@ export async function detailTitle(section:string,name:(reader:RepReader)=>string
 
 // ---- Customers ----
 
-/** The Customers list: the reader's customers by name (every customer for the manager), or just the filtered one. */
-export function customerList(reader:RepReader,customerId:string|null=null):CustomerDirectoryRow[]{
+/**
+ * The Customers list: the reader's customers by name (every customer for the manager), or just the
+ * filtered one. Expiry is lazy (task 1.5), so this stores the expiry of overdue sent quotes first: a
+ * sent quote past valid until is no longer open (the Has open quotes filter, plan U5).
+ */
+export function customerList(reader:RepReader,customerId:string|null=null,{now=clock()}:{now?:string}={}):CustomerDirectoryRow[]{
+  expireOverdueQuotes({now});
   return customerDirectory({repId:ownerFilter(reader)}).filter(c=>customerId===null||c.id===customerId);
 }
 
@@ -122,9 +127,9 @@ export interface ItemRow extends Omit<CatalogItem,'keywords'> {stock:BranchStock
 export interface ItemList {
   /** The branches, in the order of each row's stock. */
   branches:{id:string;code:string}[];
+  /** Every category with how many items it has (the Stock filter, C_ST1). */
   categories:(ProductCategory&{count:number})[];
-  /** The category shown, or null for every category. */
-  category:ProductCategory|null;
+  /** The whole catalog, in category order: the page searches and filters it (plan U5). */
   items:ItemRow[];
 }
 
@@ -133,16 +138,13 @@ function withStock(items:CatalogItem[]):ItemRow[]{
   return items.map(({keywords:_k,...item})=>({...item,stock:stock.get(item.id)?.branches??[],total_available:stock.get(item.id)?.total_available??0}));
 }
 
-/** The catalog in category order with stock per branch, optionally one category (an unknown one reads as every category). */
-export function itemList({category=null}:{category?:string|null}={}):ItemList{
+/** The catalog in category order with stock per branch, and the categories with their counts. */
+export function itemList():ItemList{
   const all=catalogItems();
-  const categories=productCategories().map(c=>({...c,count:all.filter(i=>i.category_id===c.id).length}));
-  const picked=categories.find(c=>c.id===category)??null;
   return {
     branches:branches().map(({id,code})=>({id,code})),
-    categories,
-    category:picked&&{id:picked.id,name:picked.name,sort_order:picked.sort_order},
-    items:withStock(picked?all.filter(i=>i.category_id===picked.id):all),
+    categories:productCategories().map(c=>({...c,count:all.filter(i=>i.category_id===c.id).length})),
+    items:withStock(all),
   };
 }
 

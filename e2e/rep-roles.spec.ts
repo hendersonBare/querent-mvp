@@ -96,12 +96,12 @@ test("Scope is role based: Mara reads only her own records, Brandi the whole org
   await expect(mara.getByRole("table", { name: "Quotes" }).getByRole("button", { name: "Q-24817", exact: true })).toHaveCount(0);
   // Customers: Canyon Ridge only; Wasatch's page and orders are not found for her.
   await mara.goto("/rep/customers");
-  await expect(mara.getByText("Viewing All customers · 1 customer")).toBeVisible();
+  await expect(mara.getByText("1 customer", { exact: true })).toBeVisible();
   await expect(mara.getByRole("link", { name: "Canyon Ridge Builders" })).toBeVisible();
   await mara.goto("/rep/customers/wasatch");
   await expect(mara.getByRole("heading", { name: "There’s no customer at that address" })).toBeVisible();
   await mara.goto("/rep/orders");
-  await expect(mara.getByText("Viewing All customers · 0 orders")).toBeVisible();
+  await expect(mara.getByText("0 orders", { exact: true })).toBeVisible();
   await mara.goto("/rep/orders/SO-51223");
   await expect(mara.getByRole("heading", { name: "There’s no order with that number" })).toBeVisible();
   const api = mara.request;
@@ -123,7 +123,7 @@ test("Scope is role based: Mara reads only her own records, Brandi the whole org
   const reps = await page.evaluate(() => fetch("/api/rep/quotes").then((r) => r.json()).then((l) => [...new Set(l.rows.map((r: { rep_name: string }) => r.rep_name))]));
   expect(reps).toEqual(expect.arrayContaining(["Brandi Gallegos", "Mara Jensen", "Eli Porter"]));
   await page.goto("/rep/customers");
-  await expect(page.getByText("Viewing All customers · 6 customers")).toBeVisible();
+  await expect(page.getByText("6 customers", { exact: true })).toBeVisible();
   await page.goto("/rep/customers/canyon-ridge");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Canyon Ridge Builders");
 });

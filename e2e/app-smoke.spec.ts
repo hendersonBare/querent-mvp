@@ -40,8 +40,9 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
     .getByRole("navigation", { name: "Rep portal" })
     .getByRole("link", { name: "Customers" })
     .click();
+  // Each row's customer name opens its page (plan U5, C_CUBase).
   await expect(
-    page.getByRole("table").getByRole("rowheader").getByRole("link"),
+    page.getByRole("table", { name: "Customers" }).getByRole("link"),
   ).toHaveText([
     "Canyon Ridge Builders",
     "Great Basin Fabrication",

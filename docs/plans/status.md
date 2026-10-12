@@ -2,17 +2,17 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 62. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 63. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
 | U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
-| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | PR open, awaiting verification (`task/U3-quotes-list`) |
-| U4 | | in progress (`task/U4-quote-editor`) |
-| U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | in review |
-| U6 | | in progress (`task/U6-analytics`) |
+| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | fix round 1 (verifier FAIL: native date fields add copy and an icon; manager offered Send reply on another rep's quote; decision 63 reply to chat) |
+| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | in review |
+| U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
+| U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | in review |
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
@@ -41,6 +41,17 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Bell copy for an expired quote ("Quote Q-24815 expired", "It was valid until Oct 3."), "N min ago" and "Today" time labels | U10 | The frames draw ready, updated and shipped notices only; the task asks for expired notices too | approved (decision 56) |
 | Empty and error lines in the bell, the Orders and My rep sheets ("No notifications yet.", "No orders yet.", "No rep is assigned yet.") | U10 | Decision 52: one plain line | not needed (decision 52) |
 | The strip that holds the bell, the account chip and Sign in: the frames' 72px header with its bottom rule, without the stand-in Herrick logo | U10 | The controls the task builds sit in it, and the sheets open under it (C_CVL2, C_CVL3) | approved (decision 56) |
+| Customers, Orders, Stock list states the frames do not draw: one plain line when nothing matches ("No customers match.", "No orders match.", "No items match."; "No orders for Great Basin Fabrication yet." for a picked customer with none); "Show fewer …" after "Show N more" (the U0 table's) | U5 | Decision 52: one plain line | not needed (decision 52) |
+| The applied state of the Orders and Stock filters: the Filter button's count badge only (C_CU2's chip row is drawn for Customers only) | U5 | Minimum to function | approved (decision 62) |
+| Customers chips for groups C_CU2 does not sample, in its "Rep: Brandi Gallegos, Eli Porter" pattern: "Terms: Net 30, Not on file", "Open balance: $0.00 to $5,000.00" ("from $1,000.00", "up to $5,000.00"), "Only show: Has open quotes, Never ordered" | U5 | Every applied group needs a chip | approved (decision 62) |
+| Filter field hints: "Open balance to" shows the highest credit limit in the list (C_CU1 "$50,000.00", which the seed matches), "List price to" the highest list price ($121.00 where C_ST1 samples $500.00); the from fields show "$0.00"; Ordered from and to are native date fields (C_OR1 samples "Jan 1, 2026" and "Oct 10, 2026") | U5 | The frames' values are samples; the fields must take any amount or day | approved (decision 62) |
+| "Low stock" (C_ST1 Only show): less than one full case (case_qty packs) on hand at some branch. No spec or frame defines it | U5 | The filter needs a rule | approved (decision 62) |
+| The Rep filter on Orders lists every rep with customers the manager reads (C_OR1 lists reps beyond those with orders) | U5 | Closest to the frame | approved (decision 62) |
+| Customer page: the Recent orders table when the customer has orders (C_CU3 draws the card empty for Canyon Ridge), drawn as its Recent quotes table with Order, Ordered, Fulfillment, Status, Total; a contact's phone and email, drawn as the rep card's; "No quotes yet" with the old line, in the frame's empty style; the not-on-file account line; "No rep is assigned to this customer." | U5 | Real data the sample customer lacks | approved (decision 62) |
+| Order statuses the frames do not draw: Open as plain text (600) in the list; the Closed (muted) and Open chips on the order page (C_OR2 draws Shipped); "Picked up" for a will-call order, "Direct order" with no quote, "-" with no PO (the page's old words) | U5 | Real statuses and orders | approved (decision 62) |
+| Add to quote after the frame (C_ST3): the quote opens after adding (POST /api/rep/quotes/<number>/lines); a refused add shows the server's reason in one red line and the dialog stays; the drafts are the rep's own (decision 22), newest quote first; the quantity starts at 1 (C_ST3 samples 2) and takes whole numbers of 1 or more | U5 | Minimum to function | approved (decision 62) |
+| "Start a new quote" in Add to quote: drawn and selectable, but no route starts a quote from Stock (quotes start from a customer's request or a duplicate), so its button reads "Start a new quote" and stays disabled; its picked look (2px dashed accent on the picked grey) has no frame | U5 | Product decision: what a rep-started quote needs (customer, fulfillment, branch) | approved (decision 62) |
+| Not found pages for a customer, order or item: the page title, one line and the way back, in the new tokens | U5 | Decision 52 | not needed (decision 52) |
 | Quotes page, Send reply (C_QOB6, C_QOT4): the frames draw the reply box and Send reply but no spec says where a reply reaches the customer. Built: `POST /api/rep/quotes/<n>/reply` records it on the quote's Activity ("Brandi Gallegos replied to Dana Ortiz: …"), nothing is sent to the customer; Send reply with nothing written goes back to the box | U3 | The frames draw the control; it must do something | to ask: where should a rep's reply reach the customer (Querent chat, the customer's bell, the quote)? |
 | Quotes page, the preview of a quote with no change request (C_QOB5 and C_QOT3 draw a change request): no note box and no "Reply to …" button; "Reply to <first name>" uses the customer's name when the quote has no contact | U3 | Minimum to function | to ask |
 | Quotes page, the table's Rep, Valid until and Purchasing agent columns once ticked in the columns picker (C_QOT2 draws them unticked): each a fluid 1fr track in the row's cell style | U3 | C_QOT2 offers them | to ask |
@@ -98,19 +109,19 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_QE8 | U4 | pending |
 | C_QE9 | U4 | pending |
 | C_QEBase | U4 | pending |
-| C_CU1 | U5 | pending |
-| C_CU2 | U5 | pending |
-| C_CU3 | U5 | pending |
-| C_CUBase | U5 | pending |
-| C_OR1 | U5 | pending |
-| C_OR2 | U5 | pending |
-| C_ORBase | U5 | pending |
-| C_RCU1 | U5 | pending |
-| C_RCUBase | U5 | pending |
-| C_ST1 | U5 | pending |
-| C_ST2 | U5 | pending |
-| C_ST3 | U5 | pending |
-| C_STBase | U5 | pending |
+| C_CU1 | U5 | PASS (`e2e/frames-records.spec.ts`; Brandi and Eli picked as drawn; the seed's four reps pair with the frame's three by name, Brandi's count 2 for the sample 3, Appendix G) |
+| C_CU2 | U5 | PASS (`e2e/frames-records.spec.ts`; chip "Rep: Brandi Gallegos, Eli Porter" literal; the frame's Canyon Ridge row is drawn as Brandi's, Mara Jensen's in the seed, so 4 customers for the sample 5) |
+| C_CU3 | U5 | PASS (`e2e/frames-records.spec.ts`; Canyon Ridge's rep is Mara Jensen in the seed (the frame draws Brandi); the open quotes' requested days follow the clock, compared by place) |
+| C_CUBase | U5 | PASS (`e2e/frames-records.spec.ts`; Canyon Ridge's rep is Mara Jensen in the seed; search 320px) |
+| C_OR1 | U5 | PASS (`e2e/frames-records.spec.ts`; Delivery and SLC picked as drawn; Ordered from and to are native date fields; a fourth rep, Mara Jensen, in the seed) |
+| C_OR2 | U5 | PASS (`e2e/frames-records.spec.ts`; side column 340px) |
+| C_ORBase | U5 | PASS (`e2e/frames-records.spec.ts`; ten orders then "Show 13 more orders"; the seed links SO-51214 to Q-24806, which the frame's sample omits; customer names fit on one line at 1920) |
+| C_RCU1 | U5 | PASS (`e2e/frames-records.spec.ts`; Mara's one customer for the frame rep's three, so Terms offers Net 30 only and Open balance to reads $40,000.00) |
+| C_RCUBase | U5 | PASS (`e2e/frames-records.spec.ts`; Mara's book is Canyon Ridge with 18 of its quotes, the frame's rep has three customers) |
+| C_ST1 | U5 | PASS (`e2e/frames-records.spec.ts`; Fasteners picked as drawn; category names are catalog data ("&", "/" where the frame writes "and"); List price to $121.00 for the sample $500.00) |
+| C_ST2 | U5 | PASS (`e2e/frames-records.spec.ts`; side column 340px) |
+| C_ST3 | U5 | PASS (`e2e/frames-records.spec.ts`; Brandi's own drafts Q-24817 and Q-24790 (decision 22) for the frame's three; quantity starts at 1; 580px, 120px from the top, centred) |
+| C_STBase | U5 | PASS (`e2e/frames-records.spec.ts`; nine items then "Show 53 more items"; search 340px, Add to quote 108px in the 124px track) |
 | C_AN1 | U6 | pending |
 | C_AN2 | U6 | pending |
 | C_AN3 | U6 | pending |

@@ -139,7 +139,8 @@ test("customer filter: ?customer= narrows one page, and no nav link carries it (
   for (const [label, path] of SECTIONS) await expect(sectionLink(page, label)).toHaveAttribute("href", path);
   await sectionLink(page, "Orders").click();
   await expect(page).toHaveURL(/\/rep\/orders$/);
-  await expect(page.getByText("Viewing All customers")).toBeVisible();
+  // The Orders picker (plan U5, C_ORBase) shows every customer again.
+  await expect(page.getByRole("combobox", { name: "Customer, All customers" })).toBeVisible();
 
   // Settings > Customer access picks its own customer.
   await sectionLink(page, "Settings").click();
