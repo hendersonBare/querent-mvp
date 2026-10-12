@@ -123,7 +123,13 @@ test("header caution: its label counts red quotes only; its dropdown lists the a
   await expect(list.getByRole("button")).toHaveCount(attention);
   for (const [number, tag] of [["Q-24790", "Overdue"], ["Q-24817", "Overdue"], ["Q-24789", "Aging"]])
     await expect(list.getByRole("button", { name: new RegExp(`^${number}\\s*${tag}`) })).toHaveCount(1);
-  await expect(list.getByRole("button", { name: /^Q-24789\s*Aging/ })).toHaveText("Q-24789AgingSent 4 days ago.");
+  // Each row's line in C_QOB3's sentence for its status, from the quote's data.
+  const sentAt = await page.evaluate(() => fetch("/api/rep/quotes?attention=1").then((r) => r.json())
+    .then((b) => b.rows.find((r: { quote_number: string }) => r.quote_number === "Q-24789").sent_at as string));
+  const sentDay = new Date(sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  await expect(list.getByRole("button", { name: /^Q-24789\s*Aging/ })).toHaveText(`Q-24789AgingSent ${sentDay}, no reply yet.`);
+  await expect(list.getByRole("button", { name: /^Q-24790\s*Overdue/ })).toHaveText("Q-24790OverdueDana Ortiz asked to hold the anchors for pickup…");
+  await expect(list.getByRole("button", { name: /^Q-24817\s*Overdue/ })).toHaveText("Q-24817OverdueDraft has 1 line below the margin floor.");
   // Red first.
   const tags = await list.getByRole("button").evaluateAll((rows) => rows.map((r) => (r.textContent!.includes("Overdue") ? "red" : "amber")));
   expect(tags).toEqual([...tags].sort((a, b) => (a === "red" ? 0 : 1) - (b === "red" ? 0 : 1)));

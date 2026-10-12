@@ -39,7 +39,8 @@ if (cmd === "compare") {
   const cookie = flag("cookie");
   if (cookie) {
     const [name, ...v] = cookie.split("=");
-    await page.context().addCookies([{ name, value: v.join("="), url: arg.replace("{frames}", srv.base) }]);
+    // On the app's origin with path "/", as the app sets its session cookie, so API calls carry it too.
+    await page.context().addCookies([{ name, value: v.join("="), url: new URL("/", arg.replace("{frames}", srv.base)).href }]);
   }
   const appUrl = arg.replace("{frames}", srv.base); // {frames} = the local frame server, for self-tests
   await page.goto(appUrl, { waitUntil: "networkidle" });

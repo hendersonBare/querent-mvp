@@ -209,6 +209,30 @@ const ALERTS = "header > div:last-child"; // the wrapper of the two buttons, at 
 /** A dropdown row's text is real data, the frame's is a sample (Appendix G): pair them by their place in the row. */
 const byPlace = (m: Measure) => `${m.tag}@${m.path}`;
 
+/** "Oct 6" (UTC days, like every date in the app). */
+const monDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * C_QOB3's row lines, one sentence pattern per status, as its three samples word them: "Dana Ortiz asked to
+ * move pickup to Ogden.", "Draft has 1 line below the margin floor.", "Sent Oct 6, no reply yet."
+ */
+const CAUTION_LINES = {
+  changes_requested: /^(.+) asked to .+[.…]$/,
+  ready_for_review: /^Draft has \d+ lines? below the margin floor\.$/,
+  sent: /^Sent [A-Z][a-z]{2} \d{1,2}, no reply yet\.$/,
+};
+/** No frame (docs/plans/status.md): a draft that is only waiting, with no line below the floor. */
+const DRAFT_WAITING = /^Requested [A-Z][a-z]{2} \d{1,2}, not sent yet\.$/;
+/**
+ * C_QOB4's row titles, as its three samples word them: "Dana Ortiz replied on Q-24790" (the contact),
+ * "Q-24763 accepted by Canyon Ridge" (the customer), "Q-24815 expired"; and its times: "Oct 9, 4:12 PM", or
+ * the day only for an expired quote ("Sep 18").
+ */
+const BELL_TITLES = { replied: /^(.+) replied on (Q-\d+)$/, accepted: /^(Q-\d+) accepted by (.+)$/, expired: /^(Q-\d+) expired$/ };
+const BELL_TIME = /^[A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/;
+const BELL_DAY = /^[A-Z][a-z]{2} \d{1,2}$/;
+
 /** Where the panel sits: 50px below the buttons' top, its right edge on the given button's right edge. */
 async function panelPlace(page: Page, anchor: string, panel: string) {
   return page.evaluate(({ anchor, panel }) => {
@@ -261,6 +285,36 @@ test("caution open (C_QOB3): the Needs attention dropdown, without navigating", 
   const appFirstRows = a.slice(0, 2 + rows * 4); // the panel, its head, then per row: the row box, title, tag, line
   expectSame("C_QOB3 panel", rewrite(f, byPlace), rewrite(appFirstRows, byPlace));
   for (const tag of shown.filter((m) => m.text === "Overdue" || m.text === "Aging")) expect(tag.style.color).toBe("rgb(201, 42, 28)");
+
+  // The wording: the frame samples one row of each pattern, and every app row follows the pattern for its
+  // quote's status, filled from that quote's data (the Needs attention list's rows).
+  const frameLines = f.filter((m) => m.text).map((m) => m.text).filter((_, i) => i > 0 && i % 3 === 0);
+  expect(frameLines.map((line) => Object.entries(CAUTION_LINES).find(([, re]) => re.test(line))?.[0])).toEqual(["changes_requested", "ready_for_review", "sent"]);
+  const list = await page.evaluate(() => fetch("/api/rep/quotes?attention=1").then((r) => r.json()));
+  type Row = { quote_number: string; status: keyof typeof CAUTION_LINES; sent_at: string | null; below_floor_count: number; change_request: { by: string | null } | null; customer_name: string };
+  const rowOf = new Map<string, Row>(list.rows.map((r: Row) => [r.quote_number, r]));
+  const patterns = new Set<string>();
+  for (const c of served.caution as { quote_number: string; line: string }[]) {
+    const row = rowOf.get(c.quote_number)!;
+    expect(row, c.quote_number).toBeTruthy();
+    if (row.status === "changes_requested") {
+      expect(c.line, c.quote_number).toMatch(CAUTION_LINES.changes_requested);
+      expect(c.line, c.quote_number).toMatch(new RegExp(`^${escapeRe(row.change_request?.by ?? "")} asked to `));
+    } else if (row.status === "ready_for_review") {
+      const n = row.below_floor_count;
+      if (n > 0) expect(c.line, c.quote_number).toBe(`Draft has ${n} ${n === 1 ? "line" : "lines"} below the margin floor.`);
+      else expect(c.line, c.quote_number).toMatch(DRAFT_WAITING);
+      if (n === 0) continue;
+    } else expect(c.line, c.quote_number).toBe(`Sent ${monDay(row.sent_at!)}, no reply yet.`);
+    patterns.add(row.status);
+  }
+  // The seeded data shows every pattern the frame draws.
+  expect([...patterns].sort()).toEqual(Object.keys(CAUTION_LINES).sort());
+  // Each line is one row tall, as each of the frame's is (a long change request is trimmed to fit).
+  const lineHeight = (list: Measure[]) => list.filter((m) => m.text).filter((_, i) => i > 0 && i % 3 === 0).map((m) => m.rect.h);
+  const frameRow = lineHeight(f)[0]!;
+  expect(lineHeight(f).every((h) => h === frameRow)).toBe(true);
+  expect(lineHeight(a).filter((h) => h !== frameRow)).toEqual([]);
   await testInfo.attach("C_QOB3 text: frame sample vs app data", { body: JSON.stringify({ frame: f.filter((m) => m.text).map((m) => m.text), app: shown.map((m) => m.text) }, null, 1), contentType: "application/json" });
 
   // Choosing a row opens that quote (no frame: decision 50, status.md).
@@ -272,9 +326,10 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   await frame("QOB4");
   const page = await appAs(browser, testInfo, "supplier");
   const dana = await appAs(browser, testInfo, "customer", "/");
-  // Three customer events on Brandi's quotes (real data; the frame's rows are samples): a reply and two declines.
+  // Four customer events on Brandi's quotes (real data; the frame's rows are samples): a reply, an acceptance
+  // and two declines.
   const made: string[] = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     made.push(await page.evaluate(async () => {
       const copy = await fetch("/api/rep/quotes/Q-24816/duplicate", { method: "POST" }).then((r) => r.json());
       const detail = await fetch(`/api/rep/quotes/${copy.quote_number}`).then((r) => r.json());
@@ -289,13 +344,15 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   expect(await answer("request-changes", made[0]!, { revision: 1, note: "Make it 12 boxes." })).toBe(200);
   expect(await answer("decline", made[1]!, { revision: 1, reason: "price_too_high" })).toBe(200);
   expect(await answer("decline", made[2]!, { revision: 1, reason: null })).toBe(200);
+  expect(await answer("accept", made[3]!, { revision: 1, day: nextWeekday(), time: "10:00", po: "E2E-4410" })).toBe(200);
 
   await page.reload();
   await page.mouse.move(1919, 1079);
   const served = await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()));
-  // Q-24817's request was read when an earlier test opened it, so these three are the unread ones.
+  // Q-24817's request was read when an earlier test opened it, so these four are the unread ones. The reply
+  // names the contact and the acceptance the customer, as C_QOB4 does; declines name the contact (decision 58).
   expect(served.bell.map((b: { label: string }) => b.label)).toEqual([
-    `${made[2]} declined by Dana Ortiz`, `${made[1]} declined by Dana Ortiz`, `Dana Ortiz replied on ${made[0]}`]);
+    `${made[3]} accepted by Wasatch Mechanical`, `${made[2]} declined by Dana Ortiz`, `${made[1]} declined by Dana Ortiz`, `Dana Ortiz replied on ${made[0]}`]);
   const before = page.url();
   await page.locator(BELL).click();
   await page.mouse.move(1919, 1079);
@@ -311,9 +368,20 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   const shown = a.filter((m) => m.text).map((m) => m.text);
   expect(shown[0]).toBe("Notifications");
   expect(shown.filter((_, i) => i % 2 === 1)).toEqual(served.bell.map((b: { label: string }) => b.label));
-  for (const when of shown.filter((_, i) => i > 0 && i % 2 === 0)) expect(when).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/);
+  for (const when of shown.filter((_, i) => i > 0 && i % 2 === 0)) expect(when).toMatch(BELL_TIME);
+  // The frame's samples follow these patterns, and the app's reply and acceptance rows fill them the same way:
+  // the contact who replied, the customer (its name's first two words, "Canyon Ridge") who accepted.
+  const frameShown = f.filter((m) => m.text).map((m) => m.text);
+  expect(frameShown[1]).toMatch(BELL_TITLES.replied);
+  expect(frameShown[3]).toMatch(BELL_TITLES.accepted);
+  expect(frameShown[5]).toMatch(BELL_TITLES.expired);
+  expect([frameShown[2], frameShown[4]]).toEqual([expect.stringMatching(BELL_TIME), expect.stringMatching(BELL_TIME)]);
+  expect(frameShown[6]).toMatch(BELL_DAY);
+  expect(shown).toContain(`Dana Ortiz replied on ${made[0]}`);
+  expect(shown.find((t) => BELL_TITLES.accepted.test(t))?.match(BELL_TITLES.accepted)?.[2]).toBe("Wasatch Mechanical");
   // The frame's heading is literal; rows pair by place (real data, Appendix G "notification samples").
-  expectSame("C_QOB4 panel", rewrite(f, (m) => (m.text === "Notifications" ? m.text : byPlace(m))), rewrite(a, (m) => (m.text === "Notifications" ? m.text : byPlace(m))));
+  // The frame draws three rows; the app's first three rows pair with them (the fourth has the same structure).
+  expectSame("C_QOB4 panel", rewrite(f, (m) => (m.text === "Notifications" ? m.text : byPlace(m))), rewrite(a.slice(0, f.length), (m) => (m.text === "Notifications" ? m.text : byPlace(m))));
   await testInfo.attach("C_QOB4 text: frame sample vs app data", { body: JSON.stringify({ frame: f.filter((m) => m.text).map((m) => m.text), app: shown }, null, 1), contentType: "application/json" });
 
   // One open at a time: the caution closes the bell.
@@ -324,6 +392,14 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
 });
 
 // ---- Sign out ----
+
+/** A weekday at least a day ahead in Mountain time (YYYY-MM-DD): an acceptance's pickup day. */
+function nextWeekday() {
+  const day = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver" }).format(new Date())}T12:00:00.000Z`);
+  do day.setUTCDate(day.getUTCDate() + 1);
+  while (day.getUTCDay() === 0 || day.getUTCDay() === 6);
+  return day.toISOString().slice(0, 10);
+}
 
 const FRAME_DIALOG = 'div[style*="width: 420px"]';
 const FRAME_BACKDROP = 'div[style*="z-index: 20"]';
