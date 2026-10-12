@@ -7,20 +7,22 @@ import s from './Quotes.module.css';
 
 // View note (plan U3; C_QOB6 from the board, C_QOT4 from the table): the customer's change request note
 // in a centered dialog over the dimmed page, with a reply box, Close and Send reply. Send reply posts
-// to /api/rep/quotes/<number>/reply (recorded on the quote's Activity until the product owner says where
-// a reply reaches the customer, docs/plans/status.md "No frame") and closes. Escape, the x, Close or a
-// press on the backdrop close it with nothing sent. Focus starts in the reply box and stays in the dialog.
+// to /api/rep/quotes/<number>/reply (into the customer's Querent conversation and onto the quote's
+// Activity, decision 63) and closes. Escape, the x, Close or a press on the backdrop close it with
+// nothing sent. Focus starts in the reply box and stays in the dialog. Another rep's quote
+// (`canReply` false: the manager reads it read-only, decision 22) shows the note and Close only, with
+// focus on Close (no frame: the minimum, docs/plans/status.md "No frame").
 
-export function NoteDialog({row,onClose}:{row:RepQuoteRow|null;onClose:()=>void}){
+export function NoteDialog({row,canReply,onClose}:{row:RepQuoteRow|null;canReply:boolean;onClose:()=>void}){
   const [mounted,setMounted]=useState(false);
   useEffect(()=>setMounted(true),[]);
   if(!row?.change_request||!mounted)return null;
-  return createPortal(<div className={`ui-root ${s.layer}`}><NoteBody key={row.id} row={row} onClose={onClose}/></div>,document.body);
+  return createPortal(<div className={`ui-root ${s.layer}`}><NoteBody key={row.id} row={row} canReply={canReply} onClose={onClose}/></div>,document.body);
 }
 
-function NoteBody({row,onClose}:{row:RepQuoteRow;onClose:()=>void}){
+function NoteBody({row,canReply,onClose}:{row:RepQuoteRow;canReply:boolean;onClose:()=>void}){
   const titleId=useId(),replyId=useId();
-  const dialog=useRef<HTMLDivElement>(null),reply=useRef<HTMLTextAreaElement>(null);
+  const dialog=useRef<HTMLDivElement>(null),reply=useRef<HTMLTextAreaElement>(null),closeButton=useRef<HTMLButtonElement>(null);
   const [text,setText]=useState('');
   const [sending,setSending]=useState(false);
   const [problem,setProblem]=useState('');
@@ -28,7 +30,7 @@ function NoteBody({row,onClose}:{row:RepQuoteRow;onClose:()=>void}){
   useEffect(()=>{close.current=onClose;});
   useEffect(()=>{
     const before=document.activeElement as HTMLElement|null;
-    reply.current?.focus({preventScroll:true});
+    (reply.current??closeButton.current)?.focus({preventScroll:true});
     const key=(event:KeyboardEvent)=>{if(event.key==='Escape')close.current();};
     document.addEventListener('keydown',key);
     return()=>{document.removeEventListener('keydown',key);before?.focus({preventScroll:true});};
@@ -64,12 +66,14 @@ function NoteBody({row,onClose}:{row:RepQuoteRow;onClose:()=>void}){
         <button type="button" className={s.close} aria-label="Close" onClick={onClose}>x</button>
       </div>
       <div className={s.dialogNote}>{`"${note.note}"`}</div>
-      <label htmlFor={replyId} className={s.replyLabel}>{`Reply to ${to}`}</label>
-      <textarea ref={reply} id={replyId} className={s.reply} placeholder="Write a reply" value={text} maxLength={2000} onChange={e=>setText(e.target.value)}/>
-      {problem&&<p role="alert" className={s.problem}>{problem}</p>}
+      {canReply&&<>
+        <label htmlFor={replyId} className={s.replyLabel}>{`Reply to ${to}`}</label>
+        <textarea ref={reply} id={replyId} className={s.reply} placeholder="Write a reply" value={text} maxLength={2000} onChange={e=>setText(e.target.value)}/>
+        {problem&&<p role="alert" className={s.problem}>{problem}</p>}
+      </>}
       <div className={s.dialogActions}>
-        <button type="button" className={s.dialogClose} onClick={onClose}>Close</button>
-        <button type="button" className={s.send} disabled={sending} onClick={()=>void send()}>Send reply</button>
+        <button ref={closeButton} type="button" className={s.dialogClose} onClick={onClose}>Close</button>
+        {canReply&&<button type="button" className={s.send} disabled={sending} onClick={()=>void send()}>Send reply</button>}
       </div>
     </div>
   </>;

@@ -4,7 +4,7 @@ import {useRouter} from 'next/navigation';
 import type {QuoteStatus} from '@/domain';
 import {usePoll} from '@/lib/use-poll';
 import type {RepQuoteList,RepQuoteRow} from '@/server/rep/quotes';
-import {CustomerPicker,FilterButton,FilterCheckbox,FilterField,FilterGroup,FilterInput,FilterPair,FilterSpacer,Select,saveTablePrefs,type TablePrefs} from '@/components/ui';
+import {CustomerPicker,FilterButton,FilterCheckbox,FilterField,FilterGroup,FilterPair,FilterSpacer,Select,saveTablePrefs,type TablePrefs} from '@/components/ui';
 import {moveItem,resolveColumns} from '@/components/ui/table-prefs';
 import {useRepPortal} from '../context';
 import {RepPageHeader} from '../RepPage';
@@ -14,7 +14,7 @@ import {QuotePreview} from './QuotePreview';
 import {QuotesBoard} from './QuotesBoard';
 import {QuotesTable} from './QuotesTable';
 import {ALL_STATUSES,BOARD_ID,NO_FILTERS,ONLY_LABELS,ONLY_SHOW,filterCount,filtersFromQuery,fromPanel,keptQuery,quotesHref,toPanel,type QuoteFilters,type QuotesView} from './filters';
-import {REFRESH_PROBLEM,REP_STATUS,STATUS_FILTERS} from './labels';
+import {REFRESH_PROBLEM,REP_STATUS,STATUS_FILTERS,dayChoices,dayLabel} from './labels';
 import s from './Quotes.module.css';
 
 export {LANE_PAGE} from './QuotesBoard';
@@ -87,8 +87,9 @@ export function QuotesList({initial,query,view,prefs}:QuotesListProps){
         ?<QuotesBoard rows={list.rows} lanes={shownLanes} asOf={list.as_of} onMove={moveLane} {...actions}/>
         :<QuotesTable rows={list.rows} manager={manager} asOf={list.as_of} prefs={prefs.table} {...actions}/>}
     </div>
-    <QuotePreview row={preview} asOf={list.as_of} onClose={()=>setPreview(null)} onReply={row=>{setPreview(null);setNote(row);}}/>
-    <NoteDialog row={note} onClose={()=>setNote(null)}/>
+    {/* Only the quote's own rep replies; the manager reads other reps' quotes read-only (decision 22). */}
+    <QuotePreview row={preview} asOf={list.as_of} canReply={preview?.rep_id===rep.id} onClose={()=>setPreview(null)} onReply={row=>{setPreview(null);setNote(row);}}/>
+    <NoteDialog row={note} canReply={note?.rep_id===rep.id} onClose={()=>setNote(null)}/>
   </>;
 }
 
@@ -119,10 +120,8 @@ function QuoteFilterButton({filters,list,manager,onApply}:{filters:QuoteFilters;
       <FilterField label="Customer">{id=><Select label="Customer" labelledBy={id} value={draft.customer??''} onChange={customer=>set({...draft,customer:customer||null})}
         options={[{value:'',label:manager?'Any customer':'Any of my customers'},...list.customers.map(c=>({value:c.id,label:c.name}))]}/>}</FilterField>
       <FilterPair>
-        <FilterField label="Requested from">{id=><FilterInput type="date" aria-label="Requested from" aria-describedby={id} value={draft.requestedFrom??''}
-          onChange={e=>set({...draft,requestedFrom:e.target.value||null})}/>}</FilterField>
-        <FilterField label="Requested to">{id=><FilterInput type="date" aria-label="Requested to" aria-describedby={id} value={draft.requestedTo??''}
-          onChange={e=>set({...draft,requestedTo:e.target.value||null})}/>}</FilterField>
+        <DayField label="Requested from" value={draft.requestedFrom} asOf={list.as_of} onChange={requestedFrom=>set({...draft,requestedFrom})}/>
+        <DayField label="Requested to" value={draft.requestedTo} asOf={list.as_of} onChange={requestedTo=>set({...draft,requestedTo})}/>
       </FilterPair>
       <FilterGroup label="Only show" labelMargin="2px 0">
         {ONLY_SHOW.map(o=><FilterCheckbox key={o} label={ONLY_LABELS[o]} checked={draft.only.includes(o)}
@@ -130,4 +129,14 @@ function QuoteFilterButton({filters,list,manager,onApply}:{filters:QuoteFilters;
       </FilterGroup>
     </>}
   </FilterButton>;
+}
+
+/**
+ * Requested from or to (C_QOB2, C_QOT1, C_RQB2): the frame's plain field box with the day as the list
+ * prints it ("Sep 1"), and nothing in it for any day. It opens a list of days, Any day first (no frame:
+ * the frame draws the closed field only; docs/plans/status.md "No frame").
+ */
+function DayField({label,value,asOf,onChange}:{label:string;value:string|null;asOf:string;onChange:(day:string|null)=>void}){
+  return <FilterField label={label}>{id=><Select label={label} labelledBy={id} value={value??''} boxText={value?dayLabel(value,asOf):''}
+    onChange={day=>onChange(day||null)} options={[{value:'',label:'Any day'},...dayChoices(asOf,[value]).map(day=>({value:day,label:dayLabel(day,asOf)}))]}/>}</FilterField>;
 }

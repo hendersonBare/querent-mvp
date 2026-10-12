@@ -49,6 +49,22 @@ export function listDate(iso:string,now:string){
   return (date.getUTCFullYear()===new Date(now).getUTCFullYear()?dayMonth:dayMonthYear).format(date);
 }
 
+/** A filter day (YYYY-MM-DD) as the list prints dates, C_QOB2's "Sep 1". */
+export const dayLabel=(day:string,now:string)=>listDate(`${day}T12:00:00.000Z`,now);
+
+/** How many days back the filter panel's Requested from and to offer. */
+export const DAY_CHOICES=120;
+/**
+ * The days Requested from and to offer (no frame: C_QOB2 draws the closed field only): `now`'s UTC day
+ * back DAY_CHOICES days, newest first, with a picked day from further back in its place.
+ */
+export function dayChoices(now:string,picked:readonly (string|null)[]=[]):string[]{
+  const today=Date.parse(`${now.slice(0,10)}T00:00:00.000Z`);
+  const days=new Set(Array.from({length:DAY_CHOICES+1},(_,i)=>new Date(today-i*86_400_000).toISOString().slice(0,10)));
+  for(const day of picked)if(day)days.add(day);
+  return [...days].sort().reverse();
+}
+
 /** A valid-until day (YYYY-MM-DD) as the list prints dates, or nothing before the first send. */
 export const validUntil=(day:string|null,now:string)=>day?listDate(`${day}T12:00:00.000Z`,now):'';
 
