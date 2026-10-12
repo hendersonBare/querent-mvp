@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Select,Toggle} from '@/components/ui';
 import {FUEL_TYPES,type FreightCostSettings,type FreightRateSettings,type FuelStatus,type FuelType} from '@/domain';
 import type {FeatureFlags} from '@/server/flags';
@@ -122,8 +123,9 @@ function ImpactPreviewDialog({preview,onClose}:{preview:ImpactPreviewView;onClos
     dialog.current?.focus();
     return ()=>opener?.focus?.();
   },[]);
-  return <>
-    <div className={s.backdrop} onClick={onClose}/>
+  // Over the whole page, outside the page area, as the frame draws it.
+  return createPortal(<div className="ui-root">
+    <div className={s.backdrop} data-ui="settings-backdrop" onClick={onClose}/>
     <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="impact-preview-title" tabIndex={-1} className={s.dialog}
       onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();onClose();}}}>
       <h2 id="impact-preview-title" className={s.dialogTitle}>Impact preview</h2>
@@ -142,7 +144,7 @@ function ImpactPreviewDialog({preview,onClose}:{preview:ImpactPreviewView;onClos
       </>:<div className={s.dialogText}>No line prices would change.</div>}
       <div className={s.dialogActions}><button type="button" className={s.close} onClick={onClose}>Close</button></div>
     </div>
-  </>;
+  </div>,document.body);
 }
 
 /** A form's text state that follows the stored value when it changes, and saving, error and Saved. */

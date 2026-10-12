@@ -98,13 +98,13 @@
 .barAction {
   margin-left: auto;
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 .saved {
   color: var(--q-titlebar-muted);
   font-size: var(--q-text-secondary);
+}
+.saved:not(:empty) {
+  margin-right: 12px;
 }
 .green {
   box-sizing: content-box;
@@ -211,6 +211,7 @@
   letter-spacing: normal;
   line-height: normal;
   text-align: right;
+  display: flex;
   appearance: textfield;
 }
 .box::-webkit-outer-spin-button,
@@ -397,6 +398,7 @@ div.filterPanel {
   width: 340px;
 }
 .repBox {
+  position: relative;
   box-sizing: border-box;
   height: var(--q-picker-height);
   border: 2px solid var(--q-accent);
@@ -411,9 +413,13 @@ div.filterPanel {
 .repBox svg {
   flex: none;
 }
+.repName {
+  font-weight: 700;
+  white-space: nowrap;
+}
 .repInput {
-  flex: 1;
-  min-width: 0;
+  position: absolute;
+  inset: 0 14px 0 40px;
   width: auto;
   height: 100%;
   margin: 0;
@@ -430,6 +436,10 @@ div.filterPanel {
 }
 .repInput:focus {
   outline: none;
+}
+.repQuiet {
+  color: transparent;
+  caret-color: var(--q-text);
 }
 .repBox:focus-within {
   outline: 2px solid var(--q-accent);
@@ -620,6 +630,7 @@ div.filterPanel {
   line-height: normal;
   display: flex;
   align-items: center;
+  text-align: start;
   cursor: pointer;
 }
 .close:hover {

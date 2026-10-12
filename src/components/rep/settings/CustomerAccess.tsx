@@ -46,7 +46,7 @@ export function CustomerAccess({initialRules,initialTable,tabs}:{initialRules:Ac
   const controls=<>
     <SearchBox label="Search customers" value={q} onChange={setQ} width={300}/>
     <FilterButton<AccessFilterValue> title="Filter customers" value={filter} empty={NO_ACCESS_FILTER} count={picked} onApply={setFilter}
-      width={420} titleGap={0} actionsGap={18} panelClassName={s.filterPanel} countClassName={s.filterCount}>
+      width={420} titleGap={0} actionsGap={18} panelClassName={s.filterPanel} countClassName={s.filterCount} highlightApplied={false}>
       {(draft,set)=>ACCESS_TYPES.map(t=><FilterSegmented key={t.category} label={t.label} value={draft[t.category]} options={ACCESS_CHOICES}
         padding="7px 4px" labelMargin="10px 0 4px" onChange={value=>set({...draft,[t.category]:value})}/>)}
     </FilterButton>

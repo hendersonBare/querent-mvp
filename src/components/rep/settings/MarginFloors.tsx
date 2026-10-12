@@ -14,6 +14,7 @@ import s from './Settings.module.css';
 //   - Rep margins: a read-only review of one rep's own margin per category against the organization
 //     floor, the rep picked in a searchable box (every rep by name; the first one shown is the first rep who
 //     is not the signed-in manager, as C_S2 shows Eli). Managers do not set floors here for themselves.
+//     The box shows the picked rep's name as C_S2 draws it; typing over it narrows the list.
 // A rep gets MyFloors instead: their own floors in the same card, until their own tabs come (plan U9).
 // Floors are shown and stored to 0.1 point, the precision the red warnings compare at. No frame: the
 // "Saved" line beside Save and the one red line for a floor that is not one (decision 52).
@@ -108,11 +109,12 @@ function RepMargins({reps,floors,meId}:{reps:RepFloorSet[];floors:OrgFloorCell[]
   return <Card title="Rep margins" note="Read-only. Each rep sets their own above your floors." review>
     <div className={s.reviewPick}>
       <div className={s.repSearch}>
-        <div className={s.repBox}>
+        <div className={s.repBox} data-ui="search">
           <Icon name="search" size={16}/>
+          {typed===null&&<span className={s.repName} aria-hidden="true">{rep?.rep.name}</span>}
           <input role="combobox" aria-label="Rep" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" autoComplete="off" spellCheck={false}
             aria-activedescendant={open&&shown[active]?`${listId}-${shown[active].rep.id}`:undefined}
-            className={s.repInput} value={typed??rep?.rep.name??''} onClick={()=>open?setOpen(false):openList()} onKeyDown={key}
+            className={cx(s.repInput,typed===null&&s.repQuiet)} value={typed??rep?.rep.name??''} onClick={()=>open?setOpen(false):openList()} onKeyDown={key}
             onChange={e=>{setTyped(e.target.value);setActive(0);setOpen(true);}} onBlur={()=>{setOpen(false);setTyped(null);}}/>
         </div>
         {open&&<div id={listId} role="listbox" aria-label="Reps" className={s.repList}>

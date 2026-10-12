@@ -37,15 +37,17 @@ export interface FilterButtonProps<T> {
   panelClassName?:string;
   /** Replaces the count badge's look, for a frame that draws its own (C_S1b). */
   countClassName?:string;
+  /** false: the button keeps its plain line while filters are applied, as C_S1b draws it (C_CU2 draws the green line). */
+  highlightApplied?:boolean;
 }
 
-export function FilterButton<T>({title,description,value,empty,count,onApply,children,width=390,titleGap,actionsGap=14,tone='default',align='left',className,panelClassName,countClassName}:FilterButtonProps<T>){
+export function FilterButton<T>({title,description,value,empty,count,onApply,children,width=390,titleGap,actionsGap=14,tone='default',align='left',className,panelClassName,countClassName,highlightApplied=true}:FilterButtonProps<T>){
   const [open,setOpen]=useState(false);
   const [draft,setDraft]=useState(value);
   const wrap=useRef<HTMLDivElement>(null);
   const toggle=()=>{if(!open)setDraft(value);setOpen(!open);};
   return <div ref={wrap} className={cx(s.wrap,className)} data-ui="filter">
-    <button type="button" className={cx(s.button,tone==='bar'&&s.bar,(open||count>0)&&s.active)} aria-expanded={open} aria-haspopup="dialog"
+    <button type="button" className={cx(s.button,tone==='bar'&&s.bar,(open||(highlightApplied&&count>0))&&s.active)} aria-expanded={open} aria-haspopup="dialog"
       aria-label={count>0?`Filter, ${count} applied`:undefined} onClick={toggle}>
       <Icon name="filter" size={15}/>Filter{count>0&&<span data-ui="count" className={countClassName??s.count}>{count}</span>}
     </button>
