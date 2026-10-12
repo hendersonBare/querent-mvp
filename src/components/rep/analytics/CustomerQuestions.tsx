@@ -53,7 +53,7 @@ export function QueryAnalytics({queries,access,manager,manageHref,prefs}:{querie
           <div className={s.metric}>
             <div className={s.metricHead}><Icon name="message" size={18} strokeWidth={1.8}/>Total queries
               <InfoDot topic="total queries" side="left">Every question customers asked in Querent chat, answered or not. A question about two categories counts once here.</InfoDot></div>
-            <div className={s.metricValueRow}><span className={s.metricValue}>{formatCount(queries.total_queries)}</span><span className={s.metricUnit}/></div>
+            <div className={s.metricValueRow}><span className={s.metricValue} data-testid="total-queries">{formatCount(queries.total_queries)}</span><span className={s.metricUnit}/></div>
             <div className={s.metricContext}>Customer questions, all time</div>
           </div>
           <div className={s.metric}>
