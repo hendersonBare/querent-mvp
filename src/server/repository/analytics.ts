@@ -50,8 +50,8 @@ export function analytics(scope:CustomerScope):Analytics{
     handled.forEach(c=>counts.set(c,(counts.get(c)||0)+1));
     if(['answered','no_rows'].includes(log.outcome)&&handled.length)minutes+=Math.max(...handled.map(c=>base[c]));
   }
-  // No customers in scope: there is no rep to name.
-  const repName=(category:Category)=>ids.length?rules.find(r=>r.category===category)?.rep_name||'Self-serve':'—';
+  // No customers in scope: there is no rep to name ("-", no em-dash: Appendix E).
+  const repName=(category:Category)=>ids.length?rules.find(r=>r.category===category)?.rep_name||'Self-serve':'-';
   return {total_queries:logs.length,minutes_saved:minutes,hours_saved:(minutes/60).toFixed(1),categories:categories.map(category=>({category,count:counts.get(category)||0,rep_name:repName(category)}))};
 }
 

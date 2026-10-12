@@ -24,7 +24,7 @@ describe('query analytics',()=>{
     expect(brandis.categories.every(c=>c.rep_name==='Brandi Gallegos')).toBe(true);
     const nobody=analytics([]);
     expect(nobody).toMatchObject({total_queries:0,minutes_saved:0,hours_saved:'0.0'});
-    expect(nobody.categories.map(c=>[c.count,c.rep_name])).toEqual([[0,'—'],[0,'—'],[0,'—'],[0,'—']]);
+    expect(nobody.categories.map(c=>[c.count,c.rep_name])).toEqual([[0,'-'],[0,'-'],[0,'-'],[0,'-']]);
   });
 
   it('counts chat questions by outcome',()=>{

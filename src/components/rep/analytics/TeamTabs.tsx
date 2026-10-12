@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type {QuoteStatus} from '@/domain';
 import {formatMargin} from '@/server/floors';
 import {DECLINE_REASON_LABELS,type AgingLevel} from '@/server/quotes';
-import {DECLINE_BUCKETS,UNTOUCHED_REASONS,type DeclineBucket,type GroupMetricRows,type GroupRow,type TeamRow} from '@/server/team/metrics';
+import {DECLINE_BUCKETS,UNTOUCHED_REASONS,type DeclineBucket,type GroupMetricRows,type TeamRow} from '@/server/team/metrics';
 import type {TablePrefs} from '@/components/ui/table-prefs';
 import {formatDuration,formatMoneyFigure,formatPercent,formatShortDays,plural} from './format';
 import {GridTable,columnId,type GridColumn} from './GridTable';
@@ -151,4 +151,3 @@ export function UntouchedTable({groups,manager,prefs}:{groups:GroupMetricRows;ma
   </Card>;
 }
 
-export type {GroupRow};

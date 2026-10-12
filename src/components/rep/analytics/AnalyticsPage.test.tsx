@@ -229,7 +229,7 @@ describe('Overview',()=>{
     expect(within(section('Quotes and wins by week')).queryByRole('button',{name:'Show table'})).not.toBeInTheDocument();
     expect(section('Average margin vs floor')).toHaveTextContent('No quotes sent yet.');
     expect(section('Top requested items')).toHaveTextContent('No items requested yet.');
-    expect(document.body.textContent).not.toContain('—');
+    expect(document.body.textContent).not.toContain('\u2014');
   });
 });
 
