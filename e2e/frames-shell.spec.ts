@@ -92,10 +92,11 @@ async function sameStyle(name: string, frameSel: string, appPage: Page, appSel: 
 const rewrite = (list: Measure[], map: (m: Measure) => string) => list.map((m) => (m.text ? { ...m, text: map(m) } : m));
 
 /** Both directions: nothing the frame draws is missing or styled differently, and the app adds no text or control the frame lacks. */
-function expectSame(name: string, frameList: Measure[], appList: Measure[], { width = false } = {}) {
+/** `expected`: differences the app must show exactly (each one reported, docs/plans/status.md); any other fails. */
+function expectSame(name: string, frameList: Measure[], appList: Measure[], { width = false, expected = [] as unknown[] } = {}) {
   const forward = diffMeasures(frameList, appList, { width });
   expect(forward.missing, `${name}: elements of the frame missing from the app`).toEqual([]);
-  expect(forward.diffs, `${name}: style differences`).toEqual([]);
+  expect(forward.diffs, `${name}: style differences`).toEqual(expected);
   const backward = diffMeasures(appList, frameList);
   expect(backward.missing, `${name}: text or controls the app adds that the frame lacks`).toEqual([]);
   // Text-less controls (icons, buttons) too: same count of each kind.
@@ -379,14 +380,18 @@ test("bell open (C_QOB4): the reader's notifications, without navigating", async
   expect(frameShown[6]).toMatch(BELL_DAY);
   expect(shown).toContain(`Dana Ortiz replied on ${made[0]}`);
   expect(shown.find((t) => BELL_TITLES.accepted.test(t))?.match(BELL_TITLES.accepted)?.[2]).toBe("Wasatch Mechanical Contractors");
-  // Each title is one row tall, as each of the frame's is, with the longest seeded customer name.
-  const titleHeights = (list: Measure[]) => list.filter((m) => m.text).filter((_, i) => i % 2 === 1).map((m) => m.rect.h);
-  const frameTitle = titleHeights(f)[0]!;
-  expect(titleHeights(f).every((h) => h === frameTitle)).toBe(true);
-  expect(titleHeights(a).filter((h) => h !== frameTitle)).toEqual([]);
+  // Each of the frame's titles is one row tall, and so is each app title, except "accepted by" with the longest
+  // seeded customer name (decision 59: the full name, never shortened), which wraps to a second row at 1920x1080.
+  // Reported to the product owner (docs/plans/status.md); it is not truncated.
+  const titles = (list: Measure[]) => list.filter((m) => m.text).filter((_, i) => i % 2 === 1);
+  const frameTitle = titles(f)[0]!.rect.h;
+  expect(titles(f).every((m) => m.rect.h === frameTitle)).toBe(true);
+  expect(titles(a).filter((m) => m.rect.h !== frameTitle).map((m) => [m.text, m.rect.h])).toEqual([[`${made[3]} accepted by Wasatch Mechanical Contractors`, frameTitle * 2]]);
   // The frame's heading is literal; rows pair by place (real data, Appendix G "notification samples").
   // The frame draws three rows; the app's first three rows pair with them (the fourth has the same structure).
-  expectSame("C_QOB4 panel", rewrite(f, (m) => (m.text === "Notifications" ? m.text : byPlace(m))), rewrite(a.slice(0, f.length), (m) => (m.text === "Notifications" ? m.text : byPlace(m))));
+  // The one difference is that wrapped "accepted by" title (the first row's), two rows where the frame's is one.
+  expectSame("C_QOB4 panel", rewrite(f, (m) => (m.text === "Notifications" ? m.text : byPlace(m))), rewrite(a.slice(0, f.length), (m) => (m.text === "Notifications" ? m.text : byPlace(m))),
+    { expected: [{ element: 'span "span@3"', height: { frame: frameTitle, app: frameTitle * 2 } }] });
   await testInfo.attach("C_QOB4 text: frame sample vs app data", { body: JSON.stringify({ frame: f.filter((m) => m.text).map((m) => m.text), app: shown }, null, 1), contentType: "application/json" });
 
   // One open at a time: the caution closes the bell.
