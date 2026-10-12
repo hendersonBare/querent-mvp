@@ -73,6 +73,11 @@ test.afterAll(async ({ playwright }, testInfo) => {
 });
 
 test("Act 1: Dana chats, sees two or more suggestions in the pop-up, and requests a quote", async ({}, testInfo) => {
+  // Step 1: / with no session is the visitor box; Sign in opens the chooser at /demo (decision 53).
+  await dana.goto("/");
+  await expect(await ask(dana, "Do you have 1/2 in grade 8 hex bolts in stock?")).toHaveText("Sign in to continue.");
+  await dana.getByRole("button", { name: "Sign in" }).click();
+  await expect(dana).toHaveURL(/\/demo$/);
   await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
   await expect(dana.getByLabel("Ask a question")).toBeVisible();
   await expect(await ask(dana, REQUEST)).toContainText("Type 1 or Type 27 cut-off wheels?");
