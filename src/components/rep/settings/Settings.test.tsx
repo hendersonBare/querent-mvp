@@ -1,6 +1,6 @@
-import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {ALL_ON,CUSTOMERS,FLAGS_OFF,FLAGS_ON,ORG_FLOORS,VIEW,rule,settingsFixture,table} from './test-fixtures';
+import {ALL_ON,FLAGS_OFF,FLAGS_ON,ORG_FLOORS,VIEW,rule,settingsFixture,table} from './test-fixtures';
 
 // Settings (task 6.1; plan U8; C_S1 to C_S4): what each manager tab shows and what it sends to
 // /api/rep/settings/*, the feature-flagged sections (decision 48), and a rep's own floors.
@@ -68,7 +68,8 @@ describe('Customer access (C_S1, C_S1a, C_S1b)',()=>{
     replies=[{body:table('basin',['great-basin','weber-basin'])}];
     renderIt();
     fireEvent.change(screen.getByRole('searchbox',{name:'Search customers'}),{target:{value:'basin'}});
-    const grid=await screen.findByRole('table',{name:'Customer access by customer'});
+    await screen.findByText('2 of 6 customers');
+    const grid=screen.getByRole('table',{name:'Customer access by customer'});
     expect(calls()).toEqual([{url:'/api/rep/settings/access?q=basin',method:'GET',body:undefined}]);
     expect(within(grid).getAllByRole('columnheader').map(h=>h.textContent)).toEqual([':: Customer',':: Items and stock',':: Pricing',':: Orders and quotes',':: Account']);
     expect(within(grid).getAllByRole('rowheader').map(h=>h.textContent)).toEqual(['Great Basin FabricationGBF-2207','Weber Basin FabricatorsWBF-6074']);
@@ -88,7 +89,7 @@ describe('Customer access (C_S1, C_S1a, C_S1b)',()=>{
     expect(within(pricing).getAllByRole('radio').map(r=>r.textContent)).toEqual(['Any','Querent answers','Not shared']);
     fireEvent.click(within(pricing).getByRole('radio',{name:'Not shared'}));
     fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
-    await screen.findByRole('table',{name:'Customer access by customer'});
+    await screen.findByText('2 of 6 customers');
     expect(calls()).toEqual([{url:'/api/rep/settings/access?pricing=not_shared',method:'GET',body:undefined}]);
     expect(screen.getByRole('button',{name:'Filter, 1 applied'})).toHaveTextContent('Filter1');
     expect(screen.getByText('2 of 6 customers')).toBeInTheDocument();
@@ -328,6 +329,3 @@ describe('the Settings page (plan U8)',()=>{
     }
   });
 });
-
-// Keep act imported for the debounce helpers in this file's search test.
-void act;void CUSTOMERS;

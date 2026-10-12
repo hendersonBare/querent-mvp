@@ -100,6 +100,8 @@ describe('Customer access: GET /access lists customers by state, PUT /access set
     const off=await call('access','PUT',{body:{customer_id:'wasatch',category:'items_stock',enabled:false}});
     expect(off.status).toBe(200);
     expect(off.json).toMatchObject({customer_id:'wasatch',rules:[{category:'items_stock',enabled:false},{},{},{}]});
+    // `all`: every customer's rules, so the no-filter view follows a change to one customer.
+    expect(off.json.all[0]).toMatchObject({category:'items_stock',enabled:null});
     expect((await call('','GET')).json.manager.access[0]).toMatchObject({category:'items_stock',enabled:null});
     expect((await call('access','PUT',{body:{customer_id:null,category:'items_stock',enabled:true}})).json.rules[0]).toMatchObject({enabled:true});
     expect(await call('access','PUT',{body:{customer_id:'wasatch',category:'cost',enabled:true}})).toMatchObject({status:400,json:{detail:'Invalid setting.'}});

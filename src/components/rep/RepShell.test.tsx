@@ -23,7 +23,7 @@ const {RepShell}=await import('./RepShell');
 const {exit}=await import('./Rail');
 const {RepPageHeader}=await import('./RepPage');
 const {SettingsSection}=await import('./SettingsSection');
-const {settingsFixture}=await import('./settings/test-fixtures');
+const {settingsFixture,table}=await import('./settings/test-fixtures');
 
 const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',manager:true};
 const mara={id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales'};
@@ -252,29 +252,29 @@ describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
 });
 
 describe('Settings in the shell',()=>{
-  it('Settings opens Customer access by default, with every section as a tab (Rep assignments and Reps moved to Teams and Reps, plan U7); no tab carries ?customer=',()=>{
+  it('Settings opens Customer access by default, with the manager\'s four tabs (plan U8: no Data sources; Rep assignments and Reps moved to Teams and Reps, plan U7); no tab carries ?customer=',()=>{
     at('/rep/settings','customer=great-basin');
-    renderShell(brandi,<SettingsSection initial={settingsFixture('great-basin')}/>);
+    renderShell(brandi,<SettingsSection initial={settingsFixture()}/>);
     expect(screen.getByRole('heading',{level:1,name:'Settings'})).toBeInTheDocument();
     expect(cautionButton()).toBeInTheDocument();
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-    // Brandi is the manager: Aging is hers alone (task D1).
-    expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Customer access','Margin floors','Pricing & delivery','Aging','Data sources']);
+    expect(within(tabs).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
+      ['Customer access','/rep/settings?tab=access'],['Margin floors','/rep/settings?tab=floors'],['Pricing and delivery','/rep/settings?tab=pricing'],['Aging','/rep/settings?tab=aging'],
+    ]);
     expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
-    expect(within(tabs).getByRole('link',{name:'Data sources'})).toHaveAttribute('href','/rep/settings?tab=sources');
-    expect(screen.queryByRole('combobox',{name:'Rep for Great Basin Fabrication'})).toBeNull();
+    expect(screen.queryByText('Data sources')).not.toBeInTheDocument();
     expect(screen.queryByText('Data browser')).not.toBeInTheDocument();
   });
 
-  it('a rep (not the manager) gets no Aging tab, and ?tab=aging or the old ?tab=reps and ?tab=assignments open Customer access (task D1)',()=>{
-    for(const tab of ['aging','reps','assignments']){
+  it('a rep (not the manager) gets one tab, their own margin floors, whatever ?tab= says (plan U8)',()=>{
+    for(const tab of ['aging','reps','assignments','access','pricing']){
       at('/rep/settings',`tab=${tab}`);
-      const {unmount}=renderShell(mara,<SettingsSection initial={settingsFixture(null,{manager:false})}/>);
+      const {unmount}=renderShell(mara,<SettingsSection initial={settingsFixture({manager:false})}/>);
       const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-      expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Customer access','Margin floors','Pricing & delivery','Data sources']);
-      expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
+      expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Margin floors']);
+      expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Margin floors');
       expect(screen.queryByRole('heading',{name:'Aging thresholds'})).not.toBeInTheDocument();
-      expect(screen.queryByRole('heading',{name:'Reps'})).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading',{name:'Customer access'})).not.toBeInTheDocument();
       unmount();
     }
   });
@@ -290,17 +290,11 @@ describe('Settings in the shell',()=>{
     expect(within(screen.getByRole('navigation',{name:'Settings sections'})).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
   });
 
-  it('Settings > Customer access picks its customer on the page (?customer= is the page\'s own filter)',()=>{
+  it('Settings > Customer access opened for one customer (?customer=) shows that customer\'s switches, searched for its name',()=>{
     at('/rep/settings','tab=access&customer=wasatch');
-    renderShell(brandi,<SettingsSection initial={settingsFixture('wasatch')}/>);
-    const picker=screen.getByRole('combobox',{name:'Customer'});
-    expect(picker).toHaveValue('wasatch');
-    expect(within(picker).getAllByRole('option').map(o=>o.textContent)).toEqual(['All customers','Canyon Ridge Builders','Great Basin Fabrication','Uinta Facility Services','Wasatch Mechanical Contractors']);
-    expect(screen.getByText(/What Querent answers in chat for Wasatch Mechanical Contractors/)).toBeInTheDocument();
-    expect(screen.getByRole('switch',{name:'Pricing'})).toBeChecked();
-    fireEvent.change(picker,{target:{value:'great-basin'}});
-    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=access&customer=great-basin',{scroll:false});
-    fireEvent.change(picker,{target:{value:''}});
-    expect(nav.replace).toHaveBeenLastCalledWith('/rep/settings?tab=access',{scroll:false});
+    renderShell(brandi,<SettingsSection initial={settingsFixture({accessTable:table('Wasatch Mechanical Contractors',['wasatch'])})}/>);
+    expect(screen.getByRole('searchbox',{name:'Search customers'})).toHaveValue('Wasatch Mechanical Contractors');
+    expect(screen.getByRole('switch',{name:'Pricing for Wasatch Mechanical Contractors'})).toBeChecked();
+    expect(screen.getByText('1 of 6 customers')).toBeInTheDocument();
   });
 });

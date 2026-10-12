@@ -173,17 +173,20 @@ describe('GET /api/rep/badges',()=>{
 describe('GET /api/rep/settings',()=>{
   const settings=async(query:string,persona:string)=>json((await import('./settings/route')).GET(get(`/api/rep/settings${query}`,persona)));
 
-  it('a rep sees only their own customers in Rep assignments, and can’t pick another rep’s for Customer access',async()=>{
-    const {body}=await settings('?customer=wasatch','mara');
-    expect(body.assignments.map((a:{id:string})=>a.id)).toEqual(['canyon-ridge']);
-    expect(body.access.customer_id).toBeNull();
-    expect((await settings('?customer=canyon-ridge','mara')).body.access.customer_id).toBe('canyon-ridge');
+  it('a rep gets only their own floors: no customer access summary, no other rep’s floors (plan U8, OA-69)',async()=>{
+    for(const query of ['','?customer=wasatch','?customer=canyon-ridge']){
+      const {body}=await settings(query,'mara');
+      expect(body).toEqual({rep_id:'mara',manager:null,mine:expect.objectContaining({rep:expect.objectContaining({id:'mara'})})});
+    }
+    expect((await (await import('./settings/access/route')).GET(get('/api/rep/settings/access','mara'))).status).toBe(403);
+    expect((await (await import('./settings/sources/route')).GET(get('/api/rep/settings/sources','mara'))).status).toBe(403);
+    expect((await (await import('./settings/margins/route')).GET(get('/api/rep/settings/margins','mara'))).status).toBe(403);
   });
 
   it('the manager sees every customer',async()=>{
-    const {body}=await settings('?customer=canyon-ridge','supplier');
-    expect(body.assignments.map((a:{id:string})=>a.id).sort()).toEqual(EVERY_CUSTOMER);
-    expect(body.access.customer_id).toBe('canyon-ridge');
+    expect((await settings('?customer=canyon-ridge','supplier')).body.manager.accessTable.customers.map((c:{id:string})=>c.id)).toEqual(['canyon-ridge']);
+    const {body}=await json((await import('./settings/access/route')).GET(get('/api/rep/settings/access','supplier')));
+    expect(body.customers.map((c:{id:string})=>c.id).sort()).toEqual(EVERY_CUSTOMER);
   });
 });
 

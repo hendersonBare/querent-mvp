@@ -140,15 +140,18 @@ describe('/rep/stock/[id]',()=>{
 
 describe('/rep/settings',()=>{
   const page=async(params:SearchParams={})=>props(await (await import('./settings/page')).default(search(params))).initial;
-  it('a rep reads only their own customers’ assignments and access',async()=>{
+  it('a rep reads only their own floors: no customer access and no other rep (plan U8, OA-69)',async()=>{
     as('mara');
     const settings=await page({customer:'wasatch'});
-    expect(settings.assignments.map((a:{id:string})=>a.id)).toEqual(['canyon-ridge']);
-    expect(settings.access.customer_id).toBeNull();
+    expect(Object.keys(settings).sort()).toEqual(['manager','mine','rep_id']);
+    expect(settings.manager).toBeNull();
+    expect(settings.mine.rep.id).toBe('mara');
   });
-  it('the manager reads every customer',async()=>{
+  it('the manager reads every customer and every rep',async()=>{
     as('supplier');
-    expect((await page({customer:'wasatch'})).assignments).toHaveLength(6);
+    const settings=await page({customer:'wasatch'});
+    expect(settings.manager.accessTable).toMatchObject({total:6,customers:[{id:'wasatch'}]});
+    expect(settings.manager.repMargins).toHaveLength(4);
   });
 });
 
