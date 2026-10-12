@@ -70,8 +70,8 @@ export interface TeamRow {
   untouched:Record<UntouchedReason,number>;
 }
 
-/** An Other decline note in the customer's words, with its quote and rep (rep-only, decision 14). */
-export interface OtherNote {quote_id:string;quote_number:string;rep_id:string;rep_name:string;note:string;declined_at:string|null}
+/** An Other decline note in the customer's words, with its quote, rep and customer (rep-only, decision 14). */
+export interface OtherNote {quote_id:string;quote_number:string;rep_id:string;rep_name:string;customer_id:string;customer_name:string;note:string;declined_at:string|null}
 
 export interface TeamMetricRows {rows:TeamRow[];totals:TeamRow;other_notes:OtherNote[]}
 
@@ -173,23 +173,90 @@ function row(rep:Pick<TeamRow,'rep_id'|'name'|'team'|'active'>,quotes:readonly M
     untouched};
 }
 
-/**
- * One row per selected rep (in the order given) and the totals row over all of them, from the
- * cohort's facts and status events. Quotes of reps not in `reps` are left out.
- */
-export function teamMetricRows(reps:readonly MetricsRep[],facts:readonly TeamQuoteFact[],events:readonly TeamStatusEvent[],options:TeamMetricOptions):TeamMetricRows{
-  const selected=new Map(reps.map(r=>[r.id,r]));
+/** Every fact of a selected rep, measured, in time order of its status events. */
+function measureCohort(selected:ReadonlySet<string>,facts:readonly TeamQuoteFact[],events:readonly TeamStatusEvent[],options:TeamMetricOptions):Measured[]{
   const byQuote=new Map<string,TeamStatusEvent[]>();
   for(const e of [...events].sort((a,b)=>a.at.localeCompare(b.at))){
     let list=byQuote.get(e.quote_id);
     if(!list)byQuote.set(e.quote_id,list=[]);
     list.push(e);
   }
-  const measured=facts.filter(f=>selected.has(f.rep_id)).map(f=>measure(f,byQuote.get(f.id)??[],options));
-  const rows=reps.map(r=>row({rep_id:r.id,name:r.name,team:r.team,active:r.active},measured.filter(q=>q.fact.rep_id===r.id)));
-  const totals=row({rep_id:null,name:'Total',team:null,active:true},measured);
-  const other_notes=measured.filter(q=>q.status==='declined'&&q.fact.decline_reason==='other'&&q.fact.decline_note)
-    .map(({fact:f}):OtherNote=>({quote_id:f.id,quote_number:f.quote_number,rep_id:f.rep_id,rep_name:selected.get(f.rep_id)!.name,note:f.decline_note!,declined_at:f.declined_at}))
+  return facts.filter(f=>selected.has(f.rep_id)).map(f=>measure(f,byQuote.get(f.id)??[],options));
+}
+
+/** The Other notes of the measured quotes, newest first, each with its rep's name and its customer. */
+function otherNotes(measured:readonly Measured[],repName:(id:string)=>string):OtherNote[]{
+  return measured.filter(q=>q.status==='declined'&&q.fact.decline_reason==='other'&&q.fact.decline_note)
+    .map(({fact:f}):OtherNote=>({quote_id:f.id,quote_number:f.quote_number,rep_id:f.rep_id,rep_name:repName(f.rep_id),customer_id:f.customer_id,customer_name:f.customer_name,note:f.decline_note!,declined_at:f.declined_at}))
     .sort((a,b)=>(b.declined_at??'').localeCompare(a.declined_at??''));
-  return {rows,totals,other_notes};
+}
+
+const TOTALS={rep_id:null,name:'Total',team:null,active:true};
+
+/**
+ * One row per selected rep (in the order given) and the totals row over all of them, from the
+ * cohort's facts and status events. Quotes of reps not in `reps` are left out.
+ */
+export function teamMetricRows(reps:readonly MetricsRep[],facts:readonly TeamQuoteFact[],events:readonly TeamStatusEvent[],options:TeamMetricOptions):TeamMetricRows{
+  const selected=new Map(reps.map(r=>[r.id,r]));
+  const measured=measureCohort(new Set(selected.keys()),facts,events,options);
+  const rows=reps.map(r=>row({rep_id:r.id,name:r.name,team:r.team,active:r.active},measured.filter(q=>q.fact.rep_id===r.id)));
+  return {rows,totals:row(TOTALS,measured),other_notes:otherNotes(measured,id=>selected.get(id)!.name)};
+}
+
+// ---- Analytics' "Break the numbers down by" (plan U6) ----
+//
+// The same rows grouped by rep, team or customer. Only the grouping is new: every figure is row()'s,
+// so the definitions above (decisions 23 to 25) hold for any group. The whole organization groups by
+// rep, as the Rep leaderboard always has (C_AN6). The totals row is every selected rep's cohort.
+
+/** The filter's choice (C_AN4): the whole organization, rep, team or customer. */
+export type Breakdown='org'|'rep'|'team'|'customer';
+/** What a row stands for. */
+export type GroupDimension='rep'|'team'|'customer';
+/** The row of the reps with no team label (no frame: the frames draw only labelled teams). */
+export const NO_TEAM='No team';
+
+export interface MetricGroup {
+  /** Stable: the rep id, "team:<label>" ("team:" for no team) or "customer:<id>". */
+  key:string;
+  dimension:GroupDimension;
+  name:string;team:string|null;active:boolean;
+  /** Set for a rep row. */
+  rep_id:string|null;
+  /** Set for a customer row. */
+  customer_id:string|null;
+  /** The reps whose quotes the row counts (every selected rep for a customer row): its drill-down. */
+  rep_ids:string[];
+  members:readonly MetricsRep[];
+}
+
+/** A row of the breakdown: the TeamRow figures, its key, reps and customer. */
+export interface GroupRow extends TeamRow {key:string;rep_ids:string[];customer_id:string|null}
+export interface GroupMetricRows {dimension:GroupDimension;rows:GroupRow[];totals:TeamRow;other_notes:OtherNote[]}
+
+/**
+ * The rows for a breakdown over the selected reps: one per rep (in the order given); one per team
+ * label of those reps, by name, then the reps with no team; or one per customer given, in that order.
+ */
+export function metricGroups(breakdown:Breakdown,reps:readonly MetricsRep[],customers:readonly {id:string;name:string}[]):MetricGroup[]{
+  if(breakdown==='team'){
+    const labels=[...new Set(reps.flatMap(r=>r.team?[r.team]:[]))].sort((a,b)=>a.localeCompare(b));
+    const team=(label:string|null):MetricGroup=>{
+      const members=reps.filter(r=>r.team===label);
+      return {key:`team:${label??''}`,dimension:'team',name:label??NO_TEAM,team:label,active:true,rep_id:null,customer_id:null,rep_ids:members.map(r=>r.id),members};
+    };
+    return [...labels.map(team),...(reps.some(r=>!r.team)?[team(null)]:[])];
+  }
+  if(breakdown==='customer')return customers.map(c=>({key:`customer:${c.id}`,dimension:'customer',name:c.name,team:null,active:true,rep_id:null,customer_id:c.id,rep_ids:reps.map(r=>r.id),members:reps}));
+  return reps.map(r=>({key:r.id,dimension:'rep',name:r.name,team:r.team,active:r.active,rep_id:r.id,customer_id:null,rep_ids:[r.id],members:[r]}));
+}
+
+/** The breakdown's rows and the totals over every group's reps, from the cohort's facts and status events. */
+export function groupMetricRows(groups:readonly MetricGroup[],facts:readonly TeamQuoteFact[],events:readonly TeamStatusEvent[],options:TeamMetricOptions):GroupMetricRows{
+  const reps=new Map(groups.flatMap(g=>g.members.map(r=>[r.id,r] as const)));
+  const measured=measureCohort(new Set(reps.keys()),facts,events,options);
+  const counts=(g:MetricGroup)=>(q:Measured)=>g.dimension==='customer'?q.fact.customer_id===g.customer_id:g.rep_ids.includes(q.fact.rep_id);
+  const rows=groups.map((g):GroupRow=>({...row({rep_id:g.rep_id,name:g.name,team:g.team,active:g.active},measured.filter(counts(g))),key:g.key,rep_ids:g.rep_ids,customer_id:g.customer_id}));
+  return {dimension:groups[0]?.dimension??'rep',rows,totals:row(TOTALS,measured),other_notes:otherNotes(measured,id=>reps.get(id)?.name??id)};
 }

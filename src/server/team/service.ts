@@ -2,7 +2,7 @@ import 'server-only';
 import type {DistanceProvider} from '@/server/freight/distance';
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
 import {managerListOptions,type ManagerListOptions} from '@/server/rep/quotes';
-import {agingThresholds,teamQuoteFacts,teamStatusEvents} from '@/server/repository';
+import {agingThresholds,teamQuoteFacts,teamStatusEvents,type TeamCohort} from '@/server/repository';
 import {teamMetricsCsv} from './csv';
 import {teamMetricRows,type TeamMetricRows} from './metrics';
 import {parseTeamQuery} from './query';
@@ -34,6 +34,17 @@ export interface TeamMetricsOptions {
   provider?:DistanceProvider;
 }
 
+/** The cohort's facts with each never-sent quote's live draft total: what the Quotes list shows for the draft, priced lines plus freight (items only while freight is call for freight). */
+export async function cohortFacts(cohort:TeamCohort,{now=clock(),provider}:TeamMetricsOptions={}){
+  const facts=[];
+  for(const fact of teamQuoteFacts(cohort)){
+    let draft_total:number|null=null;
+    if(fact.sent_total===null){const check=await sendCheck(fact.id,{provider,now});draft_total=check.total??check.subtotal;}
+    facts.push({...fact,draft_total});
+  }
+  return facts;
+}
+
 /**
  * The metrics for the query string's window, reps and team. Expiry is lazy (task 1.5), so this first
  * stores the expiry of every sent quote past valid_until (dated when it happened), as the Quotes
@@ -46,13 +57,7 @@ export async function teamMetrics(params:{get(name:string):string|null},{now=clo
   const {from,to,repIds,team}=parsed.query;
   expireOverdueQuotes({now});
   const cohort={from,to,repIds};
-  const facts=[];
-  for(const fact of teamQuoteFacts(cohort)){
-    // Never sent: what the Quotes list shows for the draft, priced lines plus freight (items only while freight is call for freight).
-    let draft_total:number|null=null;
-    if(fact.sent_total===null){const check=await sendCheck(fact.id,{provider,now});draft_total=check.total??check.subtotal;}
-    facts.push({...fact,draft_total});
-  }
+  const facts=await cohortFacts(cohort,{now,provider});
   const reps=options.reps.filter(r=>repIds.includes(r.id));
   return {as_of:now,window:{from,to},selected:{rep_ids:reps.map(r=>r.id),team},
     ...teamMetricRows(reps,facts,teamStatusEvents(cohort),{now,thresholds:agingThresholds()}),options};

@@ -9,7 +9,9 @@ useSeededDatabase();
 
 const manager={repId:'brandi',manager:true};
 const rep=(repId:string)=>({repId,manager:false});
-const page=(reader:{repId:string;manager:boolean},query='')=>analyticsPage(reader,new URLSearchParams(query));
+// One instant for every call: open quotes' time in status counts to now.
+const NOW=new Date().toISOString();
+const page=(reader:{repId:string;manager:boolean},query='')=>analyticsPage(reader,new URLSearchParams(query),{now:NOW});
 
 describe('the manager\'s filter',()=>{
   it('reads the whole organization by default, with a row per active rep and the filter options',async()=>{
@@ -23,13 +25,13 @@ describe('the manager\'s filter',()=>{
     expect(data.options.teams).toEqual(['Inside Sales','Outside Sales']);
     expect(data.options.customers.map(c=>c.id)).toEqual(['canyon-ridge','great-basin','uinta-facility','utah-valley-electric','wasatch','weber-basin']);
     // The overview is every rep's quotes, as before.
-    expect(data.turnaround).toEqual(repAnalytics('brandi',{manager:true}).turnaround);
+    expect(data.turnaround).toEqual(repAnalytics('brandi',{manager:true,now:NOW}).turnaround);
   });
 
   it('narrows every number to the picked reps: their own quotes, and their customers\' questions',async()=>{
     const data=await page(manager,'reps=mara');
     expect(data.filter.rep_ids).toEqual(['mara']);
-    const own=repAnalytics('mara');
+    const own=repAnalytics('mara',{now:NOW});
     expect(data.turnaround).toEqual(own.turnaround);
     expect(data.win_rate).toEqual(own.win_rate);
     expect(data.scope.customer_ids).toEqual(['canyon-ridge']);

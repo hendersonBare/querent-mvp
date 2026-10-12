@@ -68,6 +68,15 @@ describe('quote analytics facts',()=>{
     expect(quoteFacts([])).toEqual([]);
   });
 
+  it('narrows to the quotes of the reps given (the manager\'s rep and team filter, plan U6)',()=>{
+    const all=quoteFacts(null);
+    expect(quoteFacts({customers:null,repId:null,repIds:['mara','eli']})).toEqual(all.filter(f=>f.rep_id==='mara'||f.rep_id==='eli'));
+    expect(quoteFacts({customers:null,repId:null,repIds:['mara']})).toEqual(quoteFacts({customers:null,repId:'mara'}));
+    expect(quoteFacts({customers:null,repId:null,repIds:[]})).toEqual([]);
+    expect(quoteFacts({customers:null,repId:null,repIds:null})).toEqual(all);
+    expect(topRequestedItems({customers:null,repId:null,repIds:['nora']})).toEqual([]);
+  });
+
   it('returns each line with its cost, Querent\'s suggestion and the quote rep\'s floor for the category',()=>{
     const sample=quoteLineFacts('wasatch').filter(l=>l.quote_id==='q-24817');
     expect(sample.map(l=>[l.sku,l.unit_price,l.unit_cost,l.margin_floor])).toEqual([['HCS-12-13-2G8',31.5,21.4,0.2],['CW-45-045-T1',36,24.1,0.25],['GLV-N8-L-1000',79,58,0.3],['RS-2-27-JH',22.95,14.2,0.2]]);

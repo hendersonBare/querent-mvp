@@ -67,7 +67,9 @@ it('forces a rep to their own data: another rep\'s id, a team or a breakdown cha
     const response=await get('mara',query);
     expect(response.status,query).toBe(200);
     const body=await response.json();
-    expect(body.groups,query).toEqual(own.groups);
+    // The same rows (time in status counts to each request's own instant, so compare the counts).
+    const counts=(groups:{dimension:string;rows:{key:string;created:number;statuses:unknown}[];totals:{created:number}})=>({dimension:groups.dimension,rows:groups.rows.map(r=>[r.key,r.created,r.statuses]),total:groups.totals.created});
+    expect(counts(body.groups),query).toEqual(counts(own.groups));
     expect(body.scope,query).toEqual(own.scope);
     expect(body.win_rate,query).toEqual(own.win_rate);
   }

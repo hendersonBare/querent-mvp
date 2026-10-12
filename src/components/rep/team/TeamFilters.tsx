@@ -1,7 +1,7 @@
 'use client';
 import {useId} from 'react';
 import type {TeamRepOption} from './TeamDashboard';
-import {PRESET_DAYS,dayInput,presetWindow,type PresetDays} from './window';
+import {PRESET_DAYS,dayInput,presetWindow,type PresetDays} from '../analytics/window';
 import s from './Team.module.css';
 
 // The Team dashboard's filters (v3 spec §6 Team; decision 23; task D3): tick any set of reps (to
