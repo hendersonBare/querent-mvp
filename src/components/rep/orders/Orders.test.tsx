@@ -43,7 +43,7 @@ describe('OrdersList, manager (C_ORBase)',()=>{
     expect(screen.getByRole('link',{name:'SO-51223'})).toHaveAttribute('href','/rep/orders/SO-51223');
     // Read-only (ERP): nothing to edit, add or remove.
     expect(screen.queryByRole('button',{name:/Add|Edit|Delete|Remove/})).toBeNull();
-    expect(document.body.textContent).not.toMatch(/cost|margin|—|·/i);
+    expect(document.body.textContent).not.toMatch(/cost|margin|\u2014|·/i);
   });
 
   it('shows the first 10, then "Show 13 more orders"',()=>{
@@ -140,6 +140,6 @@ describe('OrderDetail (C_OR2)',()=>{
     expect(facts.getByText('Customer PO').nextElementSibling).toHaveTextContent('-');
     expect(screen.getByText('Wasatch Mechanical Contractors, ordered Sep 9, 2026')).toBeInTheDocument();
     expect(screen.getByRole('heading',{level:1}).parentElement).toHaveTextContent('SO-51223Closed');
-    expect(document.body.textContent).not.toMatch(/cost|margin|—/i);
+    expect(document.body.textContent).not.toMatch(/cost|margin|\u2014/i);
   });
 });

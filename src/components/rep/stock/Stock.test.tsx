@@ -39,7 +39,7 @@ describe('StockList (C_STBase)',()=>{
     expect(screen.getByRole('link',{name:'Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc'})).toHaveAttribute('href','/rep/stock/HCS-12-13-2G8');
     // The category dropdown is gone: Filter replaces it.
     expect(screen.queryByRole('combobox',{name:'Category'})).toBeNull();
-    expect(document.body.textContent).not.toMatch(/cost|margin|—|on order/i);
+    expect(document.body.textContent).not.toMatch(/cost|margin|\u2014|on order/i);
   });
 
   it('search narrows by SKU or name, and the count follows',()=>{
@@ -190,6 +190,6 @@ describe('ItemDetail (C_ST2)',()=>{
     ]);
     fireEvent.click(price.getByRole('button',{name:'Add to quote'}));
     expect(within(dialog()).getByText('Hex cap screw 1/2-13 x 2 in, Grade 8, yellow zinc')).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/cost|margin|—/i);
+    expect(document.body.textContent).not.toMatch(/cost|margin|\u2014/i);
   });
 });

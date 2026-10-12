@@ -42,7 +42,7 @@ describe('CustomersList, manager (C_CUBase)',()=>{
     expect(cells('Great Basin Fabrication')).toEqual(['Great Basin FabricationGBF-2207','Brandi Gallegos','Not on file','-','No orders yet','0','0']);
     // No link carries a customer filter (task U1).
     expect(screen.getAllByRole('link').map(l=>l.getAttribute('href')).filter(h=>h!.includes('?'))).toEqual([]);
-    expect(document.body.textContent).not.toMatch(/cost|margin|—/i);
+    expect(document.body.textContent).not.toMatch(/cost|margin|\u2014/i);
   });
 
   it('search narrows by name or account number, and the count follows',()=>{
@@ -155,7 +155,7 @@ describe('CustomerDetail (C_CU3)',()=>{
     expect(card('Rep')).toHaveTextContent('Brandi GallegosInside Sales(801) 111-2222brandi.gallegos@herrickindustrial.com');
     expect(within(card('Contacts')).getByText('1 contact')).toBeInTheDocument();
     expect(card('Contacts')).toHaveTextContent('Dana OrtizPRIMARYPurchasing(801) 555-0142dana.ortiz@wasatchmechanical.example');
-    expect(document.body.textContent).not.toMatch(/cost|margin|—/i);
+    expect(document.body.textContent).not.toMatch(/cost|margin|\u2014/i);
   });
 
   it('a placeholder customer: no terms in the heading, and one-line empty states (C_CU3 "No orders yet")',()=>{
