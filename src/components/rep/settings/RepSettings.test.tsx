@@ -122,7 +122,7 @@ describe('Margins (C_RS1, C_RS3)',()=>{
     await waitFor(()=>expect(within(card()).getByText(detail)).toBeInTheDocument());
     expect(field('Safety & PPE')).toHaveAttribute('aria-invalid','true');
     const row=within(card()).getAllByRole('row').find(r=>within(r).queryByRole('rowheader')?.textContent==='Safety & PPE')!;
-    expect(within(row).getAllByRole('cell').at(-2)!.textContent).toBe('30.0%');
+    expect(within(row).getAllByRole('cell').at(-1)!.textContent).toBe('30.0%');
     expect(save()).toBeDisabled();
   });
 });

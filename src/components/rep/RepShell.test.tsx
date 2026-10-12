@@ -266,13 +266,13 @@ describe('Settings in the shell',()=>{
     expect(screen.queryByText('Data browser')).not.toBeInTheDocument();
   });
 
-  it('a rep (not the manager) gets one tab, their own margin floors, whatever ?tab= says (plan U8)',()=>{
-    for(const tab of ['aging','reps','assignments','access','pricing']){
+  it('a rep (not the manager) gets their own tabs, Margins first, whatever ?tab= says (plans U8, U9)',()=>{
+    for(const tab of ['aging','reps','assignments','access','pricing','floors']){
       at('/rep/settings',`tab=${tab}`);
       const {unmount}=renderShell(mara,<SettingsSection initial={settingsFixture({manager:false})}/>);
       const tabs=screen.getByRole('navigation',{name:'Settings sections'});
-      expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Margin floors']);
-      expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Margin floors');
+      expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Margins','Profile','Notifications']);
+      expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Margins');
       expect(screen.queryByRole('heading',{name:'Aging thresholds'})).not.toBeInTheDocument();
       expect(screen.queryByRole('heading',{name:'Customer access'})).not.toBeInTheDocument();
       unmount();

@@ -1,12 +1,14 @@
 import { expect, test, type APIRequest, type Browser, type Page, type TestInfo } from "@playwright/test";
 
-// Settings (task 6.1; plan U8; spec §4, §5.2, §6.3): the manager's Customer access, Margin floors, Pricing and
-// delivery and Aging (e2e/rep-roles.spec.ts covers Aging), a rep's own floors, and what each change does
-// elsewhere:
+// Settings (task 6.1; plans U8, U9; spec §4, §5.2, §6.3): the manager's Customer access, Margin floors, Pricing and
+// delivery and Aging (e2e/rep-roles.spec.ts covers Aging), a rep's Margins, Profile and Notifications, and what
+// each change does elsewhere:
 //   - a rep's own floor moves the "N lines below floor" warning on the Quotes board (task 3.2) and the red
 //     warning above a line's price on the quote editor (task 3.3);
-//   - turning a data type off for a customer makes Dana's chat refuse it and point her to her rep (task 2.1).
-// e2e/frames-settings.spec.ts proves each tab against its frame; e2e/free-delivery.spec.ts the flagged sections.
+//   - turning a data type off for a customer makes Dana's chat refuse it and point her to her rep (task 2.1);
+//   - a rep's profile is what their customer sees in the My rep sheet, and their switches decide what their
+//     caution and bell dropdowns list (plan U9).
+// e2e/frames-settings.spec.ts and e2e/frames-rep-settings.spec.ts prove each tab against its frame; e2e/free-delivery.spec.ts the flagged sections.
 //
 // beforeAll/afterAll reset the database to the seed pinned to the mockup's day through the
 // test-only POST /api/test/reset (the server needs QUERENT_E2E_RESET=1; playwright.config.ts sets
@@ -161,29 +163,156 @@ test("floors: a rep's own floor changes the below-floor warning on their quotes 
   await setBrandiFloor(page, "fasteners", 20);
 });
 
-test("floors: Mara edits her own margin floors on her one Settings tab, to 0.1 point, saved and kept", async ({ browser }, testInfo) => {
+// A rep's own tabs (plan U9; C_RS1 to C_RS4): Margins, Profile, Notifications. e2e/frames-rep-settings.spec.ts
+// proves each against its frame; these walk what they do.
+test("margins: Mara edits her own margins on Margins, to 0.1 point, saved and kept; under the organization floor the row turns red and Save is off", async ({ browser }, testInfo) => {
   const mara = await signInAsMara(browser, testInfo);
   await mara.goto("/rep/settings");
-  await expect(settingsTabs(mara).getByRole("link")).toHaveText(["Margin floors"]);
-  const card = mara.getByRole("region", { name: "My margin floors" });
-  const field = (category: string) => card.getByRole("textbox", { name: `${category} floor`, exact: true });
+  await expect(settingsTabs(mara).getByRole("link")).toHaveText(["Margins", "Profile", "Notifications"]);
+  const card = mara.getByRole("region", { name: "Your margins" });
+  const field = (category: string) => card.getByRole("textbox", { name: `${category} margin`, exact: true });
+  const save = card.getByRole("button", { name: "Save margins" });
   await expect(field("Fasteners")).toHaveValue("20.0");
   await field("Fasteners").fill("22.46");
-  await card.getByRole("button", { name: "Save floors" }).click();
+  await save.click();
   await expect(card.getByRole("status")).toHaveText("Saved");
   await expect(field("Fasteners")).toHaveValue("22.5");
   await mara.reload();
-  await expect(mara.getByRole("region", { name: "My margin floors" }).getByRole("textbox", { name: "Fasteners floor", exact: true })).toHaveValue("22.5");
+  await expect(mara.getByRole("region", { name: "Your margins" }).getByRole("textbox", { name: "Fasteners margin", exact: true })).toHaveValue("22.5");
   // Out of range: the field says so and Save stays off.
   await field("Tools").fill("100");
   await expect(field("Tools")).toHaveAttribute("aria-invalid", "true");
-  await expect(card.getByRole("alert")).toHaveText("Enter a floor from 0 to 99.9.");
-  await expect(card.getByRole("button", { name: "Save floors" })).toBeDisabled();
-  await screenshot(mara, testInfo, "mara-floors");
+  await expect(card.getByRole("alert")).toHaveText("Enter a margin from 0 to 99.9.");
+  await expect(save).toBeDisabled();
+  // Under the organization floor (Tools is 18.0%): red, the real floor named under it, Save off (C_RS3; Appendix H).
+  await field("Tools").fill("17.9");
+  await expect(card.getByText("Below the 18.0% organization floor. Pick 18.0% or higher.", { exact: true })).toBeVisible();
+  await expect(field("Tools")).toHaveAccessibleDescription("Below the 18.0% organization floor. Pick 18.0% or higher.");
+  await expect(save).toBeDisabled();
+  await screenshot(mara, testInfo, "mara-margins-below-floor");
+  // The server refuses it as well, field by field, whatever the page does.
+  const refused = await mara.request.put("/api/rep/settings/floors", { data: { floors: [{ category_id: "tools", floor_pct: 17.9 }] } });
+  expect(refused.status()).toBe(400);
+  expect(await refused.json()).toMatchObject({ code: "below_org_floor", fields: [{ category_id: "tools", floor: 0.18, detail: "Below the 18.0% organization floor. Pick 18.0% or higher." }] });
   await field("Tools").fill("20");
   await field("Fasteners").fill("20");
-  await card.getByRole("button", { name: "Save floors" }).click();
+  await expect(save).toBeEnabled();
+  await save.click();
   await expect(card.getByRole("status")).toHaveText("Saved");
+  // A floor the manager raises over a stored margin shows that row red when Mara comes back.
+  const brandi = await browser.newContext();
+  await brandi.addCookies([{ name: COOKIE, value: "supplier", url: String(testInfo.project.use.baseURL) }]);
+  expect((await brandi.request.put(`${testInfo.project.use.baseURL}/api/rep/settings/org-floors`, { data: { floors: [{ category_id: "safety", floor_pct: 25 }] } })).status()).toBe(200);
+  await mara.reload();
+  await expect(card.getByText("Below the 25.0% organization floor. Pick 25.0% or higher.", { exact: true })).toBeVisible();
+  await expect(save).toBeDisabled();
+  expect((await brandi.request.put(`${testInfo.project.use.baseURL}/api/rep/settings/org-floors`, { data: { floors: [{ category_id: "safety", floor_pct: 20 }] } })).status()).toBe(200);
+  await brandi.close();
+  await mara.context().close();
+});
+
+/** A 1x1 PNG. */
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+
+test("profile: Mara's name, phone, email and picture are what her customer sees in the My rep sheet; a bad picture is refused", async ({ browser }, testInfo) => {
+  const base = String(testInfo.project.use.baseURL);
+  // Wasatch goes to Mara for this test (the manager's own route), so Dana's rep is Mara.
+  const brandi = await browser.newContext();
+  await brandi.addCookies([{ name: COOKIE, value: "supplier", url: base }]);
+  const assign = (rep_id: string) => brandi.request.put(`${base}/api/rep/settings/assignments`, { data: { customer_id: "wasatch", rep_id } });
+  expect((await assign("mara")).status()).toBe(200);
+  try {
+    const mara = await signInAsMara(browser, testInfo);
+    await mara.goto("/rep/settings?tab=profile");
+    const card = mara.getByRole("region", { name: "Profile" });
+    await expect(card.getByText("MJ", { exact: true })).toBeVisible();
+    await expect(card.getByRole("textbox", { name: "Name" })).toHaveValue("Mara Jensen");
+    // An SVG is refused at once, and by the server whatever it claims to be.
+    await card.locator('input[type="file"]').setInputFiles({ name: "me.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'/>") });
+    await expect(card.getByRole("alert")).toHaveText("Pick a PNG, JPEG or WebP picture.");
+    const sneaky = await mara.request.put("/api/rep/profile/picture", { headers: { "content-type": "image/png" }, data: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg' onload='alert(1)'/>") });
+    expect(sneaky.status()).toBe(400);
+    await card.locator('input[type="file"]').setInputFiles({ name: "me.png", mimeType: "image/png", buffer: PNG });
+    await expect(card.getByRole("alert")).toHaveCount(0);
+    await expect(card.getByRole("img", { name: "Mara Jensen" })).toBeVisible();
+    await card.getByRole("textbox", { name: "Phone" }).fill("(801) 555-0199");
+    await card.getByRole("textbox", { name: "Email" }).fill("mara@example.com");
+    await card.getByRole("button", { name: "Save profile" }).click();
+    await expect(card.getByRole("status")).toHaveText("Saved");
+    await mara.reload();
+    await expect(card.getByRole("textbox", { name: "Phone" })).toHaveValue("(801) 555-0199");
+    const src = await card.getByRole("img", { name: "Mara Jensen" }).getAttribute("src");
+    expect(src).toMatch(/^\/api\/rep\/profile\/picture\?v=\d+$/);
+    const own = await mara.request.get(src!);
+    expect(own.headers()["content-type"]).toBe("image/png");
+    expect(own.headers()["x-content-type-options"]).toBe("nosniff");
+    await screenshot(mara, testInfo, "mara-profile");
+
+    // Dana sees it in My rep: the name, title, new phone and email, and the picture; nothing else of the rep.
+    const dana = await signInAsDana(browser);
+    const contacts = await (await dana.request.get("/api/query/customer/contacts")).json();
+    expect(Object.keys(contacts.rep).sort()).toEqual(["email", "initials", "name", "phone", "picture_url", "title"]);
+    await dana.getByRole("button", { name: "My rep" }).click();
+    const sheet = dana.getByRole("dialog", { name: "Your rep" });
+    await expect(sheet).toContainText("Mara Jensen");
+    await expect(sheet).toContainText("(801) 555-0199");
+    await expect(sheet).toContainText("mara@example.com");
+    await expect(sheet.getByRole("img", { name: "Mara Jensen" })).toHaveJSProperty("complete", true);
+    expect(await sheet.getByRole("img", { name: "Mara Jensen" }).evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(1);
+    await screenshot(dana, testInfo, "dana-my-rep-picture");
+    await dana.context().close();
+
+    // Remove, and back to her own words.
+    await card.getByRole("button", { name: "Remove" }).click();
+    await card.getByRole("textbox", { name: "Phone" }).fill("(801) 555-0102");
+    await card.getByRole("textbox", { name: "Email" }).fill("mara.jensen@herrickindustrial.com");
+    await card.getByRole("button", { name: "Save profile" }).click();
+    await expect(card.getByRole("status")).toHaveText("Saved");
+    await expect(card.getByText("MJ", { exact: true })).toBeVisible();
+    expect((await mara.request.get("/api/rep/profile/picture")).status()).toBe(404);
+    await mara.context().close();
+  } finally {
+    expect((await assign("brandi")).status()).toBe(200);
+    await brandi.close();
+  }
+});
+
+test("notifications: Mara's switches decide what her caution and bell dropdowns list", async ({ browser }, testInfo) => {
+  const mara = await signInAsMara(browser, testInfo);
+  await mara.goto("/rep/settings?tab=notifications");
+  const bellCard = mara.getByRole("region", { name: "Notifications" });
+  const attentionCard = mara.getByRole("region", { name: "Needs attention" });
+  const badges = async () => (await mara.request.get("/api/rep/badges")).json();
+  const before = await badges();
+  expect(before.bell.length).toBeGreaterThan(0);
+  expect(before.caution.length).toBeGreaterThan(0);
+  // The bell: a new quote request is the customer's chat needing its rep.
+  expect(before.bell.map((b: { kind: string }) => b.kind)).toContain("quote_requested");
+  await bellCard.getByRole("switch", { name: "Customer chat needs a rep" }).click();
+  await bellCard.getByRole("button", { name: "Save notifications" }).click();
+  await expect(bellCard.getByRole("status")).toHaveText("Saved");
+  await mara.reload();
+  await expect(bellCard.getByRole("switch", { name: "Customer chat needs a rep" })).toHaveAttribute("aria-checked", "false");
+  expect((await badges()).bell.map((b: { kind: string }) => b.kind)).not.toContain("quote_requested");
+  // The header's bell follows (the page loads the badges again).
+  await mara.getByRole("button", { name: "Notifications", exact: true }).click();
+  const bell = mara.getByRole("dialog", { name: "Notifications" });
+  for (const row of before.bell.filter((b: { kind: string }) => b.kind === "quote_requested")) await expect(bell).not.toContainText(row.label);
+  await mara.keyboard.press("Escape");
+  // The caution: Quote overdue and Quote aging off empties it, and the red count with it.
+  await attentionCard.getByRole("switch", { name: "Quote overdue" }).click();
+  await attentionCard.getByRole("switch", { name: "Quote aging" }).click();
+  await attentionCard.getByRole("button", { name: "Save notifications" }).click();
+  await expect(attentionCard.getByRole("status")).toHaveText("Saved");
+  expect(await badges()).toMatchObject({ caution: [], attention: 0 });
+  await screenshot(mara, testInfo, "mara-notifications");
+  // Back on.
+  for (const name of ["Quote overdue", "Quote aging"]) await attentionCard.getByRole("switch", { name }).click();
+  await attentionCard.getByRole("button", { name: "Save notifications" }).click();
+  await bellCard.getByRole("switch", { name: "Customer chat needs a rep" }).click();
+  await bellCard.getByRole("button", { name: "Save notifications" }).click();
+  await expect(bellCard.getByRole("status")).toHaveText("Saved");
+  expect((await badges()).bell).toEqual(before.bell);
   await mara.context().close();
 });
 
