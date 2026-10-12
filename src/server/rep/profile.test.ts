@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
 import {describe,expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
 import {PICTURE_MAX_BYTES,ProfileError,ownPicture,pictureType,profileView,removePicture,savePicture,updateProfile} from './profile';
@@ -7,9 +9,18 @@ import {PICTURE_MAX_BYTES,ProfileError,ownPicture,pictureType,profileView,remove
 // name another rep.
 useSeededDatabase();
 
-const PNG=Uint8Array.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13]);
-const JPEG=Uint8Array.from([0xff,0xd8,0xff,0xe0,0,16,0x4a,0x46]);
-const WEBP=Uint8Array.from([0x52,0x49,0x46,0x46,4,0,0,0,0x57,0x45,0x42,0x50,0x56,0x50]);
+/** Real 2x2 pictures (test/fixtures/pictures); src/server/picture-format.test.ts covers the structure check itself. */
+const fixture=(name:string)=>new Uint8Array(readFileSync(path.join(process.cwd(),'test/fixtures/pictures',name)));
+const PNG=fixture('tiny.png'),JPEG=fixture('tiny.jpg'),WEBP=fixture('tiny-lossy.webp');
+/** The PNG grown to exactly `size` bytes by a private ancillary chunk before IEND: still a well formed PNG. */
+function pngOf(size:number){
+  const out=new Uint8Array(size),iend=PNG.length-12,pad=size-PNG.length-12;
+  out.set(PNG.subarray(0,iend));
+  new DataView(out.buffer).setUint32(iend,pad);
+  out.set(new TextEncoder().encode('prVt'),iend+4);
+  out.set(PNG.subarray(iend),size-12);
+  return out;
+}
 const GIF=Uint8Array.from([0x47,0x49,0x46,0x38,0x39,0x61,1,0]);
 const SVG=new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
 const NOW='2026-10-12T10:00:00.000Z';
@@ -17,11 +28,11 @@ const NOW='2026-10-12T10:00:00.000Z';
 const errorOf=(fn:()=>unknown)=>{try{fn();}catch(e){return e;}throw new Error('did not throw');};
 
 describe('pictureType: what the bytes are, never what the upload says',()=>{
-  it('knows PNG, JPEG and WebP by their first bytes, and nothing else',()=>{
+  it('knows a whole PNG, JPEG or WebP, and nothing else (not a signature alone)',()=>{
     expect(pictureType(PNG)).toBe('image/png');
     expect(pictureType(JPEG)).toBe('image/jpeg');
     expect(pictureType(WEBP)).toBe('image/webp');
-    for(const bytes of [GIF,SVG,new Uint8Array(),Uint8Array.from([0x89,0x50])])expect(pictureType(bytes)).toBeNull();
+    for(const bytes of [GIF,SVG,new Uint8Array(),Uint8Array.from([0x89,0x50]),PNG.subarray(0,16)])expect(pictureType(bytes)).toBeNull();
   });
 });
 
@@ -74,12 +85,13 @@ describe('savePicture and removePicture',()=>{
 
   it('refuses anything that is not a PNG, JPEG or WebP picture, and anything over the size limit, keeping the old picture',()=>{
     savePicture('mara',JPEG,{now:NOW});
-    for(const bytes of [GIF,SVG])expect(errorOf(()=>savePicture('mara',bytes,{now:NOW}))).toMatchObject({status:400,field:'picture',message:'Pick a PNG, JPEG or WebP picture.'});
+    for(const bytes of [GIF,SVG,PNG.subarray(0,20),Uint8Array.from([...PNG,...SVG])])expect(errorOf(()=>savePicture('mara',bytes,{now:NOW}))).toMatchObject({status:400,field:'picture',message:'Pick a PNG, JPEG or WebP picture.'});
     expect(errorOf(()=>savePicture('mara',new Uint8Array(),{now:NOW}))).toMatchObject({status:400,message:'Pick a PNG, JPEG or WebP picture.'});
     const big=new Uint8Array(PICTURE_MAX_BYTES+1);big.set(PNG);
     expect(errorOf(()=>savePicture('mara',big,{now:NOW}))).toMatchObject({status:413,field:'picture',message:'Pick a picture of 2 MB or less.'});
     expect(ownPicture('mara')?.type).toBe('image/jpeg');
-    const fits=new Uint8Array(PICTURE_MAX_BYTES);fits.set(PNG);
+    const fits=pngOf(PICTURE_MAX_BYTES);
+    expect(pictureType(fits)).toBe('image/png');
     expect(savePicture('mara',fits,{now:NOW}).picture_url).not.toBeNull();
     removePicture('mara');
   });

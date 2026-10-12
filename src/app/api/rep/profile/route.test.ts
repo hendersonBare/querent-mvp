@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
 import {NextRequest} from 'next/server';
 import {describe,expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
@@ -8,9 +10,26 @@ import {useSeededDatabase} from '@/server/repository/test-db';
 // (PNG, JPEG or WebP, 2 MB at most) and served back with its own type, never sniffed, sandboxed.
 useSeededDatabase();
 
-const PNG=Uint8Array.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13,0x49,0x48,0x44,0x52]);
+const fixture=(name:string)=>new Uint8Array(readFileSync(path.join(process.cwd(),'test/fixtures/pictures',name)));
+const join=(...parts:(Uint8Array|number[]|string)[])=>Uint8Array.from(parts.flatMap(p=>[...(typeof p==='string'?new TextEncoder().encode(p):p)]));
+/** Real 2x2 pictures (test/fixtures/pictures). */
+const PNG=fixture('tiny.png'),JPEG=fixture('tiny.jpg'),WEBP=fixture('tiny-lossy.webp');
 const SVG=new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>');
 const HTML=new TextEncoder().encode('<!doctype html><script>alert(1)</script>');
+const SVG_TEXT='<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>';
+const le=(n:number)=>[n&255,n>>>8&255,n>>>16&255,n>>>24&255];
+/** Files that start like a picture but are not one (a polyglot, a truncated file, data after the image's end). */
+const NOT_PICTURES:[string,Uint8Array][]=[
+  ['PNG signature then HTML',join(PNG.subarray(0,8),'<html><script>alert(1)</script></html>')],
+  ['JPEG start then HTML',join([0xff,0xd8,0xff],'<html><script>alert(1)</script></html>')],
+  ['WebP header then SVG',join('RIFF',le(4+SVG_TEXT.length),'WEBP',SVG_TEXT)],
+  ['20-byte PNG',PNG.subarray(0,20)],
+  ['8-byte PNG signature',PNG.subarray(0,8)],
+  ['HTML after IEND',join(PNG,HTML)],
+  ['HTML after EOI',join(JPEG,HTML)],
+  ['JPEG without EOI',JPEG.subarray(0,JPEG.length-2)],
+  ['WebP cut short',WEBP.subarray(0,WEBP.length-4)],
+];
 
 type Method='GET'|'PUT'|'DELETE';
 const ROUTES={
@@ -78,6 +97,25 @@ describe('PUT, GET and DELETE /api/rep/profile/picture',()=>{
     const removed=await call('picture','DELETE');
     expect(removed).toMatchObject({status:200,json:{picture_url:null}});
     expect((await call('picture','GET')).status).toBe(404);
+  });
+
+  it('stores a JPEG and a WebP, each served with its own type',async()=>{
+    for(const [raw,type] of [[JPEG,'image/jpeg'],[WEBP,'image/webp']] as const){
+      expect((await call('picture','PUT',{raw,type:'application/octet-stream'})).status,type).toBe(200);
+      const served=await call('picture','GET');
+      expect(served.headers.get('content-type')).toBe(type);
+      expect(Buffer.from(served.bytes).equals(Buffer.from(raw))).toBe(true);
+    }
+    expect((await call('picture','DELETE')).status).toBe(200);
+  });
+
+  it('refuses a polyglot, a truncated picture and data after the end of the image, keeping the picture there was',async()=>{
+    expect((await call('picture','PUT',{raw:PNG,type:'image/png'})).status).toBe(200);
+    for(const [name,raw] of NOT_PICTURES)
+      expect(await call('picture','PUT',{raw,type:'image/png'}),name).toMatchObject({status:400,json:{detail:'Pick a PNG, JPEG or WebP picture.',field:'picture'}});
+    const served=await call('picture','GET');
+    expect(Buffer.from(served.bytes).equals(Buffer.from(PNG))).toBe(true);
+    expect((await call('picture','DELETE')).status).toBe(200);
   });
 
   it('refuses an SVG, HTML or anything else by its bytes, whatever type it claims, and anything over 2 MB',async()=>{
