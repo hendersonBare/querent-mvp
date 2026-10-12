@@ -8,8 +8,10 @@ import { expect, test, type APIRequest, type Browser, type BrowserContext, type 
 //   3. Dana declines a different quote and picks a reason.
 //   4. Brandi (the manager) opens Analytics (the leaderboard moved there from Teams and Reps, plans U6 and
 //      U7), compares Mara and Eli, drills into the decline reasons, and reassigns one of Mara's overdue quotes to Eli.
-//   5. Brandi opens Pricing & delivery, views the impact preview, turns free delivery pricing on and
-//      sees the ramp, with the computed pool rate next to the starting rate.
+//   5. Brandi opens Pricing and delivery, views the impact preview, turns free delivery pricing on and
+//      sees the ramp, with the computed pool rate next to the starting rate. Its sections show only with
+//      FEATURE_FREE_DELIVERY_PRICING and FEATURE_RECOVERY_POOL on (decision 48; playwright.config.ts turns
+//      the flags on for the server it starts).
 //
 // beforeAll and afterAll reset the database to the seed pinned to the mockup's day (POST
 // /api/test/reset; the server needs QUERENT_E2E_RESET=1 and QUERENT_SCRIPTED=1, which
@@ -252,6 +254,8 @@ test("Act 4: Brandi compares Mara and Eli on Analytics, drills into the decline 
 });
 
 test("Act 5: Brandi views the impact preview, turns free delivery pricing on, and sees the ramp", async ({}, testInfo) => {
+  const flags = (await brandi.evaluate(() => fetch("/api/rep/settings").then((r) => r.json()))).manager.flags;
+  expect(flags, "Act 5 needs FEATURE_FREE_DELIVERY_PRICING=1 and FEATURE_RECOVERY_POOL=1 on the server (playwright.config.ts sets them)").toMatchObject({ freeDeliveryPricing: true, recoveryPool: true });
   await brandi.goto("/rep/settings?tab=pricing");
   const free = brandi.getByRole("region", { name: "Free delivery pricing" });
   const pool = brandi.getByRole("region", { name: "Recovery pool" });
@@ -263,9 +267,13 @@ test("Act 5: Brandi views the impact preview, turns free delivery pricing on, an
   await screenshot(brandi, testInfo, "act5-pool");
 
   await free.getByRole("button", { name: "View impact preview" }).click();
-  await expect(free.getByRole("table", { name: "Average line price change by category" })).toBeVisible();
-  await expect(free).toContainText(/[1-9]\d* of \d+ delivery quotes from the last 90 days would carry freight recovery\./);
+  // The preview opens over the page (plan U8, C_S7): per category, the delivery quotes it touches and the change in dollars.
+  const preview = brandi.getByRole("dialog", { name: "Impact preview" });
+  await expect(preview.getByRole("table", { name: "Average change per line price" })).toBeVisible();
+  await expect(preview).toContainText(/Based on the last [1-9]\d* delivery quotes\./);
+  await expect(preview.getByRole("row").filter({ hasText: "Fasteners" })).toHaveText(/Fasteners[1-9]\d* of \d+\+\$\d+\.\d\d\+\$\d+\.\d\d/);
   await screenshot(brandi, testInfo, "act5-preview");
+  await preview.getByRole("button", { name: "Close" }).click();
 
   await expect(toggle).toBeEnabled();
   await toggle.click();
@@ -273,7 +281,7 @@ test("Act 5: Brandi views the impact preview, turns free delivery pricing on, an
   const ramp = free.getByRole("table", { name: "Ramp-in schedule" });
   await expect(ramp.getByRole("row")).toHaveCount(4);
   await expect(ramp.getByRole("row").nth(1)).toContainText("Step 1 of 3");
-  await expect(ramp.getByRole("row").nth(1)).toContainText("Now");
+  await expect(ramp.getByRole("row").nth(1)).toContainText("NOW");
   await expect(pool).toContainText(/Rate in force\d+\.\d%, ramp step 1 of 3/);
   await screenshot(brandi, testInfo, "act5-ramp");
 });

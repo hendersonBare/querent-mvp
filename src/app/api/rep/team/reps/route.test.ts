@@ -80,14 +80,13 @@ describe('GET /api/rep/settings: manager settings only for the manager',()=>{
     const response=await (await import('../../settings/route')).GET(new NextRequest('http://127.0.0.1/api/rep/settings',{headers:{cookie:`querent-persona=${persona}`}}));
     return response.json();
   };
-  it('carries the reps and the aging thresholds for Brandi, and nothing of the kind for Mara',async()=>{
+  it('carries the aging thresholds and every rep’s margins for Brandi, and nothing of the kind for Mara (plan U8)',async()=>{
     const brandi=await settings('supplier');
     expect(brandi.manager.aging).toEqual({rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:72,sentRedH:168});
-    expect(brandi.manager.reps).toHaveLength(4);
+    expect(brandi.manager.repMargins).toHaveLength(4);
     const mara=await settings('mara');
     expect(mara.rep_id).toBe('mara');
     expect(mara.manager).toBeNull();
-    // The assignment dropdown offers active reps only.
-    expect(mara.reps.map((r:{id:string})=>r.id)).toEqual(['brandi','eli','mara','nora']);
+    expect(mara.reps).toBeUndefined();
   });
 });

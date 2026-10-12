@@ -8,6 +8,8 @@ import {describe,expect,it} from 'vitest';
 
 const ROOT=resolve(__dirname,'..');
 const KEYS=['ANTHROPIC_API_KEY','ANTHROPIC_MODEL','DATABASE_PATH','OILPRICEAPI_KEY','QUERENT_SEED_DATE','QUERENT_SCRIPTED','QUERENT_E2E_RESET','PORT'];
+/** Decision 48: the feature flags, off by default (empty). */
+const FLAGS=['FEATURE_FREE_DELIVERY_PRICING','FEATURE_RECOVERY_POOL','FEATURE_DELIVERY_COST_MODEL'];
 const SECRETS=['ANTHROPIC_API_KEY','OILPRICEAPI_KEY'];
 const text=()=>readFileSync(join(ROOT,'.env.example'),'utf8');
 const entries=()=>new Map(text().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i),l.slice(i+1)] as const;}));
@@ -17,6 +19,10 @@ describe('.env.example',()=>{
   it('lists every key from decision 9, as KEY=value lines',()=>{
     for(const line of text().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')))expect(line).toMatch(/^[A-Z][A-Z0-9_]*=/);
     expect([...entries().keys()]).toEqual(expect.arrayContaining(KEYS));
+  });
+
+  it('lists the three feature flags of decision 48, each off (empty)',()=>{
+    for(const key of FLAGS)expect(entries().get(key),key).toBe('');
   });
 
   it('never mentions JEV_API_KEY',()=>{expect(text()).not.toMatch(/JEV_API_KEY/);});

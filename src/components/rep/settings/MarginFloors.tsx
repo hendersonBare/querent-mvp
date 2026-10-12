@@ -1,101 +1,164 @@
 'use client';
-import {useId,useState,type FormEvent} from 'react';
-import {formatFloor} from '@/server/floors';
-import type {FloorCell,RepFloorSet} from '@/server/rep/settings';
-import {repPageStyles as page} from '../RepPage';
+import {useId,useMemo,useState,type KeyboardEvent,type ReactNode} from 'react';
+import {Icon} from '@/components/ui/Icon';
+import {cx} from '@/components/ui/cx';
+import type {OrgFloorCell,RepFloorSet} from '@/server/rep/settings';
 import {saveSetting} from './api';
-import {floorInput,floorPosition,parseFloorPct} from './format';
+import {firstName,floorInput,floorPosition,parseFloorPct} from './format';
+import {Card,GridHead,Problem,SaveButton,SettingsFrame} from './parts';
 import s from './Settings.module.css';
 
-// Settings > My margin floors (spec §5.2): the signed-in rep's floor per product category, each
-// saved through PUT /api/rep/settings/floors (setMyFloor on the server, which refuses anyone
-// else's). Floors are shown and stored to 0.1 point, the precision the red warnings compare at.
-// Other reps' floors are read-only: each rep sets their own, and only Brandi can sign in.
+// Settings > Margin floors (plan U8; C_S2, C_S3), the manager's:
+//   - Organization margin floors: one floor per product category, the hard stop reps cannot go below
+//     (Appendix C org_margin_floors), all saved together through PUT /api/rep/settings/org-floors.
+//   - Rep margins: a read-only review of one rep's own margin per category against the organization
+//     floor, the rep picked in a searchable box (every rep by name; the first one shown is the first rep who
+//     is not the signed-in manager, as C_S2 shows Eli). Managers do not set floors here for themselves.
+//     The box shows the picked rep's name as C_S2 draws it; typing over it narrows the list.
+// A rep gets MyFloors instead: their own floors in the same card, until their own tabs come (plan U9).
+// Floors are shown and stored to 0.1 point, the precision the red warnings compare at. No frame: the
+// "Saved" line beside Save and the one red line for a floor that is not one (decision 52).
 
-const firstName=(name:string)=>name.trim().split(/\s+/)[0]||name;
+const FLOOR_PROBLEM='Enter a floor from 0 to 99.9.';
 
-export function MarginFloors({mine,others,onSaved}:{mine:RepFloorSet;others:RepFloorSet[];onSaved:(floors:RepFloorSet)=>void}){
-  const me=firstName(mine.rep.name);
-  const example=mine.floors.find(f=>f.category_id==='safety')??mine.floors[0];
-  return <>
-    <section className={`${page.card} ${s.card}`} aria-labelledby="settings-my-floors">
-      <div className={s.head}>
-        <h2 id="settings-my-floors">My margin floors</h2>
-        <p>A quote line priced under your floor for its category gets a red warning{example&&<>, like “Below {me}’s {formatFloor(example.margin_floor)} {example.category_name} floor”</>}. Warnings never block sending. Your quotes use these as soon as you save.</p>
-      </div>
-      <div className={s.floorHead} aria-hidden="true">
-        <span>Category</span>
-        <span className={s.scale}><span>0%</span><span>25%</span><span>50%</span></span>
-        <span>Floor</span>
-      </div>
-      <ul className={s.floors}>
-        {mine.floors.map(floor=><FloorRow key={floor.category_id} repId={mine.rep.id} floor={floor} onSaved={onSaved}/>)}
-      </ul>
-    </section>
-    {others.length>0&&<section className={`${page.card} ${s.card}`} aria-labelledby="settings-other-floors">
-      <div className={s.head}>
-        <h2 id="settings-other-floors">Other reps’ floors</h2>
-        <p>Read-only. Each rep sets their own, and their quotes are checked against them.</p>
-      </div>
-      <div className={s.scroll}>
-        <table className={`${s.table} ${s.matrix}`}>
-          <caption className={s.srOnly}>Margin floors of the other reps, by product category</caption>
-          <thead>
-            <tr><th scope="col">Category</th>{others.map(o=><th key={o.rep.id} scope="col" className={s.num} title={o.rep.name}>{firstName(o.rep.name)}<span className={s.srOnly}> {o.rep.name.split(/\s+/).slice(1).join(' ')}</span></th>)}</tr>
-          </thead>
-          <tbody>
-            {(others[0]?.floors??[]).map(({category_id,category_name})=><tr key={category_id}>
-              <th scope="row">{category_name}</th>
-              {others.map(o=><td key={o.rep.id} className={s.num}>{o.floors.find(f=>f.category_id===category_id)?.label??'—'}</td>)}
-            </tr>)}
-          </tbody>
-        </table>
-      </div>
-    </section>}
-  </>;
+export function MarginFloors({orgFloors,repMargins,meId,tabs}:{orgFloors:OrgFloorCell[];repMargins:RepFloorSet[];meId:string;tabs:ReactNode}){
+  const [floors,setFloors]=useState(orgFloors);
+  return <SettingsFrame tabs={tabs}>
+    <OrgFloors floors={floors} onSaved={setFloors}/>
+    <RepMargins reps={repMargins} floors={floors} meId={meId}/>
+  </SettingsFrame>;
 }
 
-function FloorRow({repId,floor,onSaved}:{repId:string;floor:FloorCell;onSaved:(floors:RepFloorSet)=>void}){
-  const id=useId();
-  const [text,setText]=useState(()=>floorInput(floor.margin_floor));
-  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
-  // The floor as last stored: the prop, or what the server returned for this row's save.
-  const [stored,setStored]=useState(floor.margin_floor),[seen,setSeen]=useState(floor.margin_floor);
-  if(floor.margin_floor!==seen){setSeen(floor.margin_floor);setStored(floor.margin_floor);}
-  const pct=parseFloorPct(text);
-  const current=Number(floorInput(stored));
-  const invalid=pct===null;
-  const changed=!invalid&&pct!==current;
+/** Floor fields' text, what they read as, and whether any changed or is not a floor. */
+function useFloorFields(stored:{category_id:string;floor:number}[]){
+  const [text,setText]=useState(()=>Object.fromEntries(stored.map(f=>[f.category_id,floorInput(f.floor)])) as Record<string,string>);
+  const parsed=Object.fromEntries(stored.map(f=>[f.category_id,parseFloorPct(text[f.category_id]??'')]));
+  const invalid=stored.some(f=>parsed[f.category_id]===null);
+  const changed=stored.filter(f=>parsed[f.category_id]!==null&&parsed[f.category_id]!==Number(floorInput(f.floor)));
+  const reset=(next:{category_id:string;floor:number}[])=>setText(Object.fromEntries(next.map(f=>[f.category_id,floorInput(f.floor)])));
+  return {text,setText,parsed,invalid,changed,reset};
+}
 
-  async function save(event:FormEvent){
-    event.preventDefault();
-    if(invalid||!changed||saving)return;
+/** One category's row: name, the 0% to 50% bar with the floor's tick, the field and "%" (C_S2). */
+function FloorRow({categoryId,name,value,parsed,fallback,onChange}:{categoryId:string;name:string;value:string;parsed:number|null;fallback:number;onChange:(value:string)=>void}){
+  const at=floorPosition(parsed===null?fallback:parsed/100);
+  return <div role="row" className={`${s.gridRow} ${s.floorGrid}`}>
+    <div role="rowheader" className={s.floorName}>{name}</div>
+    <div role="cell" className={s.track} aria-hidden="true"><div className={s.fill} style={{width:at}}/><div className={s.tick} style={{left:at}}/></div>
+    <div role="cell" className={s.unit}>
+      <input id={`floor-${categoryId}`} type="text" inputMode="decimal" autoComplete="off" spellCheck={false} className={cx(s.box,s.w80)} aria-label={`${name} floor`}
+        aria-invalid={parsed===null||undefined} value={value} onChange={e=>onChange(e.target.value)}/>
+      <span className={s.unitText} aria-hidden="true">%</span>
+    </div>
+  </div>;
+}
+
+/** The floors table: the header (category, the bar's scale, floor) and one row per category. */
+function FloorTable({label,rows}:{label:string;rows:ReactNode}){
+  return <div role="table" aria-label={label}>
+    <div role="row" className={`${s.head} ${s.floorGrid}`}>
+      <div role="columnheader">:: Category</div>
+      <div role="columnheader" className={s.scale}><span>0%</span><span>25%</span><span>50%</span></div>
+      <div role="columnheader">:: Floor</div>
+    </div>
+    {rows}
+  </div>;
+}
+
+function OrgFloors({floors,onSaved}:{floors:OrgFloorCell[];onSaved:(floors:OrgFloorCell[])=>void}){
+  const fields=useFloorFields(floors);
+  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
+  async function save(){
+    if(fields.invalid||saving)return;
+    if(!fields.changed.length){setSaved(false);return;}
     setSaving(true);setError('');setSaved(false);
     try{
-      const floors=await saveSetting<RepFloorSet>('floors',{rep_id:repId,category_id:floor.category_id,floor_pct:pct});
-      const row=floors.floors.find(f=>f.category_id===floor.category_id);
-      if(row){setStored(row.margin_floor);setText(floorInput(row.margin_floor));}
-      onSaved(floors);setSaved(true);
-    }catch(e){setError(e instanceof Error?e.message:'That floor wasn’t saved. Try again.');}
+      const next=await saveSetting<OrgFloorCell[]>('org-floors',{floors:floors.map(f=>({category_id:f.category_id,floor_pct:fields.parsed[f.category_id]}))});
+      onSaved(next);fields.reset(next);setSaved(true);
+    }catch(e){setError(e instanceof Error?e.message:'The floors weren’t saved. Try again.');}
     finally{setSaving(false);}
   }
+  return <Card title="Organization margin floors" saved={saved} action={<SaveButton label="Save floors" disabled={fields.invalid||saving} onClick={()=>void save()}/>}>
+    <Problem>{error||(fields.invalid?FLOOR_PROBLEM:'')}</Problem>
+    <FloorTable label="Organization margin floors" rows={floors.map(f=><FloorRow key={f.category_id} categoryId={f.category_id} name={f.category_name} value={fields.text[f.category_id]??''}
+      parsed={fields.parsed[f.category_id]} fallback={f.floor} onChange={v=>{fields.setText(t=>({...t,[f.category_id]:v}));setSaved(false);setError('');}}/>)}/>
+  </Card>;
+}
 
-  const fieldId=`${id}-floor`,noteId=`${id}-note`;
-  const note=error||(invalid?'Enter a floor from 0 to 99.9.':saved&&!changed?'Saved':'');
-  return <li className={s.floor}>
-    <form className={s.floorForm} onSubmit={event=>void save(event)}>
-      <label className={s.name} htmlFor={fieldId}>{floor.category_name}</label>
-      <span className={s.track} aria-hidden="true">
-        <i style={{width:floorPosition(invalid?stored:pct/100)}}/>
-        <u style={{left:floorPosition(invalid?stored:pct/100)}}/>
-      </span>
-      <span className={s.field} data-invalid={invalid||undefined}>
-        <input id={fieldId} type="text" inputMode="decimal" autoComplete="off" value={text} aria-invalid={invalid||undefined} aria-describedby={noteId}
-          aria-label={`${floor.category_name} floor`} onChange={event=>{setText(event.target.value);setSaved(false);setError('');}}/>
-        <span aria-hidden="true">%</span>
-      </span>
-      <button type="submit" className={s.save} disabled={!changed||saving}>{saving?'Saving…':'Save'}</button>
-      <span className={s.floorNote} id={noteId} role="status" data-tone={error||invalid?'bad':'ok'}>{note}</span>
-    </form>
-  </li>;
+/** C_S2, C_S3: one rep's margins, read-only, against the organization floors. */
+function RepMargins({reps,floors,meId}:{reps:RepFloorSet[];floors:OrgFloorCell[];meId:string}){
+  const [repId,setRepId]=useState(()=>(reps.find(r=>r.rep.id!==meId)??reps[0])?.rep.id);
+  const rep=reps.find(r=>r.rep.id===repId);
+  const listId=useId();
+  const [open,setOpen]=useState(false),[typed,setTyped]=useState<string|null>(null),[active,setActive]=useState(0);
+  const shown=useMemo(()=>{
+    const q=typed?.trim().toLowerCase()??'';
+    return q?reps.filter(r=>r.rep.name.toLowerCase().includes(q)):reps;
+  },[reps,typed]);
+  const openList=()=>{setActive(Math.max(0,shown.findIndex(r=>r.rep.id===repId)));setOpen(true);};
+  const pick=(id:string)=>{setRepId(id);setTyped(null);setOpen(false);};
+  function key(event:KeyboardEvent){
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      event.preventDefault();
+      if(!open){openList();return;}
+      setActive(a=>Math.min(shown.length-1,Math.max(0,a+(event.key==='ArrowDown'?1:-1))));
+    }else if(event.key==='Enter'&&open&&shown[active]){event.preventDefault();pick(shown[active].rep.id);}
+    else if(event.key==='Escape'&&open){event.preventDefault();setOpen(false);setTyped(null);}
+  }
+  const floorOf=(categoryId:string)=>floors.find(f=>f.category_id===categoryId);
+  return <Card title="Rep margins" note="Read-only. Each rep sets their own above your floors." review>
+    <div className={s.reviewPick}>
+      <div className={s.repSearch}>
+        <div className={s.repBox} data-ui="search">
+          <Icon name="search" size={16}/>
+          {typed===null&&<span className={s.repName} aria-hidden="true">{rep?.rep.name}</span>}
+          <input role="combobox" aria-label="Rep" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" autoComplete="off" spellCheck={false}
+            aria-activedescendant={open&&shown[active]?`${listId}-${shown[active].rep.id}`:undefined}
+            className={cx(s.repInput,typed===null&&s.repQuiet)} value={typed??rep?.rep.name??''} onClick={()=>open?setOpen(false):openList()} onKeyDown={key}
+            onChange={e=>{setTyped(e.target.value);setActive(0);setOpen(true);}} onBlur={()=>{setOpen(false);setTyped(null);}}/>
+        </div>
+        {open&&<div id={listId} role="listbox" aria-label="Reps" className={s.repList}>
+          {shown.map((r,i)=><div key={r.rep.id} id={`${listId}-${r.rep.id}`} role="option" aria-selected={r.rep.id===repId}
+            className={cx(s.repOption,i===active&&s.repActive)} onMouseEnter={()=>setActive(i)} onMouseDown={e=>{e.preventDefault();pick(r.rep.id);}}>{r.rep.name}</div>)}
+          {!shown.length&&<div className={s.repOption}>No reps match.</div>}
+        </div>}
+      </div>
+    </div>
+    {rep&&<div role="table" aria-label={`${rep.rep.name}’s margins`}>
+      <GridHead className={s.reviewGrid} labels={['Category',firstName(rep.rep.name),'Organization floor']} right={[1,2]}/>
+      {rep.floors.map(f=><div key={f.category_id} role="row" className={`${s.reviewRow} ${s.reviewGrid}`}>
+        <div role="rowheader" className={s.reviewCategory}>{f.category_name}</div>
+        <div role="cell" className={s.reviewMargin}>{f.label}</div>
+        <div role="cell" className={s.reviewFloor}>{floorOf(f.category_id)?.label??'0.0%'}</div>
+      </div>)}
+    </div>}
+  </Card>;
+}
+
+/**
+ * A rep's own margin floors (spec §5.2), in the Organization margin floors card's look, until plan U9's
+ * rep tabs. Save sends each changed floor through PUT /api/rep/settings/floors, which refuses anyone else's.
+ */
+export function MyFloors({mine,tabs}:{mine:RepFloorSet;tabs:ReactNode}){
+  const [floors,setFloors]=useState(mine.floors);
+  const stored=floors.map(f=>({category_id:f.category_id,floor:f.margin_floor}));
+  const fields=useFloorFields(stored);
+  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
+  async function save(){
+    if(fields.invalid||saving||!fields.changed.length)return;
+    setSaving(true);setError('');setSaved(false);
+    try{
+      let next=floors;
+      for(const f of fields.changed)next=(await saveSetting<RepFloorSet>('floors',{category_id:f.category_id,floor_pct:fields.parsed[f.category_id]})).floors;
+      setFloors(next);fields.reset(next.map(f=>({category_id:f.category_id,floor:f.margin_floor})));setSaved(true);
+    }catch(e){setError(e instanceof Error?e.message:'The floors weren’t saved. Try again.');}
+    finally{setSaving(false);}
+  }
+  return <SettingsFrame tabs={tabs}>
+    <Card title="My margin floors" saved={saved} action={<SaveButton label="Save floors" disabled={fields.invalid||saving} onClick={()=>void save()}/>}>
+      <Problem>{error||(fields.invalid?FLOOR_PROBLEM:'')}</Problem>
+      <FloorTable label="My margin floors" rows={floors.map(f=><FloorRow key={f.category_id} categoryId={f.category_id} name={f.category_name} value={fields.text[f.category_id]??''}
+        parsed={fields.parsed[f.category_id]} fallback={f.margin_floor} onChange={v=>{fields.setText(t=>({...t,[f.category_id]:v}));setSaved(false);setError('');}}/>)}/>
+    </Card>
+  </SettingsFrame>;
 }

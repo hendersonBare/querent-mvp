@@ -163,8 +163,8 @@ test("rail, rep (C_RQBoard): My Analytics, no Teams and Reps, role Rep; 216px an
 const MANAGER_ROUTES = ["/rep/quotes", "/rep/quotes/Q-24817", "/rep/customers", "/rep/customers/wasatch", "/rep/orders", "/rep/stock", "/rep/stock/HCS-12-13-2G8",
   "/rep/analytics", "/rep/teams", "/rep/settings", "/rep/quotes/Q-NOPE", "/rep/stock/NOPE-1"];
 const REP_ROUTES = ["/rep/quotes", "/rep/customers", "/rep/orders", "/rep/stock", "/rep/analytics", "/rep/settings"];
-/** Pages whose own header has a search box (C_CUBase "Search customers", C_STBase "Search SKU or item name"). */
-const PAGE_SEARCH = ["/rep/customers", "/rep/stock"];
+/** Pages whose own header has a search box (C_CUBase "Search customers", C_STBase "Search SKU or item name"; the manager's Settings, C_S1 "Search customers", plan U8). */
+const PAGE_SEARCH = { supplier: ["/rep/customers", "/rep/stock", "/rep/settings"], mara: ["/rep/customers", "/rep/stock"] } as const;
 
 test("every rep route: the rail (216px) and the page header's title, caution and bell", async ({ browser }, testInfo) => {
   for (const [persona, routes] of [["supplier", MANAGER_ROUTES], ["mara", REP_ROUTES]] as const) {
@@ -178,8 +178,9 @@ test("every rep route: the rail (216px) and the page header's title, caution and
       await expect(page.getByRole("button", { name: /^Notifications/ }), route).toHaveCount(1);
       // No global search: the only search boxes are the page's own (plan U5: C_CUBase, C_STBase), in its header.
       await expect(page.locator("aside").getByRole("searchbox"), route).toHaveCount(0);
-      await expect(page.getByRole("searchbox"), route).toHaveCount(PAGE_SEARCH.includes(route) ? 1 : 0);
-      if (PAGE_SEARCH.includes(route)) await expect(page.locator("main header").getByRole("searchbox"), route).toHaveCount(1);
+      const searched = (PAGE_SEARCH[persona] as readonly string[]).includes(route);
+      await expect(page.getByRole("searchbox"), route).toHaveCount(searched ? 1 : 0);
+      if (searched) await expect(page.locator("main header").getByRole("searchbox"), route).toHaveCount(1);
       await expect(page.getByText("Switch workspace"), route).toHaveCount(0);
     }
   }

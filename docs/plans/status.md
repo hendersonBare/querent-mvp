@@ -83,7 +83,13 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Role column: the rep's title (`reps.title`: Inside Sales, Outside Sales, Account Manager), since every listed person's role is rep (C_TRBase's Role values are titles, Appendix G) | U7 | Closest real data | approved (decision 67) |
 | Teams card details: the columns picker lists its one column, Team, as always shown; a rep in no team reads "No team" (muted) in the Team column; "No teams yet." and "No teams match." for an empty list; "No customers match." for an empty Connect search; the Connect list scrolls past 260px and takes the arrow keys and Enter; the opened "Inside another team" list is the U0 Select's (decision 57) | U7 | Decision 52 and minimum to function | approved (decision 67) |
 | Rename and delete a team: built as routes (`PATCH /api/rep/teams/<id> {name}`, `DELETE /api/rep/teams/<id>`, Appendix D) with no control on the page, since no frame draws one | U7 | Appendix D lists them; no frame | approved (decision 67) |
-| Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
+| Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone | replaced in U8 by the Customer access frames (C_S1, C_S1a, C_S1b) |
+| A rep's Settings until U9: one tab, **Margin floors**, with "My margin floors" in the Organization margin floors card's look (C_S2: the bar, the 80px field, Save floors on the title bar), each changed floor saved through `PUT /api/rep/settings/floors`. A rep gets none of the manager's tabs or their data (Appendix B, OA-69) | U8 | The rep path must stay usable and safe until U9's frames (C_RS1 to C_RS4) | to ask |
+| Customer access: a data type that differs between customers reads "On for some customers" with its switch off (pressing it turns it on for every customer); a switch's state "Not shared" when off; "No customers match." for an empty table; Analytics' "Manage customer access" link (`?customer=<id>`) opens the tab with the search filled with that customer's name | U8 | C_S1 draws every type on; the link existed before | to ask |
+| Rep margins: the first rep shown is the first rep by name who is not the signed-in manager (C_S2 shows Eli); typing over the name narrows the list ("No reps match." when nothing does); the arrow keys, Enter and Escape work the list | U8 | Minimum to function | to ask |
+| Save on a title bar (Save floors, Save rates, Save pool settings, Save cost model, Save thresholds): drawn enabled, it stays enabled, does nothing when nothing changed and is disabled only while a field is not valid; a quiet "Saved" line before it after a save; one red line under the title bar for what is wrong or the server's refusal. Cancel is gone | U8 | The frames draw the buttons, not what they do | to ask |
+| Free delivery pricing's states the frames do not draw (C_S5 draws it on): "Off", "View the impact preview before turning it on." with the switch locked, and "Preview viewed. You can turn it on for the next 24 hours. ..." once viewed; the ramp's rows without dates while off; the pool before 20 eligible quotes ("Starting rate 3.0%: 4 of 20 eligible quotes, ..."), "Rate in force: Off"; each fuel warning as a plain red line under the fuel price; the preview's "No line prices would change." | U8 | Kept from task C3 in the frames' tokens | to ask |
+| The impact preview (C_S7): "Based on the last N delivery quotes." without the frame's "Sample figures." (a note on its placeholder table); the dialog closes with Close, Escape or a click on the dimmed page | U8 | Appendix G; minimum to function | to ask |
 
 ### Deferred: auth
 | What | Task | Reason |
@@ -167,16 +173,16 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_TR6 | U7 | PASS (`e2e/frames-teams.spec.ts`, frame laid out at 1920x1080, `main` and the dialog both directions, whole sentences compared; data moved toward the sample through the app's routes (Canyon Ridge to Brandi, Outside Sales renamed Field Sales); the frame's Brandi row is dropped (she is the manager and the card lists no managers), "3 reps" for "4 reps" and Nora's title Account Manager for Counter Sales (Appendix G); the three Active switches are buttons where the frame draws spans; "Counter and Yard" typed and Nora ticked as drawn) |
 | C_TR7 | U7 | PASS (`e2e/frames-teams.spec.ts`, frame laid out at 1920x1080, `main` and the dialog both directions, whole sentences compared; data moved toward the sample through the app's routes (Canyon Ridge to Brandi, Outside Sales renamed Field Sales); the frame's Brandi row is dropped (she is the manager and the card lists no managers), "3 reps" for "4 reps" and Nora's title Account Manager for Counter Sales (Appendix G); the three Active switches are buttons where the frame draws spans; Inside Sales picked as drawn) |
 | C_TRBase | U7 | PASS (`e2e/frames-teams.spec.ts`, frame laid out at 1920x1080, `main` and the dialog both directions, whole sentences compared; data moved toward the sample through the app's routes (Canyon Ridge to Brandi, Outside Sales renamed Field Sales); the frame's Brandi row is dropped (she is the manager and the card lists no managers), "3 reps" for "4 reps" and Nora's title Account Manager for Counter Sales (Appendix G); the three Active switches are buttons where the frame draws spans) |
-| C_S1 | U8 | pending |
-| C_S1a | U8 | pending |
-| C_S1b | U8 | pending |
-| C_S2 | U8 | pending |
-| C_S3 | U8 | pending |
-| C_S4 | U8 | pending |
-| C_S5 | U8 | pending |
-| C_S6 | U8 | pending |
-| C_S7 | U8 | pending |
-| C_S8 | U8 | pending |
+| C_S1 | U8 | PASS (`e2e/frames-settings.spec.ts`, its own flags-off server; frame laid out at 1920x1080, `main` both directions, whole sentences; the four switches are buttons where the frame draws spans) |
+| C_S1a | U8 | PASS (`e2e/frames-settings.spec.ts`; the filter panel with Pricing set to Not shared, as drawn) |
+| C_S1b | U8 | PASS (`e2e/frames-settings.spec.ts`; data moved toward the sample through the app's routes: Great Basin and Uinta with Pricing not shared, the frame's two rows; "2 of 6 customers" from real data) |
+| C_S2 | U8 | PASS (`e2e/frames-settings.spec.ts`; the frame's organization floors set through `PUT /api/rep/settings/org-floors` and Eli's own margins through Eli's `PUT /api/rep/settings/floors`; category names are catalog data, "&" and "/" where the frame writes "and") |
+| C_S3 | U8 | PASS (`e2e/frames-settings.spec.ts`; as C_S2 with the rep list open, the seed's four reps as drawn) |
+| C_S4 | U8 | PASS (`e2e/frames-settings.spec.ts`, the flags off: the frame's Free delivery pricing, Recovery pool and Delivery cost model sections and its "FEATURE FLAG: HIDDEN" badges are taken out and must be absent from the app, decision 48) |
+| C_S5 | U8 | PASS (`e2e/frames-settings.spec.ts`, its own flags-on server; free delivery turned on through the routes after the preview; the badges are markers, never drawn; the ramp's dates are today, +30 and +60 days where the frame samples Oct 10, 2026) |
+| C_S6 | U8 | PASS (`e2e/frames-settings.spec.ts`, flags on; seeded two days before today so the fuel price reads "2 days old" as drawn; the blank Manual fuel price field compared style by style with the frame's empty box) |
+| C_S7 | U8 | PASS (`e2e/frames-settings.spec.ts`, flags on; the dialog's place and backdrop compared; the table is placeholder data (Appendix G): real counts and dollars compared as tokens, the categories the last 90 days do not touch taken out of the frame, "Based on the last N delivery quotes." without the frame's "Sample figures." note; one row is a line shorter because the catalog name is) |
+| C_S8 | U8 | PASS (`e2e/frames-settings.spec.ts`; Sent's amber "3 days" inside its "h" unit and the red conversions in their own 13px line, as the frame draws them) |
 | C_RS1 | U9 | pending |
 | C_RS2 | U9 | pending |
 | C_RS3 | U9 | pending |

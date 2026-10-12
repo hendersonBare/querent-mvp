@@ -8,7 +8,7 @@ import {priceLines} from '@/server/pricing/service';
 import {access,assignedRep,createQuote,enabledCategories,pricingSettings,quote,repFloors} from '@/server/repository';
 import {useSeededDatabase} from '@/server/repository/test-db';
 import {repQuoteList} from './quotes';
-import {SettingsError,assignRep,dataSources,repSettings,updateAccess,updateMyFloor,updatePricing} from './settings';
+import {SettingsError,assignRep,assignmentRows,dataSources,repSettings,updateAccess,updateMyFloor,updateOrgFloors,updatePricing} from './settings';
 
 // Settings (spec §4, task 6.1) against the seed pinned to the mockup's day: Brandi has Wasatch and
 // Great Basin, Mara has Canyon Ridge, Nora has Uinta; every quote is Wasatch's and Brandi's.
@@ -30,12 +30,55 @@ function rejects(fn:()=>unknown,status:number,message?:RegExp){
   throw new Error('Expected a SettingsError');
 }
 
-describe('repSettings: the page snapshot',()=>{
-  it('lists every customer (placeholders too) for the manager with its one rep and its quotes by rep, and every rep to pick from',()=>{
+describe('repSettings: the page snapshot (plan U8)',()=>{
+  it("gives the manager the four tabs' data: every customer's access, the organization floors, every rep's margins, pricing, delivery, aging and the flags",()=>{
     const settings=repSettings('brandi',{manager:true});
     expect(settings.rep_id).toBe('brandi');
-    expect(settings.reps.map(r=>r.name)).toEqual(['Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);
-    expect(settings.assignments.map(a=>[a.name,a.account_number,a.rep_name,a.placeholder])).toEqual([
+    const m=settings.manager!;
+    expect(m.access.map(r=>[r.category,r.enabled])).toEqual([['items_stock',true],['pricing',true],['orders_quotes',true],['account',true]]);
+    expect(m.access[0]).toMatchObject({mixed_rep:true,rep_name:'Multiple reps'});
+    expect(m.accessTable).toBeNull();
+    expect(m.orgFloors.map(f=>[f.category_name,f.floor,f.label])).toEqual([
+      ['Fasteners',0.2,'20.0%'],['Abrasives & Cutting',0.2,'20.0%'],['Safety & PPE',0.2,'20.0%'],
+      ['Material Handling & Tie-downs',0.2,'20.0%'],['Tools',0.18,'18.0%'],['Janitorial/MRO',0.2,'20.0%'],
+    ]);
+    expect(m.repMargins.map(r=>r.rep.name)).toEqual(['Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);
+    expect(m.repMargins[0].floors.map(f=>[f.category_name,f.margin_floor,f.label])).toEqual([
+      ['Fasteners',0.2,'20.0%'],['Abrasives & Cutting',0.25,'25.0%'],['Safety & PPE',0.3,'30.0%'],
+      ['Material Handling & Tie-downs',0.2,'20.0%'],['Tools',0.18,'18.0%'],['Janitorial/MRO',0.2,'20.0%'],
+    ]);
+    expect(m.repMargins.slice(1).every(o=>o.floors.length===6&&o.floors.every(f=>f.label==='20.0%'))).toBe(true);
+    expect(m.pricing).toEqual({scarcity_uplift_enabled:false});
+    expect(m.delivery).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25});
+    expect(m.aging).toEqual({rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:72,sentRedH:168});
+    expect(m.flags).toEqual({freeDeliveryPricing:false,recoveryPool:false,deliveryCostModel:false});
+    expect(settings.mine.rep.name).toBe('Brandi Gallegos');
+  });
+
+  it("opens Customer access searched for a linked customer's name (?customer=), every customer counted",()=>{
+    expect(repSettings('brandi',{manager:true,customerId:'wasatch'}).manager!.accessTable).toEqual({
+      q:'Wasatch Mechanical Contractors',total:6,
+      customers:[{id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',access:{items_stock:true,pricing:true,orders_quotes:true,account:true}}],
+    });
+    expect(repSettings('brandi',{manager:true,customerId:'nobody'}).manager!.accessTable).toBeNull();
+  });
+
+  it("gives a rep only their own floors: nothing of the manager's tabs, no other rep's floors (OA-69)",()=>{
+    const settings=repSettings('mara',{customerId:'canyon-ridge'});
+    expect(settings).toEqual({rep_id:'mara',manager:null,mine:expect.objectContaining({rep:{id:'mara',name:'Mara Jensen',initials:'MJ',title:expect.any(String)}})});
+    expect(settings.mine.floors.map(f=>f.label)).toEqual(['20.0%','20.0%','20.0%','20.0%','20.0%','20.0%']);
+  });
+
+  it('Data sources (manager route only now): the demo database and the last sync events',()=>{
+    expect(dataSources().database).toMatchObject({seed_date:'2026-09-23',records:{customers:6}});
+    expect(dataSources().erp.events[0]).toMatchObject({message:'ERP connection refreshed'});
+  });
+});
+
+describe('assignmentRows (the Teams and Reps backing data)',()=>{
+  it('lists every customer (placeholders too) for the manager with its one rep and its quotes by rep',()=>{
+    const rows=assignmentRows();
+    expect(rows.map(a=>[a.name,a.account_number,a.rep_name,a.placeholder])).toEqual([
       ['Canyon Ridge Builders','CRB-3318','Mara Jensen',false],
       ['Great Basin Fabrication','GBF-2207','Brandi Gallegos',true],
       ['Uinta Facility Services','UFS-4051','Nora Chen',true],
@@ -44,47 +87,35 @@ describe('repSettings: the page snapshot',()=>{
       ['Weber Basin Fabricators','WBF-6074','Eli Porter',false],
     ]);
     // Brandi covered three of Mara's Canyon Ridge quotes; Mara moved two others to Eli (the demo book, task F1).
-    expect(settings.assignments.find(a=>a.id==='canyon-ridge')!.quotes).toEqual(expect.arrayContaining([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:3},{rep_id:'eli',rep_name:'Eli Porter',count:2},{rep_id:'mara',rep_name:'Mara Jensen',count:18}]));
-    expect(settings.assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]); // with the 3 aging quotes (task A2)
-    expect(settings.assignments.find(a=>a.id==='great-basin')!.quotes).toEqual([]);
+    expect(rows.find(a=>a.id==='canyon-ridge')!.quotes).toEqual(expect.arrayContaining([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:3},{rep_id:'eli',rep_name:'Eli Porter',count:2},{rep_id:'mara',rep_name:'Mara Jensen',count:18}]));
+    expect(rows.find(a=>a.id==='wasatch')!.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]); // with the 3 aging quotes (task A2)
+    expect(rows.find(a=>a.id==='great-basin')!.quotes).toEqual([]);
   });
 
-  it('lists only a rep\'s own customers, with only their own quotes, and ignores another rep\'s customer for Customer access (task U1)',()=>{
-    const settings=repSettings('mara',{customerId:'wasatch'});
-    expect(settings.assignments.map(a=>a.id)).toEqual(['canyon-ridge']);
-    expect(settings.assignments[0].quotes).toEqual([{rep_id:'mara',rep_name:'Mara Jensen',count:18}]);
-    expect(settings.access.customer_id).toBeNull();
-    expect(repSettings('mara',{customerId:'canyon-ridge'}).access.customer_id).toBe('canyon-ridge');
+  it("lists only a rep's own customers, with only their own quotes (task U1)",()=>{
+    const rows=assignmentRows({repId:'mara',manager:false});
+    expect(rows.map(a=>a.id)).toEqual(['canyon-ridge']);
+    expect(rows[0].quotes).toEqual([{rep_id:'mara',rep_name:'Mara Jensen',count:18}]);
+  });
+});
+
+describe('updateOrgFloors: Organization margin floors (plan U8)',()=>{
+  afterEach(()=>{updateOrgFloors({floors:[{category_id:'safety',floor_pct:20},{category_id:'tools',floor_pct:18}]});});
+
+  it('stores the floors in percent, to 0.1 point, and returns every category with its label',()=>{
+    const saved=updateOrgFloors({floors:[{category_id:'safety',floor_pct:29.95},{category_id:'tools',floor_pct:0}]});
+    expect(saved.find(f=>f.category_id==='safety')).toMatchObject({floor:0.3,label:'30.0%'});
+    expect(saved.find(f=>f.category_id==='tools')).toMatchObject({floor:0,label:'0.0%'});
+    expect(saved).toHaveLength(6);
   });
 
-  it("has Brandi's floors to edit, shown as the warnings print them, and the other reps' read-only",()=>{
-    const {floors}=repSettings('brandi');
-    expect(floors.mine.rep.name).toBe('Brandi Gallegos');
-    expect(floors.mine.floors.map(f=>[f.category_name,f.margin_floor,f.label])).toEqual([
-      ['Fasteners',0.2,'20.0%'],['Abrasives & Cutting',0.25,'25.0%'],['Safety & PPE',0.3,'30.0%'],
-      ['Material Handling & Tie-downs',0.2,'20.0%'],['Tools',0.18,'18.0%'],['Janitorial/MRO',0.2,'20.0%'],
-    ]);
-    expect(floors.others.map(o=>o.rep.name)).toEqual(['Eli Porter','Mara Jensen','Nora Chen']);
-    expect(floors.others.every(o=>o.floors.length===6&&o.floors.every(f=>f.label==='20.0%'))).toBe(true);
-  });
-
-  it('carries customer access for the picked customer (All customers by default, and for an unknown id)',()=>{
-    const all=repSettings('brandi').access;
-    expect(all.customer_id).toBeNull();
-    expect(all.rules.map(r=>[r.category,r.enabled])).toEqual([['items_stock',true],['pricing',true],['orders_quotes',true],['account',true]]);
-    expect(all.rules[0]).toMatchObject({mixed_rep:true,rep_name:'Multiple reps'});
-    expect(repSettings('brandi',{customerId:'wasatch'}).access).toMatchObject({customer_id:'wasatch',rules:[{category:'items_stock',rep_name:'Brandi Gallegos'},{},{},{}]});
-    expect(repSettings('brandi',{customerId:'nobody'}).access.customer_id).toBeNull();
-  });
-
-  it('shows pricing (scarcity off by default), the seed delivery rates with the road factor, and the data sources',()=>{
-    const settings=repSettings('brandi');
-    expect(settings.pricing).toEqual({scarcity_uplift_enabled:false});
-    expect(settings.delivery).toEqual({base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25});
-    expect(settings.sources.database).toMatchObject({seed_date:'2026-09-23',records:{customers:6}});
-    expect(settings.sources.erp.last_updated).toEqual(expect.any(String));
-    expect(settings.sources.erp.events[0]).toMatchObject({message:'ERP connection refreshed'});
-    expect(dataSources()).toEqual(settings.sources);
+  it('refuses a bad floor, a repeated or unknown category, or nothing to save, storing none',()=>{
+    for(const floor_pct of [-0.01,99.96,100,Number.NaN,'25',null])rejects(()=>updateOrgFloors({floors:[{category_id:'safety',floor_pct:25},{category_id:'tools',floor_pct}]}),400,/0%.*99\.9%/);
+    rejects(()=>updateOrgFloors({floors:[{category_id:'safety',floor_pct:25},{category_id:'safety',floor_pct:26}]}),400,/once/);
+    rejects(()=>updateOrgFloors({floors:[{category_id:'nothing',floor_pct:25}]}),404);
+    for(const body of [{},{floors:[]},{floors:'x'},null,[]])rejects(()=>updateOrgFloors(body),400);
+    rejects(()=>updateOrgFloors({floors:[{floor_pct:25}]}),400);
+    expect(repSettings('brandi',{manager:true}).manager!.orgFloors.find(f=>f.category_id==='safety')!.floor).toBe(0.2);
   });
 });
 
@@ -100,7 +131,7 @@ describe('assignRep: one rep per customer',()=>{
     expect(brandi).toMatchObject({customer:{id:'wasatch',rep_id:'mara'},counts:{all:28}});
     expect((await repQuoteList('brandi',{customerId:'wasatch',now:NOW})).customer).toBeNull();
     expect(brandi.rows.find(r=>r.quote_number==='Q-24817')).toMatchObject({below_floor_count:1});
-    const row=repSettings('brandi',{manager:true}).assignments.find(a=>a.id==='wasatch')!;
+    const row=assignmentRows().find(a=>a.id==='wasatch')!;
     expect(row.rep_name).toBe('Mara Jensen');
     expect(row.quotes).toEqual([{rep_id:'brandi',rep_name:'Brandi Gallegos',count:28}]);
   });
@@ -118,7 +149,7 @@ describe('assignRep: one rep per customer',()=>{
     // A quote requested now is the new rep's (spec §5.2: the quote's rep is the customer's assigned rep).
     const fresh=createQuote({customerId:'wasatch',contactId:'dana',fulfillment:'will_call',branchId:'slc',lines:[{itemId:'HCS-12-13-2G8',qty:10,unitPrice:31.5,priceBasis:'last_paid'}]});
     expect(fresh.rep_id).toBe('mara');
-    expect(repSettings('brandi',{manager:true}).assignments.find(a=>a.id==='wasatch')!.quotes).toEqual([
+    expect(assignmentRows().find(a=>a.id==='wasatch')!.quotes).toEqual([
       {rep_id:'brandi',rep_name:'Brandi Gallegos',count:28},{rep_id:'mara',rep_name:'Mara Jensen',count:1},
     ]);
   });
@@ -165,7 +196,7 @@ describe('updateAccess: what customers can ask about in chat',()=>{
     expect(updateAccess({customer_id:null,category:'pricing',enabled:false}).rules.find(r=>r.category==='pricing')).toMatchObject({enabled:false});
     expect(['wasatch','great-basin','canyon-ridge','uinta-facility'].every(id=>!enabledCategories(id).has('pricing'))).toBe(true);
     updateAccess({customer_id:'wasatch',category:'pricing',enabled:true});
-    expect(repSettings('brandi').access.rules.find(r=>r.category==='pricing')).toMatchObject({enabled:null});
+    expect(repSettings('brandi',{manager:true}).manager!.access.find(r=>r.category==='pricing')).toMatchObject({enabled:null});
   });
 
   it('rejects a bad category or value, and an unknown customer, changing nothing',()=>{

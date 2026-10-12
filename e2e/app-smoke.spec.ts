@@ -61,14 +61,13 @@ test("supplier persona: Brandi sees the new customers, categories and catalog", 
   await page
     .getByRole("link", { name: "Customer access", exact: true })
     .click();
-  await page.getByRole("combobox", { name: "Customer" }).selectOption("wasatch");
-  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
-  for (const name of ["Items & stock", "Pricing", "Orders & quotes", "Account"])
-    await expect(page.getByRole("switch", { name })).toHaveAttribute(
+  await page.getByRole("searchbox", { name: "Search customers" }).fill("Wasatch");
+  for (const name of ["Items and stock", "Pricing", "Orders and quotes", "Account"])
+    await expect(page.getByRole("switch", { name: `${name} for Wasatch Mechanical Contractors` })).toHaveAttribute(
       "aria-checked",
       "true",
     );
-  const pricing = page.getByRole("switch", { name: "Pricing" });
+  const pricing = page.getByRole("switch", { name: "Pricing for Wasatch Mechanical Contractors" });
   await pricing.click();
   await expect(pricing).toHaveAttribute("aria-checked", "false");
   await pricing.click();

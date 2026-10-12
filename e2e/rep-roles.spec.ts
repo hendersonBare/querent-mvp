@@ -57,12 +57,12 @@ test("Mara (a rep) has no manager settings, and the manager APIs refuse her", as
   const page = await signInAsMara(browser, testInfo);
   await page.goto("/rep/settings");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
-  await expect(settingsTabs(page).getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing & delivery", "Data sources"]);
-  // A typed ?tab= falls back to Customer access (Rep assignments and Reps moved to Teams and Reps, plan U7).
-  for (const tab of ["aging", "reps", "assignments"]) {
+  // A rep has one tab, their own margin floors (plan U8, Appendix B); a typed ?tab= opens it.
+  await expect(settingsTabs(page).getByRole("link")).toHaveText(["Margin floors"]);
+  for (const tab of ["aging", "reps", "assignments", "access", "pricing", "sources"]) {
     await page.goto(`/rep/settings?tab=${tab}`);
-    await expect(page.getByRole("heading", { name: "Customer access" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Aging thresholds" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "My margin floors" })).toBeVisible();
+    for (const name of ["Aging thresholds", "Customer access", "Delivery rates", "Organization margin floors", "Rep margins"]) await expect(page.getByRole("heading", { name })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Reps", exact: true })).toHaveCount(0);
   }
   await screenshot(page, testInfo, "mara-settings");
@@ -72,9 +72,11 @@ test("Mara (a rep) has no manager settings, and the manager APIs refuse her", as
   expect((await api.put("/api/rep/settings/aging", { data: { rfrAmberH: 1, rfrRedH: 2, crAmberH: 1, crRedH: 2, sentAmberH: 1, sentRedH: 2 } })).status()).toBe(403);
   expect((await api.get("/api/rep/team/reps")).status()).toBe(403);
   expect((await api.put("/api/rep/team/reps/eli", { data: { active: false } })).status()).toBe(403);
+  for (const [method, path] of [["get", "/api/rep/settings/sources"], ["get", "/api/rep/settings/access"], ["get", "/api/rep/settings/org-floors"], ["get", "/api/rep/settings/margins"], ["put", "/api/rep/settings/pricing"], ["put", "/api/rep/settings/delivery"], ["put", "/api/rep/settings/access"], ["put", "/api/rep/settings/org-floors"]] as const)
+    expect((await api[method](path, method === "put" ? { data: {} } : undefined)).status(), `${method} ${path}`).toBe(403);
+  // GET /api/rep/settings gives her own floors only (OA-69): no customer access, no other rep's floors.
   const settings = await (await api.get("/api/rep/settings")).json();
-  expect(settings.rep_id).toBe("mara");
-  expect(settings.manager).toBeNull();
+  expect(settings).toEqual({ rep_id: "mara", manager: null, mine: expect.objectContaining({ rep: expect.objectContaining({ id: "mara" }) }) });
   await page.context().close();
 });
 
@@ -134,7 +136,7 @@ test("Brandi edits an aging threshold, and the Quotes list follows it", async ({
   await settingsTabs(page).getByRole("link", { name: "Aging", exact: true }).click();
   await expect(page).toHaveURL(/\/rep\/settings\?tab=aging$/);
   await expect(page.getByRole("heading", { name: "Aging thresholds" })).toBeVisible();
-  const sentRed = page.getByRole("spinbutton", { name: "Sent red hours" });
+  const sentRed = page.getByRole("textbox", { name: "Sent red hours" });
   await expect(sentRed).toHaveValue("168");
   await sentRed.fill("72");
   // (The page also has Next's empty route announcer, an alert: look inside the card.)
@@ -145,7 +147,7 @@ test("Brandi edits an aging threshold, and the Quotes list follows it", async ({
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible();
   await screenshot(page, testInfo, "brandi-aging");
   await page.reload();
-  await expect(page.getByRole("spinbutton", { name: "Sent red hours" })).toHaveValue("96");
+  await expect(page.getByRole("textbox", { name: "Sent red hours" })).toHaveValue("96");
 
   // Sent 100 hours ago: now past the 96 h red threshold.
   await page.goto("/rep/quotes");

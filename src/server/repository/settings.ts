@@ -160,3 +160,23 @@ export function updateOwnFloor(repId:string,categoryId:string,marginFloor:number
   run('UPDATE rep_category_floors SET margin_floor=?,updated_at=? WHERE rep_id=? AND category_id=?',marginFloor,at,repId,categoryId);
   return one<RepFloor>(`${FLOOR} WHERE f.rep_id=? AND f.category_id=?`,repId,categoryId);
 }
+
+/** One organization margin floor (plan U8; Appendix C org_margin_floors): a fraction, 0 when none is stored. */
+export interface OrgMarginFloor {category_id:string;category_name:string;floor:number}
+
+/** Settings > Margin floors, Organization margin floors: every product category in display order with its floor (0 when none is stored). */
+export function orgMarginFloors(){
+  return all<OrgMarginFloor>('SELECT c.id category_id,c.name category_name,coalesce(o.floor,0) floor FROM product_categories c LEFT JOIN org_margin_floors o ON o.category_id=c.id ORDER BY c.sort_order,c.id');
+}
+
+/**
+ * Stores the organization floors given (already checked by the caller; managers only, the route checks), in
+ * one transaction: a floor outside 0 to under 1 throws a RangeError and stores none. Returns every floor.
+ */
+export function setOrgMarginFloors(floors:readonly {category_id:string;floor:number}[]){
+  for(const {floor} of floors)if(!Number.isFinite(floor)||floor<0||floor>=1)throw new RangeError(`An organization margin floor must be at least 0 and below 1 (got ${floor}).`);
+  inTransaction(()=>{
+    for(const {category_id,floor} of floors)run('INSERT INTO org_margin_floors(category_id,floor) VALUES(?,?) ON CONFLICT(category_id) DO UPDATE SET floor=excluded.floor',category_id,floor);
+  });
+  return orgMarginFloors();
+}

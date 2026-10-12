@@ -74,6 +74,16 @@ export function seedTeams(database:Database.Database){
   for(const r of REPS)if(r.team){team.run(r.team);member.run(r.id,r.team);}
 }
 
+/**
+ * The organization margin floors (012_org_margin_floors; plan U8): each category at the lowest floor any rep
+ * has in it, as the migration starts an existing database. A database built at the v4 schema (the adoption
+ * test's fixture) has no such table yet: there 012's own backfill runs.
+ */
+export function seedOrgMarginFloors(database:Database.Database){
+  if(!database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='org_margin_floors'").get())return;
+  database.prepare('INSERT INTO org_margin_floors(category_id,floor) SELECT category_id,min(margin_floor) FROM rep_category_floors GROUP BY category_id').run();
+}
+
 /** The seeded fuel price (v3 spec §4.3, OA-4): UT gasoline at $3.40/gal, so the offline demo and CI never need OilPriceAPI. */
 export const SEED_FUEL_PRICES=[{state:'UT',fuel:'gasoline',price_cents:340}] as const;
 

@@ -1,65 +1,47 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
-import {usePathname,useRouter,useSearchParams} from 'next/navigation';
+import {useSearchParams} from 'next/navigation';
+import {cx} from '@/components/ui/cx';
 import type {RepSettings} from '@/server/rep/settings';
 import {AgingSettings} from './settings/AgingSettings';
-import {RepPageHeader,repPageStyles as s} from './RepPage';
-import {withCustomer} from './scope';
 import {CustomerAccess} from './settings/CustomerAccess';
-import {DataSources} from './settings/DataSources';
-import {MarginFloors} from './settings/MarginFloors';
+import {MarginFloors,MyFloors} from './settings/MarginFloors';
 import {PricingDelivery} from './settings/PricingDelivery';
+import s from './settings/Settings.module.css';
 
-// Settings (spec §4, task 6.1), one tab per section in ?tab=: Customer access (its customer is the page's
-// own ?customer=, picked on the tab, task U1), My margin floors, Pricing & delivery, and Data sources. The
-// manager also gets Aging (v3 spec §6, task D1); a rep doesn't see that tab, and its routes answer 403.
-// Rep assignments and Reps moved to Teams and Reps (plan U7, /rep/teams). The page renders it with the
-// signed-in rep's settings; each tab saves through its route and keeps what the server stored.
+// Settings (spec §4, task 6.1; plan U8; C_S1 to C_S8), one tab per section in ?tab=. The manager's tabs are
+// Customer access, Margin floors, Pricing and delivery and Aging (Appendix B). Data sources is gone; Rep
+// assignments and Reps moved to Teams and Reps (plan U7). A rep gets one tab, their own margin floors, until
+// their own tabs come (plan U9; listed under "No frame"). The page renders it with the signed-in rep's
+// settings; each tab saves through its route and keeps what the server stored.
 
-export const SETTINGS_TABS=[
-  {id:'access',label:'Customer access',manager:false},
-  {id:'floors',label:'Margin floors',manager:false},
-  {id:'pricing',label:'Pricing & delivery',manager:false},
-  {id:'aging',label:'Aging',manager:true},
-  {id:'sources',label:'Data sources',manager:false},
+export const MANAGER_TABS=[
+  {id:'access',label:'Customer access'},
+  {id:'floors',label:'Margin floors'},
+  {id:'pricing',label:'Pricing and delivery'},
+  {id:'aging',label:'Aging'},
 ] as const;
-export type SettingsTab=typeof SETTINGS_TABS[number]['id'];
-export const DEFAULT_SETTINGS_TAB:SettingsTab='access';
+const REP_TABS=[{id:'floors',label:'Margin floors'}] as const;
+export type SettingsTab=typeof MANAGER_TABS[number]['id'];
 
-/** The tabs the signed-in rep gets: the manager-only ones only for the manager. */
-export const settingsTabs=(manager:boolean)=>SETTINGS_TABS.filter(t=>manager||!t.manager);
-/** The tab in ?tab=, or Customer access for anything else (a manager-only tab, for a rep). */
-export const settingsTab=(value:string|null|undefined,manager=false):SettingsTab=>settingsTabs(manager).find(t=>t.id===value)?.id??DEFAULT_SETTINGS_TAB;
+/** The tab in ?tab=, or the first tab for anything else (a removed tab, or a manager tab for a rep). */
+export function settingsTab(value:string|null|undefined,manager:boolean):SettingsTab{
+  const tabs:readonly {id:SettingsTab}[]=manager?MANAGER_TABS:REP_TABS;
+  return tabs.find(t=>t.id===value)?.id??tabs[0].id;
+}
 
 export function SettingsSection({initial}:{initial:RepSettings}){
-  const [settings,setSettings]=useState(initial);
-  const manager=settings.manager;
-  const params=useSearchParams(),pathname=usePathname(),router=useRouter();
+  const params=useSearchParams();
+  const {manager}=initial;
   const tab=settingsTab(params.get('tab'),manager!==null);
-  // Customer access's customer: one the rep may read (settings.assignments lists exactly those), or every customer.
-  const accessCustomers=settings.assignments.map(({id,name})=>({id,name}));
-  const accessLabel=accessCustomers.find(c=>c.id===settings.access.customer_id)?.name??'All customers';
-  const query=params.toString();
-  const pickAccessCustomer=(id:string|null)=>router.replace(withCustomer(query?`${pathname}?${query}`:pathname,id),{scroll:false});
-  const update=<K extends keyof RepSettings>(key:K)=>(value:RepSettings[K])=>setSettings(current=>({...current,[key]:value}));
-  const tabsRef=useRef<HTMLElement>(null);
-  // On a phone the tabs are a scrolling strip: keep the current one in view, as the portal nav does.
-  useEffect(()=>{
-    const strip=tabsRef.current,link=strip?.querySelector<HTMLElement>('[aria-current="page"]');
-    if(!strip||!link||strip.scrollWidth<=strip.clientWidth)return;
-    const left=link.offsetLeft-strip.offsetLeft;
-    if(left<strip.scrollLeft||left+link.offsetWidth>strip.scrollLeft+strip.clientWidth)strip.scrollLeft=Math.max(0,left-12);
-  },[tab]);
-  return <>
-    <RepPageHeader spaced title="Settings" description="Herrick Industrial Supply"/>
-    <nav ref={tabsRef} className={s.tabs} aria-label="Settings sections">
-      {settingsTabs(manager!==null).map(t=><Link key={t.id} href={`/rep/settings?tab=${t.id}`} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
-    </nav>
-    {tab==='access'&&<CustomerAccess access={settings.access} scopeLabel={accessLabel} customers={accessCustomers} onPick={pickAccessCustomer} onChange={update('access')}/>}
-    {tab==='floors'&&<MarginFloors mine={settings.floors.mine} others={settings.floors.others} onSaved={mine=>setSettings(current=>({...current,floors:{...current.floors,mine}}))}/>}
-    {tab==='pricing'&&<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} manager={manager!==null} onPricing={update('pricing')} onDelivery={update('delivery')}/>}
-    {tab==='aging'&&manager&&<AgingSettings aging={manager.aging} onSaved={aging=>setSettings(current=>({...current,manager:current.manager&&{...current.manager,aging}}))}/>}
-    {tab==='sources'&&<DataSources initial={settings.sources}/>}
-  </>;
+  const tabs=<nav className={cx('ui-root',s.tabs)} aria-label="Settings sections">
+    {(manager?MANAGER_TABS:REP_TABS).map(t=><Link key={t.id} href={`/rep/settings?tab=${t.id}`} className={s.tab} aria-current={t.id===tab?'page':undefined}>{t.label}</Link>)}
+  </nav>;
+  if(!manager)return <MyFloors mine={initial.mine} tabs={tabs}/>;
+  switch(tab){
+    case 'floors':return <MarginFloors orgFloors={manager.orgFloors} repMargins={manager.repMargins} meId={initial.rep_id} tabs={tabs}/>;
+    case 'pricing':return <PricingDelivery pricing={manager.pricing} delivery={manager.delivery} flags={manager.flags} tabs={tabs}/>;
+    case 'aging':return <AgingSettings aging={manager.aging} tabs={tabs}/>;
+    default:return <CustomerAccess initialRules={manager.access} initialTable={manager.accessTable} tabs={tabs}/>;
+  }
 }
