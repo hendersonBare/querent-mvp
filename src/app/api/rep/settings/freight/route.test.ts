@@ -1,12 +1,13 @@
 // @vitest-environment node
 import {NextRequest} from 'next/server';
-import {afterEach,describe,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
 
 // GET/PUT /api/rep/settings/freight and GET /api/rep/settings/freight/preview (v3 spec §4.3, §4.7,
 // §5; decisions 30, 35; OA-11): manager only, never cached. The fuel key is read server-side only:
 // with a (fake) OILPRICEAPI_KEY set, the request goes to a stubbed fetch, never the network, and the
-// key appears in no response.
+// key appears in no response. Each part of the PUT, and the preview, is refused (403 feature_off) while its
+// section's flag is off (decision 48; plan U8); the tests above that block turn the three flags on.
 useSeededDatabase();
 
 const KEY='fake-key-123';
@@ -22,9 +23,13 @@ async function call(path:''|'/preview',method:'GET'|'PUT',{body,persona='supplie
   return {status:response.status,cache:response.headers.get('cache-control'),text,json:JSON.parse(text)};
 }
 
+const FLAGS=['FEATURE_FREE_DELIVERY_PRICING','FEATURE_RECOVERY_POOL','FEATURE_DELIVERY_COST_MODEL'] as const;
+const flags=(on:readonly (typeof FLAGS)[number][])=>{for(const name of FLAGS)vi.stubEnv(name,on.includes(name)?'1':'');};
 afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
 
 describe('GET/PUT /api/rep/settings/freight',()=>{
+  beforeEach(()=>flags(FLAGS));
+
   it('gives the manager the controls, the pool and the fuel price, never cached',async()=>{
     const result=await call('','GET');
     expect(result).toMatchObject({status:200,cache:expect.stringMatching(/no-store/),json:{enabled:false,previewValid:false,rates:{startingRateBp:300},pool:{startingBp:300,minCount:20}}});
@@ -75,5 +80,43 @@ describe('GET/PUT /api/rep/settings/freight',()=>{
       expect((await call('/preview','GET',{persona})).status).toBe(403);
     }
     for(const path of ['','/preview'] as const)expect((await call(path,'GET',{persona:null})).status).toBe(401);
+  });
+});
+
+describe("feature flags (decision 48): each section's writes are refused while its flag is off",()=>{
+  it('all off by default: every part of the PUT and the preview answer 403 feature_off, changing nothing; the read still works',async()=>{
+    flags([]);
+    const before=(await call('','GET')).json;
+    for(const [body,detail] of [
+      [{enabled:true},'Free delivery pricing is turned off.'],
+      [{enabled:false},'Free delivery pricing is turned off.'],
+      [{rates:{rampSteps:4}},'The recovery pool is turned off.'],
+      [{cost:{mpg:12}},'The delivery cost model is turned off.'],
+    ] as const)expect(await call('','PUT',{body})).toMatchObject({status:403,json:{detail,code:'feature_off'}});
+    expect(await call('/preview','GET')).toMatchObject({status:403,json:{detail:'Free delivery pricing is turned off.',code:'feature_off'}});
+    const after=(await call('','GET')).json;
+    expect(after).toMatchObject({enabled:false,previewViewedAt:before.previewViewedAt,rates:before.rates,cost:before.cost});
+  });
+
+  it('a part whose flag is on goes through, whatever the others; a body touching an off section is refused whole',async()=>{
+    flags(['FEATURE_RECOVERY_POOL']);
+    const saved=await call('','PUT',{body:{rates:{rampSteps:4}}});
+    expect(saved).toMatchObject({status:200,json:{rates:{rampSteps:4}}});
+    expect(await call('','PUT',{body:{rates:{rampSteps:3},cost:{mpg:12}}})).toMatchObject({status:403,json:{code:'feature_off'}});
+    expect((await call('','GET')).json.rates.rampSteps).toBe(4);
+    flags(['FEATURE_DELIVERY_COST_MODEL']);
+    expect(await call('','PUT',{body:{cost:{mpg:12}}})).toMatchObject({status:200,json:{cost:{mpg:12}}});
+    expect(await call('','PUT',{body:{rates:{rampSteps:3}}})).toMatchObject({status:403,json:{code:'feature_off'}});
+    flags(['FEATURE_FREE_DELIVERY_PRICING']);
+    expect((await call('/preview','GET')).status).toBe(200);
+    flags(FLAGS);
+    expect(await call('','PUT',{body:{rates:{rampSteps:3},cost:{mpg:10}}})).toMatchObject({status:200});
+  });
+
+  it('a rep is still refused first (403, not feature_off)',async()=>{
+    flags([]);
+    const result=await call('','PUT',{persona:'mara',body:{enabled:true}});
+    expect(result.status).toBe(403);
+    expect(result.json.code).toBeUndefined();
   });
 });

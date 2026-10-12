@@ -1,38 +1,35 @@
 import 'server-only';
-import type {CustomerListItem,DeliveryRates,PricingSettings,Rep,RepFloor,TeamRep} from '@/domain';
+import type {CustomerListItem,DeliveryRates,PricingSettings,Rep,RepFloor} from '@/domain';
 import type {AccessRule,ERPStatus} from '@/lib/contracts';
+import {featureFlags,type FeatureFlags} from '@/server/flags';
 import {formatMargin} from '@/server/floors';
 import {FloorPermissionError,setMyFloor} from '@/server/floors/service';
 import {checkDeliveryRates} from '@/server/freight/rates';
 import type {AgingThresholds} from '@/server/quotes/aging';
 import {
-  agingThresholds,aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,inTransaction,isCategory,pricingSettings,quotes,repFloors,reps,setAccess,
-  setAssignedRep,setDeliveryRates,setScarcityUplift,teamReps,type DemoDatabase,
+  accessCustomers,agingThresholds,aggregateAccess,customerAccount,customerIds,customers,deliveryRates,demoDatabase,events,inTransaction,isCategory,orgMarginFloors,pricingSettings,productCategories,
+  quotes,repFloors,reps,setAccess,setAssignedRep,setDeliveryRates,setOrgMarginFloors,setScarcityUplift,teamReps,type AccessCustomer,type AccessFilter,type DemoDatabase,type OrgMarginFloor,
 } from '@/server/repository';
 import {effectiveStatus} from '@/server/quotes/lifecycle';
 import {expireOverdueQuotes} from '@/server/quotes/service';
-import {customerFilterFor,ownerFilter,readableCustomers,type RepReader} from './access';
+import {ownerFilter,readableCustomers,type RepReader} from './access';
 import {moveQuotes,type ReassignResult} from './reassign';
 
-// Settings (spec §4, task 6.1) for the signed-in rep: Rep assignments, Customer access, My margin
-// floors, Pricing (scarcity uplift), Delivery rates and Data sources. This module
-// builds the page's data and checks every write before it reaches the repository. The routes
-// under /api/rep/settings serve it to the supplier persona only (./http, repRoute).
+// Settings (spec §4, task 6.1; plan U8) for the signed-in rep. This module builds the page's data and
+// checks every write before it reaches the repository. The routes under /api/rep/settings serve it to the
+// supplier persona only (./http, repRoute).
 //
-// Who may change what (the demo has one supplier login, Brandi):
-// - Rep assignments: the manager only (decision 21, OA-55; task D2). A rep sees them read-only.
-// - Customer access, the scarcity uplift and the delivery rates: any rep session.
-//   The spec doesn't say who may; this is the smallest reversible default, flagged for review.
-// - Margin floors: each rep edits only their own (spec §5.2), through setMyFloor, which refuses
-//   anyone else's before writing. Other reps' floors are read-only here.
-// - Reps (team label, active) and Aging thresholds: the manager only (v3 spec §6, decisions 16, 20,
-//   21; task D1). They come in `manager`, null for a rep, and save through managerRoute (./team).
-// An inactive rep can't be given a customer (they must have none, decision 21).
-// Reassigning a customer leaves its quotes with their rep (spec §4, §5.2), so the old rep's Quotes
-// list and badge keep them, unless the manager ticks "Also move this customer's open quotes"
-// (decision 21, task D2): then its open quotes move too, through the Quotes list's reassignment
-// (./reassign), each with an activity row. Quotes requested afterwards, the customer's rep card
-// (sidebar, clarification) and chat's "call your rep" all follow the new assignment, since they read it live.
+// Who may change what (Appendix B; plan U8):
+// - The manager's four tabs, Customer access, Margin floors (the organization floors and the read-only
+//   review of every rep's margins), Pricing and delivery, and Aging, are hers alone: their routes are
+//   managerRoute (403 for a rep), and a rep's GET /api/rep/settings carries none of their data (OA-69).
+// - A rep reads and edits only their own margin floors (spec §5.2, through setMyFloor, which refuses
+//   anyone else's) until their own tabs come (plan U9). The manager keeps her own floors (decision 20).
+// - Rep assignments moved to Teams and Reps (plan U7); assignRep stays as its backing write. An inactive
+//   rep can't be given a customer (decision 21). Reassigning a customer leaves its quotes with their rep
+//   unless the manager ticks "Also move this customer's open quotes" (decision 21, task D2): then its open
+//   quotes move too (./reassign), each with an activity row.
+// - Data sources is gone from the UI (plan U8); its route answers the manager only.
 
 /**
  * A write the request can't make: 400 (bad input), 403 (not yours), 404 (no such customer, rep or
@@ -56,27 +53,39 @@ export interface AssignmentRow extends CustomerListItem {
 export interface FloorCell {category_id:string;category_name:string;margin_floor:number;label:string;updated_at:string}
 export interface RepFloorSet {rep:SettingsRep;floors:FloorCell[]}
 
-/** Customer access for the page's own ?customer= filter: one customer, or every customer (customer_id null). */
+/** Customer access as one customer's (or, customer_id null, every customer's) rules: what PUT /access answers. */
 export interface AccessSettings {customer_id:string|null;rules:AccessRule[]}
+/** Customer access searched or filtered (C_S1b): the matching customers and how many there are in all. */
+export interface AccessTable {q:string;customers:AccessCustomer[];total:number}
 
 export interface DataSources {database:DemoDatabase;erp:ERPStatus}
 
-/** What only the manager sees in Settings (task D1): the Reps card and the Aging thresholds card. */
-export interface ManagerSettings {reps:TeamRep[];aging:AgingThresholds}
+/** One organization margin floor as Settings shows it (C_S2): a fraction, with formatMargin's label. */
+export interface OrgFloorCell extends OrgMarginFloor {label:string}
+
+/** The manager's tabs (plan U8; C_S1 to C_S8). */
+export interface ManagerSettings {
+  /** Customer access with no filter (C_S1): one rule per data type over every customer. */
+  access:AccessRule[];
+  /** Customer access opened from a link for one customer (?customer=): searched for its name. Null otherwise. */
+  accessTable:AccessTable|null;
+  orgFloors:OrgFloorCell[];
+  /** Every rep's own margins (the manager's included), by name: the read-only Rep margins review (C_S2, C_S3). */
+  repMargins:RepFloorSet[];
+  pricing:PricingSettings;
+  /** Freight rates (spec §5.3), with the road factor applied to straight-line miles. */
+  delivery:DeliveryRates;
+  aging:AgingThresholds;
+  /** Decision 48: a section whose flag is off does not render. */
+  flags:FeatureFlags;
+}
 
 export interface RepSettings {
   rep_id:string;
-  /** The Reps and Aging tabs' data for the manager; null for a rep, who doesn't get those tabs. */
+  /** The manager's tabs; null for a rep, who gets none of their data. */
   manager:ManagerSettings|null;
-  /** Every active rep, by name: the assignment dropdown's options. */
-  reps:SettingsRep[];
-  assignments:AssignmentRow[];
-  access:AccessSettings;
-  floors:{mine:RepFloorSet;others:RepFloorSet[]};
-  pricing:PricingSettings;
-  /** Freight rates (spec §5.3), with the road factor applied to straight-line miles. Any rep can change them. */
-  delivery:DeliveryRates;
-  sources:DataSources;
+  /** The signed-in rep's own margin floors. */
+  mine:RepFloorSet;
 }
 
 const asRep=({id,name,initials,title}:Rep):SettingsRep=>({id,name,initials,title});
@@ -109,40 +118,62 @@ export function assignmentRows(reader?:RepReader):AssignmentRow[]{
 
 function floorSet(rep:Rep):RepFloorSet{return {rep:asRep(rep),floors:repFloors(rep.id).map(toCell)};}
 
+const accessFor=(customerId:string|null):AccessSettings=>({customer_id:customerId,rules:aggregateAccess(customerId?[customerId]:customerIds())});
+const orgCells=():OrgFloorCell[]=>orgMarginFloors().map(f=>({...f,label:formatMargin(f.floor)}));
 
-function accessFor(customerId:string|null):AccessSettings{
-  return {customer_id:customerId,rules:aggregateAccess(customerId?[customerId]:customerIds())};
-}
-
-/** Settings > Data sources: the demo database and the ERP connection's recent sync events. */
+/** Settings > Data sources: the demo database and the ERP connection's recent sync events. No longer in the UI (plan U8); the manager's route only. */
 export function dataSources():DataSources{return {database:demoDatabase(),erp:events(true)};}
 
-/** The manager's Reps and Aging thresholds cards (task D1). */
-export function managerSettings():ManagerSettings{return {reps:teamReps(),aging:agingThresholds()};}
+/** Every rep's own margins, by name (the Rep margins review, plan U8). Manager only: the route checks. */
+export function repMargins():RepFloorSet[]{return reps().map(floorSet);}
 
-/**
- * Everything Settings shows, for the signed-in rep (`manager`: they are the manager). Rep
- * assignments list a rep's own customers only, every customer for the manager (task U1). Customer
- * access is for the page's own ?customer= filter: one customer the rep may read, or every customer
- * (an unknown id, or another rep's customer, reads as every customer).
- */
-export function repSettings(repId:string,{customerId=null,manager=false}:{customerId?:string|null;manager?:boolean}={}):RepSettings{
-  const reader={repId,manager};
-  const everyone=reps();
-  const me=everyone.find(r=>r.id===repId);
+/** GET /api/rep/settings/org-floors: every category's organization floor. Manager only: the route checks. */
+export function orgFloors():OrgFloorCell[]{return orgCells();}
+
+/** Customer access searched or filtered (C_S1b): the matching customers, and the count of every customer. */
+export function accessTable(filter:AccessFilter):AccessTable{
+  return {q:filter.q?.trim()??'',customers:accessCustomers(filter),total:customerIds().length};
+}
+
+const STATES=['any','answers','not_shared'] as const;
+/** The Customer access filter from a query string (?q=, ?items_stock=answers ...): a SettingsError for a state that is not Any, Querent answers or Not shared. */
+export function accessFilter(params:URLSearchParams):AccessFilter{
+  const filter:AccessFilter={q:params.get('q')??undefined};
+  for(const category of ['items_stock','pricing','orders_quotes','account'] as const){
+    const value=params.get(category);
+    if(value===null)continue;
+    if(!(STATES as readonly string[]).includes(value))throw new SettingsError('Invalid filter.');
+    if(value!=='any')filter[category]=value as 'answers'|'not_shared';
+  }
+  return filter;
+}
+
+/** The manager's tabs (plan U8). `customerId`: Customer access opened for that customer, searched for its name. */
+export function managerSettings(customerId:string|null=null):ManagerSettings{
+  const linked=customerId?customers().find(c=>c.id===customerId):undefined;
   return {
-    rep_id:repId,
-    manager:manager?managerSettings():null,
-    reps:reps({activeOnly:true}).map(asRep),
-    assignments:assignmentRows(reader),
-    access:accessFor(customerFilterFor(reader,customerId)?.id??null),
-    floors:{
-      mine:me?floorSet(me):{rep:{id:repId,name:repId,initials:'',title:''},floors:[]},
-      others:everyone.filter(r=>r.id!==repId).map(floorSet),
-    },
+    access:accessFor(null).rules,
+    accessTable:linked?accessTable({q:linked.name}):null,
+    orgFloors:orgCells(),
+    repMargins:repMargins(),
     pricing:pricingSettings(),
     delivery:deliveryRates(),
-    sources:dataSources(),
+    aging:agingThresholds(),
+    flags:featureFlags(),
+  };
+}
+
+/**
+ * Everything Settings shows, for the signed-in rep (`manager`: they are the manager). The manager gets her
+ * four tabs; a rep gets only their own floors (Appendix B; OA-69). `customerId` (the manager's ?customer=)
+ * opens Customer access searched for that customer; an unknown id is ignored.
+ */
+export function repSettings(repId:string,{customerId=null,manager=false}:{customerId?:string|null;manager?:boolean}={}):RepSettings{
+  const me=reps().find(r=>r.id===repId);
+  return {
+    rep_id:repId,
+    manager:manager?managerSettings(customerId):null,
+    mine:me?floorSet(me):{rep:{id:repId,name:repId,initials:'',title:''},floors:[]},
   };
 }
 
@@ -194,6 +225,16 @@ export function updateAccess(input:unknown):AccessSettings{
 const MAX_FLOOR_TENTHS=999;
 const FLOOR_RANGE='Enter a floor from 0% to 99.9%.';
 
+/** A floor in percent as whole tenths of a point (300 for 30%), or a SettingsError outside 0% to 99.9%. */
+function floorTenths(pct:unknown){
+  // Checked before rounding: -0.01% to -0.05% would round to 0.0% and pass as a floor of zero.
+  if(typeof pct!=='number'||!Number.isFinite(pct)||pct<0)throw new SettingsError(FLOOR_RANGE);
+  // toPrecision drops float noise, as the floor rules do (29.95 * 10 is 299.49999999999994).
+  const tenths=Math.round(Number((pct*10).toPrecision(12)));
+  if(tenths<0||tenths>MAX_FLOOR_TENTHS)throw new SettingsError(FLOOR_RANGE);
+  return tenths;
+}
+
 /**
  * My margin floors: PUT {rep_id?, category_id, floor_pct}. floor_pct is a percent (30 = 30%),
  * stored to 0.1 percentage point, the precision margins are shown and compared at (task 1.2), so
@@ -205,12 +246,7 @@ export function updateMyFloor(actingRepId:string,input:unknown):RepFloorSet{
   const repId=request.rep_id===undefined?actingRepId:text(request.rep_id);
   const categoryId=text(request.category_id);
   if(!repId||!categoryId)throw new SettingsError('Choose a rep and a product category.');
-  const pct=request.floor_pct;
-  // Checked before rounding: -0.01% to -0.05% would round to 0.0% and pass as a floor of zero.
-  if(typeof pct!=='number'||!Number.isFinite(pct)||pct<0)throw new SettingsError(FLOOR_RANGE);
-  // toPrecision drops float noise, as the floor rules do (29.95 * 10 is 299.49999999999994).
-  const tenths=Math.round(Number((pct*10).toPrecision(12)));
-  if(tenths<0||tenths>MAX_FLOOR_TENTHS)throw new SettingsError(FLOOR_RANGE);
+  const tenths=floorTenths(request.floor_pct);
   let saved;
   try{saved=setMyFloor(actingRepId||null,repId,categoryId,tenths/1000);}
   catch(error){
@@ -221,6 +257,30 @@ export function updateMyFloor(actingRepId:string,input:unknown):RepFloorSet{
   if(!saved)throw new SettingsError('Product category not found.',404);
   const rep=reps().find(r=>r.id===repId)!;
   return floorSet(rep);
+}
+
+/**
+ * Organization margin floors: PUT {floors:[{category_id, floor_pct}]} (plan U8), the manager only (the route
+ * checks). Each floor_pct is a percent from 0 to 99.9, stored to 0.1 point like a rep's; every category at
+ * most once; all are stored together or none. Returns every category's floor.
+ */
+export function updateOrgFloors(input:unknown):OrgFloorCell[]{
+  const request=typeof input==='object'&&input!==null&&!Array.isArray(input)?input as Record<string,unknown>:{};
+  const list=request.floors;
+  if(!Array.isArray(list)||!list.length)throw new SettingsError('Send at least one floor.');
+  const known=new Set(productCategories().map(c=>c.id)),seen=new Set<string>();
+  const floors=list.map(item=>{
+    const row=typeof item==='object'&&item!==null?item as Record<string,unknown>:{};
+    const categoryId=text(row.category_id);
+    if(!categoryId)throw new SettingsError('Choose a product category.');
+    const tenths=floorTenths(row.floor_pct);
+    if(seen.has(categoryId))throw new SettingsError('Each category once.');
+    seen.add(categoryId);
+    return {category_id:categoryId,floor:tenths/1000};
+  });
+  if(floors.some(f=>!known.has(f.category_id)))throw new SettingsError('Product category not found.',404);
+  setOrgMarginFloors(floors);
+  return orgCells();
 }
 
 /**
