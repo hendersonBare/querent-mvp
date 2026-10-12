@@ -9,11 +9,11 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 65. Started 2026-10-11.
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
 | U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
-| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | fix round 1 (verifier FAIL: native date fields add copy and an icon; manager offered Send reply on another rep's quote; decision 63 reply to chat) |
-| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | in review |
+| U3 | [#57](https://github.com/hendersonBare/querent-mvp/pull/57) | in review (after fix round 1) |
+| U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | fix round 1 (verifier FAIL: decision 64 header chip missing; remove column 8px vs 16px; deleted unit tests; unapproved "(freight to set)") |
 | U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
-| U7 | | not started |
+| U7 | | in progress (`task/U7-teams-and-reps`) |
 | U8 | | not started |
 | U9 | | not started |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
