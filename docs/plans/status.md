@@ -13,7 +13,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 66. Started 2026-10-11.
 | U4 | [#58](https://github.com/hendersonBare/querent-mvp/pull/58) | merged (1 fix round, 1 merge of main) |
 | U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | merged |
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
-| U7 | (PR pending) | in review |
+| U7 | [#60](https://github.com/hendersonBare/querent-mvp/pull/60) | in review |
 | U8 | | not started |
 | U9 | | not started |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
