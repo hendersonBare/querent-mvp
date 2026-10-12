@@ -2,7 +2,7 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 58. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 59. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
