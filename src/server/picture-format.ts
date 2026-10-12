@@ -171,7 +171,7 @@ const WEBP_KEPT=new Set(['VP8X','ICCP','ANIM','ANMF','ALPH','VP8 ','VP8L']);
 
 /** A well formed WebP (isWebp) with only its image and colour chunks, its VP8X flags and RIFF size to match. */
 function stripWebp(bytes:Uint8Array):Uint8Array{
-  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),parts=[bytes.slice(0,12)];
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),parts:Uint8Array[]=[bytes.slice(0,12)];
   for(let at=12;at<bytes.length;){
     const size=view.getUint32(at+4,true),end=at+8+size+(size&1),fourcc=ascii(bytes,at,4);
     if(fourcc==='VP8X'){
