@@ -46,3 +46,51 @@ it('asks for a workspace without a session, and refuses the customer persona',as
   expect(customer.headers.get('cache-control')).toMatch(/no-store/);
   expect(await customer.json()).toEqual({detail:'Supplier access required.'});
 });
+
+// The filter (plan U6; Appendix D): reps, teams, customer, breakdown and period, with the leaderboard,
+// decline reasons and untouched quotes (the old Team metrics) in the same answer.
+it('takes the filter and serves the old Team metrics grouped by the breakdown; a bad filter is 400',async()=>{
+  const body=await (await get('supplier','?reps=mara,eli&breakdown=rep&period=90')).json();
+  expect(body.filter).toMatchObject({rep_ids:['eli','mara'],breakdown:'rep'});
+  expect(body.groups.rows.map((r:{key:string})=>r.key)).toEqual(['eli','mara']);
+  expect(body.groups.totals.name).toBe('Total');
+  const team=await (await get('supplier','?breakdown=team')).json();
+  expect(team.groups.rows.map((r:{name:string})=>r.name)).toEqual(['Inside Sales','Outside Sales']);
+  const bad=await get('supplier','?teams=Nights');
+  expect(bad.status).toBe(400);
+  expect(await bad.json()).toEqual({detail:'Unknown team: Nights.'});
+});
+
+it('forces a rep to their own data: another rep\'s id, a team or a breakdown changes nothing (never a 403)',async()=>{
+  const own=await (await get('mara')).json();
+  for(const query of ['?reps=eli','?reps=eli,nora&teams=Outside%20Sales','?breakdown=customer','?reps=ghost']){
+    const response=await get('mara',query);
+    expect(response.status,query).toBe(200);
+    const body=await response.json();
+    expect(body.groups,query).toEqual(own.groups);
+    expect(body.scope,query).toEqual(own.scope);
+    expect(body.win_rate,query).toEqual(own.win_rate);
+  }
+  expect(own.groups.rows.map((r:{key:string})=>r.key)).toEqual(['mara']);
+});
+
+const csv=async(persona:string|null,query='')=>{
+  const {GET}=await import('./csv/route');
+  return GET(new NextRequest(`http://127.0.0.1/api/rep/analytics/csv${query}`,{headers:persona?{cookie:`querent-persona=${persona}`}:{}}));
+};
+
+it('GET /api/rep/analytics/csv: the leaderboard as the manager filtered it (Export CSV), manager only',async()=>{
+  const response=await csv('supplier','?reps=brandi,mara');
+  expect(response.status).toBe(200);
+  expect(response.headers.get('content-type')).toBe('text/csv; charset=utf-8');
+  expect(response.headers.get('content-disposition')).toMatch(/^attachment; filename="rep-leaderboard\.csv"/);
+  expect(response.headers.get('cache-control')).toMatch(/no-store/);
+  const lines=(await response.text()).replace(/^﻿/,'').trim().split('\r\n');
+  expect(lines.map(l=>l.split(',')[0])).toEqual(['Rep','Brandi Gallegos','Mara Jensen','Total']);
+  expect(lines[0]).toContain('Quote-to-order rate (%)');
+  const byTeam=(await (await csv('supplier','?breakdown=team')).text()).replace(/^﻿/,'').trim().split('\r\n');
+  expect(byTeam.map(l=>l.split(',')[0])).toEqual(['Team','Inside Sales','Outside Sales','Total']);
+  expect((await csv('supplier','?reps=ghost')).status).toBe(400);
+  for(const persona of ['mara','eli','customer'])expect((await csv(persona)).status).toBe(403);
+  expect((await csv(null)).status).toBe(401);
+});
