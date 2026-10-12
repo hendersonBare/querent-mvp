@@ -2,7 +2,7 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 56. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
@@ -16,7 +16,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 55. Started 2026-10-11.
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
-| U10 | | in progress (`task/U10-customer-site`) |
+| U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | fix round 1 (verifier FAIL: delivery-quote accept e2e coverage dropped with the 390px test) |
 | U11 | | not started |
 
 ### No frame

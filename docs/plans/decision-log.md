@@ -122,6 +122,7 @@ Source: the product owner's lane U prompt (10/11). The frames in `docs/design/ca
 53. The demo workspace chooser moves, unchanged, from `/` (with no session) to `/demo`. From the stand-in header in C_CVE0 only the "Sign in" button is built; it links to `/demo`. Rail Sign out returns to `/`, which shows the visitor box. (Product owner, 10/11.)
 54. The caution button border is `#E8A8A0` on every page. The nine Quotes table frames draw `#F1BEB8`; that one difference is explained by this decision. (Product owner, 10/11.)
 55. Filter panel field boxes follow their own frame: transparent where the frame draws them transparent, white where it draws them white. (Product owner, 10/11.)
+56. Customer site controls with no frame, kept as built in U10: a Sign out menu on the customer's account chip (returns to the visitor box); the conversation shown in the box once the customer asks, with a "New conversation" control that resets to the starter questions; an expired-quote bell notification reading "Quote <number> expired" / "It was valid until <date>."; and a 72px top strip holding the bell, account chip and Sign in at the frame's header positions, with nothing else from the stand-in header. (Product owner, 10/12.)
 
 ## TODO registry contents
 | ID | TODO |
