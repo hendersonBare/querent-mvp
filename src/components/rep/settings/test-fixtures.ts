@@ -32,6 +32,8 @@ export const table=(q:string,ids:string[]):AccessTable=>({q,total:6,customers:CU
 
 /** Mara's Settings > Profile on the seed (plan U9). */
 export const REP_PROFILE={name:'Mara Jensen',initials:'MJ',title:'Inside Sales',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com',picture_url:null as string|null};
+/** Brandi's Settings > Profile on the seed (decision 69: the manager has her own Profile tab). */
+export const MANAGER_PROFILE={name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',picture_url:null as string|null};
 /** Every notification switch on, as a rep starts (plan U9). */
 export const ALL_PREFS={quote_overdue:true,quote_aging:true,below_margin_floor:true,change_requested:true,quote_accepted:true,quote_declined:true,quote_expired:true,customer_chat_needs_rep:true};
 
@@ -46,7 +48,7 @@ export function settingsFixture({manager=true,flags=FLAGS_OFF,accessTable=null,p
       repMargins:REPS.map((r,i)=>({rep:r,floors:floors(i===0?[0.2,0.25,0.3,0.2,0.18,0.2]:i===1?[0.22,0.25,0.3,0.2,0.18,0.21]:[0.2,0.2,0.2,0.2,0.2,0.2])})),
       pricing:{scarcity_uplift_enabled:false},
       delivery:{base_fee:25,per_mile:2.5,min_charge:35,free_threshold:1500,max_radius_miles:75,road_factor:1.25},
-      aging:AGING,flags,
+      aging:AGING,flags,profile:{...MANAGER_PROFILE,picture_url:picture},
     },
     mine:{rep:REPS[0],floors:floors([0.2,0.25,0.3,0.2,0.18,0.2])},
     own:null,

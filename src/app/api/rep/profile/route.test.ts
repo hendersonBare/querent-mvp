@@ -142,6 +142,24 @@ describe('GET and PUT /api/rep/notification-prefs',()=>{
   });
 });
 
+describe("the manager's own profile (decision 69)",()=>{
+  it('reads and saves her own profile and picture, never another rep\'s, and her customers see it in My rep',async()=>{
+    expect(await call('profile','GET',{persona:'supplier'})).toMatchObject({status:200,json:{name:'Brandi Gallegos',initials:'BG',phone:'(801) 111-2222'}});
+    const saved=await call('profile','PUT',{persona:'supplier',body:{rep_id:'mara',name:'Brandi Gallegos',phone:'(801) 555-0142',email:'brandi@example.com'}});
+    expect(saved).toMatchObject({status:200,json:{name:'Brandi Gallegos',phone:'(801) 555-0142',email:'brandi@example.com'}});
+    expect((await call('picture','PUT',{persona:'supplier',raw:PNG,type:'image/png'})).status).toBe(200);
+    // Mara's record is untouched: the body's rep_id is ignored, the session decides.
+    expect((await call('profile','GET')).json).toMatchObject({name:'Mara Jensen',phone:'(801) 555-0102',picture_url:null});
+    expect((await call('picture','GET')).status).toBe(404);
+    // Dana's rep is Brandi: the My rep sheet shows what she saved, and her picture.
+    const contacts=(await import('../../query/customer/contacts/route')).GET;
+    const sheet=await (await contacts(new NextRequest('http://127.0.0.1/api/query/customer/contacts',{headers:{cookie:'querent-persona=customer'}}))).json();
+    expect(sheet.rep).toMatchObject({name:'Brandi Gallegos',phone:'(801) 555-0142',email:'brandi@example.com',picture_url:expect.stringMatching(/^\/api\/query\/customer\/contacts\/picture\?v=\d+$/)});
+    expect((await call('picture','DELETE',{persona:'supplier'})).status).toBe(200);
+    expect((await call('profile','PUT',{persona:'supplier',body:{name:'Brandi Gallegos',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'}})).status).toBe(200);
+  });
+});
+
 describe('who may call them',()=>{
   const every:[Name,Method,{body?:unknown;raw?:Uint8Array;type?:string}][]=[
     ['profile','GET',{}],['profile','PUT',{body:{name:'X',phone:'(801) 555-0000',email:'x@example.com'}}],

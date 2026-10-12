@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+import path from 'node:path';
 import {NextRequest} from 'next/server';
 import {describe,expect,it} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
@@ -40,7 +42,7 @@ it("returns Dana's rep only: the departments stay with the chat's answers (Appen
 
 it("follows the rep's Settings > Profile, and serves the rep's picture to their own customers only (plan U9)",async()=>{
   const {updateProfile,savePicture,removePicture}=await import('@/server/rep/profile');
-  const PNG=Uint8Array.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,13]);
+  const PNG=new Uint8Array(readFileSync(path.join(process.cwd(),'test/fixtures/pictures/tiny.png')));
   const picture=(await import('./contacts/picture/route')).GET;
   const get=(persona?:'customer'|'supplier')=>picture(request('contacts/picture?v=1',persona));
   expect((await get()).status).toBe(401);

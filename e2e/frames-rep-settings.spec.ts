@@ -3,7 +3,9 @@ import { FONT_USER_AGENT, STYLE_PROPS, diffMeasures, measureAll, openFrame, star
 
 // Frame proof for plan U9 (a rep's Settings, /rep/settings), rep (querent-persona=mara), at 1920x1080:
 //   C_RS1 (Margins), C_RS2 (Profile), C_RS3 (Margins with a value below the organization floor),
-//   C_RS4 (Notifications).
+//   C_RS4 (Notifications). C_RS2 is proven for the manager (querent-persona=supplier) too: decision 69 gives her
+//   the rep's Profile tab, the same component, after her four tabs; the frame's tab bar is redrawn as hers
+//   (her four tabs drawn as the frame's inactive tab, then its active Profile) before the comparison.
 //
 // How each frame is proven:
 //   - The data is driven toward the frame's sample through the app's own routes: the manager sets the
@@ -57,14 +59,14 @@ async function marginsSample(manager: APIRequestContext, mara: APIRequestContext
   expect((await mara.put("/api/rep/settings/floors", { data: { floors } })).status()).toBe(200);
 }
 
-async function asMara(browser: Browser, baseURL: string, path: string, sample: boolean) {
+async function asRep(browser: Browser, baseURL: string, path: string, sample: boolean, persona = "mara") {
   const manager = await browser.newContext({ baseURL });
   contexts.push(manager);
   await manager.addCookies([{ name: COOKIE, value: "supplier", url: baseURL }]);
   expect((await manager.request.post("/api/test/reset", { data: { seed_date: SEED_DATE } })).status(), "POST /api/test/reset").toBe(200);
   const context = await browser.newContext({ viewport: APP_SIZE, baseURL });
   contexts.push(context);
-  await context.addCookies([{ name: COOKIE, value: "mara", url: baseURL }]);
+  await context.addCookies([{ name: COOKIE, value: persona, url: baseURL }]);
   if (sample) await marginsSample(manager.request, context.request);
   const page = await context.newPage();
   await page.goto(path);
@@ -219,6 +221,32 @@ const PROFILE_SAMPLE: Rewrite[] = [
   { app: "(801) 555-0102", frame: "(801) 555-0142", why: "Mara's phone where the frame samples Brandi's (placeholder)" },
   { app: "mara.jensen@herrickindustrial.com", frame: "brandi.gallegos@example.com", why: "Mara's email where the frame samples Brandi's (placeholder)" },
 ];
+const MANAGER_PROFILE_SAMPLE: Rewrite[] = [
+  { app: "(801) 111-2222", frame: "(801) 555-0142", why: "Brandi's seeded phone where the frame samples another (placeholder, Appendix G)" },
+  { app: "brandi.gallegos@herrickindustrial.com", frame: "brandi.gallegos@example.com", why: "Brandi's seeded email where the frame samples example.com (placeholder, Appendix G)" },
+];
+/** The manager's tab bar (plan U8, then decision 69's Profile), in place of the rep's in C_RS2's frame. */
+const MANAGER_TABS = ["Customer access", "Margin floors", "Pricing and delivery", "Aging"];
+/** Redraws the frame's tab bar as the manager's: each of her four tabs a copy of the frame's inactive "Margins", then its active "Profile". */
+async function managerTabBar() {
+  const done = await framePage.evaluate((labels) => {
+    const own = (el: Element) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent!.trim()).join(" ").trim();
+    const margins = [...document.querySelectorAll("main span")].find((e) => own(e) === "Margins");
+    const bar = margins?.parentElement;
+    const profile = bar && [...bar.children].find((t) => own(t) === "Profile");
+    const notifications = bar && [...bar.children].find((t) => own(t) === "Notifications");
+    if (!bar || !margins || !profile || !notifications) return false;
+    for (const label of labels) {
+      const tab = margins.cloneNode(true) as HTMLElement;
+      tab.textContent = label;
+      bar.insertBefore(tab, margins);
+    }
+    margins.remove();
+    notifications.remove();
+    return [...bar.children].map(own).join("|");
+  }, MANAGER_TABS);
+  expect(done, "the frame's tab bar redrawn as the manager's").toBe([...MANAGER_TABS, "Profile"].join("|"));
+}
 /** The switches are buttons (role switch) where the frame draws spans. */
 const SWITCHES = { button: { n: 8, why: "the switches are buttons (role switch) where the frame draws spans" } };
 
@@ -226,6 +254,8 @@ interface Case {
   id: string;
   path: string;
   sample: boolean;
+  /** The manager (decision 69) where the frame draws a rep: her tab bar replaces the rep's in the frame. */
+  manager?: boolean;
   drive?: (page: Page) => Promise<void>;
   rewrites?: Rewrite[];
   explained?: Explained;
@@ -234,6 +264,7 @@ interface Case {
 const CASES: Case[] = [
   { id: "RS1", path: "/rep/settings", sample: true, rewrites: CATEGORY_NAMES },
   { id: "RS2", path: "/rep/settings?tab=profile", sample: false, rewrites: PROFILE_SAMPLE },
+  { id: "RS2", path: "/rep/settings?tab=profile", sample: false, rewrites: MANAGER_PROFILE_SAMPLE, manager: true },
   {
     id: "RS3", path: "/rep/settings", sample: true, rewrites: CATEGORY_NAMES,
     drive: async (page) => {
@@ -250,9 +281,10 @@ const CASES: Case[] = [
 ];
 
 for (const c of CASES) {
-  test(`C_${c.id} (rep): every element, style and word, both ways`, async ({ browser }, testInfo) => {
+  test(`C_${c.id} (${c.manager ? "manager, decision 69" : "rep"}): every element, style and word, both ways`, async ({ browser }, testInfo) => {
     await frame(c.id);
-    const page = await asMara(browser, String(testInfo.project.use.baseURL), c.path, c.sample);
+    if (c.manager) await managerTabBar();
+    const page = await asRep(browser, String(testInfo.project.use.baseURL), c.path, c.sample, c.manager ? "supplier" : "mara");
     await expectGeometry(page);
     if (c.drive) await c.drive(page);
     const used = new Set<Rewrite>();
@@ -265,6 +297,6 @@ for (const c of CASES) {
     const boxes = await textless(framePage);
     expect(boxes.length, `C_${c.id}: the frame has boxes without text to compare`).toBeGreaterThan(4);
     expect(await textless(page), `C_${c.id}: bars, ticks, switches, the avatar and the boxes`).toEqual(boxes);
-    await testInfo.attach(`C_${c.id} result`, { body: JSON.stringify({ ...result, boxes: boxes.length, rewrites: (c.rewrites ?? []).map((r) => ({ app: String(r.app), frame: r.frame, why: r.why })), explained: c.explained }, null, 1), contentType: "application/json" });
+    await testInfo.attach(`C_${c.id}${c.manager ? " manager" : ""} result`, { body: JSON.stringify({ ...result, boxes: boxes.length, rewrites: (c.rewrites ?? []).map((r) => ({ app: String(r.app), frame: r.frame, why: r.why })), explained: c.explained }, null, 1), contentType: "application/json" });
   });
 }

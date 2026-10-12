@@ -53,6 +53,8 @@ describe('repSettings: the page snapshot (plan U8)',()=>{
     expect(m.aging).toEqual({rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:72,sentRedH:168});
     expect(m.flags).toEqual({freeDeliveryPricing:false,recoveryPool:false,deliveryCostModel:false});
     expect(settings.mine.rep.name).toBe('Brandi Gallegos');
+    // Decision 69: her own Profile tab (C_RS2), because customers see her in My rep.
+    expect(m.profile).toEqual({name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',picture_url:null});
   });
 
   it("opens Customer access searched for a linked customer's name (?customer=), every customer counted",()=>{
@@ -71,7 +73,7 @@ describe('repSettings: the page snapshot (plan U8)',()=>{
     expect(settings.own!.orgFloors.map(f=>[f.category_id,f.label])).toEqual([['fasteners','20.0%'],['abrasives','20.0%'],['safety','20.0%'],['material-handling','20.0%'],['tools','18.0%'],['janitorial','20.0%']]);
     expect(settings.own!.profile).toEqual({name:'Mara Jensen',initials:'MJ',title:'Inside Sales',phone:'(801) 555-0102',email:'mara.jensen@herrickindustrial.com',picture_url:null});
     expect(Object.values(settings.own!.notifications)).toEqual(Array(8).fill(true));
-    // The manager keeps the U8 tabs: no rep tabs.
+    // The manager keeps the U8 tabs and her own Profile (decision 69), not a rep's Margins or Notifications.
     expect(repSettings('brandi',{manager:true}).own).toBeNull();
   });
 

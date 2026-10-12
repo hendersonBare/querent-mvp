@@ -20,7 +20,8 @@ const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
 const COOKIE = "querent-persona";
 const STOCK_QUESTION = "Do you have 1/2 in grade 8 hex bolts in stock?";
-const TABS = ["Customer access", "Margin floors", "Pricing and delivery", "Aging"] as const;
+/** The manager's tabs (plan U8), then her own Profile (decision 69: customers see her in My rep). */
+const TABS = ["Customer access", "Margin floors", "Pricing and delivery", "Aging", "Profile"] as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -106,7 +107,7 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
 
-test("tabs: the manager's four sections, with Customer access first; Data sources and the old Data browser are gone", async ({ page }, testInfo) => {
+test("tabs: the manager's four sections, with Customer access first, then her Profile; Data sources and the old Data browser are gone", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await signInAsBrandi(page);
   await portalNav(page).getByRole("link", { name: "Settings" }).click();
@@ -283,6 +284,51 @@ test("profile: Mara's name, phone, email and picture are what her customer sees 
     expect((await assign("brandi")).status()).toBe(200);
     await brandi.close();
   }
+});
+
+test("profile (manager): Brandi edits her own profile on her Profile tab, and Dana (her customer) sees it in the My rep sheet", async ({ page, browser }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await signInAsBrandi(page);
+  await openSettings(page, "Profile");
+  const card = page.getByRole("region", { name: "Profile" });
+  await expect(card.getByText("BG", { exact: true })).toBeVisible();
+  await expect(card.getByRole("textbox", { name: "Name" })).toHaveValue("Brandi Gallegos");
+  // A rep's Margins and Notifications stay a rep's (decision 69 gives her Profile only).
+  await expect(settingsTabs(page).getByRole("link", { name: "Margins", exact: true })).toHaveCount(0);
+  await expect(settingsTabs(page).getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+  await card.locator('input[type="file"]').setInputFiles({ name: "me.png", mimeType: "image/png", buffer: PNG });
+  await card.getByRole("textbox", { name: "Phone" }).fill("(801) 555-0142");
+  await card.getByRole("textbox", { name: "Email" }).fill("brandi@example.com");
+  await card.getByRole("button", { name: "Save profile" }).click();
+  await expect(card.getByRole("status")).toHaveText("Saved");
+  await page.reload();
+  await expect(card.getByRole("textbox", { name: "Phone" })).toHaveValue("(801) 555-0142");
+  await expect(card.getByRole("img", { name: "Brandi Gallegos" })).toBeVisible();
+  await screenshot(page, testInfo, "brandi-profile");
+  // Her own record only: Mara's profile and picture are untouched.
+  const mara = await signInAsMara(browser, testInfo);
+  expect(await (await mara.request.get("/api/rep/profile")).json()).toMatchObject({ name: "Mara Jensen", phone: "(801) 555-0102", picture_url: null });
+  await mara.context().close();
+
+  // Dana's rep is Brandi: My rep shows her new phone, email and picture.
+  const dana = await signInAsDana(browser);
+  await dana.getByRole("button", { name: "My rep" }).click();
+  const sheet = dana.getByRole("dialog", { name: "Your rep" });
+  await expect(sheet).toContainText("Brandi Gallegos");
+  await expect(sheet).toContainText("(801) 555-0142");
+  await expect(sheet).toContainText("brandi@example.com");
+  await expect(sheet.getByRole("img", { name: "Brandi Gallegos" })).toHaveJSProperty("complete", true);
+  expect(await sheet.getByRole("img", { name: "Brandi Gallegos" }).evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(2);
+  await screenshot(dana, testInfo, "dana-my-rep-brandi");
+  await dana.context().close();
+
+  // Back to the seed's words.
+  await card.getByRole("button", { name: "Remove" }).click();
+  await card.getByRole("textbox", { name: "Phone" }).fill("(801) 111-2222");
+  await card.getByRole("textbox", { name: "Email" }).fill("brandi.gallegos@herrickindustrial.com");
+  await card.getByRole("button", { name: "Save profile" }).click();
+  await expect(card.getByRole("status")).toHaveText("Saved");
+  await expect(card.getByText("BG", { exact: true })).toBeVisible();
 });
 
 test("notifications: Mara's switches decide what her caution and bell dropdowns list", async ({ browser }, testInfo) => {

@@ -252,14 +252,14 @@ describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
 });
 
 describe('Settings in the shell',()=>{
-  it('Settings opens Customer access by default, with the manager\'s four tabs (plan U8: no Data sources; Rep assignments and Reps moved to Teams and Reps, plan U7); no tab carries ?customer=',()=>{
+  it('Settings opens Customer access by default, with the manager\'s four tabs and her Profile (decision 69; plan U8: no Data sources; Rep assignments and Reps moved to Teams and Reps, plan U7); no tab carries ?customer=',()=>{
     at('/rep/settings','customer=great-basin');
     renderShell(brandi,<SettingsSection initial={settingsFixture()}/>);
     expect(screen.getByRole('heading',{level:1,name:'Settings'})).toBeInTheDocument();
     expect(cautionButton()).toBeInTheDocument();
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
     expect(within(tabs).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
-      ['Customer access','/rep/settings?tab=access'],['Margin floors','/rep/settings?tab=floors'],['Pricing and delivery','/rep/settings?tab=pricing'],['Aging','/rep/settings?tab=aging'],
+      ['Customer access','/rep/settings?tab=access'],['Margin floors','/rep/settings?tab=floors'],['Pricing and delivery','/rep/settings?tab=pricing'],['Aging','/rep/settings?tab=aging'],['Profile','/rep/settings?tab=profile'],
     ]);
     expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Customer access');
     expect(screen.queryByText('Data sources')).not.toBeInTheDocument();

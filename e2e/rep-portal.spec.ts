@@ -88,9 +88,9 @@ test("nav: the rail names every section, with an icon, and each opens its own pa
   await expect(page.getByRole("heading", { name: "Queries by category" })).toBeVisible();
   await sectionLink(page, "Settings").click();
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
-  // Brandi is the manager: the four tabs are hers (plan U8); Rep assignments and Reps are on Teams and Reps (plan U7).
-  // Data sources is gone (plan U8).
-  await expect(tabs.getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing and delivery", "Aging"]);
+  // Brandi is the manager: the four tabs are hers (plan U8), then her own Profile (decision 69); Rep assignments and
+  // Reps are on Teams and Reps (plan U7). Data sources is gone (plan U8).
+  await expect(tabs.getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing and delivery", "Aging", "Profile"]);
   await tabs.getByRole("link", { name: "Customer access" }).click();
   await expect(page.getByRole("switch", { name: "Pricing", exact: true })).toBeVisible();
 

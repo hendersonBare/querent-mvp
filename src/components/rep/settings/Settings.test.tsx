@@ -1,6 +1,6 @@
 import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {ALL_ON,FLAGS_OFF,FLAGS_ON,ORG_FLOORS,VIEW,rule,settingsFixture,table} from './test-fixtures';
+import {ALL_ON,FLAGS_OFF,FLAGS_ON,MANAGER_PROFILE,ORG_FLOORS,VIEW,rule,settingsFixture,table} from './test-fixtures';
 
 // Settings (task 6.1; plan U8; C_S1 to C_S4): what each manager tab shows and what it sends to
 // /api/rep/settings/*, and the feature-flagged sections (decision 48). A rep's own tabs (plan U9) are in
@@ -284,24 +284,42 @@ describe('Pricing and delivery (C_S4)',()=>{
 describe('the Settings page (plan U8)',()=>{
   const tabs=()=>screen.getByRole('navigation',{name:'Settings sections'});
 
-  it('gives the manager four tabs, Customer access first, and no Data sources',()=>{
+  it('gives the manager four tabs, Customer access first, then her own Profile (decision 69), and no Data sources',()=>{
     render(<SettingsSection initial={settingsFixture()}/>);
     expect(screen.getByRole('heading',{level:1,name:'Settings'})).toBeInTheDocument();
     expect(within(tabs()).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
-      ['Customer access','/rep/settings?tab=access'],['Margin floors','/rep/settings?tab=floors'],['Pricing and delivery','/rep/settings?tab=pricing'],['Aging','/rep/settings?tab=aging'],
+      ['Customer access','/rep/settings?tab=access'],['Margin floors','/rep/settings?tab=floors'],['Pricing and delivery','/rep/settings?tab=pricing'],['Aging','/rep/settings?tab=aging'],['Profile','/rep/settings?tab=profile'],
     ]);
     expect(within(tabs()).getByRole('link',{name:'Customer access'})).toHaveAttribute('aria-current','page');
     expect(screen.getByRole('region',{name:'Customer access'})).toBeInTheDocument();
     expect(screen.queryByText(/Data sources/)).not.toBeInTheDocument();
   });
 
-  it('opens the tab in ?tab=, and Customer access for anything else',()=>{
-    for(const [tab,heading] of [['floors','Organization margin floors'],['pricing','Delivery rates'],['aging','Aging thresholds'],['sources','Customer access'],['reps','Customer access']] as const){
+  it('opens the tab in ?tab=, and Customer access for anything else (a rep-only tab included)',()=>{
+    for(const [tab,heading] of [['floors','Organization margin floors'],['pricing','Delivery rates'],['aging','Aging thresholds'],['profile','Profile'],['sources','Customer access'],['reps','Customer access'],['margins','Customer access'],['notifications','Customer access']] as const){
       nav.params=new URLSearchParams({tab});
       const {unmount}=render(<SettingsSection initial={settingsFixture()}/>);
       expect(screen.getByRole('heading',{name:heading})).toBeInTheDocument();
       unmount();
     }
+  });
+
+  it("gives the manager her own Profile (decision 69; C_RS2, the rep's component): her picture, name, phone and email, saved through her own profile route",async()=>{
+    nav.params=new URLSearchParams({tab:'profile'});
+    render(<SettingsSection initial={settingsFixture()}/>);
+    expect(within(tabs()).getByRole('link',{name:'Profile'})).toHaveAttribute('aria-current','page');
+    const card=screen.getByRole('region',{name:'Profile'});
+    expect(within(card).getByText('BG',{exact:true})).toBeInTheDocument();
+    expect(within(card).getByRole('textbox',{name:'Name'})).toHaveValue('Brandi Gallegos');
+    expect(within(card).getByRole('textbox',{name:'Phone'})).toHaveValue('(801) 111-2222');
+    expect(within(card).getByRole('textbox',{name:'Email'})).toHaveValue('brandi.gallegos@herrickindustrial.com');
+    expect(screen.queryByRole('region',{name:'Your margins'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Needs attention'})).not.toBeInTheDocument();
+    fireEvent.change(within(card).getByRole('textbox',{name:'Phone'}),{target:{value:'(801) 555-0142'}});
+    replies=[{body:{...MANAGER_PROFILE,phone:'(801) 555-0142'}}];
+    fireEvent.click(within(card).getByRole('button',{name:'Save profile'}));
+    await waitFor(()=>expect(within(card).getByRole('status')).toHaveTextContent('Saved'));
+    expect(sent()).toEqual([{url:'/api/rep/profile',body:{name:'Brandi Gallegos',phone:'(801) 555-0142',email:'brandi.gallegos@herrickindustrial.com'}}]);
   });
 
   it("gives a rep their own three tabs, not the manager's (plan U9; RepSettings.test.tsx covers them)",()=>{
