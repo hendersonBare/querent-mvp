@@ -1,13 +1,15 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-// Aging (v3 spec §3, §6; decisions 16 and 18; task A2): the Aging / Overdue markers with their text
-// labels, the Needs attention filter and its sort toggle, and the header caution (plan U2, C_QOB3).
+// Aging (v3 spec §3, §6; decisions 16 and 18; tasks A2, U3): the Overdue and Aging words on the Quotes
+// page's cards and rows, Only show Overdue and Aging (which replaced the Needs attention view, plan U3), the
+// API's Needs attention order, and the header caution (plan U2, C_QOB3). The frames draw the words in red
+// with no icon (C_QOBoard, C_QOTable), and the frames win (decision 50).
 //
 // beforeAll resets the database to the seed pinned to the mockup's day (POST /api/test/reset). The
 // seed's aging quotes are dated from the reset time, so on any day the list holds:
 //   Q-24789  sent 100 h ago, $360.80                    Aging (amber), "Sent 4 days ago"
 //   Q-24790  changes requested 30 h ago, sent $1,164.00  Overdue (red)
-//   Q-24791  sent 20 h ago                               no marker
+//   Q-24791  sent 20 h ago                               no word
 //   Q-24817  the sample, requested on the pinned day      Overdue (red): weeks old on the server's clock
 // The reset hook exists only when the server runs with QUERENT_E2E_RESET=1 (playwright.config.ts).
 // Brandi is the manager: her list and caution cover every rep (task U1), so the list checks narrow
@@ -35,74 +37,81 @@ async function signInAsBrandi(page: Page) {
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
 }
-const quotesTable = (page: Page) => page.getByRole("table");
-const quote = (page: Page, number: string) =>
-  quotesTable(page).getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) });
-/** The Status cell: a manager's rows start with the checkbox and carry a Rep cell (tasks D2, U1). */
-const statusCell = (page: Page, number: string) => quote(page, number).getByRole("cell").nth(4);
-/** Every rep's red quotes, as the manager's Needs attention view lists them (the caution's count, task U1). */
+const card = (page: Page, number: string) => page.getByRole("article", { name: number, exact: true });
+const table = (page: Page) => page.getByRole("table", { name: "Quotes" });
+/** The Status cell of one quote's table row. */
+const statusCell = (page: Page, number: string) => table(page).getByRole("row").filter({ has: page.getByRole("button", { name: number, exact: true }) }).getByRole("cell").nth(3);
+/** Every rep's red quotes, as the API's Needs attention view lists them (the caution's count, task U1). */
 const everyRepRed = (page: Page) =>
   page.evaluate(() => fetch("/api/rep/quotes?attention=1").then((r) => r.json()).then((b) => b.rows.filter((r: { aging: { level: string } }) => r.aging.level === "red").length));
-const listed = (page: Page) => quotesTable(page).getByRole("rowheader").getByRole("link");
-const statusFilter = (page: Page) => page.getByRole("navigation", { name: "Filter by status" });
-const sortToggle = (page: Page) => page.getByRole("navigation", { name: "Sort quotes needing attention" });
+async function listed(page: Page) {
+  const more = page.locator("[data-ui=table] [data-ui=more]");
+  if (await more.count() && /more/.test(await more.textContent() ?? "")) await more.click();
+  return table(page).getByRole("row").getByRole("button").filter({ hasText: /^Q-\d+$/ }).allTextContents();
+}
 const caution = (page: Page) => page.getByRole("button", { name: /^Needs attention/ });
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
-test("markers: Aging and Overdue rows carry a word and an icon, with the reason as the tooltip", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await signInAsBrandi(page);
-
-  const amber = statusCell(page, "Q-24789").locator('[data-level="amber"]');
-  await expect(amber).toHaveText(/^Aging/);
-  await expect(amber).toHaveAttribute("title", "Sent 4 days ago");
-  await expect(amber.locator("svg")).toBeVisible();
-  await expect(statusCell(page, "Q-24789")).toHaveText(/^Sent\s*Aging/);
-
-  const red = statusCell(page, "Q-24790").locator('[data-level="red"]');
-  await expect(red).toHaveText(/^Overdue/);
-  await expect(red).toHaveAttribute("title", /^Changes requested (29|30) hours ago$/);
-  await expect(red.locator("svg")).toBeVisible();
-  await expect(statusCell(page, "Q-24817").locator('[data-level="red"]')).toHaveAttribute("title", /^Requested \d+ days ago$/);
-
-  // Colour is not the only signal: amber and red differ in colour too.
-  const color = async (level: string) => statusCell(page, level === "amber" ? "Q-24789" : "Q-24790").locator(`[data-level="${level}"]`).evaluate((el) => getComputedStyle(el).color);
-  expect(await color("amber")).not.toBe(await color("red"));
-
-  // A fresh open quote and a final one carry no marker.
-  await expect(statusCell(page, "Q-24791")).toHaveText("Sent");
-  await expect(statusCell(page, "Q-24816")).toHaveText("Accepted");
-  await attachScreenshot(page, testInfo, "aging-markers-1440");
-});
-
-test("Needs attention filter: amber and red open quotes, red first then by total, with an Oldest first toggle", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
+test("words: Aging and Overdue on a card and a row, in red as the frames draw them; fine and final quotes carry none", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await signInAsBrandi(page);
   await page.goto("/rep/quotes?rep=brandi");
-  const filter = statusFilter(page).getByRole("link", { name: /^Needs attention/ });
-  await expect(filter).toHaveText(/^Needs attention\s*3$/);
-  await filter.click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?attention=1&rep=brandi$/);
-  await expect(filter).toHaveAttribute("aria-current", "page");
+  const red = async (number: string, word: string) => {
+    const flag = card(page, number).getByText(word, { exact: true });
+    await expect(flag).toBeVisible();
+    expect(await flag.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(201, 42, 28)");
+  };
+  await red("Q-24789", "Aging");
+  await red("Q-24790", "Overdue");
+  await red("Q-24817", "Overdue. 1 line below floor");
+  await expect(card(page, "Q-24791")).not.toContainText(/Overdue|Aging/);
+  await attachScreenshot(page, testInfo, "aging-board-1920");
 
-  // Most urgent: red (Q-24790 was sent at $1,164.00, the sample is $1,122.40), then amber.
-  await expect(listed(page)).toHaveText(["Q-24790", "Q-24817", "Q-24789"]);
-  await expect(sortToggle(page).getByRole("link", { name: "Most urgent" })).toHaveAttribute("aria-current", "page");
-  await attachScreenshot(page, testInfo, "needs-attention-1440");
+  // The same words in the table's Status cell, under the status.
+  await page.goto("/rep/quotes?rep=brandi&view=table");
+  await listed(page);
+  await expect(statusCell(page, "Q-24789")).toHaveText("SentAging");
+  await expect(statusCell(page, "Q-24790")).toHaveText(/^Changes requestedOverdue/);
+  await expect(statusCell(page, "Q-24817")).toHaveText("Draft readyOverdue. 1 line below floor");
+  await expect(statusCell(page, "Q-24791")).toHaveText("Sent");
+  await expect(statusCell(page, "Q-24816")).toHaveText("Accepted");
+  // Each quote's aging, with the reason the server gives (the caution dropdown shows it, plan U2).
+  const rows = await page.evaluate(() => fetch("/api/rep/quotes?rep=brandi").then((r) => r.json()).then((l) => l.rows));
+  const aging = (n: string) => rows.find((r: { quote_number: string }) => r.quote_number === n).aging;
+  expect(aging("Q-24789")).toMatchObject({ level: "amber", reason: "Sent 4 days ago" });
+  expect(aging("Q-24790")).toMatchObject({ level: "red", reason: expect.stringMatching(/^Changes requested (29|30) hours ago$/) });
+  expect(aging("Q-24817")).toMatchObject({ level: "red", reason: expect.stringMatching(/^Requested \d+ days ago$/) });
+  expect(aging("Q-24816")).toBeNull();
+});
 
-  await sortToggle(page).getByRole("link", { name: "Oldest first" }).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?attention=1&sort=oldest&rep=brandi$/);
-  await expect(listed(page)).toHaveText(["Q-24817", "Q-24789", "Q-24790"]);
-  await expect(sortToggle(page).getByRole("link", { name: "Oldest first" })).toHaveAttribute("aria-current", "page");
+test("Only show Overdue and Aging: the amber and red open quotes; the API keeps the Needs attention order", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await signInAsBrandi(page);
+  await page.goto("/rep/quotes?rep=brandi");
+  await page.locator("header [data-ui=filter] > button").click();
+  const panel = page.getByRole("dialog", { name: "Filter quotes" });
+  await panel.locator("label").filter({ hasText: /^Overdue$/ }).click();
+  await panel.locator("label").filter({ hasText: /^Aging$/ }).click();
+  await panel.getByRole("button", { name: "Apply filters" }).click();
+  await expect(page).toHaveURL(/\/rep\/quotes\?rep=brandi&only=overdue%2Caging$/);
+  await expect(page.getByRole("button", { name: "Filter, 3 applied" })).toBeVisible();
+  // Each in its lane: the sample a draft, Q-24790 a change request, Q-24789 sent.
+  await expect(page.locator('section[data-lane][aria-label="Draft ready"] [role=article]')).toHaveText([/^Q-24817/]);
+  await expect(page.locator('section[data-lane][aria-label="Changes requested"] [role=article]')).toHaveText([/^Q-24790/]);
+  await expect(page.locator('section[data-lane][aria-label="Sent"] [role=article]')).toHaveText([/^Q-24789/]);
+  await expect(page.locator('section[data-lane][aria-label="Accepted"] [data-ui=count]')).toHaveText("0");
+  await attachScreenshot(page, testInfo, "only-overdue-aging-1920");
+  // Overdue alone, from the table; the page's own customer filter keeps it.
+  await page.goto("/rep/quotes?only=overdue&customer=wasatch&view=table");
+  expect((await listed(page)).sort()).toEqual(["Q-24790", "Q-24817"]);
 
-  // The page's own customer filter keeps the view; another filter goes back to newest request first.
-  await page.goto("/rep/quotes?attention=1&sort=oldest&customer=wasatch");
-  await expect(listed(page)).toHaveText(["Q-24817", "Q-24789", "Q-24790"]);
-  await statusFilter(page).getByRole("link", { name: /^Sent/ }).click();
-  await expect(listed(page)).toHaveText(["Q-24791", "Q-24789"]);
-  await expect(sortToggle(page)).toHaveCount(0);
+  // GET /api/rep/quotes?attention=1 still sorts most urgent first (red, then the largest total: Q-24790 was
+  // sent at $1,164.00, the sample is $1,122.40, then amber), or oldest first with &sort=oldest (decision 18, OA-9).
+  const order = (query: string) => page.evaluate((q) => fetch(`/api/rep/quotes?${q}`).then((r) => r.json()).then((l) => l.rows.map((r: { quote_number: string }) => r.quote_number)), query);
+  expect(await order("attention=1&rep=brandi")).toEqual(["Q-24790", "Q-24817", "Q-24789"]);
+  expect(await order("attention=1&sort=oldest&rep=brandi")).toEqual(["Q-24817", "Q-24789", "Q-24790"]);
 });
 
 test("header caution: its label counts red quotes only; its dropdown lists the amber and red quotes in place", async ({ page, browser }, testInfo) => {

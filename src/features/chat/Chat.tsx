@@ -2,13 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ClarifyPayload, ItemPopupPayload, QuoteNotice, QuoteRequestedPayload } from "@/domain";
+import { isRepReply, type ChatNotice, type ClarifyPayload, type ItemPopupPayload, type QuoteRequestedPayload } from "@/domain";
 import type { API, ChatAnswer, ChatTurn, Principal, QuoteRequestResult } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
 import { everyWhileVisible } from "@/lib/use-poll";
 import { ClarifyPanel } from "@/components/customer/ClarifyPanel";
 import { ItemPopup } from "@/components/customer/ItemPopup";
 import { QuoteNoticeCard } from "@/components/customer/QuoteNoticeCard";
+import { RepReplyCard } from "@/components/customer/RepReplyCard";
 import { emitQuotesChanged } from "@/components/customer/quotes-changed";
 import { actionClass, CustomerSite } from "@/components/customer/site/CustomerSite";
 import { QueryBox } from "@/components/customer/site/QueryBox";
@@ -71,7 +72,7 @@ export function CustomerChat({
         (result) => ({ ok: true as const, result }),
         (reason: unknown) => ({ ok: false as const, reason }),
       ),
-      api.get<QuoteNotice[]>(`customer/notices/${conversation}`).catch(() => [] as QuoteNotice[]),
+      api.get<ChatNotice[]>(`customer/notices/${conversation}`).catch(() => [] as ChatNotice[]),
     ]).then(([history, sent]) => {
       if (cancelled) return;
       // A message sent before the history arrived stays, after the history.
@@ -92,7 +93,7 @@ export function CustomerChat({
     // Only while the tab is visible: a hidden chat skips the poll and catches up when shown.
     const stop = everyWhileVisible(() => {
       api
-        .get<QuoteNotice[]>(`customer/notices/${conversation}`)
+        .get<ChatNotice[]>(`customer/notices/${conversation}`)
         .then((sent) => {
           if (cancelled) return;
           const arrived = sent.filter((n) => !shownNotices.current.has(n.id));
@@ -208,10 +209,14 @@ export function CustomerChat({
         talk={
           turns.length > 0 || notices.length > 0 ? (
             <div className="turns">
-              {/* The turns, with the "quote is ready" messages among them (task 5.1). */}
+              {/* The turns, with the "quote is ready" messages (task 5.1) and the rep's replies (decision 63) among them. */}
               {timeline(turns, notices).map((entry) => {
                 if (entry.kind === "notice")
-                  return <QuoteNoticeCard key={`notice-${entry.notice.id}`} notice={entry.notice} />;
+                  return isRepReply(entry.notice) ? (
+                    <RepReplyCard key={`notice-${entry.notice.id}`} notice={entry.notice} />
+                  ) : (
+                    <QuoteNoticeCard key={`notice-${entry.notice.id}`} notice={entry.notice} />
+                  );
                 const { turn, index } = entry;
                 return (
                   <article className="chat-turn" key={turn.id}>

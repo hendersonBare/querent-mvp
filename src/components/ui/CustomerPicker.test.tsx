@@ -71,4 +71,19 @@ describe('CustomerPicker',()=>{
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  // A rep's picker (plan U3; C_RQB1): "All my customers", and a summary line naming how many are theirs.
+  it("takes the first row's words and the summary line from the page",()=>{
+    const own=customers.slice(9);
+    render(<CustomerPicker customers={own} value={null} onChange={vi.fn()} allLabel="All my customers"
+      summary={n=>`Your ${n} customers. Type to search.`}/>);
+    expect(screen.getByText('All my customers')).toBeInTheDocument();
+    expect(box()).toHaveAccessibleName('Customer, All my customers');
+    fireEvent.focus(box());
+    expect(options().map(o=>o.textContent)).toEqual(['All my customers','Wasatch Mechanical ContractorsWAS-1142','Wasatch Valley RoofingWVR-5520']);
+    expect(screen.getByText('Your 2 customers. Type to search.')).toBeInTheDocument();
+    // Typing still counts the matches.
+    fireEvent.change(box(),{target:{value:'roof'}});
+    expect(screen.getByText('1 match')).toBeInTheDocument();
+  });
 });

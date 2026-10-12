@@ -7,7 +7,7 @@ import {DeclineReasons} from './DeclineReasons';
 import {Leaderboard} from './Leaderboard';
 import {TeamFilters,type RangeChoice} from './TeamFilters';
 import {UntouchedTable} from './UntouchedTable';
-import {customWindow,metricsQuery,presetWindow,type TeamWindow} from './window';
+import {customWindow,metricsQuery,presetWindow,type TeamWindow} from '../analytics/window';
 import s from './Team.module.css';
 
 // The Team dashboard (v3 spec §6 Team, §7; decisions 23–25; task D3), the manager's alone: pick

@@ -6,7 +6,8 @@ import {dropSlot,useReorder} from './useReorder';
 
 // Board lanes (plan U0; frames C_QOBoard, C_QOB8 reorder): a row of lanes, each with a "::" handle,
 // its label and a count. Drag a lane's header onto another lane, or press Alt+Left / Alt+Right on a
-// focused header, to move it.
+// focused header, to move it. The count sits in an inline span inside its pill, as the frame's runtime
+// draws a filled-in value (so a page-level frame diff pairs it, plan U3).
 
 export interface LaneSlot {
   id:string;
@@ -28,7 +29,7 @@ export function Lane({id,label,count,handle,state,children}:LaneSlot&{label:stri
   return <section role="group" aria-label={label} data-lane={id} className={cx(s.lane,state==='dragging'&&s.dragging,state==='target'&&s.target)}>
     <div ref={ref} tabIndex={0} aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight" className={s.head} {...drag}>
       <div className={s.title}><span data-ui="handle" className={s.handle}>{':: '}</span><span>{label}</span></div>
-      <span data-ui="count" className={s.count}>{count}</span>
+      <span data-ui="count" className={s.count}><span>{count}</span></span>
     </div>
     <div className={s.body}>{children}</div>
   </section>;

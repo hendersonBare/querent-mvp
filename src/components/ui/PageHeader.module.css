@@ -1,5 +1,6 @@
 /* The page header (C_QOBoard, C_QOTable): title, then the page's own controls, then caution and bell. */
 .header {
+  box-sizing: content-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

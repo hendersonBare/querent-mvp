@@ -153,9 +153,9 @@ test("Duplicate creates a new ready_for_review quote from the latest draft, open
   expect(await badge(page)).toBe(unread);
   await page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Quotes" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
-  const row = page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: copy, exact: true }) });
-  await expect(row).toContainText("Draft ready");
-  await expect(row.getByRole("rowheader")).not.toHaveText(/^Unread: /);
+  // On the board (plan U3): a draft, and not in the bell (the rep made it, so it isn't unread).
+  await expect(page.locator('section[data-lane][aria-label="Draft ready"]').getByRole("article", { name: copy, exact: true })).toBeVisible();
+  expect(await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.bell.map((n: { quote_number: string }) => n.quote_number)))).not.toContain(copy);
 });
 
 test("Duplicate works in any status: an expired quote becomes a new editable draft", async ({ page }) => {

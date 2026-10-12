@@ -1,11 +1,17 @@
 import 'server-only';
 import type {CustomerListItem} from '@/domain';
+import type {DistanceProvider} from '@/server/freight/distance';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {customerFilterFor,ownerFilter,readableCustomers,type RepReader} from '@/server/rep/access';
-import {aggregateAccess,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,topRequestedItems,type QuoteScope} from '@/server/repository';
+import {managerListOptions} from '@/server/rep/quotes';
+import {aggregateAccess,agingThresholds,analytics,customers,productCategories,questionOutcomes,quoteFacts,quoteLineFacts,sentLineFacts,teamStatusEvents,topRequestedItems,type QuoteScope} from '@/server/repository';
+import {teamMetricsCsv} from '@/server/team/csv';
+import {groupMetricRows,metricGroups} from '@/server/team/metrics';
+import {cohortFacts} from '@/server/team/service';
 import {
-  TOP_ITEMS,extraGp,hoursSaved,marginVsFloor,questionsAnswered,quotedVsAccepted,turnaround,weeklyTrend,winRateCard,type RepAnalytics,
+  TOP_ITEMS,extraGp,hoursSaved,marginVsFloor,questionsAnswered,quotedVsAccepted,turnaround,weeklyTrend,winRateCard,type AnalyticsPage,type RepAnalytics,
 } from './metrics';
+import {parseAnalyticsQuery} from './query';
 
 // The Analytics page's data (spec §4, task 6.2) for the signed-in rep.
 //
@@ -28,6 +34,8 @@ export interface RepAnalyticsOptions {
   manager?:boolean;
   /** The page's own ?customer=. An unknown id, or one the rep can't read, reads as All customers. */
   customerId?:string|null;
+  /** The manager's rep and team filter (plan U6): only these reps' quotes, and their customers' questions. Null for every rep. */
+  repIds?:readonly string[]|null;
   /** For tests. */
   now?:string;
 }
@@ -37,9 +45,10 @@ export interface RepAnalyticsOptions {
  * questions count (the reader's, every customer for the manager), or the one filtered customer
  * they may read.
  */
-export function analyticsScope(reader:RepReader,customerId:string|null,everyone:readonly CustomerListItem[]=customers()):RepAnalytics['scope']{
+export function analyticsScope(reader:RepReader,customerId:string|null,everyone:readonly CustomerListItem[]=customers(),repIds:readonly string[]|null=null):RepAnalytics['scope']{
   const picked=customerFilterFor(reader,customerId,everyone);
-  return {customer:picked,customer_ids:picked?[picked.id]:readableCustomers(reader,everyone).map(c=>c.id),rep_id:ownerFilter(reader)};
+  const readable=readableCustomers(reader,everyone).filter(c=>!repIds||(c.rep_id!==null&&repIds.includes(c.rep_id)));
+  return {customer:picked,customer_ids:picked?[picked.id]:readable.map(c=>c.id),rep_id:ownerFilter(reader)};
 }
 
 /**
@@ -47,12 +56,12 @@ export function analyticsScope(reader:RepReader,customerId:string|null,everyone:
  * customers. Expiry is lazy (task 1.5), so this first stores the expiry of every sent quote past
  * valid_until; the win rate also reads effective statuses, so the two agree either way.
  */
-export function repAnalytics(repId:string,{manager=false,customerId=null,now=clock()}:RepAnalyticsOptions={}):RepAnalytics{
+export function repAnalytics(repId:string,{manager=false,customerId=null,repIds=null,now=clock()}:RepAnalyticsOptions={}):RepAnalytics{
   expireOverdueQuotes({now});
-  const scope=analyticsScope({repId,manager},customerId);
+  const scope=analyticsScope({repId,manager},customerId,customers(),repIds);
   const ids=scope.customer_ids;
-  // The owner's quotes for any customer, or for the filtered one.
-  const owned:QuoteScope={customers:scope.customer?scope.customer.id:null,repId:scope.rep_id};
+  // The owner's quotes for any customer, or for the filtered one; for the manager, the picked reps' only.
+  const owned:QuoteScope={customers:scope.customer?scope.customer.id:null,repId:scope.rep_id,repIds};
   const quotes=quoteFacts(owned),lines=quoteLineFacts(owned);
   return {
     as_of:now,scope,
@@ -68,4 +77,46 @@ export function repAnalytics(repId:string,{manager=false,customerId=null,now=clo
     queries:analytics(ids),
     access:ids.length?aggregateAccess(ids):[],
   };
+}
+
+// ---- The whole page, with its filter (plan U6; Part 1 section 6; Appendix D) ----
+//
+// GET /api/rep/analytics takes reps, teams, customer, breakdown and period (./query) and answers the
+// Overview above plus what the old Team dashboard served (GET /api/rep/team/metrics): the leaderboard
+// rows grouped by the breakdown, the decline reasons with the Other notes, and the untouched quotes,
+// all over the cohort of quotes created in the window. A rep only ever gets their own data.
+
+/** A refused filter (400): an unknown rep, team or breakdown, or a bad window. */
+export class AnalyticsQueryError extends Error {}
+
+export interface AnalyticsPageOptions {now?:string;provider?:DistanceProvider}
+
+/** The page for the reader and the query string. Throws AnalyticsQueryError. */
+export async function analyticsPage(reader:RepReader,params:{get(name:string):string|null},{now=clock(),provider}:AnalyticsPageOptions={}):Promise<AnalyticsPage>{
+  const listed=managerListOptions();
+  const parsed=parseAnalyticsQuery(params,{reader,reps:listed.reps,now});
+  if(!parsed.ok)throw new AnalyticsQueryError(parsed.detail);
+  const query=parsed.query;
+  const everyone=customers();
+  const readable=readableCustomers(reader,everyone);
+  const picked=customerFilterFor(reader,query.customerId,everyone);
+  const overview=repAnalytics(reader.repId,{manager:reader.manager,customerId:picked?.id??null,repIds:query.repIds,now});
+  // The cohort: the quotes created in the window, owned now by a cohort rep, for the picked customer or any.
+  const cohort={...query.window,repIds:query.cohortRepIds,customerIds:picked?[picked.id]:null};
+  const reps=listed.reps.filter(r=>query.cohortRepIds.includes(r.id));
+  const groups=groupMetricRows(metricGroups(query.breakdown,reps,picked?[picked]:readable),await cohortFacts(cohort,{now,provider}),teamStatusEvents(cohort),{now,thresholds:agingThresholds()});
+  return {...overview,
+    filter:{rep_ids:query.repIds===null?[]:query.reps,teams:query.teams,customer_id:picked?.id??null,breakdown:query.breakdown,window:query.window},
+    groups,
+    options:reader.manager?{reps:listed.reps,teams:listed.teams,customers:readable}:{reps:[],teams:[],customers:readable}};
+}
+
+/** The CSV file name for Export CSV on the Rep leaderboard. */
+export const LEADERBOARD_CSV_FILENAME='rep-leaderboard.csv';
+const FIRST_COLUMN={rep:'Rep',team:'Team',customer:'Customer'} as const;
+
+/** Export CSV: the leaderboard rows as the manager filtered them, then the totals (src/server/team/csv). */
+export async function analyticsCsv(reader:RepReader,params:{get(name:string):string|null},options:AnalyticsPageOptions={}){
+  const {groups}=await analyticsPage(reader,params,options);
+  return teamMetricsCsv(groups,{first:FIRST_COLUMN[groups.dimension]});
 }

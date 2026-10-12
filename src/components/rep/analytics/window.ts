@@ -1,10 +1,11 @@
 import type {QuoteStatus} from '@/domain';
 import type {AgingLevel} from '@/server/quotes';
 import {AGING_PARAM,STATUS_PARAM} from '../quotes/labels';
-import {FROM_PARAM,REP_PARAM,TO_PARAM} from '../scope';
+import type {Breakdown} from '@/server/team/metrics';
+import {CUSTOMER_PARAM,FROM_PARAM,REP_PARAM,TO_PARAM} from '../scope';
 
-// The Team dashboard's date window and links (v3 spec §6 Team, §7; decisions 10, 23; OA-19; task
-// D3). Pure. Days are the browser's: a window runs from local midnight to local midnight, and the
+// The Analytics window and links (plan U6; first the Team dashboard's: v3 spec §6 Team, §7; decisions
+// 10, 23; OA-19; task D3). Pure. Days are the browser's: a window runs from local midnight to local midnight, and the
 // API gets the two instants (it does no time-zone math). The presets count today: "7 days" is today
 // and the six days before it.
 
@@ -53,12 +54,31 @@ export function metricsQuery(window:TeamWindow,repIds:readonly string[],team:str
   return params.toString();
 }
 
-/** Where a count drills to: the manager's Quotes list (every rep's, task U1) for these reps and the window, narrowed to a status or an aging level. */
-export function drillHref(window:TeamWindow,repIds:readonly string[],{status,aging}:{status?:QuoteStatus;aging?:AgingLevel}={}){
+/** Where a count drills to: the Quotes list (every rep's for the manager, task U1) for these reps and the window, narrowed to a status, an aging level or a customer. */
+export function drillHref(window:TeamWindow,repIds:readonly string[],{status,aging,customer}:{status?:QuoteStatus;aging?:AgingLevel;customer?:string|null}={}){
   const params=new URLSearchParams();
   if(repIds.length)params.set(REP_PARAM,repIds.join(','));
   params.set(FROM_PARAM,window.from);params.set(TO_PARAM,window.to);
   if(status)params.set(STATUS_PARAM,status);
   if(aging)params.set(AGING_PARAM,aging);
+  if(customer)params.set(CUSTOMER_PARAM,customer);
   return `/rep/quotes?${params}`;
 }
+
+/** The Analytics filter (C_AN4, C_RAN2): reps and teams picked, a customer and the breakdown. */
+export interface AnalyticsFilter {reps:string[];teams:string[];customer:string|null;breakdown:Breakdown}
+export const NO_FILTER:AnalyticsFilter={reps:[],teams:[],customer:null,breakdown:'org'};
+
+/** The query for GET /api/rep/analytics(/csv): the window, then only what is picked. */
+export function analyticsQuery(filter:AnalyticsFilter,window:TeamWindow){
+  const params=new URLSearchParams({from:window.from,to:window.to});
+  if(filter.reps.length)params.set('reps',filter.reps.join(','));
+  if(filter.teams.length)params.set('teams',filter.teams.join(','));
+  if(filter.customer)params.set(CUSTOMER_PARAM,filter.customer);
+  if(filter.breakdown!=='org')params.set('breakdown',filter.breakdown);
+  return params.toString();
+}
+
+const LONG_DAY=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'});
+/** "Sep 12, 2026 to Oct 11, 2026": the window's first and last local day (its end is the next midnight). */
+export const windowLabel=(window:TeamWindow)=>`${LONG_DAY.format(new Date(window.from))} to ${LONG_DAY.format(new Date(Date.parse(window.to)-1))}`;

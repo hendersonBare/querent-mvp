@@ -28,8 +28,8 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 ## Act 2: Brandi opens it, reads the chat, sees what needs attention, and sends it
 
 1. In the other window, open `/demo` and choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
-2. Brandi is the manager, so her Quotes list shows every rep's quotes, with a Rep column. Press the red caution button at the top right of the page: the **Needs attention** dropdown lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue and aging quotes, red first. It opens in place; the list's **Needs attention** filter shows the same quotes.
-3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from **All**, where it is unread). Press the **Chat** button under the total box: the Full chat drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
+2. Brandi is the manager, so her Quotes board shows every rep's quotes, one lane per status. Press the red caution button at the top right of the page: the **Needs attention** dropdown lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue and aging quotes, red first. It opens in place. In **Filter**, tick **Overdue** and **Aging** under Only show and press **Apply filters**: the board shows the same quotes.
+3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from its card in the Draft ready lane, then **Open quote**). Press the **Chat** button under the total box: the Full chat drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
 4. The hex nut line is tagged **CHAT SUGGESTION**. Press **Approve and send**, then **Send quote**, then **Send**. The quote reads *Sent*.
 
 ## Act 3: Dana declines a different quote
@@ -43,7 +43,7 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 1. In Herrick's window open **Teams and Reps** in the rail (managers only). The 30-day preset is on.
 2. Untick Brandi Gallegos and Nora Chen to compare **Mara Jensen** and **Eli Porter**: one row each and a totals row, with created, open quotes by aging, status counts, rates, times, values, freight recovered and suggestions taken.
 3. **Decline reasons** lists every reason with each rep's share, and the Other note in the customer's words. Press the declined-quotes link to drill into exactly those quotes in the Quotes list.
-4. Back on Teams and Reps, press Mara's **overdue** count. Tick her overdue draft, press **Reassign…**, choose **Eli Porter** and **Reassign**. The list now shows it as Eli's, and its Activity says who moved it.
+4. Back on Teams and Reps, press Mara's **overdue** count. Press her overdue draft's card, then **Open quote**. On the read-only quote, open **More actions** and choose **Reassign to another rep**, then choose **Eli Porter** and **Reassign**. The quote now reads as Eli's, and its Activity (in **Quote details**) says who moved it.
 
 ## Act 5: Pricing & delivery, impact preview, free delivery and the ramp
 

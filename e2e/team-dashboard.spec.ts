@@ -89,10 +89,11 @@ test("Brandi compares two reps, reads the decline reasons, drills into the quote
   // Drill into Mara's declined count: the manager's Quotes list (no ?scope=all, task U1), filtered to those quotes.
   await repRow(page, "Mara Jensen").getByRole("link", { name: "3 declined" }).click();
   await expect(page).toHaveURL(/\/rep\/quotes\?rep=mara&from=.+&to=.+&status=declined$/);
-  const rows = page.getByRole("table").getByRole("rowheader");
-  await expect(rows).toHaveCount(3);
-  await expect(page.getByRole("table").getByRole("link", { name: otherQuote, exact: true })).toBeVisible();
-  await expect(page.getByText(/Created between/)).toBeVisible();
+  // The Quotes board (plan U3) keeps the Declined lane, with Mara's three declined quotes from the window.
+  const cards = page.locator('section[data-lane][aria-label="Declined"] [role=article]');
+  await expect(page.locator("section[data-lane]")).toHaveCount(1);
+  await expect(cards).toHaveCount(3);
+  await expect(page.getByRole("article", { name: otherQuote, exact: true })).toBeVisible();
   await screenshot(page, testInfo, "drill-down");
 });
 

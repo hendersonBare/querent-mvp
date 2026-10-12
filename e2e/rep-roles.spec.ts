@@ -47,9 +47,8 @@ async function signInAsMara(browser: Browser, testInfo: TestInfo) {
   return context.newPage();
 }
 const settingsTabs = (page: Page) => page.getByRole("navigation", { name: "Settings sections" });
-/** A quote's Status cell on the manager's list: her rows start with the checkbox and carry a Rep cell (tasks D2, U1). */
-const quoteStatus = (page: Page, number: string) =>
-  page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: number, exact: true }) }).getByRole("cell").nth(4);
+/** A quote's card on the Quotes board (plan U3). */
+const quoteCard = (page: Page, number: string) => page.getByRole("article", { name: number, exact: true });
 async function noSidewaysScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 }
@@ -90,9 +89,11 @@ test("Scope is role based: Mara reads only her own records, Brandi the whole org
   const nav = mara.getByRole("navigation", { name: "Rep portal" }).getByRole("link");
   for (const href of await nav.evaluateAll((links) => links.map((l) => l.getAttribute("href")))) expect(href).not.toMatch(/\?/);
   // Her Quotes: her own only; Wasatch (Brandi's customer) is ignored, and Brandi's sample quote isn't there.
-  await expect(mara.getByText("Viewing All customers", { exact: false })).toBeVisible();
-  await expect(mara.getByRole("columnheader", { name: "Rep" })).toHaveCount(0);
-  await expect(mara.getByRole("link", { name: "Q-24817", exact: true })).toHaveCount(0);
+  await expect(mara.getByRole("combobox", { name: "Customer, All my customers" })).toBeVisible();
+  await expect(mara.getByRole("article", { name: "Q-24817", exact: true })).toHaveCount(0);
+  await mara.goto("/rep/quotes?view=table");
+  await expect(mara.getByRole("columnheader", { name: ":: Rep" })).toHaveCount(0);
+  await expect(mara.getByRole("table", { name: "Quotes" }).getByRole("button", { name: "Q-24817", exact: true })).toHaveCount(0);
   // Customers: Canyon Ridge only; Wasatch's page and orders are not found for her.
   await mara.goto("/rep/customers");
   await expect(mara.getByText("1 customer", { exact: true })).toBeVisible();
@@ -117,8 +118,10 @@ test("Scope is role based: Mara reads only her own records, Brandi the whole org
   // Brandi (the manager) reads every customer and every rep's quotes, with no switch.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  await expect(page.getByRole("columnheader", { name: "Rep" })).toBeVisible();
-  await expect(page.getByRole("table").getByRole("cell").filter({ hasText: "Mara Jensen" }).first()).toBeVisible();
+  // Mara's customer's quotes are on Brandi's board; the API names their rep.
+  await expect(page.getByRole("article").filter({ hasText: "Canyon Ridge Builders" }).first()).toBeVisible();
+  const reps = await page.evaluate(() => fetch("/api/rep/quotes").then((r) => r.json()).then((l) => [...new Set(l.rows.map((r: { rep_name: string }) => r.rep_name))]));
+  expect(reps).toEqual(expect.arrayContaining(["Brandi Gallegos", "Mara Jensen", "Eli Porter"]));
   await page.goto("/rep/customers");
   await expect(page.getByText("6 customers", { exact: true })).toBeVisible();
   await page.goto("/rep/customers/canyon-ridge");
@@ -128,7 +131,7 @@ test("Scope is role based: Mara reads only her own records, Brandi the whole org
 test("Brandi edits an aging threshold, and the Quotes list follows it", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInAsBrandi(page);
-  await expect(quoteStatus(page, "Q-24789").locator('[data-level="amber"]')).toHaveText(/^Aging/);
+  await expect(quoteCard(page, "Q-24789")).toContainText(/Aging$/);
 
   await page.goto("/rep/settings");
   await settingsTabs(page).getByRole("link", { name: "Aging", exact: true }).click();
@@ -149,7 +152,7 @@ test("Brandi edits an aging threshold, and the Quotes list follows it", async ({
 
   // Sent 100 hours ago: now past the 96 h red threshold.
   await page.goto("/rep/quotes");
-  await expect(quoteStatus(page, "Q-24789").locator('[data-level="red"]')).toHaveText(/^Overdue/);
+  await expect(quoteCard(page, "Q-24789")).toContainText(/Overdue$/);
 });
 
 test("Brandi sets a team label, and can mark Mara inactive only after reassigning her customer", async ({ page, browser }, testInfo) => {

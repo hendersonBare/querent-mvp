@@ -167,7 +167,7 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await expect.poll(() => bellRead(number)).toBe("true");
   });
 
-  await test.step("Brandi: an unread notification, the Declined filter and chip, Declined in the header and the reason in Activity", async () => {
+  await test.step("Brandi: an unread notification, the Declined filter and lane, Declined in the header and the reason in Activity", async () => {
     expect(await repBadge()).toBe(before + 1);
     expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", decline_note: null, unread_for_rep: true });
     await brandi.goto("/rep/quotes?status=declined");
@@ -175,12 +175,14 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await brandi.getByRole("button", { name: "Notifications" }).click();
     await expect(brandi.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: new RegExp(`^${number} declined by Dana Ortiz`) })).toHaveCount(1);
     await brandi.keyboard.press("Escape");
-    await expect(brandi.getByRole("navigation", { name: "Filter by status" }).locator("[aria-current=page]")).toHaveText(/^Declined\d+$/);
-    const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: number, exact: true }) });
-    await expect(row).toHaveAttribute("data-status", "declined");
-    await expect(row).toHaveAttribute("data-unread", "true");
-    await expect(row.getByText("Declined", { exact: true })).toBeVisible();
-    await row.getByRole("link", { name: number, exact: true }).click();
+    // The Declined filter keeps the Declined lane only (plan U3), with the quote in it.
+    await expect(brandi.locator("section[data-lane]")).toHaveCount(1);
+    const card = brandi.locator('section[data-lane][aria-label="Declined"]').getByRole("article", { name: number, exact: true });
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: number, exact: true }).click();
+    const sheet = brandi.getByRole("dialog", { name: number, exact: true });
+    await expect(sheet).toContainText("Status: Declined");
+    await sheet.getByRole("link", { name: "Open quote" }).click();
     // The editor's header (plan U4, C_QEBase) says Declined; the reason is in Quote details, Activity.
     await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Declined/);
     const activity = await openActivity(brandi);

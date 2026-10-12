@@ -232,8 +232,8 @@ test(
       await brandi.goto("/rep/quotes");
       const before = await unread();
       expect(before).toBeGreaterThan(0);
-      const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: flow.quoteNumber, exact: true }) });
-      await expect(row.getByRole("rowheader")).toHaveText(/^Unread: /);
+      // On the board (plan U3): a new draft, in the Draft ready lane.
+      await expect(brandi.locator('section[data-lane][aria-label="Draft ready"]').getByRole("article", { name: flow.quoteNumber, exact: true })).toBeVisible();
       const bell = brandi.getByRole("button", { name: /^Notifications/ });
       await bell.click();
       const notifications = brandi.getByRole("dialog", { name: "Notifications" });
@@ -531,15 +531,17 @@ test(
     });
 
     await test.step("Brandi edits the quote and sends rev 2", async () => {
-      // The badge, and the Quotes list: the row highlighted, with Dana's note.
+      // The badge, and the Quotes board (plan U3): the card in Changes requested, with Dana's note behind View note.
       await expect.poll(repBadge).toBe(unread + 1);
       await brandi.goto("/rep/quotes");
-      const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: flow.quoteNumber, exact: true }) });
-      await expect(row).toHaveAttribute("data-status", "changes_requested");
-      await expect(row.getByRole("rowheader")).toHaveText(/^Unread: /);
-      await expect(row.getByText(/^Dana Ortiz asked for changes · /)).toBeVisible();
-      await expect(row.getByText(CHANGE_NOTE)).toBeVisible();
-      await row.getByRole("link", { name: flow.quoteNumber, exact: true }).click();
+      const card = brandi.locator('section[data-lane][aria-label="Changes requested"]').getByRole("article", { name: flow.quoteNumber, exact: true });
+      await card.getByRole("button", { name: "View note" }).click();
+      const note = brandi.getByRole("dialog", { name: `Note on ${flow.quoteNumber}` });
+      await expect(note).toContainText(/^Note on Q-\d+Dana Ortiz, [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} (AM|PM)/);
+      await expect(note).toContainText(`"${CHANGE_NOTE}"`);
+      await note.getByRole("button", { name: "Close" }).last().click();
+      await card.getByRole("button", { name: flow.quoteNumber, exact: true }).click();
+      await brandi.getByRole("dialog", { name: flow.quoteNumber, exact: true }).getByRole("link", { name: "Open quote" }).click();
       await expect(brandi).toHaveURL(new RegExp(`/rep/quotes/${flow.quoteNumber}$`));
       await expect(repStatus()).toHaveText(/^Status\s*Changes requested/);
       // Dana's note is in Quote details, Activity (the editor's header has no banner, plan U4).

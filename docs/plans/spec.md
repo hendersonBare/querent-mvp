@@ -113,7 +113,7 @@ Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `agi
 - A `sent` quote is also amber from 2 days before expiry and red on its last day. Expiry is 00:00Z on the day after `valid_until` (`expiresAt` in `lifecycle.ts`), so amber starts at 00:00Z on `valid_until - 1 day` and red at 00:00Z on `valid_until`. The worse of the two levels wins.
 - Worked example (`sent`, sent 2026-10-01T15:00Z, valid_until 2026-10-15): ok until 10-04T15:00Z; amber from 10-04T15:00Z (72 h); red from 10-08T15:00Z (168 h). A quote sent 10-10T09:00Z valid until 10-14 (expires 10-15T00:00Z): amber from 10-13T00:00Z (expiry rule), red from 10-14T00:00Z.
 - UI: amber shows a clock icon and the text "Aging", red shows an alert icon and "Overdue" (text label and icon besides colour). The tooltip gives the reason ("Sent 4 days ago", "Expires tomorrow").
-- Quotes list: a **Needs attention** filter shows amber and red open quotes. In that view the default sort is red first, then amber, then quoted total descending; a toggle switches to oldest clock first (OA-9). Other filters keep today's sort.
+- Quotes list (U3): Needs attention is the header's caution dropdown plus the filter panel's Only show **Overdue** (red) and **Aging** (amber); the list keeps newest request first. The old Needs attention view (`?attention=1`) opens as Only show Overdue and Aging. `GET /api/rep/quotes?attention=1` still answers red first, then amber, then quoted total descending, or oldest clock first with `&sort=oldest` (OA-9).
 - Header caution (U2, replacing the old red badge and the nav unread count): the caution button in every rep page header opens the "Needs attention" dropdown of amber and red open quotes, red first (C_QOB3); its accessible name counts the red ones only ("Needs attention, 2 items"). Scoped like the list: own quotes, every rep's for the manager (U1). Unread customer events are in the bell dropdown (C_QOB4).
 - Touch and view clocks (used by Team, section 7.3):
   - `last_rep_touch_at` is set to now when the owning rep opens the quote detail (`GET /api/rep/quotes/[id]` and the page load) or makes any edit (lines, terms, fulfillment, freight, notes, send). A manager's read-only open does not touch it.
@@ -242,6 +242,8 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 |---|---|---|---|
 | `POST /api/query/customer/quotes/[id]/decline` | A1 | customer | `{reason?:DeclineReason\|null, note?:string}`; Idempotency-Key replay like accept; 409 when not respondable |
 | `GET /api/rep/quotes?attention=1&sort=oldest` | A2 | rep | Needs-attention filter and sort; rows carry `aging` |
+| `GET /api/rep/quotes?status=a,b&customer=&rep=&requested_from=&requested_to=&only=` | U3 | rep, manager | The Quotes page's filter panel: any set of statuses, the page's own customer, Rep (the manager only; ignored for a rep), requested days (YYYY-MM-DD, UTC, both included) and Only show `overdue`, `aging`, `below_floor` (any of them). `counts` (the board's lanes) cover every filter but the status ones. Rows carry `contact_name`; the list carries `customers` (the picker: a rep's own, every customer for the manager), `statuses`, `requested_from`, `requested_to`, `only`. The page and its poll send the same query |
+| `POST /api/rep/quotes/[id]/reply` | U3 | owning rep | `{body}` (1 to 2000 characters): the rep's reply to the customer's change request note (C_QOB6 "Send reply"), recorded on the quote's Activity (`kind='replied'`, "Brandi Gallegos replied to Dana Ortiz: …"); nothing is sent to the customer yet (no frame or spec says where, status.md "No frame"). 409 without a change request, 404 for another rep's quote |
 | `GET /api/rep/badges` | A2, U2 | rep | `{quotes, attention, caution, bell}`: the unread count, the red count, and the two header dropdowns' rows `{id, quote_number, kind, label, tag, line, at}` (caution: amber and red open quotes, red first, tag "Overdue" or "Aging", one line in C_QOB3's sentence for the quote's status: "Dana Ortiz asked to move pickup to Ogden.", "Draft has 1 line below the margin floor.", "Sent Oct 6, no reply yet."; bell: the reader's own unread customer events, newest first, worded as C_QOB4 ("Dana Ortiz replied on Q-24790", "Q-24763 accepted by Canyon Ridge Builders": the customer's full name, decision 59, also for a quote with no contact; "Q-24815 expired"), `line` null and `at` printed in the browser's time zone, except an expired row, whose `line` is its day). Preferences (U9) filter the rows through one seam (`notify` in `src/server/rep/badges.ts`) |
 | `GET /api/rep/quotes/[id]/messages?before=&limit=50` | B1 | owner rep, manager (after D2) | `{total, messages:[{id,role,kind,content,created_at}], next_before}` oldest-first pages of 50, newest page first |
 | `GET/PUT /api/rep/settings/freight` | C3 | manager | toggle, cost inputs, rates, caps, ramp; GET returns pool, fuel status, warnings |
@@ -252,8 +254,10 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 | `PUT /api/rep/settings/assignments` | D2 | manager | adds `{moveOpenQuotes:boolean}` |
 | `GET /api/rep/quotes?rep=<id>&team=<label>` | D2, U1 | rep, manager | Scope is role based (U1): a rep's own quotes, every rep's for the manager, who also filters by rep and team. `?scope=all` is ignored (no switch, never a 403) |
 | `GET /api/rep/badges`, `/api/rep/analytics`, `/api/rep/settings` | U1 | rep, manager | Role based: a rep's own customers and quotes, the whole organization for the manager. `?customer=` is a page's own filter; a customer the rep can't read is ignored |
-| `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone |
-| `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
+| `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone. Kept, unchanged, for the old dashboard on `/rep/teams` until U7; Analytics reads `GET /api/rep/analytics` |
+| `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` (kept like the route above) |
+| `GET /api/rep/analytics?customer=&reps=a,b&teams=X,Y&breakdown=org\|rep\|team\|customer&from=&to=` (or `&period=7\|30\|90`) | U6 | rep, manager | The Analytics page: the Overview (stat cards, weekly trend, margin vs floor, top items), the customer questions and query analytics, `filter`, `options` (reps, team labels, readable customers), and `groups`: the section 7 metrics, one row per rep, team label ("No team" for reps without one) or customer, plus the totals and the Other notes, over the quotes created in the window. Reps and teams narrow every number to those reps' quotes and their customers' questions; the whole organization groups the rows by rep. A rep is forced to their own data (reps, teams and breakdown ignored, another rep's customer reads as none, never a 403). The window defaults to the last 30 UTC days; the browser sends its own midnights (OA-19). 400 for an unknown rep, team or breakdown or a bad window |
+| `GET /api/rep/analytics/csv?…` | U6 | manager | Export CSV on the Rep leaderboard: the rows as filtered and broken down, then the totals, `rep-leaderboard.csv`; the first column is named Rep, Team or Customer. 403 for a rep |
 | `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
 | line add with `added_by:'suggestion'` | E1 | customer | adding a suggestion to the cart at qty 1 |
 | `GET /api/query/customer/orders` | U10 | customer | the session customer's own orders, newest first: `[{id, order_number, order_date, status, fulfillment, branch_code, total, quote_number}]`; no lines, subtotal, freight, tax, cost or margin |
@@ -279,10 +283,14 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - PDF preview modal action bar: **Decline** next to Accept / Request changes, opening a centered dialog with the five reasons as radio buttons, a 250-character field for Other, red Cancel, and a **Decline** confirm button (A1).
 - Item pop-up: "Frequently bought together" below the cart, at least 2 suggestions when the pool allows, each with its reason and an "Add" button that adds qty 1 (E1).
 
-### Rep: Quotes list (`/rep/quotes`)
-- Aging marker (icon + "Aging"/"Overdue") per row; Needs attention filter with sort toggle (A2).
-- "Declined" filter and chip (A1).
-- Manager: every rep's quotes by default (no "My quotes / All reps" switch, U1), Rep column, rep filter, team filter, row checkboxes and "Reassign…" bulk action (D2).
+### Rep: Quotes list (`/rep/quotes`; U3, frames C_QOBoard, C_QOTable, C_RQBoard, C_RQTable)
+- One toolbar: the customer picker ("All customers", a rep's "All my customers"; first five rows, the rest scroll, typing narrows; C_QOB1, C_QOT7, C_RQB1), **Filter** (C_QOB2) and the **Board** / **Table** toggle (`?view=table`). No status strip, no "Viewing" line, no unread dot, no sort toggle.
+- Board: one lane per status (Draft ready, Changes requested, Sent, Accepted, Expired, Declined) with its count (real data), seven cards, then "Show N more" and "Show less" (C_QOB7); an empty lane reads "No quotes here". A card: number, requested day, customer, View note (a change request), total, margin and one red line when something is wrong ("Overdue", "Aging", "1 line below floor", "Overdue. 1 line below floor"). Lanes move by drag or Alt+Left / Alt+Right (C_QOB8); the order is the user's own (`ui_table_prefs`, table `quotes-board`). A status filter shows only its lanes.
+- Table: Quote, Customer, Requested, Status, Total, Margin; the columns picker (C_QOT2) also offers Rep (the manager only), Valid until and Purchasing agent, hidden at first; order and visibility are the user's own (table `quotes`). Fourteen rows, then "Show N more quotes" and "Show fewer quotes" (C_QOT5).
+- Filter (C_QOB2, C_RQB2 for a rep): status (all ticked means every status), Rep (the manager only), Customer, Requested from and to, Only show Overdue, Aging, Below margin floor; the badge counts what is applied. Everything lives in the URL; a page with a Team dashboard drill-down (`?rep=a,b&from=&to=&aging=`) opens that list (`aging=red|amber` reads as Only show Overdue or Aging).
+- A card or row opens the quote preview (C_QOB5, C_QOT3): total, requested day, margin, status, the customer's note, **Open quote** (which opens the quote page and marks it read) and **Reply to Dana** (which opens the note). **View note** (C_QOB6, C_QOT4) shows the note with a reply box; **Send reply** records the reply on the quote's Activity.
+- Manager: every rep's quotes by default (no "My quotes / All reps" switch, U1). No bulk reassign on this page (decision 45: Teams and Reps, U7); `POST /api/rep/quotes/reassign` stays.
+- Rep: own quotes and customers only, no Rep column or Rep filter (U1).
 - `?customer=` filters this page only (U1); its links keep it, no other page's links do.
 
 ### Rep: shell (`RepShell`, `Rail`, `RepPageHeader`; U2)
@@ -306,7 +314,17 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 - Aging thresholds card (D1, manager-only). Reps card: team label, active, deactivate blocked while customers are assigned (D1).
 - Rep assignments: "Also move this customer's open quotes" checkbox (D2).
 
+### Rep: Analytics (`/rep/analytics`, U6; frames C_ANBase to C_AN8, C_RAN1 to C_RAN5)
+- Manager tabs: Overview, Rep leaderboard, Decline reasons, Untouched quotes, Customer questions. Rep ("My Analytics"): the same without Rep leaderboard.
+- Header: the title and the line under it ("Quotes and customer questions for the whole organization", "for your customers", or the filtered customer's name), **Filter**, and on the Rep leaderboard tab **Export CSV**.
+- Manager filter (C_AN4): Reps and Teams checkboxes, a Customer select ("Any customer"), "Break the numbers down by" Whole organization, Rep, Team, Customer. Rep filter (C_RAN2): Customer ("Any of my customers") and Period 7, 30 (default), 90 days or Custom. The manager picks the window in the leaderboard's title bar ("Created"). The window is the cohort of the leaderboard, Decline reasons and Untouched quotes (section 7); the Overview keeps its own spans (26 weeks, all time).
+- Overview: the five stat cards with an "i" each, quotes and wins by week (a column per week, a label under every fourth from the first, **Show table** newest first, nine weeks then "Show N more weeks"), average margin vs floor per category, top requested items (bars by quantity).
+- Rep leaderboard (C_AN6): the section 7 counts and rates per row and in the totals, each count linked to its quotes; the frame's 18 columns, with the rest of section 7 in the columns picker. Decline reasons (C_AN7): per reason, a column per row for the manager, and the Other notes ("Q-24767, Mara Jensen, Sep 28"; a rep's notes name the customer). Untouched quotes (C_AN8): per reason, a row per rep and the totals; a rep's single row is "Your quotes".
+- Customer questions (C_AN2): questions answered without a rep, then Query analytics (Total queries, Estimated time saved, Queries by category with the Assigned rep for the manager, and the access card with "Manage customer access" for the manager).
+- Table headers carry "::" and reorder by drag or Alt+Left/Right; the week and leaderboard tables have the columns picker. Order and hidden columns are the user's own (`ui_table_prefs`).
+
 ### Rep: Teams and Reps (`/rep/teams`, was `/rep/team`; manager-only, D3; rebuilt in U7)
+- U6 moved this dashboard's content into Analytics (Rep leaderboard, Decline reasons, Untouched quotes). The page below stays until U7 replaces it.
 - Filters: rep multi-select, team label filter, presets 7 / 30 / 90 days and a custom range.
 - Leaderboard: one row per selected rep plus a totals row, columns per section 7.
 - Drill-down: any count or row links to `/rep/quotes?rep=…&from=…&to=…` filtered to those quotes; decline counts show reasons and Other text.
@@ -330,7 +348,7 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 
 ## 7. Team metrics (D3)
 
-Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and team label. Statuses use `effectiveStatus` at request time. Rates are `null` (shown "–") when the denominator is 0.
+Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and team label. Statuses use `effectiveStatus` at request time. Rates are `null` (shown "-") when the denominator is 0. Analytics (U6) groups the same metrics by rep, team label or customer; only the grouping changes.
 
 | Metric | Definition |
 |---|---|

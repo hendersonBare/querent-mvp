@@ -56,7 +56,12 @@ const portalNav = (page: Page) => page.getByRole("navigation", { name: "Rep port
 const sectionLink = (page: Page, label: string) => portalNav(page).getByRole("link", { name: label, exact: true });
 const pageTitle = (page: Page) => page.getByRole("heading", { level: 1 });
 /** Analytics' "Total queries" number. */
-const totalQueries = (page: Page) => page.locator(".metric").filter({ hasText: "Total queries" }).locator("strong");
+/** Total queries on Analytics > Customer questions (plan U6: the old query analytics moved to that tab). */
+async function totalQueries(page: Page) {
+  const tab = page.getByRole("tab", { name: "Customer questions" });
+  if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+  return page.getByTestId("total-queries");
+}
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
@@ -85,9 +90,10 @@ test("nav: the rail names every section, with an icon, and each opens its own pa
     await expect(portalNav(page).locator('[aria-current="page"]')).toHaveCount(1);
   }
 
-  // The old supplier sections live on: query analytics under Analytics, the rest under Settings
-  // (task 6.1; e2e/rep-settings.spec.ts covers each tab).
+  // The old supplier sections live on: query analytics under Analytics > Customer questions (plan U6),
+  // the rest under Settings (task 6.1; e2e/rep-settings.spec.ts covers each tab).
   await sectionLink(page, "Analytics").click();
+  await page.getByRole("tab", { name: "Customer questions" }).click();
   await expect(page.getByRole("heading", { name: "Queries by category" })).toBeVisible();
   await sectionLink(page, "Settings").click();
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
@@ -126,13 +132,13 @@ test("customer filter: ?customer= narrows one page, and no nav link carries it (
   await expect(page.getByLabel("Viewing")).toHaveCount(0);
 
   await sectionLink(page, "Analytics").click();
-  await expect(totalQueries(page)).not.toHaveText("");
-  const all = Number(await totalQueries(page).textContent());
+  await expect(await totalQueries(page)).not.toHaveText("");
+  const all = Number(await (await totalQueries(page)).textContent());
   expect(all).toBeGreaterThan(0);
 
   // A placeholder customer has no chat history (spec §2).
   await page.goto("/rep/analytics?customer=great-basin");
-  await expect(totalQueries(page)).toHaveText("0");
+  await expect(await totalQueries(page)).toHaveText("0");
   await expect(page.getByText("Quotes and customer questions for Great Basin Fabrication")).toBeVisible();
 
   // No section link carries the filter, and following one drops it.
@@ -159,7 +165,7 @@ test("customer filter: ?customer= narrows one page, and no nav link carries it (
   await expect(accessCustomer(page)).toHaveValue("wasatch");
   await sectionLink(page, "Analytics").click();
   await expect(page).toHaveURL(/\/rep\/analytics$/);
-  await expect(totalQueries(page)).toHaveText(String(all));
+  await expect(await totalQueries(page)).toHaveText(String(all));
 });
 
 test("bell: lists the rep's unread quotes, whatever a page filters by, and opens in place", async ({ page }) => {
@@ -170,7 +176,8 @@ test("bell: lists the rep's unread quotes, whatever a page filters by, and opens
   const badges = await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()));
   expect(badges).toMatchObject({ quotes: 1, attention: expect.any(Number) });
   expect(badges.bell.map((b: { label: string }) => b.label)).toEqual(["Q-24817 requested by Dana Ortiz"]);
-  await expect(page.getByText("Viewing All customers · 1 unread quote")).toBeVisible();
+  // The Quotes page has no "Viewing" line (plan U3, C_QOBoard): the unread quote is in the bell.
+  await expect(page.getByText(/^Viewing/)).toHaveCount(0);
   for (const path of ["/rep/quotes", "/rep/customers?customer=great-basin"]) {
     await page.goto(path);
     await page.getByRole("button", { name: "Notifications" }).click();

@@ -80,6 +80,20 @@ describe('Popover',()=>{
     fireEvent.keyDown(dialog,{key:'Escape'});
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  // In the app React's root is the document, so a row picked inside the panel (a Select option) is gone
+  // from the page before the panel hears the press (plan U3).
+  it('stays open for a press inside on a row the press removes',()=>{
+    const onClose=vi.fn();
+    render(<Harness onClose={onClose}/>);
+    const inside=within(screen.getByRole('dialog')).getByRole('button',{name:'inside'});
+    const remove=()=>inside.remove();
+    document.addEventListener('mousedown',remove,true);
+    fireEvent.mouseDown(inside);
+    document.removeEventListener('mousedown',remove,true);
+    expect(inside.isConnected).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe('Dropdown',()=>{

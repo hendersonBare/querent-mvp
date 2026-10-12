@@ -6,7 +6,9 @@ import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingL
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
 import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamReps,touchQuoteByRep} from '@/server/repository';
 import {isoInstant} from '@/server/team/query';
-import {customerFilterFor} from './access';
+import {AGING_PARAM,ATTENTION_PARAM,ONLY_PARAM,REQUESTED_FROM_PARAM,REQUESTED_TO_PARAM,SORT_PARAM,STATUS_PARAM,isAttention} from '@/components/rep/quotes/labels';
+import {CUSTOMER_PARAM,FROM_PARAM,REP_PARAM,TEAM_PARAM,TO_PARAM} from '@/components/rep/scope';
+import {customerFilterFor,readableCustomers} from './access';
 
 // The rep's Quotes list (spec §4, task 3.2): status, customer, requested date, total, margin and
 // the unread dot, filtered by status and by the page's own ?customer=. Rep-only: it carries margin,
@@ -30,6 +32,12 @@ import {customerFilterFor} from './access';
 // The Team dashboard drills into the manager's list (v3 spec §6 Team; decision 23; task D3), so it
 // also takes a window (?from=&to=: quotes created in [from, to), two ISO instants), an aging level
 // for the open quotes (?aging=ok|amber|red, a view like Needs attention) and several reps (?rep=a,b).
+//
+// The Quotes page's filter panel (plan U3; C_QOB2, C_QOT1, C_RQB2) adds any set of statuses
+// (?status=a,b), the requested days (?requested_from=&requested_to=, YYYY-MM-DD, UTC days like every
+// date in the list, both included) and "Only show" Overdue (red), Aging (amber) and Below margin
+// floor (a draft with a line under the floor), any of them (?only=overdue,aging,below_floor). The
+// counts (the board's lanes) cover every filter but the status ones.
 
 const clock=()=>new Date().toISOString();
 
@@ -47,6 +55,30 @@ export function parseStatus(value:string|null|undefined):QuoteStatus|null{
   return (QUOTE_STATUSES as readonly string[]).includes(value??'')?value as QuoteStatus:null;
 }
 
+/** The board's lanes, in order (plan U3; C_QOBoard): what needs the rep first. */
+export const BOARD_STATUSES:readonly QuoteStatus[]=['ready_for_review','changes_requested','sent','accepted','expired','declined'];
+/** A ?status=a,b list: the known statuses in board order, once each; empty (every status) for none. */
+export const parseStatuses=(value:string|null|undefined):QuoteStatus[]=>{
+  const asked=(value??'').split(',');
+  return BOARD_STATUSES.filter(s=>asked.includes(s));
+};
+
+/** "Only show" in the filter panel (C_QOB2): Overdue (red), Aging (amber), Below margin floor. */
+export type OnlyShow='overdue'|'aging'|'below_floor';
+export const ONLY_SHOW:readonly OnlyShow[]=['overdue','aging','below_floor'];
+/** An ?only=a,b list, in the panel's order, once each. */
+export const parseOnly=(value:string|null|undefined):OnlyShow[]=>{
+  const asked=(value??'').split(',');
+  return ONLY_SHOW.filter(o=>asked.includes(o));
+};
+
+/** A YYYY-MM-DD day that exists, or null. */
+export function parseDay(value:string|null|undefined):string|null{
+  if(!value||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const date=new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime())&&date.toISOString().slice(0,10)===value?value:null;
+}
+
 export interface RepQuoteRow {
   id:string;quote_number:string;
   /** The quote's current rep (the manager's Rep column, task D2). */
@@ -54,6 +86,8 @@ export interface RepQuoteRow {
   /** The last sent revision (0 = never sent). */
   revision:number;
   customer_id:string;customer_name:string;account_number:string|null;
+  /** The quote's purchasing agent (its contact), the table's optional column (C_QOT2); null for none. */
+  contact_name:string|null;
   /** The status to show now: a sent quote past valid_until reads as expired. */
   status:QuoteStatus;
   requested_at:string;sent_at:string|null;valid_until:string|null;
@@ -97,8 +131,16 @@ export interface RepQuoteList {
   as_of:string;
   /** The page's own customer filter, or null for All customers. */
   customer:CustomerListItem|null;
-  /** The status filter applied to `rows`, or null for every status (always null in the Needs attention view). */
+  /** The single status filter applied to `rows` (the old ?status=x), or null (always null in the Needs attention view). */
   status:QuoteStatus|null;
+  /** The status filter applied to `rows` (?status=a,b, board order), empty for every status. */
+  statuses:QuoteStatus[];
+  /** The requested days applied (YYYY-MM-DD, UTC), or null. */
+  requested_from:string|null;requested_to:string|null;
+  /** "Only show" as applied. */
+  only:OnlyShow[];
+  /** The customers the reader may pick (plan U3, the customer picker): a rep's own, every customer for the manager. */
+  customers:{id:string;name:string;account_number:string}[];
   /** `rows` are the Needs attention view: the amber and red open quotes. */
   attention:boolean;
   /** The Needs attention view's order (urgent outside it). */
@@ -125,6 +167,12 @@ export interface RepQuoteListOptions {
   /** The page's own ?customer=. An unknown id, or one the rep can't read, reads as All customers (task U1). */
   customerId?:string|null;
   status?:QuoteStatus|null;
+  /** Any set of statuses (?status=a,b); it wins over `status`. Every status listed reads as none. */
+  statuses?:readonly QuoteStatus[];
+  /** Requested on or after this UTC day, and on or before `requestedTo` (YYYY-MM-DD; anything else is ignored). */
+  requestedFrom?:string|null;requestedTo?:string|null;
+  /** "Only show": quotes matching any of these. */
+  only?:readonly OnlyShow[];
   /** The Needs attention view (?attention=1); it replaces the status filter. */
   attention?:boolean;
   sort?:AttentionSort;
@@ -142,6 +190,19 @@ export interface RepQuoteListOptions {
   provider?:DistanceProvider;
 }
 
+/**
+ * The list options a Quotes query asks for (the page and GET /api/rep/quotes read the same params):
+ * ?customer=, ?status= (one or a list), ?requested_from=&requested_to=, ?only=, the old Needs attention
+ * view (?attention=1&sort=oldest) and the manager's ?rep=&team=&from=&to=&aging= (ignored for a rep).
+ */
+export function quoteListOptions(params:{get(name:string):string|null}):Omit<RepQuoteListOptions,'manager'|'now'|'provider'>{
+  const status=params.get(STATUS_PARAM);
+  return {customerId:params.get(CUSTOMER_PARAM),status:parseStatus(status),statuses:status?.includes(',')?parseStatuses(status):[],
+    requestedFrom:params.get(REQUESTED_FROM_PARAM),requestedTo:params.get(REQUESTED_TO_PARAM),only:parseOnly(params.get(ONLY_PARAM)),
+    attention:isAttention(params.get(ATTENTION_PARAM)),sort:parseAttentionSort(params.get(SORT_PARAM)),
+    filters:{rep:params.get(REP_PARAM),team:params.get(TEAM_PARAM),from:params.get(FROM_PARAM),to:params.get(TO_PARAM),aging:params.get(AGING_PARAM)}};
+}
+
 /** Every rep by name with team and active flag, and the team labels in use (the manager's options). */
 export function managerListOptions():ManagerListOptions{
   const reps=teamReps().map(({id,name,team,active})=>({id,name,team,active}));
@@ -155,7 +216,7 @@ type ScopedRow=QuoteListRow&{status:QuoteStatus;aging:Aging|null};
 async function toRow(row:ScopedRow,accountNumber:string|null,viewer:string,provider:DistanceProvider|undefined):Promise<RepQuoteRow>{
   const fraction=margin(row.subtotal,row.cost_total);
   const base={id:row.id,quote_number:row.quote_number,rep_id:row.rep_id,rep_name:row.rep_name,revision:row.revision,customer_id:row.customer_id,customer_name:row.customer_name,account_number:accountNumber,
-    status:row.status,requested_at:row.requested_at,sent_at:row.sent_at,valid_until:row.valid_until,margin:fraction,margin_label:formatMargin(fraction),
+    contact_name:row.contact_name,status:row.status,requested_at:row.requested_at,sent_at:row.sent_at,valid_until:row.valid_until,margin:fraction,margin_label:formatMargin(fraction),
     unread:row.unread_for_rep&&row.rep_id===viewer,is_sample:row.is_sample,line_count:row.line_count,aging:row.aging};
   if(!canEditDraft(row.status))return {...base,total:row.sent_total,total_basis:'sent',freight_pending:false,below_floor_count:0,change_request:null,quoted_total:row.sent_total};
   // The draft the rep is working on: the same total and floor count the send dialog shows.
@@ -187,10 +248,11 @@ const withAging=<T extends QuoteListRow>(rows:T[],now:string,thresholds:AgingThr
  * newest request first. Expiry is lazy (task 1.5), so this stores the expiry of every sent quote
  * past valid_until first, and every row is read through effectiveStatus as well.
  */
-export async function repQuoteList(repId:string,{customerId=null,status=null,attention=false,sort='urgent',manager=false,filters=null,now=clock(),provider}:RepQuoteListOptions={}):Promise<RepQuoteList>{
+export async function repQuoteList(repId:string,{customerId=null,status=null,statuses=[],requestedFrom=null,requestedTo=null,only=[],attention=false,sort='urgent',manager=false,filters=null,now=clock(),provider}:RepQuoteListOptions={}):Promise<RepQuoteList>{
   expireOverdueQuotes({now});
   const everyone=customers();
-  const customer=customerFilterFor({repId,manager},customerId,everyone);
+  const reader={repId,manager};
+  const customer=customerFilterFor(reader,customerId,everyone);
   const accounts=new Map(everyone.map(c=>[c.id,c.account_number]));
   const options=manager?managerListOptions():null;
   const all=!!options;
@@ -205,17 +267,29 @@ export async function repQuoteList(repId:string,{customerId=null,status=null,att
   const from=all?isoInstant(filters?.from??null):null,to=all?isoInstant(filters?.to??null):null;
   const window=from&&to&&from<to?{from,to}:null;
   const agingFilter=all&&!attention?parseAgingLevel(filters?.aging):null;
-  const scoped=withAging(quotes({...filter,customerId:customer?.id??null}),now).filter(row=>!window||(row.created_at>=window.from&&row.created_at<window.to));
+  const dayFrom=parseDay(requestedFrom),dayTo=parseDay(requestedTo);
+  const picked=BOARD_STATUSES.filter(s=>statuses.includes(s));
+  const statusSet=picked.length===BOARD_STATUSES.length?[]:picked;
+  const onlySet=ONLY_SHOW.filter(o=>only.includes(o));
+  const scoped=withAging(quotes({...filter,customerId:customer?.id??null}),now)
+    .filter(row=>!window||(row.created_at>=window.from&&row.created_at<window.to))
+    .filter(row=>(!dayFrom||row.requested_at.slice(0,10)>=dayFrom)&&(!dayTo||row.requested_at.slice(0,10)<=dayTo));
+  // Only show needs each draft's lines below the floor, so it reads the rows first.
+  let candidates:RepQuoteRow[]=[];
+  for(const row of scoped)candidates.push(await toRow(row,accounts.get(row.customer_id)??null,repId,provider));
+  if(onlySet.length)candidates=candidates.filter(row=>(onlySet.includes('overdue')&&row.aging?.level==='red')
+    ||(onlySet.includes('aging')&&row.aging?.level==='amber')||(onlySet.includes('below_floor')&&row.below_floor_count>0));
   const counts=emptyCounts();
-  for(const row of scoped){counts[row.status]++;counts.all++;}
-  const shown=attention?scoped.filter(row=>needsAttention(row.aging)):agingFilter?scoped.filter(row=>row.aging?.level===agingFilter)
-    :status?scoped.filter(row=>row.status===status):scoped;
-  let rows:RepQuoteRow[]=[];
-  for(const row of shown)rows.push(await toRow(row,accounts.get(row.customer_id)??null,repId,provider));
+  for(const row of candidates){counts[row.status]++;counts.all++;}
+  let rows=attention?candidates.filter(row=>needsAttention(row.aging)):agingFilter?candidates.filter(row=>row.aging?.level===agingFilter)
+    :statusSet.length?candidates.filter(row=>statusSet.includes(row.status)):status?candidates.filter(row=>row.status===status):candidates;
   if(attention)rows=attentionOrder(rows,sort);
-  return {as_of:now,customer,status:attention||agingFilter?null:status,attention,sort:attention?sort:'urgent',
-    attention_count:scoped.filter(row=>needsAttention(row.aging)).length,counts,unread:scoped.filter(row=>row.unread_for_rep&&row.rep_id===repId).length,rows,
-    scope:all?'all':'mine',rep_filter:repFilter,team_filter:teamFilter,window,aging_filter:agingFilter,manager:options};
+  const unread=new Set(candidates.filter(row=>row.unread).map(row=>row.id));
+  return {as_of:now,customer,status:attention||agingFilter||statusSet.length?null:status,statuses:statusSet,attention,sort:attention?sort:'urgent',
+    attention_count:candidates.filter(row=>needsAttention(row.aging)).length,counts,unread:unread.size,rows,
+    scope:all?'all':'mine',rep_filter:repFilter,team_filter:teamFilter,window,aging_filter:agingFilter,manager:options,
+    requested_from:dayFrom,requested_to:dayTo,only:onlySet,
+    customers:readableCustomers(reader,everyone).map(c=>({id:c.id,name:c.name,account_number:c.account_number??''}))};
 }
 
 /**
