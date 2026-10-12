@@ -1,13 +1,15 @@
 import 'server-only';
-import type {PictureType,RepPicture,RepProfile} from '@/domain';
+import type {RepPicture,RepProfile} from '@/domain';
 import {initials} from '@/lib/initials';
+import {pictureType} from '@/server/picture-format';
 import {repPicture,repProfile,setRepPicture,setRepProfile} from '@/server/repository';
 
 // Settings > Profile (plan U9; C_RS2): the signed-in rep's picture, name, phone and email. Customers see them
 // in the My rep sheet (GET /api/query/customer/contacts) and on quotes (the rep contact a send snapshots).
 // Every function takes the signed-in rep's id from the session; nothing here names another rep.
 //
-// The picture is checked by its bytes, never by the type an upload claims: PNG, JPEG or WebP only (no SVG,
+// The picture is checked by its bytes, never by the type an upload claims: a whole, well formed PNG, JPEG or
+// WebP only (../picture-format walks its structure, so a polyglot or a truncated file is refused; no SVG,
 // which can carry script), 2 MB at most. It is served back with that type, sandboxed (./picture-response).
 // No frame draws a refused field or picture, so each refusal is one plain sentence (decision 52).
 
@@ -40,14 +42,8 @@ function stored(repId:string){
 /** GET /api/rep/profile: the signed-in rep's profile. */
 export function profileView(repId:string):RepProfileView{return view(stored(repId));}
 
-/** PNG, JPEG or WebP by the file's first bytes (its signature), or null for anything else: the PICTURE_TYPES the database accepts. */
-export function pictureType(bytes:Uint8Array):PictureType|null{
-  const starts=(sig:number[],at=0)=>bytes.length>=at+sig.length&&sig.every((b,i)=>bytes[at+i]===b);
-  if(starts([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))return 'image/png';
-  if(starts([0xff,0xd8,0xff]))return 'image/jpeg';
-  if(starts([0x52,0x49,0x46,0x46])&&starts([0x57,0x45,0x42,0x50],8))return 'image/webp';
-  return null;
-}
+/** PNG, JPEG or WebP when the bytes are a whole, well formed picture of that type (../picture-format), or null. */
+export {pictureType};
 
 const text=(value:unknown)=>typeof value==='string'?value.trim():'';
 const PHONE=/^[0-9()+\-.\s/x]+$/i;

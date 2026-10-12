@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type APIRequest, type Browser, type Page, type TestInfo } from "@playwright/test";
 
 // Settings (task 6.1; plans U8, U9; spec §4, §5.2, §6.3): the manager's Customer access, Margin floors, Pricing and
@@ -211,8 +213,8 @@ test("margins: Mara edits her own margins on Margins, to 0.1 point, saved and ke
   await mara.context().close();
 });
 
-/** A 1x1 PNG. */
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+/** A real 2x2 PNG (test/fixtures/pictures). */
+const PNG = readFileSync(path.join(process.cwd(), "test/fixtures/pictures/tiny.png"));
 
 test("profile: Mara's name, phone, email and picture are what her customer sees in the My rep sheet; a bad picture is refused", async ({ browser }, testInfo) => {
   const base = String(testInfo.project.use.baseURL);
@@ -232,6 +234,12 @@ test("profile: Mara's name, phone, email and picture are what her customer sees 
     await expect(card.getByRole("alert")).toHaveText("Pick a PNG, JPEG or WebP picture.");
     const sneaky = await mara.request.put("/api/rep/profile/picture", { headers: { "content-type": "image/png" }, data: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg' onload='alert(1)'/>") });
     expect(sneaky.status()).toBe(400);
+    // A file that only starts like a PNG (a polyglot carrying HTML) or stops short is refused by the server too.
+    for (const data of [Buffer.concat([PNG.subarray(0, 8), Buffer.from("<html><script>alert(1)</script></html>")]), PNG.subarray(0, 20), Buffer.concat([PNG, Buffer.from("<html>")])]) {
+      const refused = await mara.request.put("/api/rep/profile/picture", { headers: { "content-type": "image/png" }, data });
+      expect(refused.status()).toBe(400);
+      expect(await refused.json()).toMatchObject({ detail: "Pick a PNG, JPEG or WebP picture." });
+    }
     await card.locator('input[type="file"]').setInputFiles({ name: "me.png", mimeType: "image/png", buffer: PNG });
     await expect(card.getByRole("alert")).toHaveCount(0);
     await expect(card.getByRole("img", { name: "Mara Jensen" })).toBeVisible();
@@ -258,7 +266,7 @@ test("profile: Mara's name, phone, email and picture are what her customer sees 
     await expect(sheet).toContainText("(801) 555-0199");
     await expect(sheet).toContainText("mara@example.com");
     await expect(sheet.getByRole("img", { name: "Mara Jensen" })).toHaveJSProperty("complete", true);
-    expect(await sheet.getByRole("img", { name: "Mara Jensen" }).evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(1);
+    expect(await sheet.getByRole("img", { name: "Mara Jensen" }).evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBe(2);
     await screenshot(dana, testInfo, "dana-my-rep-picture");
     await dana.context().close();
 
