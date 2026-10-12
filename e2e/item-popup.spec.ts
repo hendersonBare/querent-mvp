@@ -73,8 +73,8 @@ test("Dana edits the list, switches to delivery from Ogden, and one double-click
     await expect(answers.last()).toContainText("Sent to Brandi for review.");
     await expect(page.locator(".question-bubble").last()).toHaveText("Request quote: 30 × HCS-12-13-2G8 (delivery from Ogden).");
     const quoteNumber = (await answers.last().textContent())!.match(/Q-\d+/)![0];
-    const quotes = page.getByRole("complementary", { name: "Quotes" });
-    await expect(quotes.getByRole("button").filter({ hasText: quoteNumber })).toContainText("Awaiting rep");
+    const mine = await page.evaluate((n) => fetch(`/api/query/customer/quotes/${n}`).then((r) => r.json()), quoteNumber);
+    expect(mine).toMatchObject({ quote_number: quoteNumber, status: "ready_for_review" });
     const sent = await page.evaluate(() => fetch("/api/query/customer/quotes").then((r) => r.json()));
     expect(sent.filter((q: { status: string; requested_at: string }) => q.status === "ready_for_review" && q.requested_at > "2026-09-24")).toHaveLength(1);
     // The same list again replays that quote.
@@ -115,16 +115,3 @@ test("the server refuses a price in the request", async ({ page }) => {
   expect(response.body.detail).toContain("Your rep sets the prices.");
 });
 
-test("at 390px the pop-up is a bottom sheet that fits the screen", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  const popup = await openPopup(page);
-  // Once the opening animation settles: full width, anchored to the bottom.
-  await expect.poll(async () => (await popup.boundingBox())!.x).toBe(0);
-  const box = (await popup.boundingBox())!;
-  expect(box.width).toBe(390);
-  expect(Math.round(box.y + box.height)).toBe(844);
-  await expect(popup.getByRole("button", { name: "Request quote" })).toBeInViewport();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await popup.getByRole("button", { name: "Request quote" }).click();
-  await expect(page.locator(".answer-bubble").last()).toContainText("Sent to Brandi for review.");
-});

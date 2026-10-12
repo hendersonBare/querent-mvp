@@ -116,8 +116,9 @@ test("nav: search is sample-only, and the account menu switches workspace", asyn
   await expect(menu).toContainText("Brandi Gallegos");
   await expect(menu).toContainText("Inside Sales · Herrick Industrial Supply");
   await menu.getByRole("menuitem", { name: "Switch workspace" }).click();
-  await expect(page.getByText("Who would you like to explore as?")).toBeVisible();
-  // Without the supplier persona, the portal sends you back to the chooser.
+  // Signed out, / shows the visitor box; its Sign in opens the chooser (decision 53).
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  // Without the supplier persona, the portal sends you back to /.
   await page.goto("/rep/settings");
   await expect(page).toHaveURL(/\/$/);
 });

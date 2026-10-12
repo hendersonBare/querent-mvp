@@ -45,7 +45,7 @@ async function signInAsDana(browser: Browser) {
   const page = await context.newPage();
   await page.goto("/demo");
   await page.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
-  await expect(page.locator(".customer-header")).toContainText("Wasatch Mechanical Contractors");
+  await expect(page.getByRole("button", { name: /Wasatch Mechanical Contractors/ })).toContainText("Signed in");
   return page;
 }
 async function ask(page: Page, question: string) {
@@ -259,7 +259,9 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
 
   // Dana's rep card and chat's "call your rep" name Mara now.
   const dana = await signInAsDana(browser);
-  const rep = dana.getByRole("complementary", { name: "Contacts" }).getByRole("region", { name: "Your rep" });
+  // The My rep sheet (plan U10, C_CVL3).
+  await dana.getByRole("button", { name: "My rep" }).click();
+  const rep = dana.getByRole("dialog", { name: "Your rep" });
   await expect(rep).toContainText("Mara Jensen");
   await expect(rep).toContainText("(801) 555-0102");
 
@@ -273,6 +275,7 @@ test("assignments: reassigning Wasatch moves Dana's rep, never Brandi's existing
   await page.getByRole("combobox", { name: "Rep for Wasatch Mechanical Contractors" }).selectOption("brandi");
   await expect(page.getByRole("status").filter({ hasText: "is now" })).toContainText("is now Brandi Gallegos’s customer");
   await dana.reload();
+  await dana.getByRole("button", { name: "My rep" }).click();
   await expect(rep).toContainText("Brandi Gallegos");
   await dana.context().close();
 });

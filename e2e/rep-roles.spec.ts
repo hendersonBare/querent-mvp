@@ -194,10 +194,10 @@ test("Brandi sets a team label, and can mark Mara inactive only after reassignin
   // Mara's session is refused now, and she can't be given a customer.
   const maraPage = await signInAsMara(browser, testInfo);
   expect((await maraPage.request.get("/api/rep/badges")).status()).toBe(403);
-  // The portal sends her back to the workspace chooser, which reads her session as signed out.
+  // The portal sends her back to /, which reads her session as signed out: the visitor box (decision 53).
   await maraPage.goto("/rep/quotes");
   await expect(maraPage).toHaveURL(/\/$/);
-  await expect(maraPage.getByRole("heading", { name: "Who would you like to explore as?" })).toBeVisible();
+  await expect(maraPage.getByRole("button", { name: "Sign in" })).toBeVisible();
   await maraPage.context().close();
   await settingsTabs(page).getByRole("link", { name: "Rep assignments", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Rep for Canyon Ridge Builders" }).locator("option")).not.toContainText(["Mara Jensen"]);

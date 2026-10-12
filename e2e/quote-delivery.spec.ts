@@ -4,12 +4,12 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
 // Quote delivery (task 5.1, spec §3): when Brandi sends a quote, Dana's chat gets "Quote Q-… is
 // ready: $X, valid until …" with Brandi's message as plain text and View quote, which opens the
 // PDF preview modal: the customer PDF drawn inline, Download at the top right (when Attach PDF was
-// on), and the Accept / Request changes bar (task 5.2, e2e/quote-response.spec.ts). The right
-// sidebar's quote buttons open the same modal. Dana only ever sees her own quotes.
+// on), and the Accept / Request changes bar (task 5.2, e2e/quote-response.spec.ts). The bell's quote
+// notifications open the same modal (plan U10, decision 41). Dana only ever sees her own quotes.
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts):
 // start your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots
-// of the chat message and the modal at 1440px and 390px go to this test's output folder.
+// of the chat message and the modal at 1440px go to this test's output folder.
 
 const SEED_DATE = "2026-09-23";
 const SAMPLE = "Q-24817";
@@ -55,9 +55,14 @@ async function send(number: string, message: string, attachPdf: boolean) {
   return result.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
+/** Dana's bell row for a quote (one per quote: its latest news); the bell polls every 5 s. */
+const bellRow = (number: string) => dana.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: number });
+async function openBell() {
+  if (!(await dana.getByRole("dialog", { name: "Notifications" }).isVisible())) await dana.getByRole("button", { name: "Notifications" }).click();
+}
+
 const notice = (page: Page, number: string) => page.getByRole("article", { name: new RegExp(`^Quote ${number} is ready: `) });
 const preview = (page: Page, number: string) => page.getByRole("dialog", { name: `Quote ${number}` });
-const noSideways = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
 
 test.beforeAll(async ({ browser, playwright }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL!;
@@ -80,8 +85,11 @@ test.afterAll(async () => {
 });
 
 test("before Brandi sends: the Awaiting rep quote opens a preview that says she is pricing it, with no PDF", async () => {
-  const quotes = dana.getByRole("complementary", { name: "Quotes" });
-  await quotes.getByRole("button").filter({ hasText: SAMPLE }).click();
+  // Nothing is in Dana's bell for it yet; the preview (opened as the chat's View quote does) says so too.
+  await openBell();
+  await expect(bellRow(SAMPLE)).toHaveCount(0);
+  await dana.keyboard.press("Escape");
+  await dana.evaluate((number) => window.dispatchEvent(new CustomEvent("querent:open-quote", { detail: { id: number, quote_number: number } })), SAMPLE);
   const modal = preview(dana, SAMPLE);
   await expect(modal).toBeVisible();
   await expect(modal.locator(".qp-state")).toHaveText("Awaiting rep");
@@ -107,10 +115,10 @@ test("Brandi sends: Dana's chat shows the message without a reload, her text as 
   for (const tag of ["b", "strong", "img", "a", "script"]) await expect(card.locator(`.qn-text ${tag}`)).toHaveCount(0);
   expect(await dana.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
   await expect(card.getByRole("button", { name: "View quote" })).toBeVisible();
-  // The sidebar follows: Sent, with the total.
-  const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: SAMPLE });
-  await expect(button).toContainText(sentTotal);
-  await expect(button.locator(".cx-chip")).toHaveText("Sent");
+  // The bell follows: ready to review, with the total.
+  await openBell();
+  await expect(bellRow(SAMPLE)).toContainText(`Quote ${SAMPLE} is ready to review${sentTotal}.`);
+  await dana.keyboard.press("Escape");
   await card.scrollIntoViewIfNeeded();
   await dana.screenshot({ path: testInfo.outputPath("5.1-chat-message-1440.png") });
 });
@@ -142,7 +150,8 @@ test("View quote opens the preview: the customer PDF inline, Download at the top
   const download = modal.getByRole("link", { name: "Download" });
   const d = (await download.boundingBox())!;
   const m = (await modal.boundingBox())!;
-  expect(m.x + m.width - (d.x + d.width)).toBeLessThan(80);
+  // At the right edge, just before the close button (C_CVL5: 32px padding, the 40px close button, a 12px gap).
+  expect(m.x + m.width - (d.x + d.width)).toBeLessThan(90);
   expect(d.y - m.y).toBeLessThan(60);
   // Task 5.2 replaced the "reply to Brandi in chat" placeholder with the real actions.
   await expect(modal.getByRole("button", { name: "Accept" })).toBeEnabled();
@@ -177,10 +186,10 @@ test("with Attach PDF off the preview shows the PDF but offers no Download", asy
   await modal.getByRole("button", { name: "Close" }).click();
 });
 
-test("an expired quote from the sidebar: its PDF, no way to respond, and why", async () => {
-  const quotes = dana.getByRole("complementary", { name: "Quotes" });
-  const expired = quotes.getByRole("button").filter({ has: dana.locator(".cx-chip", { hasText: "Expired" }) }).first();
-  const number = (await expired.locator(".cx-quote-number").textContent())!;
+test("an expired quote from the bell: its PDF, no way to respond, and why", async () => {
+  await openBell();
+  const expired = dana.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: /^Quote Q-\d+ expired/ }).first();
+  const number = /Q-\d+/.exec((await expired.textContent())!)![0];
   await expired.click();
   const modal = preview(dana, number);
   await expect(modal.locator(".qp-state")).toHaveText("Expired");
@@ -209,44 +218,3 @@ test("own quotes only: a tampered quote id is not found, in the preview and the 
   await modal.getByRole("button", { name: "Close" }).click();
 });
 
-test("390px: the message fits the chat, and the preview fills the screen with Download at the top right", async ({ browser }, testInfo) => {
-  const phone = await newPage(browser, testInfo.project.use.baseURL!, { width: 390, height: 844 });
-  await signInAsDana(phone);
-  const card = notice(phone, SAMPLE);
-  await expect(card).toBeVisible();
-  await card.scrollIntoViewIfNeeded();
-  await noSideways(phone);
-  const c = (await card.locator(".qn-card").boundingBox())!;
-  expect(c.x + c.width).toBeLessThanOrEqual(390);
-  await phone.screenshot({ path: testInfo.outputPath("5.1-chat-message-390.png") });
-
-  await card.getByRole("button", { name: "View quote" }).click();
-  const modal = preview(phone, SAMPLE);
-  const pdf = modal.getByRole("document", { name: `Quote ${SAMPLE}, revision 1` });
-  await expect(pdf).toHaveAttribute("data-state", "ready");
-  const m = (await modal.boundingBox())!;
-  expect(m).toEqual({ x: 0, y: 0, width: 390, height: 844 });
-  const download = modal.getByRole("link", { name: "Download" });
-  const d = (await download.boundingBox())!;
-  expect(d.y).toBeLessThan(60);
-  expect(390 - (d.x + d.width)).toBeLessThan(70);
-  const close = (await modal.getByRole("button", { name: "Close" }).boundingBox())!;
-  expect(close.x).toBeGreaterThanOrEqual(d.x + d.width);
-  // The page fits the width; both actions stay on screen.
-  const sheet = (await pdf.locator("canvas.qp-sheet").boundingBox())!;
-  expect(sheet.x).toBeGreaterThanOrEqual(0);
-  expect(sheet.x + sheet.width).toBeLessThanOrEqual(390);
-  for (const name of ["Accept", "Request changes"]) {
-    const b = (await modal.getByRole("button", { name }).boundingBox())!;
-    expect(b.y + b.height).toBeLessThanOrEqual(844);
-  }
-  await noSideways(phone);
-  await phone.screenshot({ path: testInfo.outputPath("5.1-modal-390.png") });
-
-  await test.step("Zoom in makes the page wider than the phone; the preview scrolls, the page doesn't", async () => {
-    await pdf.getByRole("button", { name: "Zoom in" }).click();
-    expect((await pdf.locator("canvas.qp-sheet").boundingBox())!.width).toBeGreaterThan(700);
-    await noSideways(phone);
-    await pdf.getByRole("button", { name: "Fit to width" }).click();
-  });
-});

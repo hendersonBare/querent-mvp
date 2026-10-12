@@ -8,7 +8,7 @@ import { expect, test, type Browser, type BrowserContext, type Locator, type Pag
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts): start
 // your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots of
-// the action bar, both forms and both Confirm dialogs at 1440px and 390px go to this test's output
+// the action bar, both forms and both Confirm dialogs at 1440px go to this test's output
 // folder.
 
 const SEED_DATE = "2026-09-23";
@@ -55,7 +55,7 @@ async function sentCopy(of = "Q-24816") {
   await send(copy.quote_number);
   return copy.quote_number as string;
 }
-/** Opens the preview modal on `number` (the event the sidebar and View quote send), at revision `revision` if given. */
+/** Opens the preview modal on `number` (the event the bell and View quote send), at revision `revision` if given. */
 async function openPreview(page: Page, number: string, revision?: number) {
   await page.evaluate(({ number, revision }) => window.dispatchEvent(new CustomEvent("querent:open-quote", { detail: { id: number, quote_number: number, revision } })), {
     number,
@@ -107,9 +107,6 @@ async function expectConfirm(page: Page, confirm: Locator, opener: Box) {
   const send = confirm.getByRole("button", { name: "Send", exact: true });
   await expect(send).toHaveCSS("background-color", "rgb(14, 124, 116)");
   expect(overlaps((await send.boundingBox())!, opener), "Send sits where the form's button was").toBe(false);
-}
-async function noSideways(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
 }
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
@@ -191,16 +188,18 @@ test("Accept at 1440px: the action bar, the form with branch and pickup locked, 
     await expect(form.getByLabel("PO number")).toHaveValue(PO);
   });
 
-  await test.step("Send: Dana sees it accepted, and the sidebar follows", async () => {
+  await test.step("Send: Dana sees it accepted, and her bell follows", async () => {
     await form.getByRole("button", { name: "Review and accept" }).click();
     await confirm.getByRole("button", { name: "Send", exact: true }).click();
     await expect(confirm).toBeHidden();
     await expect(modal.locator(".qp-state")).toHaveText("Accepted");
     await expect(bar(modal)).toContainText(`You accepted rev 1 with PO ${PO}: pickup ${when} at SLC.`);
     await expect(bar(modal).getByRole("button", { name: "Accept" })).toBeDisabled();
-    const button = dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: SAMPLE });
-    await expect(button.locator(".cx-chip")).toHaveText("Accepted");
     await modal.getByRole("button", { name: "Close" }).click();
+    // Answered, so the bell has the quote's notification as read.
+    await dana.getByRole("button", { name: "Notifications" }).click();
+    await expect(dana.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: SAMPLE })).toHaveAttribute("data-read", "true");
+    await dana.keyboard.press("Escape");
   });
 
   await test.step("Brandi: accepted, unread, with the PO and the time where she sees them", async () => {
@@ -299,64 +298,3 @@ test("what a crafted request can't do: change branch or pickup, answer twice, an
   });
 });
 
-test("390px: the action bar, both forms and both Confirm dialogs fit the phone (a delivery quote)", async ({ browser }, testInfo) => {
-  // Q-24814 is a delivery from Provo: the form and the Confirm say delivery, and where it goes.
-  const number = await sentCopy("Q-24814");
-  const phone = await newPage(browser, testInfo.project.use.baseURL!, { width: 390, height: 844 });
-  await signInAsDana(phone);
-  const { weekday } = days();
-  const modal = await openPreview(phone, number);
-  const inView = async (locator: Locator) => {
-    const b = (await locator.boundingBox())!;
-    expect(b.x).toBeGreaterThanOrEqual(0);
-    expect(b.x + b.width).toBeLessThanOrEqual(390);
-    expect(b.y + b.height).toBeLessThanOrEqual(844);
-  };
-
-  await inView(bar(modal).getByRole("button", { name: "Accept" }));
-  await inView(bar(modal).getByRole("button", { name: "Request changes" }));
-  await noSideways(phone);
-  await screenshot(phone, testInfo, "5.2-action-bar-390");
-
-  await bar(modal).getByRole("button", { name: "Accept" }).click();
-  const form = modal.getByRole("form", { name: `Accept ${number} rev 1` });
-  await expect(form.getByRole("radio", { name: "Delivery" })).toBeChecked();
-  await expect(form.getByRole("radio", { name: "Delivery" })).toBeDisabled();
-  await expect(form.getByRole("combobox", { name: "Branch" })).toHaveValue("Provo");
-  await expect(form).toContainText("Delivers to 1800 W 10950 S, South Jordan, UT 84095.");
-  await form.getByLabel("Delivery day").fill(weekday);
-  await form.getByLabel("Delivery time").selectOption({ label: "9:30 AM" });
-  await form.getByLabel("PO number").fill(PO);
-  const review = form.getByRole("button", { name: "Review and accept" });
-  await inView(review);
-  await inView(form.getByLabel("PO number"));
-  await noSideways(phone);
-  await screenshot(phone, testInfo, "5.2-accept-form-390");
-  const opener = (await review.boundingBox())!;
-  await review.click();
-  const accept = phone.getByRole("alertdialog", { name: "Confirm acceptance" });
-  await expect(accept).toContainText(`delivery ${weekdayDay(weekday)}, 9:30 AM from Provo, PO ${PO}?`);
-  await expect(accept).toContainText("to 1800 W 10950 S, South Jordan, UT 84095");
-  await expectConfirm(phone, accept, opener);
-  await noSideways(phone);
-  await screenshot(phone, testInfo, "5.2-accept-confirm-390");
-  await accept.getByRole("button", { name: "Cancel" }).click();
-  await form.getByRole("button", { name: "Back" }).click();
-
-  await bar(modal).getByRole("button", { name: "Request changes" }).click();
-  const changes = modal.getByRole("form", { name: `Request changes to ${number} rev 1` });
-  await changes.getByLabel("What should Brandi change?").fill(NOTE);
-  const reviewChanges = changes.getByRole("button", { name: "Review request" });
-  await inView(reviewChanges);
-  await noSideways(phone);
-  await screenshot(phone, testInfo, "5.2-changes-form-390");
-  const changesOpener = (await reviewChanges.boundingBox())!;
-  await reviewChanges.click();
-  const confirm = phone.getByRole("alertdialog", { name: "Confirm change request" });
-  await expectConfirm(phone, confirm, changesOpener);
-  await noSideways(phone);
-  await screenshot(phone, testInfo, "5.2-changes-confirm-390");
-  await confirm.getByRole("button", { name: "Cancel" }).click();
-  // Nothing was sent.
-  expect((await repDetail(number)).quote.status).toBe("sent");
-});

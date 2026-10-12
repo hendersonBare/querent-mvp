@@ -146,8 +146,11 @@ test("Act 2: Brandi opens it, uses View full chat, sees the aging quotes, the Ne
 });
 
 test("Act 3: Dana declines a different quote and picks a reason", async ({}, testInfo) => {
-  const sidebar = dana.getByRole("complementary", { name: "Quotes" });
-  await sidebar.getByRole("button").filter({ hasText: "Q-24791" }).click();
+  // The bell is how Dana finds a quote (plan U10, decision 41).
+  const bell = dana.getByRole("button", { name: "Notifications" });
+  const row = dana.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: "Q-24791" });
+  await bell.click();
+  await row.click();
   const modal = dana.getByRole("dialog", { name: "Quote Q-24791" });
   await expect(modal.getByRole("document")).toHaveAttribute("data-state", "ready");
   await modal.getByRole("group", { name: "Respond to this quote" }).getByRole("button", { name: "Decline" }).click();
@@ -159,7 +162,9 @@ test("Act 3: Dana declines a different quote and picks a reason", async ({}, tes
   await expect(dialog).toBeHidden();
   await expect(modal.locator(".qp-state")).toHaveText("Declined");
   await modal.getByRole("button", { name: "Close" }).click();
-  await expect(sidebar.getByRole("button").filter({ hasText: "Q-24791" }).locator(".cx-chip")).toHaveText("Declined");
+  await bell.click();
+  await expect(row).toHaveAttribute("data-read", "true");
+  await dana.keyboard.press("Escape");
   expect((await repDetail("Q-24791")).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", unread_for_rep: true });
 });
 
