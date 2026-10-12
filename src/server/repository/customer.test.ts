@@ -33,6 +33,8 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   isCategory:()=>customer.isCategory('pricing'),
   accountSummary:()=>customer.accountSummary('wasatch'),
   assignedRep:()=>customer.assignedRep('wasatch'),
+  assignedRepProfile:()=>customer.assignedRepProfile('wasatch'),
+  assignedRepPicture:()=>customer.assignedRepPicture('wasatch'),
   deliveryAddress:()=>customer.deliveryAddress('wasatch'),
   departments:()=>customer.departments(),
   supplier:()=>customer.supplier(),
@@ -74,7 +76,8 @@ const calls:Record<keyof typeof customer,()=>unknown>={
   customerQuotes:()=>customer.customerQuotes('wasatch'),
   markCustomerViewed:()=>customer.markCustomerViewed('wasatch','Q-24816'),
 };
-const RETURNS_NOTHING=new Set(['isCategory']);
+// assignedRepPicture: the seed's reps have no picture (plan U9); its route test reads a stored one.
+const RETURNS_NOTHING=new Set(['isCategory','assignedRepPicture']);
 
 describe('customer-safe repository module',()=>{
   it('has a guard call for every export',()=>{

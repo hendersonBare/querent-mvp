@@ -4,6 +4,7 @@ import {createQuote,markQuoteRead,quote,saveQuoteTransition} from '@/server/repo
 import {acceptQuote,declineQuote,requestChanges,sendQuote} from '@/server/quotes/service';
 import {useSeededDatabase} from '@/server/repository/test-db';
 import {askedLine,repBadges} from './badges';
+import {updateNotificationPrefs} from './notification-prefs';
 import {repQuoteList} from './quotes';
 
 // The rep portal's Quotes badge (task 3.1) against the seed pinned to the mockup's day.
@@ -211,5 +212,70 @@ describe('repBadges: the bell dropdown (Notifications, C_QOB4)',()=>{
     expect(none.caution).toEqual([]);
     expect(none.quotes).toBe(all.quotes);
     expect(repBadges('brandi',{now:T0,notify:kind=>kind!=='quote_requested'}).bell).toEqual([]);
+  });
+});
+
+// Settings > Notifications (plan U9; C_RS4) fills the seam: each switch drops the rows it names.
+describe('repBadges: the rep\'s notification preferences (plan U9)',()=>{
+  const FIVE_H='2026-09-23T21:00:00.000Z',TWO_DAYS='2026-09-25T16:00:00.000Z';
+
+  it('applies the stored switches by default: the bell drops a new request when Customer chat needs a rep is off',()=>{
+    const before=repBadges('mara',{now:T0});
+    expect(before.bell.map(b=>b.kind)).toEqual(['quote_requested']);
+    updateNotificationPrefs('mara',{customer_chat_needs_rep:false});
+    expect(repBadges('mara',{now:T0}).bell).toEqual([]);
+    expect(repBadges('mara',{now:T0}).quotes).toBe(before.quotes);
+    updateNotificationPrefs('mara',{customer_chat_needs_rep:true});
+    expect(repBadges('mara',{now:T0}).bell).toEqual(before.bell);
+  });
+
+  it('a caution row goes when any switch it falls under is off: Quote overdue or Quote aging by its tag, Below margin floor or Change requested by its line',async()=>{
+    const low={itemId:'HCS-12-13-2G8',qty:10,unitPrice:1,priceBasis:'custom' as const};
+    const below=request({lines:[low]}),plain=request(),changes=request();
+    await sendQuote(changes.id,{repId:'brandi',now:SENT});
+    requestChanges('wasatch',changes.id,{revision:1,note:'Can you move pickup to Ogden?',now:LATER});
+    const at='2026-09-24T20:00:00.000Z';
+    const ids=(now:string)=>repBadges('brandi',{now}).caution.map(c=>c.id);
+    expect(ids(at)).toEqual(expect.arrayContaining([below.id,plain.id,changes.id]));
+    updateNotificationPrefs('brandi',{below_margin_floor:false});
+    expect(ids(at)).not.toContain(below.id);
+    expect(ids(at)).toEqual(expect.arrayContaining([plain.id,changes.id]));
+    updateNotificationPrefs('brandi',{below_margin_floor:true,change_requested:false});
+    expect(ids(at)).not.toContain(changes.id);
+    // The bell's "replied on" row is the same change request.
+    expect(repBadges('brandi',{now:at}).bell.map(b=>b.id)).not.toContain(changes.id);
+    updateNotificationPrefs('brandi',{change_requested:true});
+    expect(repBadges('brandi',{now:at}).bell.map(b=>b.id)).toContain(changes.id);
+    // Five hours in, a new draft is Aging; two days in, Overdue.
+    updateNotificationPrefs('brandi',{quote_aging:false});
+    expect(ids(FIVE_H)).not.toContain(plain.id);
+    expect(ids(TWO_DAYS)).toContain(plain.id);
+    updateNotificationPrefs('brandi',{quote_aging:true,quote_overdue:false});
+    const overdueOff=repBadges('brandi',{now:TWO_DAYS});
+    expect(overdueOff.caution.map(c=>c.id)).not.toContain(plain.id);
+    expect(overdueOff.caution.every(c=>c.tag==='Aging')).toBe(true);
+    // The header's count of red items follows the list it opens.
+    expect(overdueOff.attention).toBe(0);
+    updateNotificationPrefs('brandi',{quote_overdue:true});
+    expect(repBadges('brandi',{now:TWO_DAYS}).attention).toBeGreaterThan(0);
+    for(const q of [below,plain,changes])markQuoteRead(q.id,'rep');
+  });
+
+  it('drops accepted, declined and expired bell rows by their own switches',async()=>{
+    const accepted=request(),declined=request(),expired=request();
+    for(const q of [accepted,declined,expired])await sendQuote(q.id,{repId:'brandi',now:SENT});
+    acceptQuote('wasatch',accepted.id,{revision:1,fulfillmentTime:'2026-09-25',customerPo:'7781',now:LATER});
+    declineQuote('wasatch',declined.id,{revision:1,reason:'price_too_high',now:LATER});
+    // A stand-in for an expiry the rep has not seen (as above).
+    saveQuoteTransition(expired.id,{from:'sent',to:'sent',unreadForRep:true,at:SENT});
+    const ours=[accepted.id,declined.id,expired.id];
+    const kinds=()=>repBadges('brandi',{now:AFTER_EXPIRY}).bell.filter(b=>ours.includes(b.id)).map(b=>b.kind).sort();
+    expect(kinds()).toEqual(['quote_accepted','quote_declined','quote_expired']);
+    updateNotificationPrefs('brandi',{quote_accepted:false,quote_expired:false});
+    expect(kinds()).toEqual(['quote_declined']);
+    updateNotificationPrefs('brandi',{quote_accepted:true,quote_expired:true,quote_declined:false});
+    expect(kinds()).toEqual(['quote_accepted','quote_expired']);
+    updateNotificationPrefs('brandi',{quote_declined:true});
+    for(const q of [accepted,declined,expired])markQuoteRead(q.id,'rep');
   });
 });

@@ -180,6 +180,14 @@ describe('My rep',()=>{
     for(const text of ['BG','Inside Sales',repContact.rep!.phone,repContact.rep!.email])expect(within(sheet).getByText(text)).toBeInTheDocument();
   });
 
+  it("shows the picture the rep set on Settings > Profile in place of the initials (plan U9)",async()=>{
+    renderSite({routes:{'customer/contacts':{rep:{...repContact.rep!,picture_url:'/api/query/customer/contacts/picture?v=1'}}}});
+    fireEvent.click(screen.getByRole('button',{name:'My rep'}));
+    const sheet=await screen.findByRole('dialog',{name:'Your rep'});
+    expect(await within(sheet).findByRole('img',{name:'Brandi Gallegos'})).toHaveAttribute('src','/api/query/customer/contacts/picture?v=1');
+    expect(within(sheet).queryByText('BG')).toBeNull();
+  });
+
   it('says so in one line when there is no rep',async()=>{
     renderSite({routes:{'customer/contacts':{rep:null}}});
     fireEvent.click(screen.getByRole('button',{name:'My rep'}));

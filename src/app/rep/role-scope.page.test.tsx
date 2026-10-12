@@ -140,12 +140,13 @@ describe('/rep/stock/[id]',()=>{
 
 describe('/rep/settings',()=>{
   const page=async(params:SearchParams={})=>props(await (await import('./settings/page')).default(search(params))).initial;
-  it('a rep reads only their own floors: no customer access and no other rep (plan U8, OA-69)',async()=>{
+  it('a rep reads only their own tabs: no customer access and no other rep (plan U8, OA-69; plan U9)',async()=>{
     as('mara');
     const settings=await page({customer:'wasatch'});
-    expect(Object.keys(settings).sort()).toEqual(['manager','mine','rep_id']);
+    expect(Object.keys(settings).sort()).toEqual(['manager','mine','own','rep_id']);
     expect(settings.manager).toBeNull();
     expect(settings.mine.rep.id).toBe('mara');
+    expect(settings.own.profile.name).toBe('Mara Jensen');
   });
   it('the manager reads every customer and every rep',async()=>{
     as('supplier');

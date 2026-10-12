@@ -1,6 +1,6 @@
 import 'server-only';
-import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,RepRole,RepStanding,Supplier,TeamRep} from '@/domain';
-import {all,bool,one,run} from './sql';
+import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,RepNotificationKey,RepPicture,RepProfile,RepRole,RepStanding,Supplier,TeamRep} from '@/domain';
+import {all,bool,inTransaction,one,run} from './sql';
 
 const REP='SELECT id,name,initials,title,phone,email FROM reps';
 
@@ -112,4 +112,52 @@ export function setRepActive(repId:string,active:boolean):'ok'|'not_found'|'has_
     ?run('UPDATE reps SET active=1 WHERE id=?',repId).changes
     :run('UPDATE reps SET active=0 WHERE id=? AND NOT EXISTS(SELECT 1 FROM customer_rep WHERE rep_id=?)',repId,repId).changes;
   return changed?'ok':'has_customers';
+}
+
+// ---- A rep's own Settings > Profile and Notifications (plan U9; 013_rep_profile; Appendix C) ----
+// Each function takes the rep whose row it reads or writes; the routes pass the signed-in rep only.
+
+const PROFILE='SELECT id,name,initials,title,phone,email,picture_updated_at FROM reps';
+
+/** The rep's name, initials, title, phone and email, and when their picture last changed (null: none). */
+export function repProfile(repId:string){return one<RepProfile>(`${PROFILE} WHERE id=?`,repId);}
+
+/** Customer-safe: the customer's assigned rep as the My rep sheet shows them (no picture bytes). */
+export function assignedRepProfile(customerId:string){return one<RepProfile>(`${PROFILE} WHERE id=(SELECT rep_id FROM customer_rep WHERE customer_id=?)`,customerId);}
+
+/** Stores the rep's name, initials, phone and email (already checked by the caller). Undefined for an unknown rep. */
+export function setRepProfile(repId:string,{name,initials,phone,email}:{name:string;initials:string;phone:string;email:string}){
+  run('UPDATE reps SET name=?,initials=?,phone=?,email=? WHERE id=?',name,initials,phone,email,repId);
+  return repProfile(repId);
+}
+
+/** The rep's picture: its bytes, its type and when it changed. Undefined when they have none. */
+export function repPicture(repId:string){
+  return one<RepPicture>('SELECT picture data,picture_type type,picture_updated_at updated_at FROM reps WHERE id=? AND picture IS NOT NULL',repId);
+}
+
+/** Customer-safe: the picture of the customer's own assigned rep, for the My rep sheet. Undefined when there is none. */
+export function assignedRepPicture(customerId:string){
+  return one<RepPicture>('SELECT picture data,picture_type type,picture_updated_at updated_at FROM reps WHERE id=(SELECT rep_id FROM customer_rep WHERE customer_id=?) AND picture IS NOT NULL',customerId);
+}
+
+/** Replaces the rep's picture (type already checked by its bytes), or clears it with null. False for an unknown rep. */
+export function setRepPicture(repId:string,picture:{type:RepPicture['type'];data:Uint8Array;at:string}|null){
+  const changes=picture
+    ?run('UPDATE reps SET picture=?,picture_type=?,picture_updated_at=? WHERE id=?',Buffer.from(picture.data),picture.type,picture.at,repId).changes
+    :run('UPDATE reps SET picture=NULL,picture_type=NULL,picture_updated_at=NULL WHERE id=?',repId).changes;
+  return changes>0;
+}
+
+/** The rep's stored in-app choices by event key. A key with no row is on (the caller fills it in). */
+export function repNotificationPrefs(repId:string):Partial<Record<RepNotificationKey,boolean>>{
+  return Object.fromEntries(all<{event_key:RepNotificationKey;in_app:number}>('SELECT event_key,in_app FROM rep_notification_prefs WHERE rep_id=? ORDER BY rowid',repId).map(r=>[r.event_key,bool(r.in_app)]));
+}
+
+/** Stores the choices given (keys already checked by the caller), all together, and returns every stored choice. */
+export function setRepNotificationPrefs(repId:string,prefs:Partial<Record<RepNotificationKey,boolean>>){
+  inTransaction(()=>{
+    for(const [key,on] of Object.entries(prefs))run('INSERT INTO rep_notification_prefs(rep_id,event_key,in_app) VALUES(?,?,?) ON CONFLICT(rep_id,event_key) DO UPDATE SET in_app=excluded.in_app',repId,key,on?1:0);
+  });
+  return repNotificationPrefs(repId);
 }

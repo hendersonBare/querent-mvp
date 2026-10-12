@@ -3,6 +3,7 @@ import type {CustomerListItem,DeliveryRates,PricingSettings,Rep,RepFloor} from '
 import type {AccessRule,ERPStatus} from '@/lib/contracts';
 import {featureFlags,type FeatureFlags} from '@/server/flags';
 import {formatMargin} from '@/server/floors';
+import {canEditFloor} from '@/server/floors/rules';
 import {FloorPermissionError,setMyFloor} from '@/server/floors/service';
 import {checkDeliveryRates} from '@/server/freight/rates';
 import type {AgingThresholds} from '@/server/quotes/aging';
@@ -13,6 +14,8 @@ import {
 import {effectiveStatus} from '@/server/quotes/lifecycle';
 import {expireOverdueQuotes} from '@/server/quotes/service';
 import {ownerFilter,readableCustomers,type RepReader} from './access';
+import {notificationPrefs,type NotificationPrefs} from './notification-prefs';
+import {profileView,type RepProfileView} from './profile';
 import {moveQuotes,type ReassignResult} from './reassign';
 
 // Settings (spec §4, task 6.1; plan U8) for the signed-in rep. This module builds the page's data and
@@ -36,7 +39,8 @@ import {moveQuotes,type ReassignResult} from './reassign';
  * category) or 409 (refused as things stand, with a `code`: has_customers, task D1).
  */
 export class SettingsError extends Error{
-  constructor(message:string,readonly status:400|403|404|409=400,readonly code?:string){super(message);this.name='SettingsError';}
+  /** `extra`: more for the response body, as a below-floor refusal's `fields` (plan U9). */
+  constructor(message:string,readonly status:400|403|404|409=400,readonly code?:string,readonly extra?:Record<string,unknown>){super(message);this.name='SettingsError';}
 }
 
 export type SettingsRep=Pick<Rep,'id'|'name'|'initials'|'title'>;
@@ -81,14 +85,24 @@ export interface ManagerSettings {
   aging:AgingThresholds;
   /** Decision 48: a section whose flag is off does not render. */
   flags:FeatureFlags;
+  /** Her own Profile tab (decision 69; C_RS2, the rep's), because customers see her in My rep. */
+  profile:RepProfileView;
 }
+
+/**
+ * A rep's own tabs (plan U9; C_RS1 to C_RS4) beside `mine` (their margins): the organization floors their
+ * margins may not go below (Appendix B: reps read them), their profile and their notification switches.
+ */
+export interface OwnSettings {orgFloors:OrgFloorCell[];profile:RepProfileView;notifications:NotificationPrefs}
 
 export interface RepSettings {
   rep_id:string;
   /** The manager's tabs; null for a rep, who gets none of their data. */
   manager:ManagerSettings|null;
-  /** The signed-in rep's own margin floors. */
+  /** The signed-in rep's own margins ("margin floors" in the database: their floor per category). */
   mine:RepFloorSet;
+  /** A rep's Margins, Profile and Notifications tabs; null for the manager, who keeps her four and has her Profile in `manager` (plan U9; decision 69). */
+  own:OwnSettings|null;
 }
 
 const asRep=({id,name,initials,title}:Rep):SettingsRep=>({id,name,initials,title});
@@ -152,8 +166,11 @@ export function accessFilter(params:URLSearchParams):AccessFilter{
   return filter;
 }
 
-/** The manager's tabs (plan U8). `customerId`: Customer access opened for that customer, searched for its name. */
-export function managerSettings(customerId:string|null=null):ManagerSettings{
+/**
+ * The manager's tabs (plan U8) and her own Profile (decision 69), for the manager `repId`. `customerId`: Customer
+ * access opened for that customer, searched for its name.
+ */
+export function managerSettings(repId:string,customerId:string|null=null):ManagerSettings{
   const linked=customerId?customers().find(c=>c.id===customerId):undefined;
   return {
     access:everyCustomer(),
@@ -164,20 +181,22 @@ export function managerSettings(customerId:string|null=null):ManagerSettings{
     delivery:deliveryRates(),
     aging:agingThresholds(),
     flags:featureFlags(),
+    profile:profileView(repId),
   };
 }
 
 /**
  * Everything Settings shows, for the signed-in rep (`manager`: they are the manager). The manager gets her
- * four tabs; a rep gets only their own floors (Appendix B; OA-69). `customerId` (the manager's ?customer=)
+ * four tabs and her own Profile (decision 69); a rep gets only their own: margins, profile and switches (Appendix B; OA-69; plan U9). `customerId` (the manager's ?customer=)
  * opens Customer access searched for that customer; an unknown id is ignored.
  */
 export function repSettings(repId:string,{customerId=null,manager=false}:{customerId?:string|null;manager?:boolean}={}):RepSettings{
   const me=reps().find(r=>r.id===repId);
   return {
     rep_id:repId,
-    manager:manager?managerSettings(customerId):null,
+    manager:manager?managerSettings(repId,customerId):null,
     mine:me?floorSet(me):{rep:{id:repId,name:repId,initials:'',title:''},floors:[]},
+    own:manager||!me?null:{orgFloors:orgCells(),profile:profileView(repId),notifications:notificationPrefs(repId)},
   };
 }
 
@@ -239,26 +258,55 @@ function floorTenths(pct:unknown){
   return tenths;
 }
 
+/** Below the organization floor (plan U9; C_RS3): its words, with the real floor. */
+export const belowOrgFloor=(floor:number)=>`Below the ${formatMargin(floor)} organization floor. Pick ${formatMargin(floor)} or higher.`;
+
 /**
- * My margin floors: PUT {rep_id?, category_id, floor_pct}. floor_pct is a percent (30 = 30%),
- * stored to 0.1 percentage point, the precision margins are shown and compared at (task 1.2), so
- * the floor Settings shows is the one the warnings use. rep_id defaults to the signed-in rep;
- * anyone else's floors are refused (403) by setMyFloor before anything is written.
+ * A rep's own margins (Settings > Margins, C_RS1; "margin floors" in the database): PUT {rep_id?, category_id,
+ * floor_pct} for one, or {rep_id?, floors:[{category_id, floor_pct}]} for several, stored together or none.
+ * floor_pct is a percent (30 = 30%), stored to 0.1 percentage point, the precision margins are shown and
+ * compared at (task 1.2), so the floor Settings shows is the one the warnings use. rep_id defaults to the
+ * signed-in rep; anyone else's are refused (403) by setMyFloor before anything is written.
+ *
+ * Each margin must be at or above its category's organization floor, compared at that same precision
+ * (Appendix C, enforced on write; plan U9): otherwise a 400 below_org_floor names every refused field,
+ * `fields: [{category_id, floor, detail}]`, with C_RS3's sentence and the floor in force, checked and
+ * written in one transaction so a floor raised meanwhile is the one compared with.
  */
 export function updateMyFloor(actingRepId:string,input:unknown):RepFloorSet{
   const request=body(input,FLOOR_RANGE);
   const repId=request.rep_id===undefined?actingRepId:text(request.rep_id);
-  const categoryId=text(request.category_id);
-  if(!repId||!categoryId)throw new SettingsError('Choose a rep and a product category.');
-  const tenths=floorTenths(request.floor_pct);
-  let saved;
-  try{saved=setMyFloor(actingRepId||null,repId,categoryId,tenths/1000);}
-  catch(error){
+  const bulk=request.floors!==undefined;
+  const items:unknown[]=bulk?(Array.isArray(request.floors)?request.floors:[]):[request];
+  if(bulk&&!items.length)throw new SettingsError('Send at least one margin.');
+  const seen=new Set<string>();
+  const wanted=items.map(item=>{
+    const row=typeof item==='object'&&item!==null&&!Array.isArray(item)?item as Record<string,unknown>:{};
+    const categoryId=text(row.category_id);
+    if(!repId||!categoryId)throw new SettingsError(bulk?'Choose a product category.':'Choose a rep and a product category.');
+    const tenths=floorTenths(row.floor_pct);
+    if(seen.has(categoryId))throw new SettingsError('Each category once.');
+    seen.add(categoryId);
+    return {categoryId,tenths};
+  });
+  try{
+    inTransaction(()=>{
+      if(!canEditFloor(actingRepId||null,repId!))throw new FloorPermissionError();
+      const known=new Set(productCategories().map(c=>c.id));
+      if(wanted.some(w=>!known.has(w.categoryId)))throw new SettingsError('Product category not found.',404);
+      const org=new Map(orgMarginFloors().map(f=>[f.category_id,f.floor]));
+      const fields=wanted.flatMap(({categoryId,tenths})=>{
+        const floor=org.get(categoryId)??0;
+        return tenths<Math.round(Number((floor*1000).toPrecision(12)))?[{category_id:categoryId,floor,detail:belowOrgFloor(floor)}]:[];
+      });
+      if(fields.length)throw new SettingsError(fields[0].detail,400,'below_org_floor',{fields});
+      for(const {categoryId,tenths} of wanted)if(!setMyFloor(actingRepId||null,repId!,categoryId,tenths/1000))throw new SettingsError('Product category not found.',404);
+    });
+  }catch(error){
     if(error instanceof FloorPermissionError)throw new SettingsError(error.message,403);
     if(error instanceof RangeError)throw new SettingsError(FLOOR_RANGE);
     throw error;
   }
-  if(!saved)throw new SettingsError('Product category not found.',404);
   const rep=reps().find(r=>r.id===repId)!;
   return floorSet(rep);
 }

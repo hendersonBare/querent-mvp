@@ -89,8 +89,8 @@ test.afterAll(async ({ playwright }, testInfo) => {
 test("Mara (a rep) sees no free delivery pricing sections, and their routes refuse her", async ({ browser }, testInfo) => {
   const mara = await newPage(browser, testInfo, "mara");
   await mara.goto("/rep/settings?tab=pricing");
-  // A rep has one Settings tab, their own margin floors (plan U8, Appendix B): no Pricing and delivery.
-  await expect(mara.getByRole("heading", { name: "My margin floors" })).toBeVisible();
+  // A rep's Settings tabs are Margins, Profile and Notifications (plan U9, Appendix B): no Pricing and delivery.
+  await expect(mara.getByRole("heading", { name: "Your margins" })).toBeVisible();
   for (const name of ["Delivery rates", "Free delivery pricing", "Recovery pool", "Delivery cost model"]) await expect(mara.getByRole("heading", { name })).toHaveCount(0);
   expect((await mara.request.get("/api/rep/settings/freight")).status()).toBe(403);
   expect((await mara.request.put("/api/rep/settings/freight", { data: { enabled: true } })).status()).toBe(403);

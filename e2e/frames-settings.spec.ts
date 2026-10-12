@@ -10,7 +10,9 @@ import { FONT_USER_AGENT, STYLE_PROPS, diffMeasures, measureAll, openFrame, star
 //   C_S1 (Customer access), C_S1a (its filter open), C_S1b (filter applied), C_S2 (Margin floors), C_S3 (review
 //   a rep, the rep list open), C_S4 (Pricing and delivery, the feature flags off: the real default), C_S5 and
 //   C_S6 (the same page with the flags on, scrolled to Free delivery pricing and to the pool and cost model),
-//   C_S7 (the impact preview), C_S8 (Aging).
+//   C_S7 (the impact preview), C_S8 (Aging). The frames draw the manager's four tabs; decision 69 adds her own
+//   Profile tab after them, so each frame's tab bar takes one more tab drawn its way (addProfileTab). The
+//   Profile tab itself is C_RS2's layout, proven in e2e/frames-rep-settings.spec.ts for the manager too.
 //
 // The feature flags (decision 48) are environment variables read on the server, so this spec starts two
 // production servers of its own (the build Playwright already needs), each on a free port with its own
@@ -415,9 +417,31 @@ const CASES: Case[] = [
   { id: "S8", which: "off", path: "/rep/settings?tab=aging" },
 ];
 
+/**
+ * Decision 69: the manager's Settings gains her own Profile tab after the four the frames draw (customers see her
+ * in My rep). It goes into the frame's tab bar as one more tab drawn the frame's way: a copy of one of the
+ * frame's own inactive tabs, last, reading "Profile". Its place, its styles and its word are then compared like
+ * every other tab.
+ */
+async function addProfileTab() {
+  const added = await framePage.evaluate(() => {
+    const own = (el: Element) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent!.trim()).join(" ").trim();
+    const aging = [...document.querySelectorAll("main span")].find((e) => own(e) === "Aging" && own(e.parentElement!.firstElementChild!) === "Customer access");
+    const bar = aging?.parentElement;
+    const inactive = bar && [...bar.children].find((t) => (t as HTMLElement).style.borderBottom.includes("transparent"));
+    if (!bar || !inactive) return false;
+    const tab = inactive.cloneNode(true) as HTMLElement;
+    tab.textContent = "Profile";
+    bar.appendChild(tab);
+    return true;
+  });
+  expect(added, "the frame's tab bar takes the manager's Profile tab (decision 69)").toBe(true);
+}
+
 for (const c of CASES) {
   test(`C_${c.id} (manager): every element, style and word, both ways`, async ({ browser }, testInfo) => {
     await frame(c.id);
+    await addProfileTab();
     if (c.drop?.length) await dropFromFrame(c.drop);
     const page = await appAs(browser, c.which, c.path, c.setup);
     await expectGeometry(page);

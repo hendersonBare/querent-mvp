@@ -145,7 +145,7 @@ export function setAgingThresholds(thresholds:AgingThresholds){
 
 const FLOOR='SELECT f.rep_id,f.category_id,c.name category_name,f.margin_floor,f.updated_at FROM rep_category_floors f JOIN product_categories c ON c.id=f.category_id';
 
-/** A rep's margin floor per product category (Settings > My margin floors). */
+/** A rep's margin floor per product category (their own margin, Settings > Margins, plan U9). */
 export function repFloors(repId:string){return all<RepFloor>(`${FLOOR} WHERE f.rep_id=? ORDER BY c.sort_order`,repId);}
 
 /** The floor for (rep x category) as a fraction, or undefined if none is stored (task 1.2 picks the fallback). */

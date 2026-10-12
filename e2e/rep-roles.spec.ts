@@ -57,11 +57,11 @@ test("Mara (a rep) has no manager settings, and the manager APIs refuse her", as
   const page = await signInAsMara(browser, testInfo);
   await page.goto("/rep/settings");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
-  // A rep has one tab, their own margin floors (plan U8, Appendix B); a typed ?tab= opens it.
-  await expect(settingsTabs(page).getByRole("link")).toHaveText(["Margin floors"]);
-  for (const tab of ["aging", "reps", "assignments", "access", "pricing", "sources"]) {
+  // A rep has their own tabs, Margins, Profile and Notifications (plan U9, Appendix B); a manager's ?tab= opens Margins.
+  await expect(settingsTabs(page).getByRole("link")).toHaveText(["Margins", "Profile", "Notifications"]);
+  for (const tab of ["aging", "reps", "assignments", "access", "pricing", "sources", "floors"]) {
     await page.goto(`/rep/settings?tab=${tab}`);
-    await expect(page.getByRole("heading", { name: "My margin floors" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your margins" })).toBeVisible();
     for (const name of ["Aging thresholds", "Customer access", "Delivery rates", "Organization margin floors", "Rep margins"]) await expect(page.getByRole("heading", { name })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Reps", exact: true })).toHaveCount(0);
   }
@@ -74,9 +74,14 @@ test("Mara (a rep) has no manager settings, and the manager APIs refuse her", as
   expect((await api.put("/api/rep/team/reps/eli", { data: { active: false } })).status()).toBe(403);
   for (const [method, path] of [["get", "/api/rep/settings/sources"], ["get", "/api/rep/settings/access"], ["get", "/api/rep/settings/org-floors"], ["get", "/api/rep/settings/margins"], ["put", "/api/rep/settings/pricing"], ["put", "/api/rep/settings/delivery"], ["put", "/api/rep/settings/access"], ["put", "/api/rep/settings/org-floors"]] as const)
     expect((await api[method](path, method === "put" ? { data: {} } : undefined)).status(), `${method} ${path}`).toBe(403);
-  // GET /api/rep/settings gives her own floors only (OA-69): no customer access, no other rep's floors.
+  // GET /api/rep/settings gives her own tabs only (OA-69; plan U9): her margins against the organization floors,
+  // her profile and her switches; no customer access, no other rep's floors.
   const settings = await (await api.get("/api/rep/settings")).json();
-  expect(settings).toEqual({ rep_id: "mara", manager: null, mine: expect.objectContaining({ rep: expect.objectContaining({ id: "mara" }) }) });
+  expect(settings).toEqual({ rep_id: "mara", manager: null, mine: expect.objectContaining({ rep: expect.objectContaining({ id: "mara" }) }),
+    own: { orgFloors: expect.any(Array), profile: expect.objectContaining({ name: "Mara Jensen" }), notifications: expect.any(Object) } });
+  // Her own routes answer her alone; the manager's Settings keeps its four tabs (Brandi does not set her own floors there).
+  expect((await api.get("/api/rep/profile")).status()).toBe(200);
+  expect((await api.get("/api/rep/notification-prefs")).status()).toBe(200);
   await page.context().close();
 });
 

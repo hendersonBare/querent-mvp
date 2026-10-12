@@ -11,7 +11,8 @@ const keys=(value:unknown):string[]=>Array.isArray(value)?value.flatMap(keys):va
 describe('customerRepContact',()=>{
   it("gives the assigned rep only, for the My rep sheet (C_CVL3; Appendix D: departments stay with the chat's answers)",async()=>{
     const {customerRepContact}=await import('./sidebar');
-    expect(customerRepContact('wasatch')).toEqual({rep:{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'}});
+    // Plan U9: what the rep set on Settings > Profile, their title and their picture's link; no internal id.
+    expect(customerRepContact('wasatch')).toEqual({rep:{name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',picture_url:null}});
   });
 
   it('shows no rep for a customer without one, and never carries internal fields',async()=>{

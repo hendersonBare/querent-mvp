@@ -83,5 +83,5 @@ Every token below is a CSS variable in `src/app/tokens.css` (`--q-<name>`). `e2e
 - **Hover:** buttons and filled controls darken one step (accent `#14803C` to about `#0F6A31`; white controls get `#F0F1F0`; rows get `#F0F1F0`; nav items get `#2A302D`). Pointer cursor on anything clickable.
 - **Focus:** 2px accent outline with 2px offset on every focusable element.
 - **Loading:** skeleton blocks in `#E8EAE9` with a slow pulse, same size as the content. Buttons show a disabled state while a request runs. No spinners over page content.
-- **Disabled:** 50% opacity, `not-allowed` cursor.
+- **Disabled:** 50% opacity, `not-allowed` cursor. Where a frame draws a disabled control it wins: C_RS3 draws a rep's disabled **Save margins** at full strength on `#C4C7C5`, which the rep's Settings saves use (U9).
 - **Empty and error:** a single plain line in `#585F5B` inside the card; errors in `#C92A1C`.

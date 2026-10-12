@@ -651,3 +651,178 @@ div.filterPanel {
   color: var(--q-text-2);
   font-size: var(--q-text-secondary);
 }
+
+/* ---- A rep's tabs (plan U9; C_RS1 to C_RS4). ---- */
+
+/* C_RS3: a disabled Save drawn grey, at full strength. */
+.greenOff:disabled,
+.greenOff:disabled:hover {
+  background: var(--q-rule);
+  opacity: 1;
+}
+
+/* C_RS1 Your margins: category, the 0% to 50% bar, the rep's field, the organization floor. */
+.marginGrid {
+  grid-template-columns: 1.4fr 3fr 150px 120px;
+  gap: 24px;
+}
+.orgFloor {
+  color: var(--q-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.fillBelow {
+  background: #F1BEB8;
+}
+.tickFloor {
+  background: var(--q-titlebar);
+}
+.tickBelow {
+  background: var(--q-red);
+}
+/* C_RS3: the field below the floor, 2px red. */
+.box.boxBelow {
+  border-width: 2px;
+  border-color: var(--q-red);
+  color: var(--q-red);
+}
+.belowNote {
+  grid-column: 2 / span 3;
+  margin-top: -8px;
+  color: var(--q-red);
+  font-size: var(--q-text-table-head);
+  font-weight: 700;
+}
+/* The legend under the rows: a 4px tick before each name. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--q-row-divider);
+  color: var(--q-text-2);
+  font-size: var(--q-text-table-head);
+}
+.swatch {
+  display: inline-block;
+  width: 4px;
+  height: 12px;
+  margin-right: 6px;
+  border-radius: 2px;
+  background: var(--q-accent);
+}
+.swatchFloor {
+  background: var(--q-titlebar);
+}
+
+/* C_RS2 Profile: the picture row, then the fields. */
+.profileBody {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 24px 20px;
+}
+.pictureRow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 96px;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--q-titlebar);
+  color: #fff;
+  font-size: 32px;
+  font-weight: 800;
+}
+.avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pictureSide {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pictureActions {
+  display: flex;
+  gap: 10px;
+}
+/* "Upload picture", "Remove": 38px white buttons with the field line (content-box, as drawn). */
+.plainButton {
+  box-sizing: content-box;
+  height: var(--q-control-height);
+  margin: 0;
+  padding: 0 16px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-button);
+  background: var(--q-card);
+  color: var(--q-text);
+  font-family: inherit;
+  font-size: var(--q-text-body);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  text-align: start;
+  cursor: pointer;
+}
+.plainButton:hover {
+  background: var(--q-lane);
+}
+.fileInput {
+  display: none;
+}
+.profileFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px 24px;
+  max-width: 760px;
+}
+.fieldLabel {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--q-text-2);
+  font-size: var(--q-text-label);
+  font-weight: 700;
+}
+.textField {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  background: var(--q-card);
+  color: var(--q-text);
+  font-family: inherit;
+  font-size: var(--q-text-body);
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: normal;
+  text-align: start;
+}
+.textField:focus {
+  outline: none;
+  border-color: var(--q-accent);
+}
+.textField[aria-invalid="true"] {
+  border-color: var(--q-red);
+}
+
+/* C_RS4 Notifications: the event and its In app switch. */
+.notifyGrid {
+  grid-template-columns: 1fr 90px;
+  gap: 24px;
+}

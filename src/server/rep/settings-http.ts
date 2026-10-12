@@ -4,11 +4,12 @@ import {FeatureOffError} from '@/server/flags';
 import {SettingsError} from './settings';
 
 /**
- * A SettingsError as its status with {detail}, plus its `code` when it has one (409 has_customers, task D1);
+ * A SettingsError as its status with {detail}, plus its `code` when it has one (409 has_customers, task D1)
+ * and its extra fields (400 below_org_floor's `fields`, plan U9);
  * a FeatureOffError as 403 {detail, code: feature_off} (decision 48). Anything else is rethrown (a 500).
  */
 export function settingsError(error:unknown){
-  if(error instanceof SettingsError)return repJson({detail:error.message,...(error.code?{code:error.code}:{})},error.status);
+  if(error instanceof SettingsError)return repJson({detail:error.message,...(error.code?{code:error.code}:{}),...error.extra},error.status);
   if(error instanceof FeatureOffError)return repJson({detail:error.message,code:error.code},error.status);
   throw error;
 }

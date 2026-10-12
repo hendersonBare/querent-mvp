@@ -7,7 +7,7 @@ import type {API,Principal} from '@/lib/contracts';
 export const dana:Principal={user_id:'dana',role:'customer_user',customer_id:'wasatch',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 
 export const repContact:CustomerRepContact={
-  rep:{id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'},
+  rep:{name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com',picture_url:null},
 };
 
 const order=(n:number,o:Partial<CustomerOrderRow>={}):CustomerOrderRow=>({id:`so-${n}`,order_number:`SO-${n}`,order_date:'2026-08-01',status:'closed',fulfillment:'will_call',branch_code:'SLC',total:100+n%100,quote_number:null,...o});

@@ -15,7 +15,7 @@ import s from './Settings.module.css';
 //     floor, the rep picked in a searchable box (every rep by name; the first one shown is the first rep who
 //     is not the signed-in manager, as C_S2 shows Eli). Managers do not set floors here for themselves.
 //     The box shows the picked rep's name as C_S2 draws it; typing over it narrows the list.
-// A rep gets MyFloors instead: their own floors in the same card, until their own tabs come (plan U9).
+// A rep sets their own margins on their own Margins tab (plan U9, RepMargins.tsx).
 // Floors are shown and stored to 0.1 point, the precision the red warnings compare at. No frame: the
 // "Saved" line beside Save and the one red line for a floor that is not one (decision 52).
 
@@ -133,32 +133,4 @@ function RepMargins({reps,floors,meId}:{reps:RepFloorSet[];floors:OrgFloorCell[]
       </div>)}
     </div>}
   </Card>;
-}
-
-/**
- * A rep's own margin floors (spec §5.2), in the Organization margin floors card's look, until plan U9's
- * rep tabs. Save sends each changed floor through PUT /api/rep/settings/floors, which refuses anyone else's.
- */
-export function MyFloors({mine,tabs}:{mine:RepFloorSet;tabs:ReactNode}){
-  const [floors,setFloors]=useState(mine.floors);
-  const stored=floors.map(f=>({category_id:f.category_id,floor:f.margin_floor}));
-  const fields=useFloorFields(stored);
-  const [saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
-  async function save(){
-    if(fields.invalid||saving||!fields.changed.length)return;
-    setSaving(true);setError('');setSaved(false);
-    try{
-      let next=floors;
-      for(const f of fields.changed)next=(await saveSetting<RepFloorSet>('floors',{category_id:f.category_id,floor_pct:fields.parsed[f.category_id]})).floors;
-      setFloors(next);fields.reset(next.map(f=>({category_id:f.category_id,floor:f.margin_floor})));setSaved(true);
-    }catch(e){setError(e instanceof Error?e.message:'The floors weren’t saved. Try again.');}
-    finally{setSaving(false);}
-  }
-  return <SettingsFrame tabs={tabs}>
-    <Card title="My margin floors" saved={saved} action={<SaveButton label="Save floors" disabled={fields.invalid||saving} onClick={()=>void save()}/>}>
-      <Problem>{error||(fields.invalid?FLOOR_PROBLEM:'')}</Problem>
-      <FloorTable label="My margin floors" rows={floors.map(f=><FloorRow key={f.category_id} categoryId={f.category_id} name={f.category_name} value={fields.text[f.category_id]??''}
-        parsed={fields.parsed[f.category_id]} fallback={f.margin_floor} onChange={v=>{fields.setText(t=>({...t,[f.category_id]:v}));setSaved(false);setError('');}}/>)}/>
-    </Card>
-  </SettingsFrame>;
 }

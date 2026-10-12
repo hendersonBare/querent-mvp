@@ -176,7 +176,8 @@ describe('GET /api/rep/settings',()=>{
   it('a rep gets only their own floors: no customer access summary, no other rep’s floors (plan U8, OA-69)',async()=>{
     for(const query of ['','?customer=wasatch','?customer=canyon-ridge']){
       const {body}=await settings(query,'mara');
-      expect(body).toEqual({rep_id:'mara',manager:null,mine:expect.objectContaining({rep:expect.objectContaining({id:'mara'})})});
+      expect(body).toEqual({rep_id:'mara',manager:null,mine:expect.objectContaining({rep:expect.objectContaining({id:'mara'})}),
+        own:{orgFloors:expect.any(Array),profile:expect.objectContaining({name:'Mara Jensen'}),notifications:expect.any(Object)}});
     }
     expect((await (await import('./settings/access/route')).GET(get('/api/rep/settings/access','mara'))).status).toBe(403);
     expect((await (await import('./settings/sources/route')).GET(get('/api/rep/settings/sources','mara'))).status).toBe(403);
