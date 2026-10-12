@@ -70,7 +70,7 @@ function SignOutDialog({who,onCancel,onConfirm}:{who:string;onCancel:()=>void;on
     (document.activeElement===cancel.current?confirm:cancel).current?.focus();
   };
   return <>
-    <div className={s.backdrop} onClick={onCancel}/>
+    <div className={s.backdrop} data-ui="sign-out-backdrop" onClick={onCancel}/>
     <div className={s.dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={trap}>
       <div id={titleId} className={s.dialogTitle}>Sign out of Querent?</div>
       <div className={s.dialogBody}>{`You are signed in as ${who}.`}</div>

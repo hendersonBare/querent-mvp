@@ -27,12 +27,12 @@ const mara={id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales'};
 const ORG='Herrick Industrial Supply';
 
 const caution=(over:Partial<BadgeSummary>={}):BadgeSummary=>({id:'q-24790',quote_number:'Q-24790',kind:'quote_overdue',label:'Q-24790',tag:'Overdue',
-  line:'Wasatch Mechanical Contractors, changes requested 2 days ago.',at:'2026-09-21T16:00:00.000Z',...over});
-const bellItem=(over:Partial<BadgeSummary>={}):BadgeSummary=>({id:'q-24817',quote_number:'Q-24817',kind:'quote_requested',label:'Q-24817 requested by Wasatch Mechanical Contractors',
+  line:'Changes requested 2 days ago.',at:'2026-09-21T16:00:00.000Z',...over});
+const bellItem=(over:Partial<BadgeSummary>={}):BadgeSummary=>({id:'q-24817',quote_number:'Q-24817',kind:'quote_requested',label:'Q-24817 requested by Dana Ortiz',
   tag:null,line:null,at:'2026-09-23T16:14:00.000Z',...over});
 const BADGES:RepBadges={quotes:1,attention:2,
-  caution:[caution(),caution({id:'q-24812',quote_number:'Q-24812',label:'Q-24812',line:'Canyon Ridge Builders, sent 8 days ago.'}),
-    caution({id:'q-24789',quote_number:'Q-24789',label:'Q-24789',tag:'Aging',kind:'quote_aging',line:'Wasatch Mechanical Contractors, sent 4 days ago.'})],
+  caution:[caution(),caution({id:'q-24812',quote_number:'Q-24812',label:'Q-24812',line:'Sent 8 days ago.'}),
+    caution({id:'q-24789',quote_number:'Q-24789',label:'Q-24789',tag:'Aging',kind:'quote_aging',line:'Sent 4 days ago, expires tomorrow.'})],
   bell:[bellItem()]};
 
 let served:RepBadges=BADGES;
@@ -166,9 +166,9 @@ describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
     expect(list).toHaveTextContent('3 need your attention');
     const rows=within(list).getAllByRole('button');
     expect(rows.map(r=>r.textContent)).toEqual([
-      'Q-24790OverdueWasatch Mechanical Contractors, changes requested 2 days ago.',
-      'Q-24812OverdueCanyon Ridge Builders, sent 8 days ago.',
-      'Q-24789AgingWasatch Mechanical Contractors, sent 4 days ago.']);
+      'Q-24790OverdueChanges requested 2 days ago.',
+      'Q-24812OverdueSent 8 days ago.',
+      'Q-24789AgingSent 4 days ago, expires tomorrow.']);
     expect(nav.push).not.toHaveBeenCalled();
     expect(nav.replace).not.toHaveBeenCalled();
     expect(leave).not.toHaveBeenCalled();
@@ -182,7 +182,7 @@ describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
     expect(bellButton()).toHaveAccessibleName('Notifications, open');
     const list=screen.getByRole('dialog',{name:'Notifications'});
     const [row]=within(list).getAllByRole('button');
-    expect(row).toHaveTextContent(/^Q-24817 requested by Wasatch Mechanical ContractorsSep 23, \d{1,2}:\d{2} (AM|PM)$/);
+    expect(row).toHaveTextContent(/^Q-24817 requested by Dana OrtizSep 23, \d{1,2}:\d{2} (AM|PM)$/);
     expect(nav.push).not.toHaveBeenCalled();
     fireEvent.keyDown(document,{key:'Escape'});
     expect(screen.queryByRole('dialog')).toBeNull();

@@ -62,13 +62,13 @@ describe('repBadges: the caution dropdown (Needs attention, C_QOB3)',()=>{
     const {caution,attention}=repBadges('brandi',{now:FIVE_H});
     const mine=caution.find(c=>c.id===q.id);
     expect(mine).toEqual({id:q.id,quote_number:q.quote_number,kind:'quote_aging',label:q.quote_number,tag:'Aging',
-      line:'Wasatch Mechanical Contractors, requested 5 hours ago.',at:T0});
+      line:'Requested 5 hours ago.',at:T0});
     expect(caution.filter(c=>c.tag==='Overdue')).toHaveLength(attention);
     const tags=caution.map(c=>c.tag);
     expect(tags).toEqual([...tags].sort((a,b)=>(a==='Overdue'?0:1)-(b==='Overdue'?0:1)));
     markQuoteRead(q.id,'rep');
     // Still needs attention after it is read: aging is not the unread flag.
-    expect(repBadges('brandi',{now:TWO_DAYS}).caution.find(c=>c.id===q.id)).toMatchObject({tag:'Overdue',kind:'quote_overdue',line:'Wasatch Mechanical Contractors, requested 2 days ago.'});
+    expect(repBadges('brandi',{now:TWO_DAYS}).caution.find(c=>c.id===q.id)).toMatchObject({tag:'Overdue',kind:'quote_overdue',line:'Requested 2 days ago.'});
   });
 
   it('holds the same quotes as the Quotes list\'s Needs attention view: the rep\'s own, or every rep\'s for the manager (task U1)',async()=>{
@@ -88,7 +88,7 @@ describe('repBadges: the caution dropdown (Needs attention, C_QOB3)',()=>{
 describe('repBadges: the bell dropdown (Notifications, C_QOB4)',()=>{
   it('lists the reader\'s unread customer events, newest first, worded as C_QOB4 words them',async()=>{
     const {bell}=repBadges('brandi',{now:T0});
-    expect(bell).toEqual([{id:'q-24817',quote_number:'Q-24817',kind:'quote_requested',label:'Q-24817 requested by Wasatch Mechanical Contractors',tag:null,line:null,at:'2026-09-23T16:14:00.000Z'}]);
+    expect(bell).toEqual([{id:'q-24817',quote_number:'Q-24817',kind:'quote_requested',label:'Q-24817 requested by Dana Ortiz',tag:null,line:null,at:'2026-09-23T16:14:00.000Z'}]);
 
     const changes=request(),accepted=request(),declined=request();
     for(const q of [changes,accepted,declined])await sendQuote(q.id,{repId:'brandi',now:SENT});
@@ -97,10 +97,10 @@ describe('repBadges: the bell dropdown (Notifications, C_QOB4)',()=>{
     declineQuote('wasatch',declined.id,{revision:1,reason:'price_too_high',now:'2026-09-24T17:00:00.000Z'});
     const after=repBadges('brandi',{now:'2026-09-24T18:00:00.000Z'}).bell;
     expect(after.map(b=>[b.kind,b.label,b.at])).toEqual([
-      ['quote_declined',`${declined.quote_number} declined by Wasatch Mechanical Contractors`,'2026-09-24T17:00:00.000Z'],
-      ['quote_accepted',`${accepted.quote_number} accepted by Wasatch Mechanical Contractors`,'2026-09-24T16:00:00.000Z'],
+      ['quote_declined',`${declined.quote_number} declined by Dana Ortiz`,'2026-09-24T17:00:00.000Z'],
+      ['quote_accepted',`${accepted.quote_number} accepted by Dana Ortiz`,'2026-09-24T16:00:00.000Z'],
       ['change_requested',`Dana Ortiz replied on ${changes.quote_number}`,LATER],
-      ['quote_requested','Q-24817 requested by Wasatch Mechanical Contractors','2026-09-23T16:14:00.000Z'],
+      ['quote_requested','Q-24817 requested by Dana Ortiz','2026-09-23T16:14:00.000Z'],
     ]);
     expect(after).toHaveLength(repBadges('brandi',{now:'2026-09-24T18:00:00.000Z'}).quotes);
     for(const q of [changes,accepted,declined])markQuoteRead(q.id,'rep');

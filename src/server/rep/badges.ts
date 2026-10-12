@@ -53,19 +53,26 @@ export interface RepBadges {
   bell:BadgeSummary[];
 }
 
-/** "Sent 4 days ago · Expires today" -> "sent 4 days ago, expires today" (aging reasons, quotes/aging.ts). */
-const clause=(reason:string)=>reason.split(' · ').map(part=>part.charAt(0).toLowerCase()+part.slice(1)).join(', ');
+/**
+ * The caution row's one line, from the aging reason (quotes/aging.ts), one short sentence as C_QOB3
+ * draws ("Sent Oct 6, no reply yet."): "Sent 4 days ago · Expires today" -> "Sent 4 days ago, expires today."
+ */
+const sentence=(reason:string)=>`${reason.split(' · ').map((part,i)=>i?part.charAt(0).toLowerCase()+part.slice(1):part).join(', ')}.`;
 
-/** The bell's words for an unread quote (C_QOB4: "Dana Ortiz replied on Q-24790", "Q-24763 accepted by Canyon Ridge"). */
+/**
+ * The bell's words for an unread quote, as C_QOB4 words its rows ("Dana Ortiz replied on Q-24790",
+ * "Q-24763 accepted by Canyon Ridge", "Q-24815 expired"). Who: the quote's contact, as the frame's
+ * first row names Dana Ortiz, else the customer.
+ */
 function bellSummary(e:UnreadQuoteEvent):BadgeSummary{
   const base={id:e.id,quote_number:e.quote_number,tag:null,line:null};
-  const responded=e.responded_at??e.requested_at;
+  const who=e.contact_name??e.customer_name,responded=e.responded_at??e.requested_at;
   switch(e.status){
-    case 'changes_requested':return {...base,kind:'change_requested',label:`${e.contact_name??e.customer_name} replied on ${e.quote_number}`,at:responded};
-    case 'accepted':return {...base,kind:'quote_accepted',label:`${e.quote_number} accepted by ${e.customer_name}`,at:responded};
-    case 'declined':return {...base,kind:'quote_declined',label:`${e.quote_number} declined by ${e.customer_name}`,at:responded};
+    case 'changes_requested':return {...base,kind:'change_requested',label:`${who} replied on ${e.quote_number}`,at:responded};
+    case 'accepted':return {...base,kind:'quote_accepted',label:`${e.quote_number} accepted by ${who}`,at:responded};
+    case 'declined':return {...base,kind:'quote_declined',label:`${e.quote_number} declined by ${who}`,at:responded};
     case 'expired':return {...base,kind:'quote_expired',label:`${e.quote_number} expired`,at:responded};
-    default:return {...base,kind:'quote_requested',label:`${e.quote_number} requested by ${e.customer_name}`,at:e.requested_at};
+    default:return {...base,kind:'quote_requested',label:`${e.quote_number} requested by ${who}`,at:e.requested_at};
   }
 }
 
@@ -85,7 +92,7 @@ export function repBadges(repId:string,{now=new Date().toISOString(),manager=fal
     .map((row):BadgeSummary=>{
       const red=row.aging.level==='red';
       return {id:row.id,quote_number:row.quote_number,kind:red?'quote_overdue':'quote_aging',label:row.quote_number,
-        tag:AGING_LABELS[red?'red':'amber'],line:`${row.customer_name}, ${clause(row.aging.reason)}.`,at:row.aging.since};
+        tag:AGING_LABELS[red?'red':'amber'],line:sentence(row.aging.reason),at:row.aging.since};
     });
   const bell=unreadQuoteEvents(repId).map(bellSummary).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
   return {quotes:unreadQuoteCount(repId),attention:redQuoteCount(owner,now),
