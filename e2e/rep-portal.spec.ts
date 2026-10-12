@@ -21,16 +21,7 @@ const SECTIONS = [
   ["Teams and Reps", "/rep/teams"],
   ["Settings", "/rep/settings"],
 ] as const;
-const CUSTOMERS = [
-  "All customers",
-  "Canyon Ridge Builders",
-  "Great Basin Fabrication",
-  "Uinta Facility Services",
-  "Utah Valley Electric",
-  "Wasatch Mechanical Contractors",
-  "Weber Basin Fabricators",
-];
-const accessCustomer = (page: Page) => page.getByRole("combobox", { name: "Customer" });
+const accessSearch = (page: Page) => page.getByRole("searchbox", { name: "Search customers" });
 
 test.describe.configure({ mode: "serial" });
 
@@ -97,12 +88,11 @@ test("nav: the rail names every section, with an icon, and each opens its own pa
   await expect(page.getByRole("heading", { name: "Queries by category" })).toBeVisible();
   await sectionLink(page, "Settings").click();
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
-  // Brandi is the manager: Aging is hers alone (task D1); Rep assignments and Reps are on Teams and Reps (plan U7).
-  await expect(tabs.getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing & delivery", "Aging", "Data sources"]);
+  // Brandi is the manager: the four tabs are hers (plan U8); Rep assignments and Reps are on Teams and Reps (plan U7).
+  // Data sources is gone (plan U8).
+  await expect(tabs.getByRole("link")).toHaveText(["Customer access", "Margin floors", "Pricing and delivery", "Aging"]);
   await tabs.getByRole("link", { name: "Customer access" }).click();
-  await expect(page.getByRole("switch", { name: "Pricing" })).toBeVisible();
-  await tabs.getByRole("link", { name: "Data sources" }).click();
-  await expect(page.getByRole("heading", { name: "Herrick Industrial Supply ERP" })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Pricing", exact: true })).toBeVisible();
 
   // /rep opens Quotes.
   await page.goto("/rep");
@@ -148,21 +138,19 @@ test("customer filter: ?customer= narrows one page, and no nav link carries it (
   // The Orders picker (plan U5, C_ORBase) shows every customer again.
   await expect(page.getByRole("combobox", { name: "Customer, All customers" })).toBeVisible();
 
-  // Settings > Customer access picks its own customer.
+  // Settings > Customer access finds its customers with its own search (plan U8, C_S1b); a link with
+  // ?customer= opens it for that customer, and a reload keeps it; leaving the page drops it.
   await sectionLink(page, "Settings").click();
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Customer access" }).click();
   await expect(page).toHaveURL(/\/rep\/settings\?tab=access$/);
-  await expect(accessCustomer(page).locator("option")).toHaveText(CUSTOMERS);
-  await accessCustomer(page).selectOption("great-basin");
-  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=great-basin$/);
-  await expect(page.getByText("What Querent answers in chat for Great Basin Fabrication.")).toBeVisible();
-  await accessCustomer(page).selectOption("wasatch");
-  await expect(page).toHaveURL(/\/rep\/settings\?tab=access&customer=wasatch$/);
-  await expect(page.getByText("What Querent answers in chat for Wasatch Mechanical Contractors.")).toBeVisible();
-
-  // A reload keeps the page's filter; leaving the page drops it.
+  await accessSearch(page).fill("basin");
+  await expect(page.getByText("2 of 6 customers")).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Pricing for Great Basin Fabrication" })).toBeVisible();
+  await page.goto("/rep/settings?tab=access&customer=wasatch");
+  await expect(accessSearch(page)).toHaveValue("Wasatch Mechanical Contractors");
+  await expect(page.getByRole("switch", { name: "Pricing for Wasatch Mechanical Contractors" })).toBeVisible();
   await page.reload();
-  await expect(accessCustomer(page)).toHaveValue("wasatch");
+  await expect(accessSearch(page)).toHaveValue("Wasatch Mechanical Contractors");
   await sectionLink(page, "Analytics").click();
   await expect(page).toHaveURL(/\/rep\/analytics$/);
   await expect(await totalQueries(page)).toHaveText(String(all));

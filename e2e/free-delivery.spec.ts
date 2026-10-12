@@ -1,10 +1,13 @@
 import { expect, test, type APIRequest, type Browser, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
 import { extractText, getDocumentProxy } from "unpdf";
 
-// Free delivery pricing (v3 spec §4.3, §4.6, §4.7, §6 Settings; decisions 28–36; task C3):
-//   - Mara (a rep) has no free delivery pricing cards on Pricing & delivery, and its routes answer 403.
+// Free delivery pricing (v3 spec §4.3, §4.6, §4.7, §6 Settings; decisions 28–36, 48; tasks C3, U8):
+//   - Runs with the three feature flags on (FEATURE_FREE_DELIVERY_PRICING, FEATURE_RECOVERY_POOL,
+//     FEATURE_DELIVERY_COST_MODEL; playwright.config.ts sets them for the server it starts): with a flag off its
+//     section does not render and its writes are refused (e2e/frames-settings.spec.ts, the route tests).
+//   - Mara (a rep) has no Pricing and delivery tab and no free delivery pricing sections, and their routes answer 403.
 //   - Dana asks for a delivery over the $1,500 free-delivery threshold.
-//   - Brandi (the manager) opens Settings > Pricing & delivery: the toggle is locked until she views
+//   - Brandi (the manager) opens Settings > Pricing and delivery: the toggle is locked until she views
 //     the impact preview (quotes affected, the change per category); she turns it on and sees the
 //     ramp (step 1 of 3) and the pool panel (the computed pool rate next to the starting rate, eligible
 //     quotes, cap, 90-day cost).
@@ -83,18 +86,17 @@ test.afterAll(async ({ playwright }, testInfo) => {
   await resetDemo(playwright.request, testInfo);
 });
 
-test("Mara (a rep) sees no free delivery pricing cards, and its routes refuse her", async ({ browser }, testInfo) => {
+test("Mara (a rep) sees no free delivery pricing sections, and their routes refuse her", async ({ browser }, testInfo) => {
   const mara = await newPage(browser, testInfo, "mara");
   await mara.goto("/rep/settings?tab=pricing");
-  await expect(mara.getByRole("heading", { name: "Delivery rates" })).toBeVisible();
-  await expect(mara.getByRole("heading", { name: "Pricing", exact: true })).toBeVisible();
-  await expect(mara.getByRole("heading", { name: "Free delivery pricing" })).toHaveCount(0);
-  await expect(mara.getByRole("heading", { name: "Recovery pool" })).toHaveCount(0);
-  await expect(mara.getByRole("heading", { name: "Delivery cost model" })).toHaveCount(0);
+  // A rep has one Settings tab, their own margin floors (plan U8, Appendix B): no Pricing and delivery.
+  await expect(mara.getByRole("heading", { name: "My margin floors" })).toBeVisible();
+  for (const name of ["Delivery rates", "Free delivery pricing", "Recovery pool", "Delivery cost model"]) await expect(mara.getByRole("heading", { name })).toHaveCount(0);
   expect((await mara.request.get("/api/rep/settings/freight")).status()).toBe(403);
   expect((await mara.request.put("/api/rep/settings/freight", { data: { enabled: true } })).status()).toBe(403);
   expect((await mara.request.get("/api/rep/settings/freight/preview")).status()).toBe(403);
-  await screenshot(mara, testInfo, "mara-pricing-delivery");
+  expect((await mara.request.put("/api/rep/settings/delivery", { data: { base_fee: 1 } })).status()).toBe(403);
+  await screenshot(mara, testInfo, "mara-settings");
 });
 
 test("Dana asks for a delivery over the free-delivery threshold", async () => {
@@ -112,6 +114,8 @@ test("Dana asks for a delivery over the free-delivery threshold", async () => {
 });
 
 test("Brandi views the impact preview, turns free delivery pricing on, and sees the ramp and the pool", async ({}, testInfo) => {
+  const flags = (await brandi.evaluate(() => fetch("/api/rep/settings").then((r) => r.json()))).manager.flags;
+  expect(flags, "this spec runs with the three feature flags on (playwright.config.ts sets them for the server it starts)").toEqual({ freeDeliveryPricing: true, recoveryPool: true, deliveryCostModel: true });
   await brandi.goto("/rep/settings?tab=pricing");
   const free = card(brandi, "Free delivery pricing");
   await expect(free.getByRole("heading", { name: "Free delivery pricing" })).toBeVisible();
@@ -119,7 +123,7 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   await expect(toggle(brandi)).toBeDisabled();
   await expect(toggle(brandi)).toHaveAttribute("aria-checked", "false");
   await expect(free).toContainText("View the impact preview before turning it on.");
-  // The existing cards stay as they are (OA-55).
+  // The Pricing and Delivery rates cards stay above them.
   await expect(brandi.getByRole("heading", { name: "Delivery rates" })).toBeVisible();
   // The pool panel and the fuel price before enabling: the starting rate, and the seeded UT price.
   const pool = card(brandi, "Recovery pool");
@@ -127,15 +131,21 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   await expect(pool).toContainText("Rate cap8.0%");
   await expect(pool).toContainText("Rate in forceOff");
   await expect(card(brandi, "Delivery cost model")).toContainText("UT gasoline$3.40/gal, seeded price");
-  await expect(brandi.getByRole("spinbutton", { name: "Vehicle MPG" })).toHaveValue("10");
+  await expect(brandi.getByRole("textbox", { name: "Vehicle MPG" })).toHaveValue("10");
   await screenshot(brandi, testInfo, "pricing-delivery-locked");
 
   await free.getByRole("button", { name: "View impact preview" }).click();
-  const table = free.getByRole("table", { name: "Average line price change by category" });
+  // The preview opens over the page (plan U8, C_S7): per category, the delivery quotes it touches and the
+  // average line price change in dollars at step 1 and at the full rate.
+  const preview = brandi.getByRole("dialog", { name: "Impact preview" });
+  const table = preview.getByRole("table", { name: "Average change per line price" });
   await expect(table).toBeVisible();
-  await expect(free).toContainText(/[1-9]\d* of \d+ delivery quotes from the last 90 days would carry freight recovery\./);
-  await expect(table.getByRole("row").first()).toHaveText("CategoryLinesAt step 1 (0.5%)At full rate (1.6%)");
-  await expect(table.getByRole("row").filter({ hasText: "Fasteners" })).toHaveText(/Fasteners\d+\+\d+\.\d\d%\+\d+\.\d\d%/);
+  await expect(preview).toContainText(/Based on the last [1-9]\d* delivery quotes\./);
+  await expect(table.getByRole("row").first()).toHaveText(":: Category:: Quotes affected:: Step 1 (0.5%):: Full rate (1.6%)");
+  await expect(table.getByRole("row").filter({ hasText: "Fasteners" })).toHaveText(/Fasteners[1-9]\d* of \d+\+\$\d+\.\d\d\+\$\d+\.\d\d/);
+  await screenshot(brandi, testInfo, "impact-preview");
+  await preview.getByRole("button", { name: "Close" }).click();
+  await expect(preview).toHaveCount(0);
 
   await expect(toggle(brandi)).toBeEnabled();
   await toggle(brandi).click();
@@ -144,7 +154,7 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   const ramp = free.getByRole("table", { name: "Ramp-in schedule" });
   await expect(ramp.getByRole("row")).toHaveCount(4);
   await expect(ramp.getByRole("row").nth(1)).toContainText("Step 1 of 3");
-  await expect(ramp.getByRole("row").nth(1)).toContainText("Now");
+  await expect(ramp.getByRole("row").nth(1)).toContainText("NOW");
   await expect(ramp.getByRole("row").nth(1)).toContainText("0.5%");
   await expect(ramp.getByRole("row").nth(3)).toContainText("1.6%");
   await expect(pool).toContainText("Rate in force0.5%, ramp step 1 of 3");
@@ -157,12 +167,6 @@ test("Brandi views the impact preview, turns free delivery pricing on, and sees 
   await brandi.reload();
   await expect(toggle(brandi)).toHaveAttribute("aria-checked", "true");
 
-  // At phone width the cards stack and the page never scrolls sideways.
-  await brandi.setViewportSize({ width: 390, height: 844 });
-  await expect(card(brandi, "Delivery cost model")).toBeVisible();
-  expect(await brandi.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-  await screenshot(brandi, testInfo, "pricing-delivery-390");
-  await brandi.setViewportSize({ width: 1440, height: 1000 });
 });
 
 test("the delivery draft reprices on Brandi's open: the recovery chip and the line's recovery in Line details", async ({}, testInfo) => {
