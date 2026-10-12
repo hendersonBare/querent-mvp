@@ -100,4 +100,22 @@ describe('DataTable',()=>{
     renderTable({initialPrefs:{column_order:['customer','quote','status','total','margin','rep'],hidden_columns:['total','rep']}});
     expect(headers()).toEqual([':: Customer',':: Quote',':: Status',':: Margin']);
   });
+  it('takes a wider trailing track that holds a per-row action under the columns picker (plan U5; C_STBase 124px "Add to quote")',()=>{
+    const onAdd=vi.fn();
+    const {container}=renderTable({pickerTrack:'124px',rowEnd:r=><button type="button" onClick={()=>onAdd(r.id)}>Add to quote</button>});
+    const head=screen.getAllByRole('row')[0] as HTMLElement;
+    expect(head.style.gridTemplateColumns).toBe('1fr 2.2fr 1.5fr 1fr 0.9fr 124px');
+    expect((bodyRows()[0] as HTMLElement).style.gridTemplateColumns).toBe('1fr 2.2fr 1.5fr 1fr 0.9fr 124px');
+    // The action sits in its own cell after the data cells; the header keeps the picker there.
+    expect(within(bodyRows()[0]).getAllByRole('cell').map(c=>c.textContent)).toEqual(['Q-24800','Customer 0','Accepted','$0.00','30.0%','Add to quote']);
+    fireEvent.click(within(bodyRows()[1]).getByRole('button',{name:'Add to quote'}));
+    expect(onAdd).toHaveBeenCalledWith('Q-24801');
+    expect(container.querySelectorAll('button[aria-label="Choose columns"]')).toHaveLength(1);
+  });
+
+  it('keeps the 28px picker track and an empty trailing cell by default (C_CUBase)',()=>{
+    renderTable();
+    expect((screen.getAllByRole('row')[0] as HTMLElement).style.gridTemplateColumns).toBe('1fr 2.2fr 1.5fr 1fr 0.9fr 28px');
+    expect(within(bodyRows()[0]).getAllByRole('cell')).toHaveLength(5);
+  });
 });

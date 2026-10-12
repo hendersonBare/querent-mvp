@@ -1,4 +1,5 @@
 import type {CustomerDirectoryRow,CustomerOrder,OrderListRow} from '@/domain';
+import type {AddToQuoteTarget} from '@/server/rep/add-to-quote';
 import type {CustomerDetail,ItemDetail,ItemList,ItemRow} from '@/server/rep/reference';
 
 // Seed-shaped data for the Customers, Orders and Items component tests (task 3.8).
@@ -6,12 +7,12 @@ import type {CustomerDetail,ItemDetail,ItemList,ItemRow} from '@/server/rep/refe
 export const BRANDI={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',phone:'(801) 111-2222',email:'brandi.gallegos@herrickindustrial.com'};
 
 export const DIRECTORY:CustomerDirectoryRow[]=[
-  {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
-  {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
-  {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:'Net 30',credit_limit:50000,open_balance:18420,order_count:23,last_order_date:'2026-09-09',quote_count:25},
+  {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0,open_quote_count:0},
+  {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0,open_quote_count:0},
+  {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:'Net 30',credit_limit:50000,open_balance:18420,order_count:23,last_order_date:'2026-09-09',quote_count:25,open_quote_count:4},
 ];
 
-const WASATCH_ORDER={customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'};
+const WASATCH_ORDER={customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos'};
 
 export const ORDERS:OrderListRow[]=[
   {id:'so-51223',order_number:'SO-51223',po_number:'7777',order_date:'2026-09-09',status:'shipped',fulfillment:'delivery',branch_id:'slc',branch_code:'SLC',shipped_on:'2026-09-10',
@@ -59,12 +60,14 @@ export const BOLTS:ItemRow={id:'HCS-12-13-2G8',sku:'HCS-12-13-2G8',description:'
 export const STRAPS:ItemRow={id:'RS-2-27-JH',sku:'RS-2-27-JH',description:'Ratchet strap 2 in x 27 ft, 3,333 lb WLL, J-hooks',category_id:'material-handling',category_name:'Material Handling & Tie-downs',
   pack:'Each',case_qty:12,list_price:28.5,stock:stock(7,20,0,24),total_available:27};
 
-const BRANCHES=[{id:'slc',code:'SLC'},{id:'ogden',code:'Ogden'},{id:'provo',code:'Provo'}];
+export const BRANCHES=[{id:'slc',code:'SLC'},{id:'ogden',code:'Ogden'},{id:'provo',code:'Provo'}];
+
+/** The customer picker's choices (Orders, C_ORBase). */
+export const PICKER_CUSTOMERS=DIRECTORY.map(({id,name,account_number})=>({id,name,account_number}));
 
 export const ITEM_LIST:ItemList={
   branches:BRANCHES,
   categories:[{id:'fasteners',name:'Fasteners',sort_order:1,count:1},{id:'material-handling',name:'Material Handling & Tie-downs',sort_order:4,count:1}],
-  category:null,
   items:[BOLTS,STRAPS],
 };
 
@@ -76,3 +79,9 @@ export const BOLTS_VIEW:ItemDetail={
     {order_id:'so-51213',order_number:'SO-51213',order_date:'2026-04-21',customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',qty:12,unit_price:30.4},
   ],
 };
+
+/** The rep's own editable quotes, for Add to quote (C_ST3). */
+export const TARGETS:AddToQuoteTarget[]=[
+  {quote_number:'Q-24817',customer_name:'Wasatch Mechanical Contractors',status:'ready_for_review',line_count:4,total:1122.4},
+  {quote_number:'Q-24790',customer_name:'Wasatch Mechanical Contractors',status:'changes_requested',line_count:3,total:null},
+];

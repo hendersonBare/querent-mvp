@@ -81,7 +81,8 @@ describe('order history',()=>{
 });
 
 describe('rep portal orders (task 3.8): every customer, never cost',()=>{
-  const WASATCH={customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142'};
+  // The customer's assigned rep: the Orders list's and order page's Rep (plan U5, C_ORBase, C_OR2).
+  const WASATCH={customer_id:'wasatch',customer_name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos'};
 
   it('lists every customer\'s orders newest first with the customer and line count, or one customer\'s',()=>{
     const list=allOrders();

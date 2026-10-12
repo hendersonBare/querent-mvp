@@ -95,15 +95,21 @@ describe('customer directory (rep Customers list, task 3.8)',()=>{
   it('lists every customer by name with its rep, terms, balance and activity counts',()=>{
     expect(customerDirectory()).toEqual([
       // The demo book (task F1): quotes, no orders (accepted quotes make none yet, R-1).
-      {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:'Net 30',credit_limit:40000,open_balance:9650,order_count:0,last_order_date:null,quote_count:23},
-      {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
-      {id:'uinta-facility',name:'Uinta Facility Services',account_number:'UFS-4051',rep_id:'nora',rep_name:'Nora Chen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0},
-      {id:'utah-valley-electric',name:'Utah Valley Electric',account_number:'UVE-5126',rep_id:'eli',rep_name:'Eli Porter',terms:'Net 30',credit_limit:30000,open_balance:4210,order_count:0,last_order_date:null,quote_count:12},
+      {id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318',rep_id:'mara',rep_name:'Mara Jensen',terms:'Net 30',credit_limit:40000,open_balance:9650,order_count:0,last_order_date:null,quote_count:23,open_quote_count:7},
+      {id:'great-basin',name:'Great Basin Fabrication',account_number:'GBF-2207',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0,open_quote_count:0},
+      {id:'uinta-facility',name:'Uinta Facility Services',account_number:'UFS-4051',rep_id:'nora',rep_name:'Nora Chen',terms:null,credit_limit:null,open_balance:null,order_count:0,last_order_date:null,quote_count:0,open_quote_count:0},
+      {id:'utah-valley-electric',name:'Utah Valley Electric',account_number:'UVE-5126',rep_id:'eli',rep_name:'Eli Porter',terms:'Net 30',credit_limit:30000,open_balance:4210,order_count:0,last_order_date:null,quote_count:12,open_quote_count:3},
       // 24 quotes of history plus the sample Q-24817; 23 orders (17 won quotes and 6 direct orders).
-      {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:'Net 30',credit_limit:50000,open_balance:18420,order_count:23,last_order_date:'2026-09-09',quote_count:28}, // 28: with the 3 aging quotes (task A2)
-      {id:'weber-basin',name:'Weber Basin Fabricators',account_number:'WBF-6074',rep_id:'eli',rep_name:'Eli Porter',terms:'Net 45',credit_limit:25000,open_balance:2875,order_count:0,last_order_date:null,quote_count:12},
+      {id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'brandi',rep_name:'Brandi Gallegos',terms:'Net 30',credit_limit:50000,open_balance:18420,order_count:23,last_order_date:'2026-09-09',quote_count:28,open_quote_count:4}, // 28: with the 3 aging quotes (task A2)
+      {id:'weber-basin',name:'Weber Basin Fabricators',account_number:'WBF-6074',rep_id:'eli',rep_name:'Eli Porter',terms:'Net 45',credit_limit:25000,open_balance:2875,order_count:0,last_order_date:null,quote_count:12,open_quote_count:3},
     ]);
     expect(customerDirectory().map(({id,name,account_number,rep_id,rep_name})=>({id,name,account_number,rep_id,rep_name}))).toEqual(customers());
+  });
+
+  it('counts open quotes (Draft ready, Changes requested, Sent) for the Has open quotes filter, only the rep\'s own for a rep (plan U5)',()=>{
+    const open=(rows:{id:string;open_quote_count:number}[])=>Object.fromEntries(rows.map(r=>[r.id,r.open_quote_count]));
+    expect(open(customerDirectory({repId:'mara'}))).toEqual({'canyon-ridge':7});
+    expect(open(customerDirectory({repId:'brandi'}))).toEqual({'great-basin':0,wasatch:4});
   });
 
   it('carries no cost, margin or price-level fields',()=>{
