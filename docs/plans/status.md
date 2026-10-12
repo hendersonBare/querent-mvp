@@ -9,7 +9,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 60. Started 2026-10-11.
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
 | U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
-| U3 | | in progress (`task/U3-quotes-list`) |
+| U3 | | PR open, awaiting verification (`task/U3-quotes-list`) |
 | U4 | | in progress (`task/U4-quote-editor`) |
 | U5 | | in progress (`task/U5-customers-orders-stock`) |
 | U6 | | not started |
@@ -41,6 +41,14 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 | Bell copy for an expired quote ("Quote Q-24815 expired", "It was valid until Oct 3."), "N min ago" and "Today" time labels | U10 | The frames draw ready, updated and shipped notices only; the task asks for expired notices too | approved (decision 56) |
 | Empty and error lines in the bell, the Orders and My rep sheets ("No notifications yet.", "No orders yet.", "No rep is assigned yet.") | U10 | Decision 52: one plain line | not needed (decision 52) |
 | The strip that holds the bell, the account chip and Sign in: the frames' 72px header with its bottom rule, without the stand-in Herrick logo | U10 | The controls the task builds sit in it, and the sheets open under it (C_CVL2, C_CVL3) | approved (decision 56) |
+| Quotes page, Send reply (C_QOB6, C_QOT4): the frames draw the reply box and Send reply but no spec says where a reply reaches the customer. Built: `POST /api/rep/quotes/<n>/reply` records it on the quote's Activity ("Brandi Gallegos replied to Dana Ortiz: …"), nothing is sent to the customer; Send reply with nothing written goes back to the box | U3 | The frames draw the control; it must do something | to ask: where should a rep's reply reach the customer (Querent chat, the customer's bell, the quote)? |
+| Quotes page, the preview of a quote with no change request (C_QOB5 and C_QOT3 draw a change request): no note box and no "Reply to …" button; "Reply to <first name>" uses the customer's name when the quote has no contact | U3 | Minimum to function | to ask |
+| Quotes page, the table's Rep, Valid until and Purchasing agent columns once ticked in the columns picker (C_QOT2 draws them unticked): each a fluid 1fr track in the row's cell style | U3 | C_QOT2 offers them | to ask |
+| Quotes page, a status filter on the board (C_QOB2 draws every status ticked): only the ticked statuses' lanes show | U3 | Minimum to function | to ask |
+| Quotes page, the customer picker and the filter panel's Customer field are one filter (`?customer=`); the Filter badge counts it | U3 | Both frames draw a customer choice (C_QOB1, C_QOB2) | to ask |
+| Quotes page, a rep's picker line (C_RQB1 "Your 3 customers. Type to search."): "Your 1 customer. Type to search." for one; a rep with more than four customers gets the manager's "Showing 5 of N" line | U3 | No frame for a rep with one or many customers | to ask |
+| Quotes page, a Team dashboard drill-down (`?rep=a,b&from=&to=&aging=ok`): the list opens filtered with no panel field or chip for the window, several reps or "on time" (the old "Created between" chip has no frame); Apply filters drops them. `aging=red` and `aging=amber` read as Only show Overdue and Aging | U3 | The drill-down links stay until U6 and U7 replace the Team dashboard | to ask |
+| Quotes page, one plain line for an empty table ("No quotes here", the empty lane's words) and for a failed refresh ("Unable to refresh quotes. Trying again in a few seconds.") | U3 | Decision 52 | not needed (decision 52) |
 | Settings > Customer access: a plain "Customer" select (All customers, then the customers the signed-in rep may read) in place of the removed header "Viewing" picker | U1 | Per-customer access must stay settable once the picker is gone; replaced by the Customer access frames (C_S1, C_S1a, C_S1b) in U8 (OA-69) | not yet |
 
 ### Deferred: auth
@@ -59,25 +67,25 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_QOB3 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G, worded in the frame's sentence per status, each one row tall) |
 | C_QOB4 | U2 | PASS (`e2e/frames-shell.spec.ts`, header controls and dropdown; rows are real data, Appendix G, worded in the frame's patterns: the contact who replied, the customer who accepted, by its full name (decision 59); no differences: a title too long for the panel stays on one row with an ellipsis and a tooltip, decision 60) |
 | C_QOB9 | U2 | PASS (`e2e/frames-shell.spec.ts`; the overlay is `position: fixed` where the frame's one-viewport root uses `absolute`) |
-| C_QOB1 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOB2 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOB5 | U3 | pending |
-| C_QOB6 | U3 | pending |
-| C_QOB7 | U3 | pending |
-| C_QOB8 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOBoard | U3 | pending |
-| C_QOT1 | U3 | pending |
-| C_QOT2 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOT3 | U3 | pending |
-| C_QOT4 | U3 | pending |
-| C_QOT5 | U3 | pending |
-| C_QOT6 | U3 | pending (component level PASS in U0, `e2e/frames-primitives.spec.ts`) |
-| C_QOT7 | U3 | pending |
-| C_QOTable | U3 | pending |
-| C_RQB1 | U3 | pending |
-| C_RQB2 | U3 | pending |
-| C_RQBoard | U3 | pending |
-| C_RQTable | U3 | pending |
+| C_QOB1 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the five visible rows both ways; component level in U0) |
+| C_QOB2 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the frame's sample dates are empty date inputs, U0) |
+| C_QOB5 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the sheet is fixed and 1080 tall where the one-viewport frame is absolute and 900; it scrolls, U0 Sheet) |
+| C_QOB6 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the reply box is a textarea with the frame's placeholder; the dialog is fixed where the frame's is absolute) |
+| C_QOB7 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the frame's "Scrolled down after Show more" pill is a design note, not drawn) |
+| C_QOB8 | U3 | PASS (`e2e/frames-quotes.spec.ts`; lifted and drop-target lanes; the order is the user's own) |
+| C_QOBoard | U3 | PASS (`e2e/frames-quotes.spec.ts`; toolbar, lanes and every card shape both ways; counts, quotes and customers are real data, Appendix G; lanes grow from 236px, decision 51) |
+| C_QOT1 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT2 | U3 | PASS (`e2e/frames-quotes.spec.ts`; component level in U0) |
+| C_QOT3 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT4 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT5 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_QOT6 | U3 | PASS (`e2e/frames-quotes.spec.ts`; component level in U0) |
+| C_QOT7 | U3 | PASS (`e2e/frames-quotes.spec.ts`; the frame's typed text is the real input's value; two seeded customers match "Basin" as two placeholders match "Wasat") |
+| C_QOTable | U3 | PASS (`e2e/frames-quotes.spec.ts`; caution border #E8A8A0 where the table frames draw #F1BEB8, decision 54; header cells are positioned for the drop line, U0) |
+| C_RQB1 | U3 | PASS (`e2e/frames-quotes.spec.ts`; Mara has one customer where the frame's rep has three placeholders) |
+| C_RQB2 | U3 | PASS (`e2e/frames-quotes.spec.ts`) |
+| C_RQBoard | U3 | PASS (`e2e/frames-quotes.spec.ts`; Mara's one-line customer where the frame's placeholder wraps to two lines) |
+| C_RQTable | U3 | PASS (`e2e/frames-quotes.spec.ts`; decision 54 as C_QOTable) |
 | C_QE1 | U4 | pending |
 | C_QE10 | U4 | pending |
 | C_QE11 | U4 | pending |
