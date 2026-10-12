@@ -8,10 +8,10 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 60. Started 2026-10-11.
 |---|---|---|
 | U0 | [#52](https://github.com/hendersonBare/querent-mvp/pull/52) | merged |
 | U1 | [#53](https://github.com/hendersonBare/querent-mvp/pull/53) | merged (1 fix round) |
-| U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | fix round 3 (decision 60: one-line row titles with ellipsis and tooltip) |
-| U3 | | not started |
-| U4 | | not started |
-| U5 | | not started |
+| U2 | [#55](https://github.com/hendersonBare/querent-mvp/pull/55) | merged (3 fix rounds) |
+| U3 | | in progress (`task/U3-quotes-list`) |
+| U4 | | in progress (`task/U4-quote-editor`) |
+| U5 | | in progress (`task/U5-customers-orders-stock`) |
 | U6 | | not started |
 | U7 | | not started |
 | U8 | | not started |
