@@ -1,194 +1,233 @@
 import type {AnchorHTMLAttributes,ReactNode} from 'react';
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import type {BadgeSummary,RepBadges} from '@/server/rep/badges';
 
-// The rep portal frame (task 3.1): nav and the Quotes badge. Scope is role based on the server
-// (task U1): there is no "Viewing" picker, and no nav link carries ?customer= or ?scope=.
+// The rep portal shell (plan U2): the left rail (C_QOBoard for the manager, C_RQBoard for a rep),
+// Sign out (C_QOB9), and every page header's caution and bell dropdowns (C_QOB3, C_QOB4). There is
+// no search, no avatar menu, no "Switch workspace", no role switch (decision 42) and no "Viewing"
+// picker (task U1). The frames draw no count on the nav, the caution or the bell.
 
-const nav=vi.hoisted(()=>({pathname:'/rep/quotes',query:'',replace:vi.fn()}));
+const nav=vi.hoisted(()=>({pathname:'/rep/quotes',query:'',replace:vi.fn(),push:vi.fn()}));
 vi.mock('next/navigation',()=>({
   usePathname:()=>nav.pathname,
   useSearchParams:()=>new URLSearchParams(nav.query),
-  useRouter:()=>({replace:nav.replace,push:vi.fn(),refresh:vi.fn(),prefetch:vi.fn()}),
+  useRouter:()=>({replace:nav.replace,push:nav.push,refresh:vi.fn(),prefetch:vi.fn()}),
 }));
 vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;children?:ReactNode})=><a href={href} {...rest}>{children}</a>}));
 
 const {RepShell}=await import('./RepShell');
+const {exit}=await import('./Rail');
 const {RepPageHeader}=await import('./RepPage');
-const {useRepPortal}=await import('./context');
-
-/** A page in the shell that shows what the shell gives it: the unread quotes. */
-function ScopedPage(){
-  const {badges}=useRepPortal();
-  return <RepPageHeader title="Quotes" description={<>{badges.quotes>0&&<>{badges.quotes} unread {badges.quotes===1?'quote':'quotes'}</>}</>}/>;
-}
 const {SettingsSection}=await import('./SettingsSection');
 const {settingsFixture}=await import('./settings/test-fixtures');
 
-const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'};
+const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',manager:true};
+const mara={id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales'};
+const ORG='Herrick Industrial Supply';
 
-let badgeCount=1,attentionCount=0;
+const caution=(over:Partial<BadgeSummary>={}):BadgeSummary=>({id:'q-24790',quote_number:'Q-24790',kind:'quote_overdue',label:'Q-24790',tag:'Overdue',
+  line:'Wasatch Mechanical Contractors, changes requested 2 days ago.',at:'2026-09-21T16:00:00.000Z',...over});
+const bellItem=(over:Partial<BadgeSummary>={}):BadgeSummary=>({id:'q-24817',quote_number:'Q-24817',kind:'quote_requested',label:'Q-24817 requested by Wasatch Mechanical Contractors',
+  tag:null,line:null,at:'2026-09-23T16:14:00.000Z',...over});
+const BADGES:RepBadges={quotes:1,attention:2,
+  caution:[caution(),caution({id:'q-24812',quote_number:'Q-24812',label:'Q-24812',line:'Canyon Ridge Builders, sent 8 days ago.'}),
+    caution({id:'q-24789',quote_number:'Q-24789',label:'Q-24789',tag:'Aging',kind:'quote_aging',line:'Wasatch Mechanical Contractors, sent 4 days ago.'})],
+  bell:[bellItem()]};
+
+let served:RepBadges=BADGES;
 const fetchMock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const url=String(input);
-  if(url==='/api/rep/badges')return Response.json({quotes:badgeCount,attention:attentionCount});
+  if(url==='/api/rep/badges')return Response.json(served);
   if(url==='/api/session'&&init?.method==='DELETE')return Response.json({ok:true});
-  if(url==='/api/query/erp/status')return Response.json({last_updated:null,events:[]});
   return Response.json({detail:'Not found.'},{status:404});
 });
 
-function renderShell(children:ReactNode=<ScopedPage/>,initialBadges={quotes:1,attention:0}){
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" initialBadges={initialBadges}>{children}</RepShell>);
+function Page(){return <RepPageHeader title="Quotes"/>;}
+function renderShell(rep:typeof brandi|typeof mara=brandi,children:ReactNode=<Page/>,initialBadges:RepBadges=BADGES){
+  return render(<RepShell rep={rep} org={ORG} initialBadges={initialBadges}>{children}</RepShell>);
 }
 const at=(pathname:string,query='')=>{nav.pathname=pathname;nav.query=query;};
+const rail=()=>screen.getByRole('complementary');
 const portalNav=()=>screen.getByRole('navigation',{name:'Rep portal'});
 const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
+const cautionButton=()=>screen.getByRole('button',{name:/^Needs attention/});
+const bellButton=()=>screen.getByRole('button',{name:/^Notifications/});
 
-beforeEach(()=>{at('/rep/quotes');nav.replace.mockClear();fetchMock.mockClear();badgeCount=1;attentionCount=0;vi.stubGlobal('fetch',fetchMock);});
-afterEach(()=>vi.unstubAllGlobals());
+let leave:ReturnType<typeof vi.spyOn>;
+beforeEach(()=>{
+  at('/rep/quotes');nav.replace.mockClear();nav.push.mockClear();fetchMock.mockClear();served=BADGES;
+  vi.stubGlobal('fetch',fetchMock);
+  leave=vi.spyOn(exit,'to').mockImplementation(()=>{});
+});
+afterEach(()=>{vi.unstubAllGlobals();leave.mockRestore();});
 
-describe('header',()=>{
-  it('shows Querent, Herrick, the six sections in order, search, the bell and BG (mockup 03)',()=>{
+describe('rail (C_QOBoard, C_RQBoard)',()=>{
+  it('shows the Querent logo, the supplier, the manager\'s seven sections with icons, and the user block',()=>{
     renderShell();
-    const banner=screen.getByRole('banner');
-    expect(banner).toHaveTextContent('Querent');
-    expect(banner).toHaveTextContent('Herrick Industrial Supply');
+    expect(within(rail()).getByRole('img',{name:'Querent'})).toBeInTheDocument();
+    expect(rail()).toHaveTextContent('Querent');
+    expect(within(rail()).getByText(ORG)).toBeInTheDocument();
     const links=within(portalNav()).getAllByRole('link');
-    expect(links.map(l=>l.textContent)).toEqual(['Quotes1 unread','Customers','Orders','Items','Analytics','Settings']);
-    expect(links.map(l=>l.getAttribute('href'))).toEqual(['/rep/quotes','/rep/customers','/rep/orders','/rep/items','/rep/analytics','/rep/settings']);
-    expect(screen.getByRole('searchbox',{name:'Search the portal'})).toHaveAttribute('placeholder','Search quotes, customers, SKUs');
-    expect(screen.getByRole('button',{name:'Account: Brandi Gallegos'})).toHaveTextContent('BG');
+    expect(links.map(l=>l.textContent)).toEqual(['Quotes','Customers','Orders','Stock','Analytics','Teams and Reps','Settings']);
+    expect(links.map(l=>l.getAttribute('href'))).toEqual(['/rep/quotes','/rep/customers','/rep/orders','/rep/stock','/rep/analytics','/rep/teams','/rep/settings']);
+    for(const link of links)expect(link.querySelector('svg')).not.toBeNull();
+    expect(within(rail()).getByText('BG')).toBeInTheDocument();
+    expect(within(rail()).getByText('Brandi G.')).toBeInTheDocument();
+    expect(within(rail()).getByText('Manager')).toBeInTheDocument();
+    expect(within(rail()).getByRole('button',{name:'Sign out'})).toBeInTheDocument();
   });
 
-  it('gives the manager a Team section after Analytics, current on /rep/team; a rep never sees it (v3 spec §6, task D3)',()=>{
-    at('/rep/team');
-    const {unmount}=render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:0,attention:0}}><ScopedPage/></RepShell>);
-    const links=within(portalNav()).getAllByRole('link');
-    expect(links.map(l=>l.textContent)).toEqual(['Quotes','Customers','Orders','Items','Analytics','Team','Settings']);
-    expect(within(portalNav()).getByRole('link',{name:'Team'})).toHaveAttribute('href','/rep/team');
-    expect(within(portalNav()).getByRole('link',{name:'Team'})).toHaveAttribute('aria-current','page');
-    unmount();
-    renderShell();
-    expect(within(portalNav()).queryByRole('link',{name:'Team'})).toBeNull();
+  it('gives a rep My Analytics and no Teams and Reps, and names the role Rep',()=>{
+    renderShell(mara);
+    expect(within(portalNav()).getAllByRole('link').map(l=>l.textContent)).toEqual(['Quotes','Customers','Orders','Stock','My Analytics','Settings']);
+    expect(within(portalNav()).queryByRole('link',{name:'Teams and Reps'})).toBeNull();
+    expect(within(rail()).getByText('Mara J.')).toBeInTheDocument();
+    expect(within(rail()).getByText('Rep')).toBeInTheDocument();
+    expect(within(rail()).getByText('MJ')).toBeInTheDocument();
   });
 
-  it('marks the current section, including its sub-pages',()=>{
+  it('marks the current section, including its sub-pages (Stock for /rep/stock/<sku>)',()=>{
     at('/rep/quotes/Q-24817');
+    const {unmount}=renderShell();
+    expect(within(portalNav()).getByRole('link',{current:'page'})).toHaveTextContent('Quotes');
+    unmount();
+    at('/rep/stock/HCS-12-13-2G8');
     renderShell();
-    expect(within(portalNav()).getByRole('link',{current:'page'})).toHaveTextContent(/^Quotes/);
+    expect(within(portalNav()).getAllByRole('link',{current:'page'}).map(l=>l.textContent)).toEqual(['Stock']);
   });
 
-  it('explains that search is not built yet when Enter is pressed',()=>{
+  it('has no search, avatar menu, Switch workspace, role switch, Viewing picker or nav count',()=>{
     renderShell();
-    fireEvent.submit(screen.getByRole('search'));
-    expect(screen.getByRole('status')).toHaveTextContent('Search isn’t available yet in this demo.');
-  });
-});
-
-describe('Quotes unread badge',()=>{
-  it('shows the server count at once, then the polled count',async()=>{
-    badgeCount=3;
-    renderShell();
-    expect(within(portalNav()).getByRole('link',{name:'Quotes 1 unread'})).toBeInTheDocument();
-    expect(await within(portalNav()).findByRole('link',{name:'Quotes 3 unread'})).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Notifications: 3 unread quotes'})).toHaveAttribute('href','/rep/quotes');
-    expect(screen.getByText('3 unread quotes')).toBeInTheDocument();
-    expect(requested()).toContain('/api/rep/badges');
-  });
-
-  it('hides the count when nothing is unread',async()=>{
-    badgeCount=0;
-    renderShell(undefined,{quotes:0,attention:0});
-    await waitFor(()=>expect(requested()).toContain('/api/rep/badges'));
-    expect(within(portalNav()).getByRole('link',{name:'Quotes'})).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Notifications: none unread'})).toBeInTheDocument();
-  });
-
-  it('re-reads the badge on the poll interval',async()=>{
-    vi.useFakeTimers();
-    try{
-      renderShell();
-      await act(async()=>{await vi.advanceTimersByTimeAsync(0);});
-      badgeCount=2;
-      await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
-      expect(within(portalNav()).getByRole('link',{name:'Quotes 2 unread'})).toBeInTheDocument();
-    }finally{vi.useRealTimers();}
-  });
-});
-
-describe('Needs attention badge (v3 spec §3, §6; task A2)',()=>{
-  const badge=()=>screen.queryByRole('link',{name:/^Needs attention/});
-  it('counts red quotes only, beside the unread badge (OA-8), and opens the Needs attention filter without carrying ?customer=',async()=>{
-    attentionCount=2;
-    at('/rep/analytics','customer=wasatch');
-    renderShell(undefined,{quotes:1,attention:2});
-    expect(badge()).toHaveAccessibleName('Needs attention: 2 overdue quotes');
-    expect(badge()).toHaveTextContent('2');
-    expect(badge()).toHaveTextContent('Needs attention');
-    expect(badge()).toHaveAttribute('href','/rep/quotes?attention=1');
-    expect(badge()!.querySelector('svg')).not.toBeNull();
-    expect(within(portalNav()).getByRole('link',{name:'Quotes 1 unread'})).toBeInTheDocument();
-  });
-
-  it('is hidden when nothing is overdue, and follows the poll',async()=>{
-    vi.useFakeTimers();
-    try{
-      renderShell();
-      await act(async()=>{await vi.advanceTimersByTimeAsync(0);});
-      expect(badge()).toBeNull();
-      attentionCount=1;
-      await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
-      expect(badge()).toHaveAccessibleName('Needs attention: 1 overdue quote');
-    }finally{vi.useRealTimers();}
-  });
-});
-
-describe('no "Viewing" picker and no All reps scope (task U1)',()=>{
-  it('has no customer picker',()=>{
-    renderShell();
-    expect(screen.queryByLabelText('Viewing')).toBeNull();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+    expect(screen.queryByRole('search')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('button',{name:/^Account/})).toBeNull();
+    expect(screen.queryByText('Switch workspace')).toBeNull();
+    expect(screen.queryByLabelText('Viewing')).toBeNull();
+    expect(screen.queryByText(/unread/)).toBeNull();
   });
 
-  it('keeps no ?customer= or ?scope= on any nav link or the bell, whatever the page’s own URL says',()=>{
+  it('keeps no ?customer= or ?scope= on any nav link, whatever the page\'s own URL says (task U1)',()=>{
     at('/rep/analytics','customer=wasatch&scope=all');
-    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><ScopedPage/></RepShell>);
+    renderShell();
     expect(within(portalNav()).getAllByRole('link').map(l=>l.getAttribute('href'))).toEqual(
-      ['quotes','customers','orders','items','analytics','team','settings'].map(s=>`/rep/${s}`));
-    expect(screen.getByRole('link',{name:/Notifications/})).toHaveAttribute('href','/rep/quotes');
+      ['quotes','customers','orders','stock','analytics','teams','settings'].map(s=>`/rep/${s}`));
     expect(nav.replace).not.toHaveBeenCalled();
   });
+});
 
-  it('reads the badges without ?scope=, for the manager too: the server scopes them by role',async()=>{
-    at('/rep/quotes','scope=all');
-    render(<RepShell rep={{...brandi,manager:true}} org="Herrick Industrial Supply" initialBadges={{quotes:1,attention:0}}><ScopedPage/></RepShell>);
-    await waitFor(()=>expect(requested()).toContain('/api/rep/badges'));
-    expect(requested().filter(u=>u.startsWith('/api/rep/badges'))).toEqual(requested().filter(u=>u==='/api/rep/badges'));
+describe('Sign out (C_QOB9)',()=>{
+  it('asks first, in the frame\'s words; Cancel keeps the session',()=>{
+    renderShell();
+    fireEvent.click(within(rail()).getByRole('button',{name:'Sign out'}));
+    const dialog=screen.getByRole('dialog',{name:'Sign out of Querent?'});
+    expect(dialog).toHaveTextContent('You are signed in as Brandi G., Manager at Herrick Industrial Supply.');
+    expect(within(dialog).getAllByRole('button').map(b=>b.textContent)).toEqual(['Cancel','Sign out']);
+    fireEvent.click(within(dialog).getByRole('button',{name:'Cancel'}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(requested()).not.toContain('/api/session');
+    expect(leave).not.toHaveBeenCalled();
+  });
+
+  it('Escape closes it too',()=>{
+    renderShell(mara);
+    fireEvent.click(within(rail()).getByRole('button',{name:'Sign out'}));
+    expect(screen.getByRole('dialog')).toHaveTextContent('You are signed in as Mara J., Rep at Herrick Industrial Supply.');
+    fireEvent.keyDown(document,{key:'Escape'});
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Sign out clears the session (DELETE /api/session) and returns to /',async()=>{
+    renderShell();
+    fireEvent.click(within(rail()).getByRole('button',{name:'Sign out'}));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Sign out'}));
+    await waitFor(()=>expect(leave).toHaveBeenCalledWith('/'));
+    expect(fetchMock).toHaveBeenCalledWith('/api/session',{method:'DELETE'});
   });
 });
 
-describe('account menu',()=>{
-  it('opens from BG, closes on Escape, and switches workspace',async()=>{
+describe('page header: caution and bell (C_QOB3, C_QOB4)',()=>{
+  it('every page header shows its title, then the caution and the bell, labelled as the frames label them',()=>{
     renderShell();
-    const avatar=screen.getByRole('button',{name:'Account: Brandi Gallegos'});
-    fireEvent.click(avatar);
-    expect(avatar).toHaveAttribute('aria-expanded','true');
-    const menu=screen.getByRole('menu',{name:'Account'});
-    expect(menu).toHaveTextContent('Brandi Gallegos');
-    expect(menu).toHaveTextContent('Inside Sales · Herrick Industrial Supply');
-    expect(within(menu).getByRole('menuitem',{name:'Switch workspace'})).toHaveFocus();
+    expect(screen.getByRole('heading',{level:1,name:'Quotes'})).toBeInTheDocument();
+    expect(cautionButton()).toHaveAccessibleName('Needs attention, 2 items');
+    expect(bellButton()).toHaveAccessibleName('Notifications');
+    expect(cautionButton()).toHaveAttribute('aria-expanded','false');
+  });
+
+  it('the caution opens the Needs attention list without navigating: red first, a tag and one line each',()=>{
+    renderShell();
+    fireEvent.click(cautionButton());
+    expect(cautionButton()).toHaveAccessibleName('Needs attention, open');
+    expect(cautionButton()).toHaveAttribute('aria-expanded','true');
+    const list=screen.getByRole('dialog',{name:'3 need your attention'});
+    expect(list).toHaveTextContent('3 need your attention');
+    const rows=within(list).getAllByRole('button');
+    expect(rows.map(r=>r.textContent)).toEqual([
+      'Q-24790OverdueWasatch Mechanical Contractors, changes requested 2 days ago.',
+      'Q-24812OverdueCanyon Ridge Builders, sent 8 days ago.',
+      'Q-24789AgingWasatch Mechanical Contractors, sent 4 days ago.']);
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(nav.replace).not.toHaveBeenCalled();
+    expect(leave).not.toHaveBeenCalled();
+  });
+
+  it('the bell opens the reader\'s notifications without navigating, each with when it happened; one dropdown at a time',()=>{
+    renderShell();
+    fireEvent.click(cautionButton());
+    fireEvent.click(bellButton());
+    expect(screen.queryByRole('dialog',{name:/need your attention/})).toBeNull();
+    expect(bellButton()).toHaveAccessibleName('Notifications, open');
+    const list=screen.getByRole('dialog',{name:'Notifications'});
+    const [row]=within(list).getAllByRole('button');
+    expect(row).toHaveTextContent(/^Q-24817 requested by Wasatch Mechanical ContractorsSep 23, \d{1,2}:\d{2} (AM|PM)$/);
+    expect(nav.push).not.toHaveBeenCalled();
     fireEvent.keyDown(document,{key:'Escape'});
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    expect(avatar).toHaveFocus();
-    fireEvent.click(avatar);
-    fireEvent.click(screen.getByRole('menuitem',{name:'Switch workspace'}));
-    await waitFor(()=>expect(fetchMock).toHaveBeenCalledWith('/api/session',{method:'DELETE'}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a row opens its quote (no frame: decision 50, listed in status.md) and closes the list',()=>{
+    renderShell();
+    fireEvent.click(bellButton());
+    fireEvent.click(within(screen.getByRole('dialog',{name:'Notifications'})).getAllByRole('button')[0]!);
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes/Q-24817');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(cautionButton());
+    fireEvent.click(within(screen.getByRole('dialog',{name:'3 need your attention'})).getAllByRole('button')[2]!);
+    expect(nav.push).toHaveBeenLastCalledWith('/rep/quotes/Q-24789');
+  });
+
+  it('empty lists say so in one plain line (no frame: decision 52)',()=>{
+    renderShell(brandi,<Page/>,{quotes:0,attention:0,caution:[],bell:[]});
+    expect(cautionButton()).toHaveAccessibleName('Needs attention, 0 items');
+    fireEvent.click(cautionButton());
+    expect(screen.getByRole('dialog',{name:'0 need your attention'})).toHaveTextContent(/^0 need your attention$/);
+    fireEvent.click(bellButton());
+    expect(screen.getByRole('dialog',{name:'Notifications'})).toHaveTextContent(/^NotificationsNo notifications$/);
+  });
+
+  it('shows the server\'s badges at once, then polls GET /api/rep/badges (no ?scope=: the server scopes by role)',async()=>{
+    vi.useFakeTimers();
+    try{
+      at('/rep/quotes','scope=all');
+      renderShell();
+      expect(cautionButton()).toHaveAccessibleName('Needs attention, 2 items');
+      served={...BADGES,attention:1,caution:[caution()]};
+      await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+      expect(cautionButton()).toHaveAccessibleName('Needs attention, 1 item');
+      expect(requested().filter(u=>u.startsWith('/api/rep/badges')).every(u=>u==='/api/rep/badges')).toBe(true);
+    }finally{vi.useRealTimers();}
   });
 });
 
 describe('Settings in the shell',()=>{
   it('Settings opens Rep assignments by default, with every section as a tab; no tab carries ?customer=',()=>{
     at('/rep/settings','customer=great-basin');
-    renderShell(<SettingsSection initial={settingsFixture('great-basin')}/>);
+    renderShell(brandi,<SettingsSection initial={settingsFixture('great-basin')}/>);
+    expect(screen.getByRole('heading',{level:1,name:'Settings'})).toBeInTheDocument();
+    expect(cautionButton()).toBeInTheDocument();
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
     // Brandi is the manager: Reps and Aging are hers alone (task D1).
     expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Reps','Customer access','Margin floors','Pricing & delivery','Aging','Data sources']);
@@ -200,7 +239,7 @@ describe('Settings in the shell',()=>{
 
   it('a rep (not the manager) gets no Reps or Aging tab, and ?tab=aging opens Rep assignments (task D1)',()=>{
     at('/rep/settings','tab=aging');
-    renderShell(<SettingsSection initial={settingsFixture(null,{manager:false})}/>);
+    renderShell(mara,<SettingsSection initial={settingsFixture(null,{manager:false})}/>);
     const tabs=screen.getByRole('navigation',{name:'Settings sections'});
     expect(within(tabs).getAllByRole('link').map(l=>l.textContent)).toEqual(['Rep assignments','Customer access','Margin floors','Pricing & delivery','Data sources']);
     expect(within(tabs).getByRole('link',{current:'page'})).toHaveTextContent('Rep assignments');
@@ -210,17 +249,17 @@ describe('Settings in the shell',()=>{
 
   it('the manager opens Aging and Reps from their tabs (task D1)',()=>{
     at('/rep/settings','tab=aging');
-    const {unmount}=renderShell(<SettingsSection initial={settingsFixture()}/>);
+    const {unmount}=renderShell(brandi,<SettingsSection initial={settingsFixture()}/>);
     expect(screen.getByRole('heading',{name:'Aging thresholds'})).toBeInTheDocument();
     unmount();
     at('/rep/settings','tab=reps');
-    renderShell(<SettingsSection initial={settingsFixture()}/>);
+    renderShell(brandi,<SettingsSection initial={settingsFixture()}/>);
     expect(screen.getByRole('heading',{name:'Reps'})).toBeInTheDocument();
   });
 
-  it('Settings > Customer access picks its customer on the page (?customer= is the page’s own filter)',()=>{
+  it('Settings > Customer access picks its customer on the page (?customer= is the page\'s own filter)',()=>{
     at('/rep/settings','tab=access&customer=wasatch');
-    renderShell(<SettingsSection initial={settingsFixture('wasatch')}/>);
+    renderShell(brandi,<SettingsSection initial={settingsFixture('wasatch')}/>);
     const picker=screen.getByRole('combobox',{name:'Customer'});
     expect(picker).toHaveValue('wasatch');
     expect(within(picker).getAllByRole('option').map(o=>o.textContent)).toEqual(['All customers','Canyon Ridge Builders','Great Basin Fabrication','Uinta Facility Services','Wasatch Mechanical Contractors']);
