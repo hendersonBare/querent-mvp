@@ -51,6 +51,8 @@ export interface DataTableProps<Row> {
   initialPrefs?:TablePrefs|null;
   onPrefsChange?:(prefs:TablePrefs)=>void;
   onRowClick?:(row:Row)=>void;
+  /** What the body shows with no rows (decision 52: one plain line), e.g. a <div> in the page's own style. */
+  empty?:ReactNode;
   className?:string;
   style?:CSSProperties;
 }
@@ -58,7 +60,7 @@ export interface DataTableProps<Row> {
 const PICKER_TRACK='28px';
 
 export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreLabel,lessLabel,layout='card',divider='default',gap=16,splitGap=14,
-  minWidth,initialPrefs=null,onPrefsChange,onRowClick,className,style}:DataTableProps<Row>){
+  minWidth,initialPrefs=null,onPrefsChange,onRowClick,empty,className,style}:DataTableProps<Row>){
   const [prefs,setPrefs]=useState(()=>{const r=resolveColumns(columns,initialPrefs);return {column_order:r.order,hidden_columns:r.hidden};});
   const [expanded,setExpanded]=useState(false);
   const [picking,setPicking]=useState(false);
@@ -112,7 +114,7 @@ export function DataTable<Row>({tableId,label,columns,rows,rowKey,pageSize,moreL
       </button>
     </div>
   </div>;
-  const bodyRows=shownRows.map(row=><div key={rowKey(row)} role="row" className={cx(s.row,divider==='soft'&&s.soft,onRowClick&&s.clickable)} style={grid}
+  const bodyRows=rows.length===0&&empty?empty:shownRows.map(row=><div key={rowKey(row)} role="row" className={cx(s.row,divider==='soft'&&s.soft,onRowClick&&s.clickable)} style={grid}
     onClick={onRowClick?()=>onRowClick(row):undefined}>
     {visible.map(column=><div key={column.id} role="cell" className={column.align==='right'?s.right:undefined}>{column.render(row)}</div>)}
   </div>);

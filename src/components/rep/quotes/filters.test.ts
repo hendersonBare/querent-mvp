@@ -18,7 +18,7 @@ describe('the page query',()=>{
       .toBe('rep=mara%2Celi&from=2026-09-01T06%3A00%3A00.000Z&to=2026-10-01T06%3A00%3A00.000Z&only=overdue');
     expect(canonicalQuery('aging=amber')).toBe('only=aging');
     // The Team dashboard's open-and-on-time drill-down has no panel field: it stays as it is.
-    expect(canonicalQuery('aging=ok&status=sent')).toBe('status=sent&aging=ok');
+    expect(canonicalQuery('aging=ok&status=sent')).toBe('aging=ok&status=sent');
     // The view is not a filter.
     expect(canonicalQuery('view=table&customer=wasatch')).toBe('customer=wasatch');
   });

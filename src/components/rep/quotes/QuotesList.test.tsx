@@ -197,7 +197,7 @@ describe('a rep',()=>{
 
 describe('the filter panel',()=>{
   it("has C_QOB2's fields; Apply filters puts them in the URL",()=>{
-    renderList(quoteList({manager:MANAGER_OPTIONS}),{query:'view=table'});
+    renderList(quoteList({manager:MANAGER_OPTIONS}),{query:'view=table',view:'table'});
     fireEvent.click(screen.getByRole('button',{name:'Filter'}));
     const panel=screen.getByRole('dialog',{name:'Filter quotes'});
     expect(within(panel).getAllByRole('checkbox').map(c=>[c.closest('label')!.textContent,(c as HTMLInputElement).checked])).toEqual([
