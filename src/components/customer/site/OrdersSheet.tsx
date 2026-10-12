@@ -34,13 +34,13 @@ export function OrdersSheet({api,onClose}:{api:API;onClose:()=>void}){
       :shown.map(o=><div key={o.id} className={s.order} data-order={o.order_number}>
         <div>
           <div className={s.orderLine}><span className={s.orderNumber}>{o.order_number}</span><span className={s.orderDate}>{orderDate(o.order_date)}</span></div>
-          <div className={s.orderMeta}>{o.fulfillment==='delivery'?'Delivery':'Will call'}, {o.branch_code}{o.quote_number?` · From quote ${o.quote_number}`:''}</div>
+          <div className={s.orderMeta}>{`${o.fulfillment==='delivery'?'Delivery':'Will call'}, ${o.branch_code}${o.quote_number?` · From quote ${o.quote_number}`:''}`}</div>
         </div>
         <div className={s.orderRight}>
           <div className={s.orderTotal}>{usd.format(o.total)}</div>
           <div className={cx(s.orderStatus,o.status==='shipped'&&s.shipped)}>{STATUS[o.status]}</div>
         </div>
       </div>)}
-    {remaining>0&&<div className={s.moreRow}><button type="button" className={s.more} onClick={()=>setAll(true)}>Show {remaining} more</button></div>}
+    {remaining>0&&<div className={s.moreRow}><button type="button" className={s.more} onClick={()=>setAll(true)}>{`Show ${remaining} more`}</button></div>}
   </SiteSheet>;
 }

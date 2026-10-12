@@ -570,6 +570,9 @@
   background: var(--q-card);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
 }
+.qp-backdrop button {
+  transition: none;
+}
 .qp-dialog:focus,
 .qp-dialog:focus-visible {
   outline: none;
@@ -636,6 +639,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  text-align: center;
   color: var(--q-button-text);
 }
 .qp-download:hover {
