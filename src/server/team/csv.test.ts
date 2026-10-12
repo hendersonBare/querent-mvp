@@ -9,7 +9,7 @@ import {teamMetricRows} from './metrics';
 // rows through src/server/export/csv.ts, one line per rep plus the totals, with clear headers.
 
 const NOW='2026-10-10T12:00:00.000Z';
-const fact:TeamQuoteFact={id:'q1',quote_number:'Q-1',rep_id:'mara',status:'accepted',created_at:'2026-10-01T00:00:00.000Z',sent_at:'2026-10-01T02:00:00.000Z',
+const fact:TeamQuoteFact={id:'q1',quote_number:'Q-1',rep_id:'mara',customer_id:'canyon-ridge',customer_name:'Canyon Ridge Builders',status:'accepted',created_at:'2026-10-01T00:00:00.000Z',sent_at:'2026-10-01T02:00:00.000Z',
   responded_at:'2026-10-02T02:00:00.000Z',valid_until:'2026-10-15',fulfillment:'delivery',last_rep_touch_at:null,customer_viewed_at:null,decline_reason:null,decline_note:null,
   declined_at:null,sent_total:1234.5,draft_total:null,priced_subtotal:100,priced_cost:75,recovered_cents:240,modelled_freight_cents:4213,suggestion_lines:1,upsell_lines:2,suggestions_offered:3};
 const metrics=teamMetricRows([{id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},{id:'eli',name:'=Eli Porter',team:null,active:true}],[fact],
@@ -51,5 +51,14 @@ describe('teamMetricsCsv',()=>{
       'Suggestions offered':'3','Suggestions added':'1','Suggestion acceptance rate (%)':'33.3','Rep upsell lines':'2'});
     const eli=Object.fromEntries(TEAM_CSV_COLUMNS.map((c,i)=>[c,cells(lines[2])[i]]));
     expect(eli).toMatchObject({'Quote-to-order rate (%)':'','Average quoted margin (%)':'','Total quoted value ($)':'0.00'});
+  });
+});
+
+describe('the Analytics leaderboard export (plan U6)',()=>{
+  it('names the first column after the breakdown, every other column unchanged',()=>{
+    for(const first of ['Rep','Team','Customer'] as const){
+      const header=cells(teamMetricsCsv(metrics,{first}).slice(CSV_BOM.length).split('\r\n')[0]);
+      expect(header).toEqual([first,...TEAM_CSV_COLUMNS.slice(1)]);
+    }
   });
 });

@@ -24,7 +24,7 @@ describe('query analytics',()=>{
     expect(brandis.categories.every(c=>c.rep_name==='Brandi Gallegos')).toBe(true);
     const nobody=analytics([]);
     expect(nobody).toMatchObject({total_queries:0,minutes_saved:0,hours_saved:'0.0'});
-    expect(nobody.categories.map(c=>[c.count,c.rep_name])).toEqual([[0,'—'],[0,'—'],[0,'—'],[0,'—']]);
+    expect(nobody.categories.map(c=>[c.count,c.rep_name])).toEqual([[0,'-'],[0,'-'],[0,'-'],[0,'-']]);
   });
 
   it('counts chat questions by outcome',()=>{
@@ -66,6 +66,15 @@ describe('quote analytics facts',()=>{
     expect(quoteFacts(['great-basin','wasatch'])).toEqual(facts);
     expect(quoteFacts('great-basin')).toEqual([]);
     expect(quoteFacts([])).toEqual([]);
+  });
+
+  it('narrows to the quotes of the reps given (the manager\'s rep and team filter, plan U6)',()=>{
+    const all=quoteFacts(null);
+    expect(quoteFacts({customers:null,repId:null,repIds:['mara','eli']})).toEqual(all.filter(f=>f.rep_id==='mara'||f.rep_id==='eli'));
+    expect(quoteFacts({customers:null,repId:null,repIds:['mara']})).toEqual(quoteFacts({customers:null,repId:'mara'}));
+    expect(quoteFacts({customers:null,repId:null,repIds:[]})).toEqual([]);
+    expect(quoteFacts({customers:null,repId:null,repIds:null})).toEqual(all);
+    expect(topRequestedItems({customers:null,repId:null,repIds:['nora']})).toEqual([]);
   });
 
   it('returns each line with its cost, Querent\'s suggestion and the quote rep\'s floor for the category',()=>{

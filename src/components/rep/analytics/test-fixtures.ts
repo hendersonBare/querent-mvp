@@ -1,5 +1,6 @@
 import type {CustomerListItem} from '@/domain';
-import type {RepAnalytics,WeekPoint} from '@/server/analytics';
+import type {AnalyticsPage,RepAnalytics,WeekPoint} from '@/server/analytics';
+import type {GroupRow,MetricsRep,OtherNote,TeamRow} from '@/server/team/metrics';
 
 // GET /api/rep/analytics responses for component tests: Brandi's seed numbers as of Sep 23, 2026
 // (src/server/analytics/service.test.ts checks them against the database), and an empty view.
@@ -73,4 +74,59 @@ export function emptyAnalytics(customer:CustomerListItem):RepAnalytics{
     queries:{total_queries:0,minutes_saved:0,hours_saved:'0.0',categories:categories.map(category=>({category,count:0,rep_name:customer.rep_name??'Self-serve'}))},
     access:categories.map(category=>({category,enabled:true,rep_id:customer.rep_id,mixed_rep:false,rep_name:customer.rep_name??'Self-serve',phone:null,email:null})),
   };
+}
+
+// ---- The whole page (plan U6): the filter, the grouped Team metrics and the options ----
+
+export const REPS:MetricsRep[]=[
+  {id:'brandi',name:'Brandi Gallegos',team:'Inside Sales',active:true},
+  {id:'eli',name:'Eli Porter',team:'Outside Sales',active:true},
+  {id:'mara',name:'Mara Jensen',team:'Inside Sales',active:true},
+  {id:'nora',name:'Nora Chen',team:'Outside Sales',active:true},
+];
+/** Sep 12 to Oct 11, 2026 at the test's local midnights (the browser's days, OA-19). */
+export const WINDOW={from:new Date(2026,8,12).toISOString(),to:new Date(2026,9,12).toISOString()};
+
+const zeroDeclines={price_too_high:0,found_other_source:0,need_sooner:0,wrong_items:0,other:0,none:0};
+const zeroUntouched={draft_never_opened:0,draft_opened_not_sent:0,changes_not_revised:0,sent_never_opened:0,sent_opened_no_reply:0,expired_no_response:0};
+
+/** A leaderboard row: `created` quotes split as given, the rest zero or null. */
+export function teamRow(name:string,rep_id:string|null,more:Partial<TeamRow>={}):TeamRow{
+  return {rep_id,name,team:null,active:true,created:0,
+    statuses:{ready_for_review:0,changes_requested:0,sent:0,accepted:0,declined:0,expired:0},
+    open:{total:0,ok:0,amber:0,red:0},rates:{quote_to_order:null,unaccepted:null,decided_win:null},
+    hours:{to_send:null,customer_response:null,ready_for_review:null,sent:null,changes_requested:null},
+    value:{quoted_cents:0,accepted_cents:0},avg_margin:null,freight:{recovered_cents:0,modelled_cents:0},
+    declines:{...zeroDeclines},upsell:{suggestions_offered:0,suggestions_added:0,suggestion_rate:null,rep_upsell_lines:0},untouched:{...zeroUntouched},...more};
+}
+const groupRow=(row:TeamRow,key:string,rep_ids:string[]):GroupRow=>({...row,key,rep_ids,customer_id:null});
+
+const MARA=teamRow('Mara Jensen','mara',{team:'Inside Sales',created:13,statuses:{ready_for_review:2,changes_requested:1,sent:2,accepted:4,declined:3,expired:1},
+  open:{total:5,ok:0,amber:2,red:3},rates:{quote_to_order:4/13,unaccepted:4/13,decided_win:0.5},hours:{to_send:119/60,customer_response:76.8,ready_for_review:354/60,sent:100.8,changes_requested:20},
+  declines:{...zeroDeclines,price_too_high:1,need_sooner:1,other:1},untouched:{...zeroUntouched,draft_never_opened:2,changes_not_revised:1,sent_never_opened:1,sent_opened_no_reply:1,expired_no_response:1}});
+const ELI=teamRow('Eli Porter','eli',{team:'Outside Sales',created:20,statuses:{ready_for_review:3,changes_requested:1,sent:3,accepted:7,declined:3,expired:3},
+  open:{total:7,ok:1,amber:5,red:1},rates:{quote_to_order:0.35,unaccepted:0.3,decided_win:7/13},hours:{to_send:137/60,customer_response:81.6,ready_for_review:277/60,sent:105.6,changes_requested:null},
+  declines:{...zeroDeclines,found_other_source:1,wrong_items:1,none:1},untouched:{...zeroUntouched,draft_never_opened:2,draft_opened_not_sent:1,changes_not_revised:1,sent_never_opened:1,sent_opened_no_reply:1,expired_no_response:3}});
+const NORA=teamRow('Nora Chen','nora',{team:'Outside Sales'});
+const TOTAL=teamRow('Total',null,{created:33,statuses:{ready_for_review:5,changes_requested:2,sent:5,accepted:11,declined:6,expired:4},open:{total:12,ok:1,amber:7,red:4},
+  rates:{quote_to_order:1/3,unaccepted:10/33,decided_win:11/21},hours:{to_send:2,customer_response:79.2,ready_for_review:5,sent:103.2,changes_requested:20},
+  declines:{price_too_high:1,found_other_source:1,need_sooner:1,wrong_items:1,other:1,none:1},untouched:{draft_never_opened:4,draft_opened_not_sent:1,changes_not_revised:2,sent_never_opened:2,sent_opened_no_reply:2,expired_no_response:4}});
+export const OTHER_NOTE:OtherNote={quote_id:'q-24767',quote_number:'Q-24767',rep_id:'mara',rep_name:'Mara Jensen',customer_id:'canyon-ridge',customer_name:'Canyon Ridge Builders',
+  note:'The general contractor is supplying the anchors on this job.',declined_at:'2026-09-28T17:00:00.000Z'};
+
+/** The manager's page: the whole organization, one leaderboard row per active rep. */
+export function managerPage(more:Partial<AnalyticsPage>={}):AnalyticsPage{
+  return {...seedAnalytics(),scope:{customer:null,customer_ids:CUSTOMERS.map(c=>c.id),rep_id:null},
+    filter:{rep_ids:[],teams:[],customer_id:null,breakdown:'org',window:WINDOW},
+    groups:{dimension:'rep',rows:[groupRow(teamRow('Brandi Gallegos','brandi',{team:'Inside Sales'}),'brandi',['brandi']),groupRow(ELI,'eli',['eli']),groupRow(MARA,'mara',['mara']),groupRow(NORA,'nora',['nora'])],
+      totals:TOTAL,other_notes:[OTHER_NOTE]},
+    options:{reps:REPS,teams:['Inside Sales','Outside Sales'],customers:CUSTOMERS},...more};
+}
+
+/** Mara's page: her own quotes, one row. */
+export function repPage(more:Partial<AnalyticsPage>={}):AnalyticsPage{
+  return {...seedAnalytics(),scope:{customer:null,customer_ids:['canyon-ridge'],rep_id:'mara'},
+    filter:{rep_ids:['mara'],teams:[],customer_id:null,breakdown:'rep',window:WINDOW},
+    groups:{dimension:'rep',rows:[groupRow(MARA,'mara',['mara'])],totals:{...MARA,rep_id:null,name:'Total'},other_notes:[OTHER_NOTE]},
+    options:{reps:[],teams:[],customers:[CUSTOMERS[0]]},...more};
 }

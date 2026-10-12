@@ -55,6 +55,17 @@ describe('teamQuoteFacts',()=>{
     expect(teamQuoteFacts({from:FROM,to:TO,repIds:[]})).toEqual([]);
   });
 
+  it('names each quote\'s customer, and narrows to the customers given (Analytics\' customer filter, plan U6)',()=>{
+    const q=quoteAt('weber-basin','2027-01-07T12:00:00.000Z');
+    setQuoteRep(q.id,'eli');
+    expect(teamQuoteFacts({from:FROM,to:TO,repIds:['eli']}).find(f=>f.id===q.id)).toMatchObject({customer_id:'weber-basin',customer_name:'Weber Basin Fabricators'});
+    expect(teamQuoteFacts({from:FROM,to:TO,repIds:ALL,customerIds:['weber-basin']}).map(f=>f.customer_id)).toEqual(['weber-basin']);
+    expect(teamQuoteFacts({from:FROM,to:TO,repIds:ALL,customerIds:[]})).toEqual([]);
+    expect(teamQuoteFacts({from:FROM,to:TO,repIds:ALL,customerIds:null}).length).toBe(teamQuoteFacts({from:FROM,to:TO,repIds:ALL}).length);
+    const canyon=teamQuoteFacts({from:FROM,to:TO,repIds:ALL,customerIds:['canyon-ridge']}).map(f=>f.id);
+    expect(teamStatusEvents({from:FROM,to:TO,repIds:ALL,customerIds:['canyon-ridge']}).every(e=>canyon.includes(e.quote_id))).toBe(true);
+  });
+
   it('reads the latest sent total, the priced subtotal and cost, recovery × qty, modelled freight, line sources and the decline',async()=>{
     const q=quoteAt('uinta-facility','2027-01-06T12:00:00.000Z',[{itemId:'GLV-N8-L-1000',qty:2,unitPrice:80},{itemId:'SG-CLR-AF',qty:3,unitPrice:null}]);
     addQuoteLine(q.id,{itemId:'FD-45-60Z',qty:4,unitPrice:45,addedBy:'suggestion'},'2027-01-06T12:00:00.000Z');
@@ -69,7 +80,7 @@ describe('teamQuoteFacts',()=>{
     {
       const cost=(sku:string)=>db().prepare('SELECT cost FROM items WHERE id=?').pluck().get(sku) as number;
       const fact=teamQuoteFacts({from:FROM,to:TO,repIds:['nora']}).find(f=>f.id===q.id)!;
-      expect(fact).toEqual({id:q.id,quote_number:q.quote_number,rep_id:'nora',status:'declined',created_at:'2027-01-06T12:00:00.000Z',
+      expect(fact).toEqual({id:q.id,quote_number:q.quote_number,rep_id:'nora',customer_id:'uinta-facility',customer_name:'Uinta Facility Services',status:'declined',created_at:'2027-01-06T12:00:00.000Z',
         sent_at:'2027-01-06T15:00:00.000Z',responded_at:'2027-01-07T15:00:00.000Z',valid_until:'2027-01-20',fulfillment:'delivery',
         last_rep_touch_at:'2027-01-06T14:00:00.000Z',customer_viewed_at:'2027-01-06T16:00:00.000Z',decline_reason:'other',decline_note:'Went local',declined_at:'2027-01-07T15:00:00.000Z',
         sent_total:275.5,priced_subtotal:160+180+13,priced_cost:expect.closeTo(2*cost('GLV-N8-L-1000')+4*cost('FD-45-60Z')+cost('WB-4-CS'),2),

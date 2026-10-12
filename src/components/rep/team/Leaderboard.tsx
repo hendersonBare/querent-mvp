@@ -8,7 +8,7 @@ import type {AgingLevel} from '@/server/quotes';
 import type {TeamRow} from '@/server/team/metrics';
 import type {TeamMetrics} from '@/server/team/service';
 import {formatDuration,formatMoneyFigure,formatPercent} from '../analytics/format';
-import {drillHref,type TeamWindow} from './window';
+import {drillHref,type TeamWindow} from '../analytics/window';
 import s from './Team.module.css';
 
 // The leaderboard (v3 spec §6 Team, §7; decisions 23, 24; task D3): one row per selected rep plus

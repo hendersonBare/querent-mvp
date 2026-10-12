@@ -5,7 +5,7 @@ import {DECLINE_REASON_LABELS} from '@/server/quotes';
 import {DECLINE_BUCKETS,type DeclineBucket} from '@/server/team/metrics';
 import type {TeamMetrics} from '@/server/team/service';
 import {formatPercent} from '../analytics/format';
-import {drillHref} from './window';
+import {drillHref} from '../analytics/window';
 import s from './Team.module.css';
 
 // Decline reasons (v3 spec §6 Team, §7; decisions 14, 24; task D3): how many declined quotes gave

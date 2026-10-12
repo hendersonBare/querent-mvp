@@ -9,11 +9,12 @@ import {all,bool,list} from './sql';
 // Analytics reads (spec §4). `scope` is a customer id, a list of customer ids (a rep's customers,
 // task 6.2), or null for every customer. An empty list matches no customer. The quote reads also
 // take a QuoteScope: those customers' quotes owned by one rep (quotes.rep_id, the current owner),
-// or by any rep with repId null. A rep's analytics are their own quotes (task U1, OA-67).
+// or by any rep with repId null, and optionally by one of `repIds` (the manager's rep and team filter,
+// plan U6). A rep's analytics are their own quotes (task U1, OA-67).
 
 export type CustomerScope=string|readonly string[]|null;
-/** Quotes for these customers owned by this rep (null: any rep). */
-export interface QuoteScope {customers:CustomerScope;repId:string|null}
+/** Quotes for these customers owned by this rep (null: any rep), and by one of these reps (null or absent: any). */
+export interface QuoteScope {customers:CustomerScope;repId:string|null;repIds?:readonly string[]|null}
 
 /** The scope as a list of customer ids. */
 const scopeIds=(scope:CustomerScope):string[]=>scope===null?customerIds():typeof scope==='string'?[scope]:[...scope];
@@ -22,8 +23,12 @@ const bindScope=(scope:CustomerScope)=>list(scopeIds(scope));
 
 const asQuoteScope=(scope:CustomerScope|QuoteScope):QuoteScope=>scope!==null&&typeof scope==='object'&&'customers' in scope?scope:{customers:scope,repId:null};
 /** The quotes a QuoteScope covers (`q` is the quotes table); bind with bindQuotes. */
-const QUOTES_IN="q.customer_id IN (SELECT value FROM json_each(?)) AND (? IS NULL OR q.rep_id=?)";
-const bindQuotes=(scope:CustomerScope|QuoteScope)=>{const {customers,repId}=asQuoteScope(scope);return [bindScope(customers),repId,repId] as const;};
+const QUOTES_IN="q.customer_id IN (SELECT value FROM json_each(?)) AND (? IS NULL OR q.rep_id=?) AND (? IS NULL OR q.rep_id IN (SELECT value FROM json_each(?)))";
+const bindQuotes=(scope:CustomerScope|QuoteScope)=>{
+  const {customers,repId,repIds=null}=asQuoteScope(scope);
+  const reps=repIds?list(repIds):null;
+  return [bindScope(customers),repId,repId,reps,reps] as const;
+};
 
 /**
  * Chat log rows that are questions. The item pop-up's Request quote is logged as a chat turn too
@@ -45,8 +50,8 @@ export function analytics(scope:CustomerScope):Analytics{
     handled.forEach(c=>counts.set(c,(counts.get(c)||0)+1));
     if(['answered','no_rows'].includes(log.outcome)&&handled.length)minutes+=Math.max(...handled.map(c=>base[c]));
   }
-  // No customers in scope: there is no rep to name.
-  const repName=(category:Category)=>ids.length?rules.find(r=>r.category===category)?.rep_name||'Self-serve':'—';
+  // No customers in scope: there is no rep to name ("-", no em-dash: Appendix E).
+  const repName=(category:Category)=>ids.length?rules.find(r=>r.category===category)?.rep_name||'Self-serve':'-';
   return {total_queries:logs.length,minutes_saved:minutes,hours_saved:(minutes/60).toFixed(1),categories:categories.map(category=>({category,count:counts.get(category)||0,rep_name:repName(category)}))};
 }
 

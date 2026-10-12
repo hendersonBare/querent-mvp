@@ -9,6 +9,8 @@ export interface TeamQuoteFact {
   id:string;quote_number:string;
   /** The current owner (a reassigned quote counts under its new rep). */
   rep_id:string;
+  /** The quote's customer (Analytics' customer filter and breakdown, plan U6). */
+  customer_id:string;customer_name:string;
   status:QuoteStatus;created_at:string;sent_at:string|null;responded_at:string|null;valid_until:string|null;
   fulfillment:Fulfillment;
   last_rep_touch_at:string|null;customer_viewed_at:string|null;

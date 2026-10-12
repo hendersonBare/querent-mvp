@@ -37,7 +37,10 @@ const tenths=(value:number|null)=>value===null?null:Math.round(value*10)/10;
 const percent=(rate:number|null)=>rate===null?null:tenths(rate*100);
 const dollars=(cents:number)=>plainAmount(fromCents(cents));
 
-/** The CSV text: the header, each rep's line, then the totals. */
-export function teamMetricsCsv({rows,totals}:Pick<TeamMetricRows,'rows'|'totals'>):string{
-  return csvDocument([TEAM_CSV_COLUMNS,...[...rows,totals].map(r=>COLUMNS.map(([,value])=>value(r)))]);
+/**
+ * The CSV text: the header, each row's line, then the totals. `first` names the first column after
+ * what a row stands for (Analytics' breakdown, plan U6: Rep, Team or Customer); every other column is the same.
+ */
+export function teamMetricsCsv({rows,totals}:Pick<TeamMetricRows,'rows'|'totals'>,{first='Rep'}:{first?:'Rep'|'Team'|'Customer'}={}):string{
+  return csvDocument([[first,...TEAM_CSV_COLUMNS.slice(1)],...[...rows,totals].map(r=>COLUMNS.map(([,value])=>value(r)))]);
 }
