@@ -169,7 +169,8 @@ test("bell: lists the rep's unread quotes, whatever a page filters by, and opens
   const badges = await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()));
   expect(badges).toMatchObject({ quotes: 1, attention: expect.any(Number) });
   expect(badges.bell.map((b: { label: string }) => b.label)).toEqual(["Q-24817 requested by Dana Ortiz"]);
-  await expect(page.getByText("Viewing All customers · 1 unread quote")).toBeVisible();
+  // The Quotes page has no "Viewing" line (plan U3, C_QOBoard): the unread quote is in the bell.
+  await expect(page.getByText(/^Viewing/)).toHaveCount(0);
   for (const path of ["/rep/quotes", "/rep/customers?customer=great-basin"]) {
     await page.goto(path);
     await page.getByRole("button", { name: "Notifications" }).click();
