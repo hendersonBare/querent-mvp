@@ -1,5 +1,5 @@
 import {beforeEach,describe,expect,it} from 'vitest';
-import type {NewQuote} from '@/domain';
+import {isRepReply,type NewQuote,type QuoteNotice} from '@/domain';
 import {useSeededDatabase} from '@/server/repository/test-db';
 
 useSeededDatabase();
@@ -50,7 +50,7 @@ describe('chatNotices',()=>{
     const {chatNotices}=await import('./notices');
     const {sendQuote,requestChanges,acceptQuote}=await import('@/server/quotes/service');
     await sendQuote(SAMPLE,{repId:'brandi',message:'Rev 1',now:SEND});
-    const shown=(now:string,conversationId=DANA_CHAT)=>chatNotices('wasatch',conversationId,now).filter(n=>n.quote_id===SAMPLE).map(n=>[n.conversation_id,n.revision,n.text]);
+    const shown=(now:string,conversationId=DANA_CHAT)=>chatNotices('wasatch',conversationId,now).filter((n):n is QuoteNotice=>n.quote_id===SAMPLE&&!isRepReply(n)).map(n=>[n.conversation_id,n.revision,n.text]);
     // Sent into the sample's own conversation, and shown in the one on screen too.
     expect(shown(LATER)).toEqual([[SAMPLE_CHAT,1,'Rev 1']]);
     // Not once it expired (valid until Oct 7): its own conversation still has it.

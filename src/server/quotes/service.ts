@@ -116,7 +116,7 @@ export interface SendOptions {
  * one from before chat), the customer's most recently active conversation; failing both, a new
  * conversation for the quote's contact.
  */
-function quoteChat(q:Quote,at:string):string{
+export function quoteChat(q:Quote,at:string):string{
   if(q.conversation_id&&conversation(q.customer_id,q.conversation_id))return q.conversation_id;
   return latestConversation(q.customer_id)?.id??createConversation({customerId:q.customer_id,contactId:q.contact_id,at}).id;
 }
