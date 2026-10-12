@@ -12,7 +12,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 62. Started 2026-10-11.
 | U3 | | in progress (`task/U3-quotes-list`) |
 | U4 | | in progress (`task/U4-quote-editor`) |
 | U5 | [#56](https://github.com/hendersonBare/querent-mvp/pull/56) | in review |
-| U6 | | in progress (`task/U6-analytics`) |
+| U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | in review |
 | U7 | | not started |
 | U8 | | not started |
 | U9 | | not started |
