@@ -2,7 +2,7 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 72. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
@@ -17,7 +17,8 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
 | U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | merged |
 | U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | merged (2 fix rounds) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
-| U11 | | in progress (`task/U11-cleanup-and-proof`) |
+| U11 | [#63](https://github.com/hendersonBare/querent-mvp/pull/63) | in review |
+| U12 | | not started (decision 71) |
 
 ### No frame
 Screens, states or controls built with no frame (decision 50). Each is the minimum needed to function, in the same tokens, and is raised with the product owner.

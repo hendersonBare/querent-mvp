@@ -52,8 +52,9 @@ The table is authoritative. Lanes A, B, C and E start after T1; D starts after A
 | U9 | U | U8 |
 | U10 | U | U0 |
 | U11 | U | every other U task |
+| U12 | U | U11 |
 
-Lane U (the new UI, decisions 41 to 70) is detailed in its own part at the end of this file.
+Lane U (the new UI, decisions 41 to 72) is detailed in its own part at the end of this file.
 
 ---
 
@@ -191,7 +192,7 @@ Lane U (the new UI, decisions 41 to 70) is detailed in its own part at the end o
 
 # Lane U: the new UI (charcoal canvas)
 
-Reproduce the approved design canvas. Do not improve or reinterpret it. Decisions 41 to 70 in `docs/plans/decision-log.md` govern this lane; the decision log wins over everything except the product owner's answers in chat.
+Reproduce the approved design canvas. Do not improve or reinterpret it. Decisions 41 to 72 in `docs/plans/decision-log.md` govern this lane; the decision log wins over everything except the product owner's answers in chat.
 
 ## Sources, in order of authority
 
@@ -347,3 +348,14 @@ Reproduce the approved design canvas. Do not improve or reinterpret it. Decision
 - **Migration:** none.
 - **Rollback:** revert the PR.
 - **Acceptance:** typecheck, Vitest, build and the full Playwright suite pass; ledger complete; no old-UI code remains.
+
+## U12: Feature flag off stops what it governs
+
+- **Scope:** Decision 71. With `FEATURE_FREE_DELIVERY_PRICING` off, pricing and freight behave exactly as with free delivery pricing off, whatever is stored (the $0 freight line, recovery allocation and draft repricing follow the effective value). With `FEATURE_RECOVERY_POOL` or `FEATURE_DELIVERY_COST_MODEL` off, their computations fall back to their off behaviour. Stored settings are untouched and apply again when the flag is on. No UI change.
+- **Frames:** none.
+- **Blocked by:** U11. **Lane:** U.
+- **Files:** `src/server/flags.ts`, the readers of the free delivery, pool and cost model settings (`src/server/repository/settings.ts` or `src/server/freight/*` call sites), tests.
+- **Tests first:** with each flag off and the stored setting on, a new quote and a repriced draft get the off result; with the flag on they get the on result; sent quotes stay frozen (decision 35); existing freight and recovery tests unchanged; e2e `free-delivery` with the flag on still passes, plus one flags-off pricing check.
+- **Migration:** none.
+- **Rollback:** revert the PR.
+- **Acceptance:** decision 71 holds; with the flags on, every existing price and test is unchanged.
