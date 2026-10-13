@@ -63,7 +63,7 @@ const toContact=(row:Omit<Contact,'is_primary'>&{is_primary:number}):Contact=>({
 export function contacts(customerId:string){return all<Omit<Contact,'is_primary'>&{is_primary:number}>(`${CONTACT} WHERE customer_id=? ORDER BY is_primary DESC,name`,customerId).map(toContact);}
 export function contact(contactId:string){const row=one<Omit<Contact,'is_primary'>&{is_primary:number}>(`${CONTACT} WHERE id=?`,contactId);return row&&toContact(row);}
 
-/** Static department contacts for the customer sidebar (spec §3). */
+/** Static department contacts (spec §3), for the chat's answers since the contacts sidebar went (plan U10). */
 export function departments(){return all<Department>('SELECT id,name,branch_id,phone,email,hours,sort_order FROM departments ORDER BY sort_order');}
 
 /** Every rep by name; activeOnly leaves out inactive reps (the ones a customer can't be assigned to, task D1). */

@@ -10,7 +10,7 @@ import {OpenRepPortal} from './rep/OpenRepPortal';
 // The demo workspaces (spec §2; v3 decision 39, spec §6 Workspace chooser, OA-27; task F1): Herrick as
 // Brandi, the manager; the Herrick rep personas the server offers (Mara and Eli while active), each
 // with its role; and Wasatch as Dana. Rep buttons never name Herrick, so "Herrick Industrial Supply" is Brandi's alone.
-const [supplier,customer]:Persona[]=[{id:'supplier',label:'Herrick Industrial Supply',description:'Supplier. Brandi Gallegos · Manager: every rep’s quotes and the Team dashboard.'},{id:'customer',label:'Wasatch Mechanical Contractors',description:'Customer. Dana Ortiz, Purchasing, account WAS-1142.'}];
+const [supplier,customer]:Persona[]=[{id:'supplier',label:'Herrick Industrial Supply',description:'Supplier. Brandi Gallegos · Manager: every rep’s quotes, Analytics and Teams and Reps.'},{id:'customer',label:'Wasatch Mechanical Contractors',description:'Customer. Dana Ortiz, Purchasing, account WAS-1142.'}];
 const roleLabel=(r:RepPersona)=>`${r.role==='manager'?'Manager':'Rep'}${r.team?` · ${r.team}`:''}`;
 /**
  * The customer site at / (plan U10; decisions 49 and 53): with no session, the visitor box (C_CVE0);

@@ -4,7 +4,7 @@ import {SAMPLE_LINES,sampleDetail} from '../test-fixtures';
 import {ExportMenu} from './ExportMenu';
 import {filenameFrom} from './download';
 
-// The quote's Export menu (task 4.3, spec §4, docs/design/screens/05): the mockup's four items
+// The quote's Export menu (task 4.3, spec §4; C_QE2 "Export", plan U4): the frame's four items
 // and hints; the PDFs and the CSV download for the revision on screen (the draft while the rep
 // can edit it, else the latest sent) after queued edits save; Copy quote summary writes plain
 // text to the clipboard, with a fallback, and says so.

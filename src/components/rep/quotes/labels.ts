@@ -9,7 +9,7 @@ export const STATUS_PARAM='status';
 /** The old Needs attention view (v3 spec §3, task A2): ?attention=1, oldest first with ?sort=oldest. The page reads it as Only show Overdue and Aging. */
 export const ATTENTION_PARAM='attention';
 export const SORT_PARAM='sort';
-/** The Team dashboard's drill-down into one aging level of the open quotes (?aging=ok|amber|red, the manager only, task D3). */
+/** The Analytics drill-down into one aging level of the open quotes (?aging=ok|amber|red, the manager only, task D3). */
 export const AGING_PARAM='aging';
 /** The filter panel's Requested from and to (C_QOB2): YYYY-MM-DD, UTC days. */
 export const REQUESTED_FROM_PARAM='requested_from';

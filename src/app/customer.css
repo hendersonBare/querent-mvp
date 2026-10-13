@@ -79,7 +79,7 @@
 }
 .clarify-sku {
   color: var(--teal-dark);
-  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--q-font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -319,7 +319,7 @@
 }
 .ip-sku {
   color: var(--teal-dark);
-  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--q-font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
   font-weight: 600;
 }

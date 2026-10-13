@@ -20,7 +20,7 @@ export interface PopupSuggestion {item_id:string;sku:string;description:string;p
 /**
  * Payload of an `item_popup` message: what the item pop-up opens with (spec §3). No prices.
  * `suggestions` are chosen once when the pop-up is created (task E1) and `suggestions_offered`
- * records how many were shown, the Team dashboard's acceptance denominator (OA-13). Both are absent
+ * records how many were shown, the Analytics leaderboard's acceptance denominator (OA-13). Both are absent
  * on pop-ups from before E1 and on a clarifying reply's cart.
  */
 export interface ItemPopupPayload {fulfillment:Fulfillment;branch_id:string;lines:CartLine[];suggestions?:PopupSuggestion[];suggestions_offered?:number}

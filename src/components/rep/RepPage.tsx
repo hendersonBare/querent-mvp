@@ -12,14 +12,11 @@ import s from './RepPage.module.css';
  *
  *   <RepPageHeader title="Quotes"><CustomerPicker …/><FilterButton …/></RepPageHeader>
  *
- * `description` is the line under the title where a frame draws one (C_ANBase). `spaced` keeps 18px
- * under the header for a page body not rebuilt yet; a rebuilt page drops it and sets the spacing its
- * frame draws on its own next block. `actions` is the old name for children (legacy pages).
+ * `description` is the line under the title where a frame draws one (C_ANBase). Each page sets the
+ * spacing its frame draws on its own next block.
  */
-export function RepPageHeader({title,description,actions,children,spaced=false}:{title:string;description?:ReactNode;actions?:ReactNode;children?:ReactNode;spaced?:boolean}){
-  return <PageHeader className={cx('ui-root',s.pageHeader,spaced&&s.spaced)} title={title} subtitle={description} right={<HeaderAlerts/>}>
-    {children}{actions}
+export function RepPageHeader({title,description,children}:{title:string;description?:ReactNode;children?:ReactNode}){
+  return <PageHeader className={cx('ui-root',s.pageHeader)} title={title} subtitle={description} right={<HeaderAlerts/>}>
+    {children}
   </PageHeader>;
 }
-
-export {s as repPageStyles};

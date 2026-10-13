@@ -1,8 +1,8 @@
 import {expect,it,vi} from 'vitest';
 import {emitOpenQuote,OPEN_QUOTE_EVENT,onOpenQuote} from './open-quote';
 
-// The "open quote" event (task 2.4): the right sidebar and the chat's View quote emit it; the PDF
-// preview modal (task 5.1) subscribes.
+// The "open quote" event (tasks 2.4, U10): the bell's quote notifications and the chat's View quote
+// emit it; the PDF preview modal (task 5.1) subscribes.
 
 it('carries the revision a chat message announced (task 5.1)',()=>{
   const handler=vi.fn();

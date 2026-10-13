@@ -6,7 +6,7 @@ import type {ChatTurn} from '@/lib/contracts';
 // interleaves them when it renders. A notice loaded with the history goes after the turns logged before it; one that
 // arrives later (the chat polls for them) goes after the turns on screen when it arrived.
 
-/** How often the chat looks for a newly sent quote: as often as the quotes sidebar refreshes (task 2.4). */
+/** How often the chat looks for a newly sent quote: as often as the customer's bell polls (tasks 2.4, U10). */
 export const NOTICE_POLL_MS=5000;
 
 /** A notice and its place: the number of turns shown before it. */

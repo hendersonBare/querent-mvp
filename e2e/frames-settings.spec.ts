@@ -502,3 +502,36 @@ for (const c of CASES) {
     await testInfo.attach(`C_${c.id} result`, { body: JSON.stringify({ ...result, rewrites: [...(c.rewrites ?? []), ...(c.dialog?.rewrites ?? [])].map((r) => ({ app: String(r.app), frame: r.frame, why: r.why })), drop: c.drop, explained: c.explained }, null, 1), contentType: "application/json" });
   });
 }
+
+// U11 (Appendix H "Hidden feature-flag sections never render while their flag is off"): the product default,
+// end to end on the flags-off server (the default Playwright server turns the flags on, decision 68). No
+// manager tab shows a flagged section or a design marker, their reads say off, and every flagged write
+// answers 403 feature_off while the unflagged settings still save. The flags-on server shows the sections.
+test("flags off end to end (decision 48): no flagged section on any tab, flagged writes refused, the rest works", async ({ browser }) => {
+  const FLAGGED_HEADINGS = ["Free delivery pricing", "Recovery pool", "Delivery cost model"];
+  for (const tab of ["access", "floors", "pricing", "aging", "profile"]) {
+    const page = await appAs(browser, "off", `/rep/settings?tab=${tab}`);
+    for (const name of FLAGGED_HEADINGS) await expect(page.getByRole("heading", { name }), `${tab}: ${name}`).toHaveCount(0);
+    await expect(page.getByText(/FEATURE FLAG/i), tab).toHaveCount(0);
+    if (tab === "pricing") await expect(page.getByRole("heading", { name: "Delivery rates" })).toBeVisible();
+    await page.context().close();
+  }
+  const off = await (await appAs(browser, "off", "/rep/settings")).context().request;
+  const read = await (await off.get("/api/rep/settings")).json();
+  expect(read.manager.flags).toEqual({ freeDeliveryPricing: false, recoveryPool: false, deliveryCostModel: false });
+  for (const [body, detail] of [
+    [{ enabled: true }, "Free delivery pricing is turned off."],
+    [{ rates: { rampSteps: 4 } }, "The recovery pool is turned off."],
+    [{ cost: { mpg: 12 } }, "The delivery cost model is turned off."],
+  ] as const) {
+    const response = await off.put("/api/rep/settings/freight", { data: body });
+    expect(response.status(), JSON.stringify(body)).toBe(403);
+    expect(await response.json()).toMatchObject({ detail, code: "feature_off" });
+  }
+  expect((await off.get("/api/rep/settings/freight/preview")).status()).toBe(403);
+  // The unflagged Pricing and delivery settings still save while the flags are off.
+  expect((await off.put("/api/rep/settings/pricing", { data: { scarcity_uplift_enabled: false } })).status()).toBe(200);
+  // The flags-on server renders the three sections.
+  const on = await appAs(browser, "on", "/rep/settings?tab=pricing");
+  for (const name of FLAGGED_HEADINGS) await expect(on.getByRole("heading", { name }), `on: ${name}`).toHaveCount(1);
+});

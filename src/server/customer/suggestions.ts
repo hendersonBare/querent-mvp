@@ -15,7 +15,7 @@ import {suggestionPicker} from './suggestion-picker';
 //    the demo) the first 3 of the pool with template reasons. Claude's answer is validated here:
 //    a SKU not in the pool is dropped, so the model can never introduce an item.
 // 3. The payload: identity and reason only, stored on the pop-up message with the offered count
-//    (OA-13), which is the Team dashboard's acceptance-rate denominator. Request quote accepts these
+//    (OA-13), which is the Analytics leaderboard's acceptance-rate denominator. Request quote accepts these
 //    SKUs and stores them as added_by 'suggestion' (src/server/intake/quote-request.ts).
 
 /** The pop-up shows at most this many (OA-23)... */

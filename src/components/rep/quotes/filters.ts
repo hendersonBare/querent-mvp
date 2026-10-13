@@ -44,7 +44,7 @@ export function filtersFromQuery(query:string|URLSearchParams):QuoteFilters{
     requestedFrom:day(p.get(REQUESTED_FROM_PARAM)),requestedTo:day(p.get(REQUESTED_TO_PARAM)),only:list(p.get(ONLY_PARAM),ONLY_SHOW)};
 }
 
-/** Params the panel does not edit but a link may bring (the Team dashboard's drill-down, task D3): kept by the toolbar, dropped by Apply filters. */
+/** Params the panel does not edit but a link may bring (the Analytics drill-down, tasks D3 and U6): kept by the toolbar, dropped by Apply filters. */
 const KEPT=['from','to','team',AGING_PARAM];
 
 /**

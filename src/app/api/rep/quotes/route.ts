@@ -15,7 +15,7 @@ export const runtime='nodejs';export const dynamic='force-dynamic';
  *
  * Scope is role based (Appendix B; decisions 20, 22; task U1): a rep's own quotes, or every rep's for
  * the manager; the old ?scope=all is ignored. The manager also filters by &rep=<id>&team=<label>; the
- * Team dashboard's drill-down (task D3) adds &rep=a,b, &from=&to= (created in [from, to)) and &aging=ok|amber|red.
+ * Analytics drill-down (tasks D3 and U6) adds &rep=a,b, &from=&to= (created in [from, to)) and &aging=ok|amber|red.
  */
 export const GET=repRoute(async(repId,request,_context,session)=>
   repJson(await repQuoteList(repId,{...quoteListOptions(request.nextUrl.searchParams),manager:session.manager})));

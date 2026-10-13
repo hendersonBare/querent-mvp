@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import type {MetricsRep} from '@/server/team/metrics';
-import {parseAnalyticsQuery} from './query';
+import {MAX_RANGE_DAYS,isoInstant,parseAnalyticsQuery} from './query';
 
 // GET /api/rep/analytics's filter (plan U6; Part 1 section 6; Appendix D): reps, teams, a customer,
 // a breakdown and a period. Pure: the reader, the reps and `now` are passed in.
@@ -87,5 +87,21 @@ describe('a rep (Appendix B: own data only)',()=>{
   it('keeps the customer (the service drops one the rep cannot read) and the period',()=>{
     expect(ok('customer=canyon-ridge&period=7',mara)).toMatchObject({customerId:'canyon-ridge',window:{from:'2026-10-06T00:00:00.000Z',to:'2026-10-13T00:00:00.000Z'}});
     expect(parse('period=14',mara).ok).toBe(false);
+  });
+});
+
+// Moved in U11 from the D3 Team dashboard's query test (its routes are gone): the window's instants.
+describe('isoInstant and the window\'s limit',()=>{
+  it('normalises an instant with a time zone to UTC and refuses anything else',()=>{
+    expect(isoInstant('2026-09-30T00:00:00-06:00')).toBe('2026-09-30T06:00:00.000Z');
+    expect(isoInstant('2026-10-10T00:00-06:00')).toBe('2026-10-10T06:00:00.000Z');
+    for(const bad of [null,'','2026-09-30','yesterday','2026-02-30T00:00:00Z','2026-09-30T06:00:00'])expect(isoInstant(bad),String(bad)).toBeNull();
+  });
+
+  it('takes a window of exactly MAX_RANGE_DAYS and refuses one a millisecond longer',()=>{
+    const from='2026-01-01T00:00:00.000Z',start=Date.parse(from);
+    const at=(ms:number)=>new Date(start+ms).toISOString();
+    expect(parse(`from=${from}&to=${at(MAX_RANGE_DAYS*86_400_000)}`).ok).toBe(true);
+    expect(parse(`from=${from}&to=${at(MAX_RANGE_DAYS*86_400_000+1)}`)).toEqual({ok:false,detail:`Pick a range of at most ${MAX_RANGE_DAYS} days.`});
   });
 });

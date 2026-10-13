@@ -2,11 +2,13 @@
 import {useEffect,useRef,type CSSProperties,type ReactNode,type RefObject} from 'react';
 import s from './Popover.module.css';
 import {cx} from './cx';
+import {trapTab} from './focus';
 
 /**
  * An opened panel anchored inside a positioned parent (plan U0): a labelled dialog that takes focus
  * when it opens, gives it back when it closes, and closes on Escape or a press outside it. A press
- * inside `ignore` (the control that opens it) is not "outside", so that control can toggle it.
+ * inside `ignore` (the control that opens it) is not "outside", so that control can toggle it. Tab and
+ * Shift+Tab stay inside while it is open (./focus).
  */
 export function Popover({open,label,onClose,ignore,className,style,children,...rest}:{
   open:boolean;label:string;onClose:()=>void;ignore?:RefObject<HTMLElement|null>;className?:string;style?:CSSProperties;children:ReactNode;
@@ -37,5 +39,5 @@ export function Popover({open,label,onClose,ignore,className,style,children,...r
     };
   },[open,ignore]);
   if(!open)return null;
-  return <div ref={ref} role="dialog" aria-label={label} tabIndex={-1} className={cx(s.popover,className)} style={style} data-ui={rest['data-ui']??'popover'}>{children}</div>;
+  return <div ref={ref} role="dialog" aria-label={label} tabIndex={-1} onKeyDown={trapTab} className={cx(s.popover,className)} style={style} data-ui={rest['data-ui']??'popover'}>{children}</div>;
 }

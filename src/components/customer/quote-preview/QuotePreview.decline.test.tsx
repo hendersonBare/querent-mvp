@@ -106,7 +106,7 @@ describe('the Decline dialog',()=>{
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('Decline with no reason records the decline once; the modal reads Declined and the sidebar is told',async()=>{
+  it('Decline with no reason records the decline once; the modal reads Declined and the bell is told',async()=>{
     let resolve:(value:unknown)=>void=()=>{};
     post.mockReturnValue(new Promise(r=>{resolve=r;}));
     const changed=vi.fn();

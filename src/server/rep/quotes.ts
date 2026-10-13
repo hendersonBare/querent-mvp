@@ -4,8 +4,9 @@ import {formatMargin,margin} from '@/server/floors';
 import type {DistanceProvider} from '@/server/freight/distance';
 import {aging,canEditDraft,effectiveStatus,needsAttention,type Aging,type AgingLevel,type AgingThresholds} from '@/server/quotes';
 import {expireOverdueQuotes,sendCheck} from '@/server/quotes/service';
-import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamReps,touchQuoteByRep} from '@/server/repository';
-import {isoInstant} from '@/server/team/query';
+import {agingThresholds,customers,markQuoteRead,quote,quoteByNumber,quotes,teamList,teamMemberships,teamReps,touchQuoteByRep} from '@/server/repository';
+import {isoInstant} from '@/server/analytics/query';
+import {repsInTeams} from '@/server/teams/tree';
 import {AGING_PARAM,ATTENTION_PARAM,ONLY_PARAM,REQUESTED_FROM_PARAM,REQUESTED_TO_PARAM,SORT_PARAM,STATUS_PARAM,isAttention} from '@/components/rep/quotes/labels';
 import {CUSTOMER_PARAM,FROM_PARAM,REP_PARAM,TEAM_PARAM,TO_PARAM} from '@/components/rep/scope';
 import {customerFilterFor,readableCustomers} from './access';
@@ -25,11 +26,11 @@ import {customerFilterFor,readableCustomers} from './access';
 // or oldest clock first with ?sort=oldest. Other filters keep newest request first (OA-9).
 //
 // The manager (v3 spec §6, §8; decisions 21, 22; tasks D2, U1) sees every rep's quotes, each row
-// naming its rep, filtered by rep or team label, with the Needs attention view over the same quotes
-// (OA-52). Quotes move between reps (./reassign), so a quote's rep is its current owner, not always
-// the customer's assigned rep.
+// naming its rep, filtered by rep or team (a parent team takes in its child teams' reps, decision 47),
+// with the Needs attention view over the same quotes (OA-52). Quotes move between reps (./reassign),
+// so a quote's rep is its current owner, not always the customer's assigned rep.
 //
-// The Team dashboard drills into the manager's list (v3 spec §6 Team; decision 23; task D3), so it
+// Analytics drills into the manager's list (decision 65; it took over the D3 Team dashboard's links), so it
 // also takes a window (?from=&to=: quotes created in [from, to), two ISO instants), an aging level
 // for the open quotes (?aging=ok|amber|red, a view like Needs attention) and several reps (?rep=a,b).
 //
@@ -47,7 +48,7 @@ export type AttentionSort='urgent'|'oldest';
 export const parseAttentionSort=(value:string|null|undefined):AttentionSort=>value==='oldest'?'oldest':'urgent';
 
 const AGING_LEVELS:readonly AgingLevel[]=['ok','amber','red'];
-/** An ?aging= value (the Team dashboard's open ok / amber / red counts, task D3), or null for anything else. */
+/** An ?aging= value (Analytics' open ok / amber / red counts, decision 65), or null for anything else. */
 export const parseAgingLevel=(value:string|null|undefined):AgingLevel|null=>(AGING_LEVELS as readonly string[]).includes(value??'')?value as AgingLevel:null;
 
 /** A ?status= value, or null (every status) for anything that isn't one of the five statuses. */
@@ -123,7 +124,7 @@ export type QuoteStatusCounts=Record<QuoteStatus,number>&{all:number};
 export type QuotesScope='mine'|'all';
 /** A rep in the manager's rep filter and reassignment choices; inactive reps stay for history (OA-27). */
 export interface ScopeRep {id:string;name:string;team:string|null;active:boolean}
-/** What the manager's list needs beyond the rows: every rep and every team label, by name. */
+/** What the manager's list needs beyond the rows: every rep and every team, by name. */
 export interface ManagerListOptions {reps:ScopeRep[];teams:string[]}
 
 export interface RepQuoteList {
@@ -155,7 +156,7 @@ export interface RepQuoteList {
   scope:QuotesScope;
   /** The manager's rep and team filters as applied (null: every rep, every team). Several reps read "mara,nora" (task D3). */
   rep_filter:string|null;team_filter:string|null;
-  /** The Team dashboard's window as applied (the manager only): quotes created in [from, to). */
+  /** The Analytics drill-down's window as applied (the manager only): quotes created in [from, to). */
   window:{from:string;to:string}|null;
   /** The open quotes at this aging level only (the manager only, task D3); it replaces the status filter. */
   aging_filter:AgingLevel|null;
@@ -180,7 +181,7 @@ export interface RepQuoteListOptions {
   manager?:boolean;
   /**
    * The manager's filters (?rep=&team=), ignored for a rep. Unknown values read as every rep or team.
-   * The Team dashboard's drill-down adds rep=a,b, the window (from, to) and an aging level (task D3);
+   * The Analytics drill-down adds rep=a,b, the window (from, to) and an aging level (task D3);
    * a malformed one is ignored.
    */
   filters?:{rep?:string|null;team?:string|null;from?:string|null;to?:string|null;aging?:string|null}|null;
@@ -203,10 +204,10 @@ export function quoteListOptions(params:{get(name:string):string|null}):Omit<Rep
     filters:{rep:params.get(REP_PARAM),team:params.get(TEAM_PARAM),from:params.get(FROM_PARAM),to:params.get(TO_PARAM),aging:params.get(AGING_PARAM)}};
 }
 
-/** Every rep by name with team and active flag, and the team labels in use (the manager's options). */
+/** Every rep by name with their team and active flag, and every team by name (the manager's options; plan U7). */
 export function managerListOptions():ManagerListOptions{
   const reps=teamReps().map(({id,name,team,active})=>({id,name,team,active}));
-  return {reps,teams:[...new Set(reps.flatMap(r=>r.team?[r.team]:[]))].sort((a,b)=>a.localeCompare(b))};
+  return {reps,teams:teamList().map(t=>t.name).sort((a,b)=>a.localeCompare(b))};
 }
 
 const emptyCounts=():QuoteStatusCounts=>({all:0,...Object.fromEntries(QUOTE_STATUSES.map(s=>[s,0])) as Record<QuoteStatus,number>});
@@ -259,7 +260,9 @@ export async function repQuoteList(repId:string,{customerId=null,status=null,sta
   const asked=all?(filters?.rep??'').split(','):[];
   const pickedReps=all?options.reps.filter(r=>asked.includes(r.id)).map(r=>r.id):[];
   const team=filters?.team??'';
-  const teamIds=all&&options.teams.includes(team)?options.reps.filter(r=>r.team===team).map(r=>r.id):undefined;
+  // A team counts its own members and those of the teams inside it (decision 47: grouping and filters only).
+  const inTeam=options&&options.teams.includes(team)?new Set(repsInTeams(teamList(),teamMemberships(),[team])):null;
+  const teamIds=options&&inTeam?options.reps.filter(r=>inTeam.has(r.id)).map(r=>r.id):undefined;
   const repFilter=pickedReps.length?pickedReps.join(','):null;
   const teamFilter=teamIds?team:null;
   const repIds=pickedReps.length>1?pickedReps.filter(id=>!teamIds||teamIds.includes(id)):teamIds;

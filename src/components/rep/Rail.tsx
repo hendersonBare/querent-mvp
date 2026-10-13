@@ -33,8 +33,9 @@ export function Rail(){
           const current=active?.id===section.id;
           return <Link key={section.id} href={section.href} className={s.link} aria-current={current?'page':undefined}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={section.icon}/></svg>
-            {/* The frame's label is a span holding a span (its template's text slot). */}
-            <span className={s.label}><span>{section.label}</span></span>
+            {/* One block span, as 61 of the 83 page frames draw it (C_ANBase, C_RS1 and the other non-Quotes
+                frames); the 22 Quotes frames wrap the text in a second, inline span (U11). */}
+            <span className={s.label}>{section.label}</span>
           </Link>;
         })}
       </nav>

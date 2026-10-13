@@ -1,5 +1,5 @@
-// "Quotes changed": the chat's Request quote (task 2.3) asks the right sidebar to reload its quote
-// buttons now instead of at its next poll, so the new quote shows at once as Awaiting rep.
+// "Quotes changed": the chat's Request quote (task 2.3) and a quote response (Accept, Request changes,
+// Decline) ask the notification bell (plan U10) to reload now instead of at its next poll.
 
 export const QUOTES_CHANGED_EVENT='querent:quotes-changed';
 

@@ -4,13 +4,11 @@ import {plainAmount} from '@/server/export/line-items';
 import {DECLINE_REASON_LABELS} from '@/server/quotes';
 import {DECLINE_BUCKETS,UNTOUCHED_REASONS,type DeclineBucket,type TeamMetricRows,type TeamRow} from './metrics';
 
-// Export CSV on the Team dashboard (v3 spec §5, §6 Team; decision 23; task D3): the leaderboard as
-// GET /api/rep/team/metrics.csv serves it, through src/server/export/csv.ts (BOM, CRLF, formula
+// Export CSV on the Analytics Rep leaderboard (v3 spec §5; decision 23; tasks D3, U6): the leaderboard as
+// GET /api/rep/analytics/csv serves it, through src/server/export/csv.ts (BOM, CRLF, formula
 // guard). One line per selected rep, then the totals. Rates and margins are percentages to one
 // decimal, times are hours to one decimal, money is dollars to the cent; a rate with nothing to
 // divide by is an empty cell. Internal: it carries margin, for the manager only.
-
-export const TEAM_CSV_FILENAME='team-metrics.csv';
 
 const DECLINE_LABELS:Record<DeclineBucket,string>={...DECLINE_REASON_LABELS,none:'No reason given'};
 

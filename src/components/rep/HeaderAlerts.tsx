@@ -48,7 +48,3 @@ function Alerts({badges}:{badges:RepBadges}){
   </>;
 }
 
-/** The same buttons on their own, at the far right of a header that is not a PageHeader yet (detail pages until U4, U5). */
-export function HeaderAlertsBar(){
-  return <div className={`ui-root ${s.bar}`}><HeaderAlerts/></div>;
-}

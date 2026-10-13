@@ -285,8 +285,8 @@ test("Mara (a rep): My Analytics with her own numbers, no Rep leaderboard, whate
   expect(asked.groups.totals.created).toBe(own.groups.totals.created);
   expect(asked.scope).toEqual(own.scope);
   expect((await page.request.get("/api/rep/analytics/csv")).status()).toBe(403);
-  // Carried over from e2e/team-dashboard.spec.ts: the old team metrics routes stay the manager's.
-  expect((await page.request.get("/api/rep/team/metrics?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(403);
-  expect((await page.request.get("/api/rep/team/metrics.csv?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(403);
+  // The old D3 team metrics routes are gone (U11): Analytics serves their numbers.
+  expect((await page.request.get("/api/rep/team/metrics?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(404);
+  expect((await page.request.get("/api/rep/team/metrics.csv?from=2026-09-01T06:00:00.000Z&to=2026-10-01T06:00:00.000Z")).status()).toBe(404);
   await page.context().close();
 });

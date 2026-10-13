@@ -12,21 +12,21 @@
   padding: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--rep-muted);
+  color: var(--q-text-2);
 }
 .tipButton:hover,
 .tipButton:focus-visible {
-  background: var(--rep-accent-soft);
-  color: var(--rep-accent);
+  background: var(--q-lane);
+  color: var(--q-accent);
 }
 .tip {
   position: fixed;
   z-index: 50;
   padding: 10px 12px;
   border-radius: 8px;
-  background: var(--rep-ink);
+  background: var(--q-rail);
   color: #ffffff;
-  font: 400 12.5px/1.5 var(--rep-body);
+  font: 400 12.5px/1.5 var(--q-font-sans);
   letter-spacing: normal;
   text-align: left;
   text-transform: none;

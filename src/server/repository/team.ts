@@ -3,7 +3,7 @@ import type {TeamQuoteFact,TeamStatusEvent} from '@/domain';
 import {roundDollars} from '@/lib/money';
 import {all,list} from './sql';
 
-// The Team dashboard's live reads (v3 spec §7; decisions 23–25; OA-13, OA-19; task D3). Live SQL
+// The Analytics leaderboard's live reads, first the D3 Team dashboard's (v3 spec §7; decisions 23–25; OA-13, OA-19; task D3). Live SQL
 // over the quotes as they are, no materialised tables. The cohort is the quotes created in
 // [from, to) (UTC ISO instants the browser computed at its local midnights) whose current owner
 // (quotes.rep_id, so a reassigned quote counts under its new rep) is one of `repIds`.

@@ -191,14 +191,81 @@ describe('GET /api/rep/settings',()=>{
   });
 });
 
-describe('manager-only routes: team and reassignment',()=>{
+describe('manager-only routes: teams, reps, reassignment and the leaderboard CSV',()=>{
   it('refuse a rep (403) and serve the manager',async()=>{
-    const {GET:metrics}=await import('./team/metrics/route');
     const {GET:reps}=await import('./team/reps/route');
+    const {GET:teams}=await import('./teams/route');
+    const {GET:leaderboard}=await import('./analytics/csv/route');
     const {POST:reassign}=await import('./quotes/reassign/route');
     expect((await reps(get('/api/rep/team/reps','mara'),undefined)).status).toBe(403);
-    expect((await metrics(get('/api/rep/team/metrics','mara'),undefined)).status).toBe(403);
+    expect((await teams(get('/api/rep/teams','mara'))).status).toBe(403);
+    expect((await leaderboard(get('/api/rep/analytics/csv','mara'))).status).toBe(403);
     expect((await reassign(new NextRequest('http://127.0.0.1/api/rep/quotes/reassign',{method:'POST',headers:headers('mara'),body:'{}'}),undefined)).status).toBe(403);
     expect((await reps(get('/api/rep/team/reps','supplier'),undefined)).status).toBe(200);
+    expect((await teams(get('/api/rep/teams','supplier'))).status).toBe(200);
+    expect((await leaderboard(get('/api/rep/analytics/csv','supplier'))).status).toBe(200);
+  });
+
+  it('the D3 Team metrics routes are gone (U11): Analytics serves their numbers',async()=>{
+    const {existsSync}=await import('node:fs');
+    const {join}=await import('node:path');
+    for(const route of ['team/metrics','team/metrics.csv'])expect(existsSync(join(__dirname,route,'route.ts')),route).toBe(false);
+  });
+});
+
+// The routes added in U3 to U9 key every read and write on the session's rep, never on the request
+// (Appendix B "own data"): what one rep stores, another rep cannot read through them.
+describe('per-rep routes from U3 to U9: a rep reads only their own record',()=>{
+  const send=(path:string,persona:string,method:string,body:BodyInit,type='application/json')=>
+    new NextRequest(`http://127.0.0.1${path}`,{method,headers:{...headers(persona),'content-type':type},body});
+
+  it('profile: Eli\'s name, phone and email never reach Mara, whatever the query names',async()=>{
+    const route=await import('./profile/route');
+    expect((await route.PUT(send('/api/rep/profile','eli','PUT',JSON.stringify({name:'Eli Porter',phone:'(801) 555-0199',email:'eli.private@example.com'})))).status).toBe(200);
+    for(const query of ['','?rep=eli','?rep_id=eli']){
+      const {status,body}=await json(route.GET(get(`/api/rep/profile${query}`,'mara')));
+      expect(status).toBe(200);
+      expect(body).toMatchObject({name:'Mara Jensen'});
+      expect(JSON.stringify(body)).not.toContain('eli.private@example.com');
+    }
+  });
+
+  it('profile picture: Eli\'s picture is served to Eli only; Mara gets her own (none)',async()=>{
+    const {readFileSync}=await import('node:fs');
+    const {join}=await import('node:path');
+    const route=await import('./profile/picture/route');
+    const png=new Uint8Array(readFileSync(join(process.cwd(),'test/fixtures/pictures/tiny.png')));
+    expect((await route.PUT(send('/api/rep/profile/picture','eli','PUT',png,'image/png'))).status).toBe(200);
+    expect((await route.GET(get('/api/rep/profile/picture','eli'))).status).toBe(200);
+    expect((await route.GET(get('/api/rep/profile/picture?rep=eli','mara'))).status).toBe(404);
+    expect((await route.DELETE(get('/api/rep/profile/picture','eli'))).status).toBe(200);
+  });
+
+  it('notification prefs: Eli\'s switches are his; Mara\'s stay her own',async()=>{
+    const route=await import('./notification-prefs/route');
+    const before=(await json(route.GET(get('/api/rep/notification-prefs','mara')))).body;
+    expect((await route.PUT(send('/api/rep/notification-prefs','eli','PUT',JSON.stringify({quote_overdue:false,quote_accepted:false})))).status).toBe(200);
+    expect((await json(route.GET(get('/api/rep/notification-prefs?rep=eli','mara')))).body).toEqual(before);
+    expect((await json(route.GET(get('/api/rep/notification-prefs','eli')))).body).toMatchObject({quote_overdue:false,quote_accepted:false});
+  });
+
+  it('table prefs: Eli\'s column order is his; Mara reads her own (none)',async()=>{
+    const route=await import('./table-prefs/route');
+    const prefs={table_id:'customers',column_order:['customer','rep','terms'],hidden_columns:['orders']};
+    expect((await route.PUT(send('/api/rep/table-prefs','eli','PUT',JSON.stringify(prefs)))).status).toBe(200);
+    expect((await json(route.GET(get('/api/rep/table-prefs?table=customers','eli')))).body).toMatchObject({prefs:{column_order:prefs.column_order}});
+    expect((await json(route.GET(get('/api/rep/table-prefs?table=customers&user=eli','mara')))).body).toMatchObject({prefs:null});
+  });
+
+  it('quote writes from the new pages (reply, add a line) answer 404 on another rep\'s quote, writing nothing',async()=>{
+    const {quoteActivity,quoteByNumber}=await import('@/server/repository');
+    const target=quoteByNumber('Q-24790')!;
+    const activity=quoteActivity(target.id).length;
+    const reply=(await import('./quotes/[id]/reply/route')).POST;
+    const lines=(await import('./quotes/[id]/lines/route')).POST;
+    const context={params:Promise.resolve({id:'Q-24790'})};
+    expect((await reply(send('/api/rep/quotes/Q-24790/reply','mara','POST',JSON.stringify({body:'Hello'})),context)).status).toBe(404);
+    expect((await lines(send('/api/rep/quotes/Q-24790/lines','mara','POST',JSON.stringify({itemId:'GLV-N8-L-1000',qty:1})),context)).status).toBe(404);
+    expect(quoteActivity(target.id)).toHaveLength(activity);
   });
 });

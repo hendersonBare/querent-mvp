@@ -4,7 +4,8 @@ import { FONT_USER_AGENT, FRAME_SIZE, STYLE_PROPS, diffMeasures, measureAll, ope
 // Frame proof for plan U2 (the shell), at 1920x1080 against the frames (drawn at 1440x900):
 //   - the rail as every page frame draws it: C_QOBoard for the manager (querent-persona=supplier) and
 //     C_RQBoard for a rep (querent-persona=mara); 216px wide, sticky at the top after scrolling, the
-//     page area taking the rest of the width; on every rep route;
+//     page area taking the rest of the width; on every rep route; and (U11) against a frame of every
+//     other page family, since the frames disagree on the nav label (one explained difference);
 //   - C_QOB3 (caution dropdown open) and C_QOB4 (bell dropdown open), scoped to the header controls;
 //   - C_QOB9 (Sign out asks first), then Sign out ends the session and returns to /.
 // Also the route renames (decision 46): the old paths answer 308 with the query kept.
@@ -92,10 +93,10 @@ async function sameStyle(name: string, frameSel: string, appPage: Page, appSel: 
 const rewrite = (list: Measure[], map: (m: Measure) => string) => list.map((m) => (m.text ? { ...m, text: map(m) } : m));
 
 /** Both directions: nothing the frame draws is missing or styled differently, and the app adds no text or control the frame lacks. */
-function expectSame(name: string, frameList: Measure[], appList: Measure[], { width = false } = {}) {
+function expectSame(name: string, frameList: Measure[], appList: Measure[], { width = false, explained = (_d: Record<string, unknown>): boolean => false } = {}) {
   const forward = diffMeasures(frameList, appList, { width });
   expect(forward.missing, `${name}: elements of the frame missing from the app`).toEqual([]);
-  expect(forward.diffs, `${name}: style differences`).toEqual([]);
+  expect(forward.diffs.filter((d: Record<string, unknown>) => !explained(d)), `${name}: style differences`).toEqual([]);
   const backward = diffMeasures(appList, frameList);
   expect(backward.missing, `${name}: text or controls the app adds that the frame lacks`).toEqual([]);
   // Text-less controls (icons, buttons) too: same count of each kind.
@@ -105,6 +106,17 @@ function expectSame(name: string, frameList: Measure[], appList: Measure[], { wi
 }
 
 // ---- The rail ----
+
+const NAV_LABELS = ["Quotes", "Customers", "Orders", "Stock", "Analytics", "My Analytics", "Teams and Reps", "Settings"];
+/**
+ * The one explained difference against the 22 Quotes frames (U11): they wrap each nav label's text in
+ * a second, inline span; the rail draws one block span, as the other 61 page frames do (checked below).
+ * Exactly display inline (frame) and block (app) on a nav label, nothing else, not even its height.
+ */
+const quotesFrameNavLabel = (d: Record<string, unknown>) => {
+  const { element, ...rest } = d as { element: string; display?: { frame: string; app: string } };
+  return NAV_LABELS.some((l) => element === `span "${l}"`) && Object.keys(rest).length === 1 && rest.display?.frame === "inline" && rest.display.app === "block";
+};
 
 const RAIL = "aside";
 /** The frames' user block names are placeholders (Appendix G): Brian G. (manager) and Brandi G. (rep), BG. */
@@ -133,7 +145,7 @@ async function expectRailGeometry(page: Page) {
 test("rail, manager (C_QOBoard): every element and style, 216px, sticky, the page area fills the rest", async ({ browser }, testInfo) => {
   await frame("QOBoard");
   const page = await appAs(browser, testInfo, "supplier");
-  expectSame("C_QOBoard rail", await measure(framePage, RAIL), rewrite(await measure(page, RAIL), (m) => PLACEHOLDER.supplier[m.text] ?? m.text));
+  expectSame("C_QOBoard rail", await measure(framePage, RAIL), rewrite(await measure(page, RAIL), (m) => PLACEHOLDER.supplier[m.text] ?? m.text), { explained: quotesFrameNavLabel });
   await expectRailGeometry(page);
   // The active item is Quotes, the accent green with white bold text, as drawn.
   await expect(page.locator("aside nav a[aria-current=page]")).toHaveText("Quotes");
@@ -153,9 +165,36 @@ test("rail, manager (C_QOBoard): every element and style, 216px, sticky, the pag
 test("rail, rep (C_RQBoard): My Analytics, no Teams and Reps, role Rep; 216px and sticky", async ({ browser }, testInfo) => {
   await frame("RQBoard");
   const page = await appAs(browser, testInfo, "mara");
-  expectSame("C_RQBoard rail", await measure(framePage, RAIL), rewrite(await measure(page, RAIL), (m) => PLACEHOLDER.mara[m.text] ?? m.text));
+  expectSame("C_RQBoard rail", await measure(framePage, RAIL), rewrite(await measure(page, RAIL), (m) => PLACEHOLDER.mara[m.text] ?? m.text), { explained: quotesFrameNavLabel });
   await expectRailGeometry(page);
   await expect(page.getByRole("navigation", { name: "Rep portal" }).getByRole("link")).toHaveText(["Quotes", "Customers", "Orders", "Stock", "My Analytics", "Settings"]);
+});
+
+// U11: the frames disagree on the nav label. 61 of the 83 page frames (every one but the 22 Quotes
+// frames) draw it as one block span inside the link; the Quotes frames wrap the text in a second,
+// inline span. The rail follows the majority. Here it is diffed, every element both ways, against a
+// majority frame of each page family, on the route whose nav item the frame draws active.
+const RAIL_FRAMES: [frame: string, persona: "supplier" | "mara", route: string, active: string][] = [
+  ["ANBase", "supplier", "/rep/analytics", "Analytics"],
+  ["CUBase", "supplier", "/rep/customers", "Customers"],
+  ["ORBase", "supplier", "/rep/orders", "Orders"],
+  ["STBase", "supplier", "/rep/stock", "Stock"],
+  ["QEBase", "supplier", "/rep/quotes/Q-24817", "Quotes"],
+  ["TRBase", "supplier", "/rep/teams", "Teams and Reps"],
+  ["S1", "supplier", "/rep/settings", "Settings"],
+  ["RAN1", "mara", "/rep/analytics", "My Analytics"],
+  ["RCUBase", "mara", "/rep/customers", "Customers"],
+  ["RS1", "mara", "/rep/settings", "Settings"],
+];
+test("rail on the other page frames (U11): the nav label as most frames draw it, every element both ways", async ({ browser }, testInfo) => {
+  for (const [id, persona, route, active] of RAIL_FRAMES) {
+    await frame(id);
+    const page = await appAs(browser, testInfo, persona, route);
+    await expect(page.locator("aside nav a[aria-current=page]"), id).toHaveText(active);
+    expectSame(`C_${id} rail`, await measure(framePage, RAIL), rewrite(await measure(page, RAIL), (m) => PLACEHOLDER[persona][m.text] ?? m.text));
+    await expectRailGeometry(page);
+    await page.context().close();
+  }
 });
 
 // ---- Every rep route renders in the shell ----

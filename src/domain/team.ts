@@ -1,7 +1,7 @@
 import type {Fulfillment} from './orders';
 import type {DeclineReason,QuoteStatus} from './quotes';
 
-// The Team dashboard's facts (v3 spec §7; decisions 23–25; task D3). Internal: they carry cost
+// The Analytics leaderboard's facts, first the D3 Team dashboard's (v3 spec §7; decisions 23–25; task D3). Internal: they carry cost
 // and margin, for the manager only.
 
 /** Internal: one cohort quote (created in the window) as the Team metrics read it. Money in dollars unless named _cents. */
