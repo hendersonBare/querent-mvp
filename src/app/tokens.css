@@ -140,10 +140,3 @@
   outline: 2px solid var(--q-accent);
   outline-offset: 2px;
 }
-
-/* Until U3 to U9 rebuild the old page bodies: their font variables point at the new fonts (src/app/rep/layout.tsx). */
-.rep-fonts {
-  --font-archivo: var(--q-font-sans);
-  --font-plex-sans: var(--q-font-sans);
-  --font-plex-mono: var(--q-font-mono);
-}

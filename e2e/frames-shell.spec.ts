@@ -93,7 +93,7 @@ async function sameStyle(name: string, frameSel: string, appPage: Page, appSel: 
 const rewrite = (list: Measure[], map: (m: Measure) => string) => list.map((m) => (m.text ? { ...m, text: map(m) } : m));
 
 /** Both directions: nothing the frame draws is missing or styled differently, and the app adds no text or control the frame lacks. */
-function expectSame(name: string, frameList: Measure[], appList: Measure[], { width = false, explained = (_d: Record<string, unknown>) => false } = {}) {
+function expectSame(name: string, frameList: Measure[], appList: Measure[], { width = false, explained = (_d: Record<string, unknown>): boolean => false } = {}) {
   const forward = diffMeasures(frameList, appList, { width });
   expect(forward.missing, `${name}: elements of the frame missing from the app`).toEqual([]);
   expect(forward.diffs.filter((d: Record<string, unknown>) => !explained(d)), `${name}: style differences`).toEqual([]);

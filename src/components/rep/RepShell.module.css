@@ -13,35 +13,12 @@
   box-sizing: border-box;
   padding: var(--q-page-padding);
   background: var(--q-page);
-
-  /* The old page tokens, for page bodies not rebuilt yet (U3 to U9 replace them; U11 deletes this). */
-  --rep-surface: #ffffff;
-  --rep-surface-2: #f5f7f6;
-  --rep-lane: #e3e7e5;
-  --rep-ink: #151a1e;
-  --rep-ink-2: #39424a;
-  --rep-muted: #626d76;
-  --rep-line: #d2d8d5;
-  --rep-line-2: #e1e6e3;
-  --rep-accent: #0e7c74;
-  --rep-accent-ink: #ffffff;
-  --rep-accent-soft: #d6eeea;
-  --rep-ok: #2b7a3b;
-  --rep-ok-soft: #e1f1e4;
-  --rep-warn: #a8670f;
-  --rep-warn-soft: #fbefd9;
-  --rep-bad: #c0392b;
-  --rep-bad-soft: #fbe3e0;
-  --rep-bg: var(--q-page);
-  --rep-display: var(--font-archivo), "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --rep-body: var(--font-plex-sans), "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --rep-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
-  color: var(--rep-ink);
-  font: 14px/1.45 var(--rep-body);
+  color: var(--q-text);
+  font: var(--q-text-body)/normal var(--q-font-sans);
 }
 .page a:focus-visible,
 .page button:focus-visible,
 .page select:focus-visible {
-  outline: 2px solid var(--rep-accent);
+  outline: 2px solid var(--q-accent);
   outline-offset: 2px;
 }

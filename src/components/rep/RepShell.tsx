@@ -14,8 +14,8 @@ import s from './RepShell.module.css';
 //   - Its first child is its header: <RepPageHeader title="…">{picker, search, Filter}</RepPageHeader>
 //     (./RepPage). The header puts the caution and bell (./HeaderAlerts, C_QOB3, C_QOB4) on the right.
 //   - useRepPortal() (./context) gives the signed-in rep, the API client and the polled badges.
-//   - The page area has the frames' page padding (24 32 40). A rebuilt page wraps its body in .ui-root
-//     (src/app/tokens.css); a page body not rebuilt yet keeps the old --rep-* tokens below.
+//   - The page area has the frames' page padding (24 32 40). A page wraps its body in .ui-root
+//     (src/app/tokens.css).
 //
 // Scope is role based on the server (task U1): no "Viewing" picker, no ?customer= or ?scope= on any
 // link. No search, avatar menu, "Switch workspace" or role switch (decision 42).
@@ -27,8 +27,6 @@ export interface RepShellProps {
   rep:RepIdentity;org:string;
   /** The badges as the server rendered them; the shell then polls GET /api/rep/badges. */
   initialBadges:RepBadges;
-  /** Font variables from the layout. */
-  className?:string;
   children:ReactNode;
 }
 
@@ -42,7 +40,7 @@ async function loadBadges():Promise<RepBadges>{
   return response.json();
 }
 
-export function RepShell({rep,org,initialBadges,className,children}:RepShellProps){
+export function RepShell({rep,org,initialBadges,children}:RepShellProps){
   // Sign out (C_QOB9): DELETE /api/session clears the session cookie, then `/` (decision 53).
   const signOut=useCallback(()=>{void fetch('/api/session',{method:'DELETE'}).finally(leave);},[]);
   const api=useMemo(()=>createAPI(leave),[]);
@@ -52,7 +50,7 @@ export function RepShell({rep,org,initialBadges,className,children}:RepShellProp
   return <RepPortalContext.Provider value={value}>
     <div className={s.shell}>
       <Rail/>
-      <main className={[s.page,className].filter(Boolean).join(' ')}>{children}</main>
+      <main className={s.page}>{children}</main>
     </div>
   </RepPortalContext.Provider>;
 }

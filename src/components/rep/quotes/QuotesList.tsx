@@ -18,7 +18,6 @@ import {REFRESH_PROBLEM,REP_STATUS,STATUS_FILTERS,dayChoices,dayLabel} from './l
 import s from './Quotes.module.css';
 
 export {LANE_PAGE} from './QuotesBoard';
-export {StatusChip} from './StatusChip';
 
 // The Quotes page (plan U3; frames C_QOBoard, C_QOTable and their opened states; C_RQBoard, C_RQTable
 // for a rep). One toolbar: the customer picker (C_QOB1), Filter (C_QOB2) and Board/Table. The board
