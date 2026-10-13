@@ -2,7 +2,8 @@ import 'server-only';
 import type {FuelStatus} from '@/domain';
 import {toCents} from '@/lib/money';
 import {modelFuelPriceCents} from './cost-model';
-import {freightCostSettings,markFuelPriceFetched,saveFuelPrice,storedFuelPrice} from '@/server/repository';
+import {markFuelPriceFetched,saveFuelPrice,storedFuelPrice} from '@/server/repository';
+import {freightCostInEffect} from './in-effect';
 
 // The fuel price the delivery cost model uses (v3 spec §4.3, decision 30; task C3).
 //
@@ -19,6 +20,8 @@ import {freightCostSettings,markFuelPriceFetched,saveFuelPrice,storedFuelPrice} 
 // Status: a manual price (freight_fuel_manual_cents) always wins; otherwise the stored price, with a
 // warning once its as_of is more than 14 days old; nothing stored means a manual price is required
 // and fuel is 0 (OA-26). A warning shows whenever the price in use is missing or zero.
+// The fuel type and manual price are the cost model's as in effect (./in-effect, decision 71): with
+// FEATURE_DELIVERY_COST_MODEL off, gasoline at the stored state price, whatever is stored.
 // TODO(R-9): diesel has no confirmed state price at OilPriceAPI, so diesel never calls the API: it
 // is the manual price, or $0 when none is set.
 // TODO(R-2): read OILPRICEAPI_KEY from user secrets or a secrets manager instead of .env.local.
@@ -91,7 +94,7 @@ const inFlight=new Map<string,Promise<RefreshResult>>();
  * attempt already happened. Never throws: a failure keeps the last stored price ('failed').
  */
 export async function refreshFuelPrice(state:string,{source=configuredFuelPriceSource(),now=new Date().toISOString()}:{source?:FuelPriceSource|null;now?:string}={}):Promise<RefreshResult>{
-  const settings=freightCostSettings();
+  const settings=freightCostInEffect();
   if(settings.fuelManualCents!==null||settings.fuelType!=='gasoline'||!source)return 'skipped';
   const day=new Date(now).toISOString().slice(0,10);
   const flightKey=`${state}:${day}`;
@@ -115,7 +118,7 @@ export async function refreshFuelPrice(state:string,{source=configuredFuelPriceS
 
 /** The fuel price the cost model uses for `state` now, where it came from, its age and the warnings (see the header). Synchronous: reads the store only. */
 export function fuelPriceStatus(state:string,now=new Date().toISOString()):FuelStatus{
-  const {fuelType,fuelManualCents}=freightCostSettings();
+  const {fuelType,fuelManualCents}=freightCostInEffect();
   const stored=fuelManualCents===null&&fuelType==='gasoline'?storedFuelPrice(state,'gasoline'):undefined;
   // The cost model's precedence (cost-model.ts): manual, else gasoline's stored price, else 0.
   const cents=modelFuelPriceCents({fuelType,manualCents:fuelManualCents,gasolineCents:stored?.price_cents??null});

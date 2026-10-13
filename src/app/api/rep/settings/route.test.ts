@@ -1,5 +1,5 @@
 import {NextRequest} from 'next/server';
-import {afterEach,describe,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {useSeededDatabase} from '@/server/repository/test-db';
 
 // The Settings API (task 6.1; plan U8): GET /api/rep/settings, the Customer access list by state, the
@@ -39,6 +39,8 @@ async function call(name:Name,method:Method,{body,query='',persona='supplier'}:{
 const SEEDED_ORG=[['fasteners',0.2],['abrasives',0.2],['safety',0.2],['material-handling',0.2],['tools',0.18],['janitorial',0.2]];
 
 describe('GET /api/rep/settings',()=>{
+  // vitest.setup.ts turns the flags on; here they start off (their default) and a test turns one on.
+  beforeEach(()=>{for(const name of ['FEATURE_FREE_DELIVERY_PRICING','FEATURE_RECOVERY_POOL','FEATURE_DELIVERY_COST_MODEL'])vi.stubEnv(name,'');});
   it("gives the manager her four tabs' data, her flags and her own profile (decision 69), never cached",async()=>{
     const {status,cache,json}=await call('','GET');
     expect(status).toBe(200);

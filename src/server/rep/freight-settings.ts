@@ -4,11 +4,12 @@ import {toCents} from '@/lib/money';
 import {checkFreightUpdate,rampSchedule,type RampStepView} from '@/server/freight/controls';
 import type {DistanceProvider} from '@/server/freight/distance';
 import {fuelPriceStatus,refreshFuelPrice,type FuelPriceSource} from '@/server/freight/fuel-price';
+import {freeDeliveryInEffect,freightRatesInEffect,poolInEffect} from '@/server/freight/in-effect';
 import {POOL_DEFAULTS,rampStep,rateInForce} from '@/server/freight/pool';
 import {impactPreview,type ImpactPreview} from '@/server/freight/preview';
 import {wouldCarryRecovery} from '@/server/freight/quote';
 import {
-  branches,cachedPoolRate,freeDeliverySettings,freightCostSettings,freightPreviewViewedAt,freightRateSettings,inTransaction,poolInputs,poolRecoveredCents,
+  branches,freeDeliverySettings,freightCostSettings,freightPreviewViewedAt,freightRateSettings,inTransaction,poolInputs,poolRecoveredCents,
   previewQuotes,setFreeDeliveryPricing,setFreightCostSettings,setFreightPreviewViewedAt,setFreightRateSettings,
 } from '@/server/repository';
 import {SettingsError} from './settings';
@@ -30,6 +31,12 @@ import {SettingsError} from './settings';
 //   and the average line price change per category at the step-1 and full rates (./preview).
 //   Viewing it records free_delivery_preview_viewed_at.
 // No settings history and no what-if simulator (decision log, "Explicitly NOT in scope").
+//
+// Decision 71 (plan U12): `enabled`, `cost` and `rates` are what is stored (the controls show and edit
+// it); the pool panel, the ramp schedule, the fuel price in use and the preview are what is in effect
+// (../freight/in-effect): with FEATURE_RECOVERY_POOL off, the code's rates and no computed pool; with
+// FEATURE_FREE_DELIVERY_PRICING off, no ramp step and no rate in force. A section renders only while its
+// flag is on, and then the two agree.
 
 /** How long a viewed preview unlocks the toggle (OA-11). */
 export const PREVIEW_VALID_MS=24*3_600_000;
@@ -69,25 +76,25 @@ const deliveryStates=()=>[...new Set(branches().map(b=>b.state))];
 
 const previewValid=(viewedAt:string|null,now:string)=>viewedAt!==null&&Date.parse(now)-Date.parse(viewedAt)<=PREVIEW_VALID_MS;
 
-/** The full rate (capped pool or starting rate) and the rates at each ramp step, as a quote created now would freeze them. */
+/** The full rate (capped pool or starting rate) and the rates at each ramp step, as a quote created now would freeze them (in effect). */
 function rates(now:string){
-  const settings=freightRateSettings(),pool=cachedPoolRate(now);
+  const settings=freightRatesInEffect(),pool=poolInEffect(now);
   const at=(step:number)=>rateInForce({poolBp:pool.rateBp,count:pool.count,startingBp:settings.startingRateBp,capBp:settings.rateCapBp,step,steps:settings.rampSteps});
   return {settings,pool,at};
 }
 
-/** The view, from what is stored (no fetch). */
+/** The view, from what is stored and in effect (no fetch). */
 function view(now:string):FreightSettingsView{
   const {enabled,enabledAt}=freeDeliverySettings();
   const {settings,pool,at}=rates(now);
-  const on=enabled&&enabledAt!==null;
+  const on=freeDeliveryInEffect().enabled&&enabledAt!==null;
   const step=on?rampStep({enabledAt,now,steps:settings.rampSteps,days:settings.rampDays}):0;
   const baseBp=at(settings.rampSteps);
   const fuel=deliveryStates().map(state=>fuelPriceStatus(state,now));
   const viewedAt=freightPreviewViewedAt();
   return {
     enabled,enabledAt,previewViewedAt:viewedAt,previewValid:previewValid(viewedAt,now),
-    cost:freightCostSettings(),rates:settings,
+    cost:freightCostSettings(),rates:freightRateSettings(),
     pool:{computedBp:pool.rateBp,count:pool.count,minCount:POOL_DEFAULTS.minPoolCount,usingPool:pool.count>=POOL_DEFAULTS.minPoolCount&&pool.rateBp!==null,
       startingBp:settings.startingRateBp,capBp:settings.rateCapBp,baseBp,step,steps:settings.rampSteps,rateInForceBp:at(step),windowDays:POOL_DEFAULTS.windowDays,
       schedule:rampSchedule({baseBp,steps:settings.rampSteps,days:settings.rampDays,enabledAt:on?enabledAt:null}),

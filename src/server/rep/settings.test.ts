@@ -1,4 +1,4 @@
-import {afterEach,beforeEach,describe,expect,it} from 'vitest';
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {ClarifyPayload} from '@/domain';
 import {CANDIDATE_ROUND,present} from '@/server/chat/clarify';
 import {customerRepContact} from '@/server/customer/sidebar';
@@ -17,7 +17,7 @@ useSeededDatabase();
 const NOW='2026-09-23T18:00:00.000Z';
 const env={scripted:process.env.QUERENT_SCRIPTED};
 beforeEach(()=>{process.env.QUERENT_SCRIPTED='1';});
-afterEach(()=>{if(env.scripted===undefined)delete process.env.QUERENT_SCRIPTED;else process.env.QUERENT_SCRIPTED=env.scripted;});
+afterEach(()=>{if(env.scripted===undefined)delete process.env.QUERENT_SCRIPTED;else process.env.QUERENT_SCRIPTED=env.scripted;vi.unstubAllEnvs();});
 
 /** Runs `fn`, expecting a SettingsError with this status. */
 function rejects(fn:()=>unknown,status:number,message?:RegExp){
@@ -32,6 +32,8 @@ function rejects(fn:()=>unknown,status:number,message?:RegExp){
 
 describe('repSettings: the page snapshot (plan U8)',()=>{
   it("gives the manager the four tabs' data: every customer's access, the organization floors, every rep's margins, pricing, delivery, aging and the flags",()=>{
+    // vitest.setup.ts turns the flags on; here they are off, their default.
+    for(const name of ['FEATURE_FREE_DELIVERY_PRICING','FEATURE_RECOVERY_POOL','FEATURE_DELIVERY_COST_MODEL'])vi.stubEnv(name,'');
     const settings=repSettings('brandi',{manager:true});
     expect(settings.rep_id).toBe('brandi');
     const m=settings.manager!;
