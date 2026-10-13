@@ -4,7 +4,7 @@ import {toCents} from '@/lib/money';
 import {checkFreightUpdate,rampSchedule,type RampStepView} from '@/server/freight/controls';
 import type {DistanceProvider} from '@/server/freight/distance';
 import {fuelPriceStatus,refreshFuelPrice,type FuelPriceSource} from '@/server/freight/fuel-price';
-import {freeDeliveryInEffect,freightRatesInEffect,poolInEffect} from '@/server/freight/in-effect';
+import {freightInEffect,freightRatesInEffect,poolInEffect} from '@/server/freight/in-effect';
 import {POOL_DEFAULTS,rampStep,rateInForce} from '@/server/freight/pool';
 import {impactPreview,type ImpactPreview} from '@/server/freight/preview';
 import {wouldCarryRecovery} from '@/server/freight/quote';
@@ -87,7 +87,7 @@ function rates(now:string){
 function view(now:string):FreightSettingsView{
   const {enabled,enabledAt}=freeDeliverySettings();
   const {settings,pool,at}=rates(now);
-  const on=freeDeliveryInEffect().enabled&&enabledAt!==null;
+  const on=freightInEffect().freeDeliveryPricing&&enabledAt!==null;
   const step=on?rampStep({enabledAt,now,steps:settings.rampSteps,days:settings.rampDays}):0;
   const baseBp=at(settings.rampSteps);
   const fuel=deliveryStates().map(state=>fuelPriceStatus(state,now));
