@@ -18,7 +18,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 72. Started 2026-10-11.
 | U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | merged (2 fix rounds; decision 70) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
 | U11 | [#63](https://github.com/hendersonBare/querent-mvp/pull/63) | merged |
-| U12 | | not started (decision 71) |
+| U12 | | in progress (`task/U12-flag-off-stops-what-it-governs`) |
 
 ### No frame
 Screens, states or controls built with no frame (decision 50). Each is the minimum needed to function, in the same tokens, and is raised with the product owner.
