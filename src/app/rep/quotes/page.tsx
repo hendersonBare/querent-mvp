@@ -15,7 +15,7 @@ type SearchParams=Promise<Record<string,string|string[]|undefined>>;
  * filters in the query (src/components/rep/quotes/filters.ts). Rendered here with the data and the
  * user's own column and lane order, then kept fresh by the list itself with the same query. Scope is
  * role based (task U1): a rep's own quotes, or every rep's for the manager. The old Needs attention
- * link (?attention=1) and the Team dashboard's drill-down (?rep=a,b&from=&to=&aging=, task D3) still open
+ * link (?attention=1) and the Analytics drill-down (?rep=a,b&from=&to=&aging=, tasks D3 and U6) still open
  * the list they name.
  */
 export default async function QuotesPage({searchParams}:{searchParams:SearchParams}){

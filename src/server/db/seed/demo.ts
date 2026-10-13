@@ -16,10 +16,10 @@ import {round2,type Insert} from './insert';
 import {SEED_FUEL_PRICES,type SeedContext} from './reference';
 
 // The demo book (v3 decisions 38 and 39, OA-20; task F1): Mara's and Eli's quotes, and three of
-// Mara's that Brandi covered, so the Team dashboard has reps to compare, the pool rate can be
+// Mara's that Brandi covered, so the Analytics leaderboard has reps to compare, the pool rate can be
 // computed, and every status shows up. Like ./aging, every time is relative to the reset time
 // (`now`), not the anchor, so each `npm run db:reset` and POST /api/test/reset gives the same mix
-// on any day, and the pool's trailing 90 days and the Team dashboard's 30-day preset always cover it:
+// on any day, and the pool's trailing 90 days and the Analytics leaderboard's 30-day preset always cover it:
 //   - aging: Mara and Eli each have fresh, Aging (amber) and Overdue (red) open quotes, two of them
 //     amber or red by the sent rule's expiry clause (valid until tomorrow, or today);
 //   - 22 accepted delivery quotes from the last 90 days that carry freight recovery (Mara 8, Eli 11,

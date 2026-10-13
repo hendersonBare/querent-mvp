@@ -11,10 +11,10 @@ export const CUSTOMER_PARAM='customer';
 /** ?customer=all, like no param, means every customer the rep may read. */
 export const ALL_CUSTOMERS='all';
 
-/** The manager's rep and team filters on the Quotes list (?rep=<id or a,b>, ?team=<label>). */
+/** The manager's rep and team filters on the Quotes list (?rep=<id or a,b>, ?team=<team name>, a parent team taking in its child teams' reps). */
 export const REP_PARAM='rep';
 export const TEAM_PARAM='team';
-/** The Team dashboard's drill-down window on the Quotes list (?from=&to=, ISO instants, task D3). */
+/** The Analytics drill-down window on the Quotes list (?from=&to=, ISO instants; tasks D3, U6). */
 export const FROM_PARAM='from';
 export const TO_PARAM='to';
 
