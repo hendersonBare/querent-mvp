@@ -17,7 +17,7 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
 | U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | merged |
 | U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | merged (2 fix rounds; decision 70) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
-| U11 | (this PR) | in review |
+| U11 | [#63](https://github.com/hendersonBare/querent-mvp/pull/63) | in review |
 
 ### No frame
 Screens, states or controls built with no frame (decision 50). Each is the minimum needed to function, in the same tokens, and is raised with the product owner.
@@ -215,7 +215,7 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 - **U10:** the customer site: visitor box with the R-14 stub, sheets, bell; the chooser at `/demo`.
 - **U11:** the ledger guard (`src/frames-ledger.test.ts`), the Quotes `?team=` filter on team entities (OA-79), the D3 team metrics routes removed, the rail's nav label as most frames draw it (OA-77), focus kept inside dropdowns and sheets (OA-78), a flags-off end-to-end smoke, a no-session sweep over every `/api/query` route, an accessibility pass per role, dead old-UI code and tokens removed, and the docs refreshed for the new UI.
 
-**Merged PRs and fix rounds.** U0 #52 (0), U1 #53 (1), U2 #55 (3), U3 #57 (1), U4 #58 (1, plus a merge of main), U5 #56 (0), U6 #59 (0), U7 #60 (0), U8 #61 (0), U9 #62 (2), U10 #54 (1), U11 (this PR). Ten fix rounds over eleven merged PRs.
+**Merged PRs and fix rounds.** U0 #52 (0), U1 #53 (1), U2 #55 (3), U3 #57 (1), U4 #58 (1, plus a merge of main), U5 #56 (0), U6 #59 (0), U7 #60 (0), U8 #61 (0), U9 #62 (2), U10 #54 (1), U11 #63 (in review). Ten fix rounds over eleven merged PRs.
 
 **Final check (U11 branch, fresh build, 2026-10-13).** Typecheck pass; Vitest 242 files / 2871 tests pass; build pass; every frame spec together: 113 passed; the full Playwright suite (39 specs) in two halves on two ports, each with its own database and output: 146 + 118 = 264 passed, none skipped. One frame check, C_QOB6's Close (79 vs 80 px wide), failed once in an earlier combined run and passed in every run since (alone and together); the editor's total column check depended on today's date and now compares with the frame's words (Appendix G).
 
