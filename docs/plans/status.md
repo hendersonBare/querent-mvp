@@ -15,9 +15,9 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
 | U6 | [#59](https://github.com/hendersonBare/querent-mvp/pull/59) | merged |
 | U7 | [#60](https://github.com/hendersonBare/querent-mvp/pull/60) | merged |
 | U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | merged |
-| U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | fix round 2 (verifier FAIL: the markup scan refuses ordinary images and misses metadata payloads; fix strips metadata instead) |
+| U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | merged (2 fix rounds; decision 70) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
-| U11 | | not started |
+| U11 | (this PR) | in review |
 
 ### No frame
 Screens, states or controls built with no frame (decision 50). Each is the minimum needed to function, in the same tokens, and is raised with the product owner.
@@ -105,7 +105,7 @@ Screens, states or controls built with no frame (decision 50). Each is the minim
 ### Lane U frame ledger
 Every board in `canvas.json` (89). State is PASS (frame spec diff with zero unexplained differences), deferred (with reason) or no-frame. The rail on every page frame is proven in U2.
 
-Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) against C_QOBoard as the manager and C_RQBoard as a rep, scoped to the `aside`: every element and computed style, both directions (nothing missing, nothing added), 216px wide, sticky at the top at 100vh after scrolling a long page, the page area taking the rest of the width; every rep route renders in the shell. The frames' user names (Brian G., Brandi G.) are placeholders.
+Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) against C_QOBoard as the manager and C_RQBoard as a rep, scoped to the `aside`: every element and computed style, both directions (nothing missing, nothing added), 216px wide, sticky at the top at 100vh after scrolling a long page, the page area taking the rest of the width; every rep route renders in the shell. The frames' user names (Brian G., Brandi G.) are placeholders. U11: the frames disagree on the nav label (61 page frames draw one block span, the 22 Quotes frames a second, inline span inside it); the rail follows the majority (OA-77), PASS with zero differences against C_ANBase, C_CUBase, C_ORBase, C_STBase, C_QEBase, C_TRBase and C_S1 (manager) and C_RAN1, C_RCUBase and C_RS1 (rep), and against C_QOBoard and C_RQBoard with the label's `display` (inline there, block here) as the one explained difference. `src/frames-ledger.test.ts` checks that every `canvas.json` board is in this table once with an allowed state.
 
 | Frame | Task | State |
 |---|---|---|
@@ -198,6 +198,61 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 | C_CVL3 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
 | C_CVL4 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
 | C_CVL5 | U10 | PASS (`e2e/frames-customer.spec.ts`; placeholders per Appendix G listed in the U10 PR) |
+
+### Lane U final summary
+
+**What shipped.** The charcoal canvas, rebuilt screen by screen and proven frame by frame: every one of the 89 `canvas.json` boards is PASS in the ledger above, each diffed against the running app at 1920x1080 by an `e2e/frames-*.spec.ts` spec (computed styles, words and controls both ways, with every difference explained by placeholder data, the viewport or a decision).
+- **U0:** Albert Sans and Geist Mono, the tokens (`src/app/tokens.css`) and the shared primitives (`src/components/ui/`), per-user table prefs (`ui_table_prefs`).
+- **U1:** role-based scope through every route family; no Viewing picker, no All reps switch.
+- **U2:** the 216px rail, the page header's caution and bell dropdowns, Sign out, `/rep/stock` and `/rep/teams` with redirects.
+- **U3:** Quotes as Board and Table with one toolbar, filters, preview, View note and Send reply.
+- **U4:** the quote editor, send blockers named under Approve and send (decision 44).
+- **U5:** Customers, Orders, Stock and their record pages, Add to quote.
+- **U6:** Analytics (five tabs for the manager, My Analytics for a rep) with the old Team dashboard's metrics.
+- **U7:** Teams and Reps: teams as entities with parents, customer moves, bulk reassign.
+- **U8:** the manager's Settings, organization margin floors, feature flags (decision 48).
+- **U9:** the rep's Margins, Profile and Notifications; the manager's Profile.
+- **U10:** the customer site: visitor box with the R-14 stub, sheets, bell; the chooser at `/demo`.
+- **U11:** the ledger guard (`src/frames-ledger.test.ts`), the Quotes `?team=` filter on team entities (OA-79), the D3 team metrics routes removed, the rail's nav label as most frames draw it (OA-77), focus kept inside dropdowns and sheets (OA-78), a flags-off end-to-end smoke, a no-session sweep over every `/api/query` route, an accessibility pass per role, dead old-UI code and tokens removed, and the docs refreshed for the new UI.
+
+**Merged PRs and fix rounds.** U0 #52 (0), U1 #53 (1), U2 #55 (3), U3 #57 (1), U4 #58 (1, plus a merge of main), U5 #56 (0), U6 #59 (0), U7 #60 (0), U8 #61 (0), U9 #62 (2), U10 #54 (1), U11 (this PR). Ten fix rounds over eleven merged PRs.
+
+**Final check (U11 branch, fresh build, 2026-10-13).** Typecheck pass; Vitest 242 files / 2871 tests pass; build pass; every frame spec together: 113 passed; the full Playwright suite (39 specs) in two halves on two ports, each with its own database and output: 146 + 118 = 264 passed, none skipped. One frame check, C_QOB6's Close (79 vs 80 px wide), failed once in an earlier combined run and passed in every run since (alone and together); the editor's total column check depended on today's date and now compares with the frame's words (Appendix G).
+
+**Blocked.** Nothing.
+
+**Needs the product owner.**
+- Q-24817 prices to $1,122.40 against the old mockup's $1,109.50: keep the engine's prices or change the seed (`docs/design/README.md`, "Sample data").
+- "Start a new quote" in Add to quote is drawn but disabled until a rep-started quote is designed (decision 62).
+- Analytics' "why untouched" counts are not links, and the decline count opens every declined quote in the window (OA-58).
+- OA-76: with a flag off, stored free delivery settings keep applying (the flags hide settings only); turning a flag off does not turn free delivery pricing off.
+- OA-72 and OA-74: an order notification only marks itself read; the customer box is one line.
+- OA-77 to OA-80 (U11): the rail label's majority form, Tab kept inside dropdowns and sheets, the Quotes team filter, and the chooser's supplier line.
+- The old mockup (`docs/design/querent-quote-flow.html`, `screens/*.png`) is kept, marked superseded; `.claude/agents/implementer.md` and the `querent-verify` skill still point UI tasks at it (agent configuration, not changed here).
+
+**Open assumptions.** 80 entries (OA-1 to OA-80) in `docs/plans/open-assumptions.md`; lane U added OA-67 to OA-80.
+
+**Unrelated issues.** 17 entries in `docs/plans/unrelated-issues.md` (the stale "Team page shows the Viewing picker" row is gone). None is fixed here.
+
+**TODO registry.** `docs/todo-registry.md` lists R-1 to R-14; `src/todo-registry.test.ts` passes. Markers in `src/`:
+
+| ID | Count |
+|---|---|
+| R-1 | 2 |
+| R-2 | 8 |
+| R-3 | 1 |
+| R-4 | 1 |
+| R-5 | 3 |
+| R-6 | 3 |
+| R-7 | 1 |
+| R-8 | 1 |
+| R-9 | 2 |
+| R-10 | 1 |
+| R-11 | 1 |
+| R-12 | 4 |
+| R-14 | 2 |
+
+R-2 is also marked in `.env.example`. R-13 lives in the registry only.
 
 ## v3 (lanes T to F)
 
