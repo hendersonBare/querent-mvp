@@ -188,6 +188,26 @@ describe('My rep',()=>{
     expect(within(sheet).queryByText('BG')).toBeNull();
   });
 
+  it('takes focus, keeps Tab inside and gives focus back to My rep on close (Appendix H)',async()=>{
+    renderSite();
+    const opener=screen.getByRole('button',{name:'My rep'});
+    opener.focus();
+    fireEvent.click(opener);
+    const sheet=await screen.findByRole('dialog',{name:'Your rep'});
+    expect(document.activeElement).toBe(sheet);
+    await within(sheet).findByText('Brandi Gallegos');
+    const controls=within(sheet).getAllByRole('button').concat(within(sheet).queryAllByRole('link'));
+    const close=within(sheet).getByRole('button',{name:'Close'});
+    fireEvent.keyDown(sheet,{key:'Tab',shiftKey:true});
+    expect(controls).toContain(document.activeElement);
+    const last=document.activeElement as HTMLElement;
+    fireEvent.keyDown(last,{key:'Tab'});
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close,{key:'Escape'});
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
   it('says so in one line when there is no rep',async()=>{
     renderSite({routes:{'customer/contacts':{rep:null}}});
     fireEvent.click(screen.getByRole('button',{name:'My rep'}));

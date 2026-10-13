@@ -169,3 +169,71 @@ describe('Lane',()=>{
     expect(onMove).toHaveBeenCalledWith(1,2);
   });
 });
+
+// Appendix H "dropdowns and sheets trap and restore focus" (plan U11): each takes focus when it opens,
+// keeps Tab and Shift+Tab inside, and gives focus back to what had it when it closes.
+describe('focus: dropdowns and sheets trap and restore it',()=>{
+  function SheetHarness(){
+    const [open,setOpen]=useState(false);
+    return <><button onClick={()=>setOpen(true)}>Open sheet</button><button>After</button>
+      <Sheet open={open} title="Q-24790" onClose={()=>setOpen(false)}><button>Reply</button><button>Open quote</button></Sheet></>;
+  }
+  it('a sheet takes focus, keeps Tab and Shift+Tab inside, and gives focus back on close',()=>{
+    render(<SheetHarness/>);
+    const opener=screen.getByRole('button',{name:'Open sheet'});
+    opener.focus();
+    fireEvent.click(opener);
+    const sheet=screen.getByRole('dialog',{name:'Q-24790'});
+    expect(document.activeElement).toBe(sheet);
+    const [close,,last]=within(sheet).getAllByRole('button');
+    last.focus();
+    fireEvent.keyDown(last,{key:'Tab'});
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close,{key:'Tab',shiftKey:true});
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(sheet,{key:'Tab',shiftKey:true});
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(last,{key:'Escape'});
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  function DropdownHarness(){
+    const [open,setOpen]=useState(false);
+    return <><Dropdown open={open} onOpenChange={setOpen} title="2 notifications"
+      trigger={<HeaderIconButton tone="bell" icon="bell" label="Notifications" open={open}/>}>
+      <DropdownItem title="Q-24790 accepted" onSelect={vi.fn()}/><DropdownItem title="Q-24791 declined" onSelect={vi.fn()}/>
+    </Dropdown><button>After</button></>;
+  }
+  it('a dropdown takes focus, keeps Tab and Shift+Tab on its rows, and gives focus back to its button on close',()=>{
+    render(<DropdownHarness/>);
+    const button=screen.getByRole('button',{name:'Notifications'});
+    button.focus();
+    fireEvent.click(button);
+    const panel=screen.getByRole('dialog',{name:'2 notifications'});
+    expect(document.activeElement).toBe(panel);
+    const [first,second]=within(panel).getAllByRole('button');
+    second.focus();
+    fireEvent.keyDown(second,{key:'Tab'});
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first,{key:'Tab',shiftKey:true});
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(second,{key:'Escape'});
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('a panel inside a panel traps on its own, and the outer one leaves it alone',()=>{
+    function Nested(){
+      return <Popover open label="Filter" onClose={vi.fn()}><button>Clear all</button>
+        <Popover open label="Rep" onClose={vi.fn()}><button>Mara</button><button>Eli</button></Popover>
+        <button>Apply filters</button></Popover>;
+    }
+    render(<Nested/>);
+    const inner=screen.getByRole('dialog',{name:'Rep'});
+    const [mara,eli]=within(inner).getAllByRole('button');
+    eli.focus();
+    fireEvent.keyDown(eli,{key:'Tab'});
+    expect(document.activeElement).toBe(mara);
+  });
+});

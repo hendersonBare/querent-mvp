@@ -1,11 +1,13 @@
 'use client';
 import {useEffect,useId,useRef,useState,type ReactNode} from 'react';
 import {createPortal} from 'react-dom';
+import {trapTab} from './focus';
 import s from './Sheet.module.css';
 
 /**
  * A side sheet (plan U0; C_QOB5 quote preview): a modal dialog on the right with a title, an optional
  * subtitle and the "x" close button. Escape, the close button or a press on the backdrop closes it.
+ * It takes focus when it opens, keeps Tab inside (./focus) and gives focus back when it closes.
  * It renders into <body> inside a .ui-root layer, so it keeps the new UI's base styles.
  */
 export function Sheet({open,title,subtitle,onClose,children}:{open:boolean;title:string;subtitle?:ReactNode;onClose:()=>void;children?:ReactNode}){
@@ -26,7 +28,7 @@ export function Sheet({open,title,subtitle,onClose,children}:{open:boolean;title
   if(!open||!mounted)return null;
   return createPortal(<div className={`ui-root ${s.layer}`}>
     <div data-ui="sheet-backdrop" data-testid="sheet-backdrop" className={s.backdrop} onMouseDown={onClose}/>
-    <aside ref={ref} data-ui="sheet" role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1} className={s.sheet}>
+    <aside ref={ref} data-ui="sheet" role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1} onKeyDown={trapTab} className={s.sheet}>
       <div className={s.head}>
         <div>
           <h2 id={id} className={s.title}>{title}</h2>

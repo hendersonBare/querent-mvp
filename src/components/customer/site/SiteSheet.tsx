@@ -1,12 +1,14 @@
 'use client';
 import {useEffect,useId,useRef,type ReactNode} from 'react';
+import {trapTab} from '@/components/ui/focus';
 import {SiteIcon,type SiteIconName} from './icons';
 import s from './site.module.css';
 
 /**
  * A side sheet of the customer site (plan U10; C_CVL2 Orders, C_CVL3 My rep): 400 wide on the right,
  * under the strip, over a green-black backdrop. Its icon, title, an optional count, and the close
- * button. Escape, the close button or a press on the backdrop closes it; focus moves in and comes back.
+ * button. Escape, the close button or a press on the backdrop closes it; focus moves in, Tab stays inside
+ * (Appendix H) and focus comes back.
  */
 export function SiteSheet({title,icon,count,onClose,children}:{title:string;icon:SiteIconName;count?:number;onClose:()=>void;children:ReactNode}){
   const ref=useRef<HTMLElement>(null);
@@ -22,7 +24,7 @@ export function SiteSheet({title,icon,count,onClose,children}:{title:string;icon
   },[]);
   return <>
     <div className={s.sheetBackdrop} data-ui="site-sheet-backdrop" onMouseDown={onClose}/>
-    <aside ref={ref} className={s.sheet} role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1} data-ui="site-sheet">
+    <aside ref={ref} className={s.sheet} role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1} onKeyDown={trapTab} data-ui="site-sheet">
       <div className={s.sheetHead}>
         <span className={s.sheetIcon}><SiteIcon name={icon} size={20}/></span>
         <span id={id} className={s.sheetTitle}>{title}</span>
