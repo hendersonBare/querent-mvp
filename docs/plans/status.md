@@ -2,7 +2,7 @@
 
 ## Lane U (new UI)
 
-Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
+Plan: "Lane U" in `plan.md`. Decisions 41 to 72. Started 2026-10-11.
 
 | Task | PR | State |
 |---|---|---|
@@ -17,7 +17,8 @@ Plan: "Lane U" in `plan.md`. Decisions 41 to 70. Started 2026-10-11.
 | U8 | [#61](https://github.com/hendersonBare/querent-mvp/pull/61) | merged |
 | U9 | [#62](https://github.com/hendersonBare/querent-mvp/pull/62) | merged (2 fix rounds; decision 70) |
 | U10 | [#54](https://github.com/hendersonBare/querent-mvp/pull/54) | merged (1 fix round) |
-| U11 | [#63](https://github.com/hendersonBare/querent-mvp/pull/63) | in review |
+| U11 | [#63](https://github.com/hendersonBare/querent-mvp/pull/63) | merged |
+| U12 | | not started (decision 71) |
 
 ### No frame
 Screens, states or controls built with no frame (decision 50). Each is the minimum needed to function, in the same tokens, and is raised with the product owner.
@@ -215,17 +216,17 @@ Rail (every page frame's left edge): PASS in U2 (`e2e/frames-shell.spec.ts`) aga
 - **U10:** the customer site: visitor box with the R-14 stub, sheets, bell; the chooser at `/demo`.
 - **U11:** the ledger guard (`src/frames-ledger.test.ts`), the Quotes `?team=` filter on team entities (OA-79), the D3 team metrics routes removed, the rail's nav label as most frames draw it (OA-77), focus kept inside dropdowns and sheets (OA-78), a flags-off end-to-end smoke, a no-session sweep over every `/api/query` route, an accessibility pass per role, dead old-UI code and tokens removed, and the docs refreshed for the new UI.
 
-**Merged PRs and fix rounds.** U0 #52 (0), U1 #53 (1), U2 #55 (3), U3 #57 (1), U4 #58 (1, plus a merge of main), U5 #56 (0), U6 #59 (0), U7 #60 (0), U8 #61 (0), U9 #62 (2), U10 #54 (1), U11 #63 (in review). Ten fix rounds over eleven merged PRs.
+**Merged PRs and fix rounds.** U0 #52 (0), U1 #53 (1), U2 #55 (3), U3 #57 (1), U4 #58 (1, plus a merge of main), U5 #56 (0), U6 #59 (0), U7 #60 (0), U8 #61 (0), U9 #62 (2), U10 #54 (1), U11 #63 (0). Nine fix rounds over eleven merged PRs. U12 (decision 71) follows U11, so lane U is finished when U12 merges.
 
 **Final check (U11 branch, fresh build, 2026-10-13).** Typecheck pass; Vitest 242 files / 2871 tests pass; build pass; every frame spec together: 113 passed; the full Playwright suite (39 specs) in two halves on two ports, each with its own database and output: 146 + 118 = 264 passed, none skipped. One frame check, C_QOB6's Close (79 vs 80 px wide), failed once in an earlier combined run and passed in every run since (alone and together); the editor's total column check depended on today's date and now compares with the frame's words (Appendix G).
 
 **Blocked.** Nothing.
 
+**Settled since:** decision 71 (a flag that is off also stops what it governs; built as U12) and decision 72 (Q-24817 keeps the engine's $1,122.40).
+
 **Needs the product owner.**
-- Q-24817 prices to $1,122.40 against the old mockup's $1,109.50: keep the engine's prices or change the seed (`docs/design/README.md`, "Sample data").
 - "Start a new quote" in Add to quote is drawn but disabled until a rep-started quote is designed (decision 62).
 - Analytics' "why untouched" counts are not links, and the decline count opens every declined quote in the window (OA-58).
-- OA-76: with a flag off, stored free delivery settings keep applying (the flags hide settings only); turning a flag off does not turn free delivery pricing off.
 - OA-72 and OA-74: an order notification only marks itself read; the customer box is one line.
 - OA-77 to OA-80 (U11): the rail label's majority form, Tab kept inside dropdowns and sheets, the Quotes team filter, and the chooser's supplier line.
 - The old mockup (`docs/design/querent-quote-flow.html`, `screens/*.png`) is kept, marked superseded; `.claude/agents/implementer.md` and the `querent-verify` skill still point UI tasks at it (agent configuration, not changed here).
