@@ -3,8 +3,10 @@ import 'server-only';
 // Feature flags (decision 48; plan U8): three environment variables read on the server, each off unless
 // set to 1, true, on or yes. No flags table (the Appendix C feature_flags migration is skipped). While a
 // flag is off its section on Settings > Pricing and delivery does not render and its settings writes are
-// refused (403 feature_off). The flags hide settings only: freight math, the pool and the cost model run
-// as before (Appendix F), on whatever is stored.
+// refused (403 feature_off). A flag that is off also stops what it governs (decision 71, amending 48; plan
+// U12): free delivery pricing, the recovery pool and the delivery cost model fall back to their off
+// behaviour whatever is stored, and the stored settings apply again once it is on. Pricing and freight ask
+// src/server/freight/in-effect.ts, which reads these flags, what is in effect.
 
 export const FLAG_ENV={
   freeDeliveryPricing:'FEATURE_FREE_DELIVERY_PRICING',

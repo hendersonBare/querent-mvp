@@ -54,7 +54,7 @@ The table is authoritative. Lanes A, B, C and E start after T1; D starts after A
 | U11 | U | every other U task |
 | U12 | U | U11 |
 
-Lane U (the new UI, decisions 41 to 72) is detailed in its own part at the end of this file.
+Lane U (the new UI, decisions 41 to 73) is detailed in its own part at the end of this file.
 
 ---
 
@@ -192,7 +192,7 @@ Lane U (the new UI, decisions 41 to 72) is detailed in its own part at the end o
 
 # Lane U: the new UI (charcoal canvas)
 
-Reproduce the approved design canvas. Do not improve or reinterpret it. Decisions 41 to 72 in `docs/plans/decision-log.md` govern this lane; the decision log wins over everything except the product owner's answers in chat.
+Reproduce the approved design canvas. Do not improve or reinterpret it. Decisions 41 to 73 in `docs/plans/decision-log.md` govern this lane; the decision log wins over everything except the product owner's answers in chat.
 
 ## Sources, in order of authority
 

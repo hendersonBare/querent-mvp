@@ -1,4 +1,4 @@
-import {afterAll,afterEach,beforeAll,describe,expect,it} from 'vitest';
+import {afterAll,afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import type {ItemPopupPayload,QuoteRequestedPayload} from '@/domain';
 import type {QuoteRequestInput} from '@/lib/contracts';
 import {SEED_DATE,clearSeededPool,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
@@ -219,6 +219,61 @@ describe('free delivery pricing at creation (spec §4.2, §4.4, §4.5)',()=>{
     const q=quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),{...OPTIONS,provider})).quote.id)!;
     // 40 mi round trip: 1,360¢ fuel at the seeded $3.40/gal + 800 + 600 + 2,857.14¢ = 5,617¢.
     expect(q.modelled_freight_cents).toBe(5617);
+  });
+});
+
+// Decision 71 (plan U12): a feature flag that is off also stops what it governs on a new quote,
+// whatever is stored; with the flag on, the stored settings apply. vitest.setup.ts turns the flags on.
+describe('feature flags off at creation (decision 71)',()=>{
+  const DAY=86_400_000;
+  const BIG=[{sku:'HCS-12-13-2G8',qty:60},{sku:'CW-45-045-T1',qty:6}];
+  const STORED=['free_delivery_pricing','free_delivery_enabled_at','freight_starting_rate_bp','freight_ramp_steps','freight_ramp_days','freight_stop_minutes','freight_fuel_manual_cents'];
+  afterEach(async()=>{vi.unstubAllEnvs();for(const key of STORED)await setSettingFixture(key,null);});
+  const freeDeliveryStored=async()=>{
+    await setSettingFixture('free_delivery_pricing','true');
+    await setSettingFixture('free_delivery_enabled_at',new Date(Date.parse(NOW)-35*DAY).toISOString());
+  };
+  const newDelivery=async()=>{
+    const {requestQuote,quote}=await services();
+    return quote((await requestQuote(DANA,body((await popupConversation()).id,{fulfillment:'delivery',lines:BIG}),OPTIONS)).quote.id)!;
+  };
+
+  it('FEATURE_FREE_DELIVERY_PRICING off: no rate and no recovery, and the normal freight line, though free delivery pricing is stored on',async()=>{
+    const {freightForQuote}=await services();
+    await freeDeliveryStored();
+    vi.stubEnv('FEATURE_FREE_DELIVERY_PRICING','');
+    const off=await newDelivery();
+    expect(off).toMatchObject({freight_rate_bp:null,freight_ramp_step:null,freight_ramp_steps:null,modelled_freight_cents:4213});
+    expect(off.lines.map(l=>l.freight_recovery)).toEqual([0,0]);
+    expect((await freightForQuote(off)).computed).toMatchObject({rule:'free_threshold',amount:0});
+    vi.stubEnv('FEATURE_FREE_DELIVERY_PRICING','1');
+    const on=await newDelivery();
+    expect(on).toMatchObject({freight_rate_bp:200,freight_ramp_step:2,freight_ramp_steps:3});
+    expect((await freightForQuote(on)).computed).toMatchObject({rule:'free_delivery_pricing',amount:0});
+  });
+
+  it('FEATURE_RECOVERY_POOL off: the code starting rate and ramp, not the stored ones',async()=>{
+    await freeDeliveryStored();
+    await setSettingFixture('freight_starting_rate_bp','600');
+    await setSettingFixture('freight_ramp_steps','4');
+    await setSettingFixture('freight_ramp_days','120');
+    vi.stubEnv('FEATURE_RECOVERY_POOL','');
+    // 300 bp at step 2 of 3.
+    expect(await newDelivery()).toMatchObject({freight_rate_bp:200,freight_ramp_step:2,freight_ramp_steps:3});
+    vi.stubEnv('FEATURE_RECOVERY_POOL','1');
+    // 600 bp at step 2 of 4.
+    expect(await newDelivery()).toMatchObject({freight_rate_bp:300,freight_ramp_step:2,freight_ramp_steps:4});
+  });
+
+  it('FEATURE_DELIVERY_COST_MODEL off: the modelled cost from the code inputs, not the stored ones',async()=>{
+    await setSettingFixture('freight_stop_minutes','15');
+    await setSettingFixture('freight_fuel_manual_cents','400');
+    vi.stubEnv('FEATURE_DELIVERY_COST_MODEL','');
+    // The spec §4.2 example at the seeded UT $3.40/gal: 4,213¢.
+    expect((await newDelivery()).modelled_freight_cents).toBe(4213);
+    vi.stubEnv('FEATURE_DELIVERY_COST_MODEL','1');
+    // $4.00/gal and a 15-minute stop: 1,200 + 600 + 450 + 2,767.86¢ = 5,018¢.
+    expect((await newDelivery()).modelled_freight_cents).toBe(5018);
   });
 });
 

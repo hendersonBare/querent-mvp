@@ -127,7 +127,7 @@ Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `agi
 
 ### 4.1 Freight line
 
-- Free delivery pricing **off**: freight is exactly as today (`freight/engine.ts`, rules and rates unchanged).
+- Free delivery pricing **off** (stored off, or `FEATURE_FREE_DELIVERY_PRICING` off, section 4.8): freight is exactly as today (`freight/engine.ts`, rules and rates unchanged).
 - Free delivery pricing **on**: a delivery quote within the radius gets rule `free_delivery_pricing`, amount $0.00, explanation "Free delivery pricing: freight is recovered in item prices." `free_threshold` and `min_charge` are ignored but kept. Beyond the radius, no ship-to and no distance still give "call for freight" (OA-7). Will call stays $0.00.
 - A rep's explicit freight override still wins (section 4.5).
 
@@ -233,6 +233,21 @@ Per-line cap example (rate cap raised to 10%): a $5.00 item (cost $1.00, qty 1) 
 
 - `GET /api/rep/settings/freight/preview` computes, over delivery quotes created in the last 90 days that would carry recovery: the number of quotes affected, and per product category the average line price change in percent and in cents at the step-1 rate and at the full (step n) rate, and the affected quotes with a line in it (U8: the C_S7 dialog shows "N of <delivery quotes>" and the change in dollars). It records `free_delivery_preview_viewed_at`. Refused (403 `feature_off`) while `FEATURE_FREE_DELIVERY_PRICING` is off.
 - Enabling (`PUT … {free_delivery_pricing:true}`) is refused with 409 `preview_required` unless the preview was viewed within the last 24 hours (OA-11).
+
+### 4.8 Feature flags (decisions 48 and 71; U8, U12)
+
+Three environment variables read on the server on every request, off unless set to `1`, `true`, `on` or `yes`: `FEATURE_FREE_DELIVERY_PRICING`, `FEATURE_RECOVERY_POOL`, `FEATURE_DELIVERY_COST_MODEL` (`src/server/flags.ts`; listed in `.env.example`; no flags table). While a flag is off:
+
+- its section on Settings > Pricing and delivery does not render, and its settings writes are refused (403 `feature_off`, section 5);
+- what it governs is off whatever is stored (decision 71, OA-81). One place answers what is in effect, `src/server/freight/in-effect.ts` (stored setting AND flag on), and every reader in pricing, freight, recovery allocation, intake rate freezing, draft repricing, the impact preview and the pool panel goes through it (a test fails if another module reads the stored getters):
+
+| Flag off | In effect, whatever is stored |
+|---|---|
+| `FEATURE_FREE_DELIVERY_PRICING` | Free delivery pricing off: the normal freight line (section 4.1) and no recovery. The enable time is kept, so the ramp carries on from it when the flag is back on. |
+| `FEATURE_RECOVERY_POOL` | No computed pool (the starting rate applies), and the starting rate, rate cap, per-line cap and ramp are the code defaults (3.0%, 8%, 8%, 3 steps over 90 days). The daily pool cache is not computed. |
+| `FEATURE_DELIVERY_COST_MODEL` | The cost-model inputs are the code defaults (section 1.3): gasoline at the stored state price, no manual fuel price. |
+
+Stored settings are never changed by a flag and apply again once it is on. The math is unchanged. Drafts (`ready_for_review`, `changes_requested`) reprice on their next open or edit (section 4.5): with free delivery pricing no longer in effect the rate is cleared, and back in effect the rate in force is frozen again; a rate or modelled cost a draft already froze stays, as with any settings change (decision 31), and what it freezes next, and the per-line cap on its next reprice, follow what is in effect. Sent quotes stay frozen in their snapshot (decision 35). The manager's `GET /api/rep/settings/freight` returns the stored toggle, cost inputs and rates (what the sections show and edit) and the pool panel, ramp schedule and fuel price as in effect; with every flag on the two agree.
 
 ---
 
