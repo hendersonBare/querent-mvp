@@ -383,7 +383,25 @@ test("fixed widths stay as drawn at 1440 (columns, inputs, the total column); th
     expect(await widthOf(appPage, { selector: 'button[aria-label^="Remove "]' }), `${state} remove x`).toBe(await widthOf(frameSmall, { selector: 'button[aria-label="Remove item"]' }));
   }
   await openFrame(frameSmall, frames.base, "QEBase");
-  // The total column (flex 0 0 340px, as the frame lays it out) keeps its width; the rail is 216.
+  // The total column (flex 0 0 340px, as the frame lays it out) keeps its width; the rail is 216. Its
+  // width is its widest unbreakable line, Quote details' one-line summary ("Net 30, will call SLC, valid
+  // until Oct 25"), whose day is real data (Appendix G: valid until follows today's date), so a day one
+  // pixel narrower or wider than the frame's moved the column (U11). The app's summary takes the frame's
+  // words for this measurement only.
+  const SUMMARY = /^Net 30, will call SLC, valid until /;
+  const summaryOf = (page: Page) => page.evaluate((source) => {
+    const re = new RegExp(source);
+    const el = [...document.querySelectorAll("span")].find((e) => re.test(e.textContent ?? ""));
+    return el?.textContent ?? null;
+  }, SUMMARY.source);
+  const frameSummary = await summaryOf(frameSmall);
+  expect(frameSummary, "the frame's Quote details summary").toMatch(SUMMARY);
+  expect(await summaryOf(appPage), "the app's Quote details summary").toMatch(SUMMARY);
+  await appPage.evaluate(({ source, text }) => {
+    const re = new RegExp(source);
+    const el = [...document.querySelectorAll("span")].find((e) => re.test(e.textContent ?? ""))!;
+    el.textContent = text;
+  }, { source: SUMMARY.source, text: frameSummary! });
   const totalBox = { text: "Quote total, before tax", up: 1 };
   expect(await widthOf(appPage, totalBox)).toBe(await widthOf(frameSmall, totalBox));
   expect(await widthOf(appPage, { selector: "aside" })).toBe(216);
