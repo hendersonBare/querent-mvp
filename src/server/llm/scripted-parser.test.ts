@@ -26,6 +26,8 @@ describe('scripted parser: one line',()=>{
     ['3 each tape dispenser',{description:'tape dispenser',quantity:3,unit:'each'}],
     ['Poly bags 2 mil 12x15 500/case, 2 cases',{description:'Poly bags 2 mil 12x15 500/case',quantity:2,unit:'case'}],
     ['18" x 1500\' stretch film x 4',{description:'18" x 1500\' stretch film',quantity:4}],
+    ['Tape 2" x 110yd x 36 rolls',{description:'Tape 2" x 110yd',quantity:36,unit:'roll'}],
+    ['12x10x8 boxes (qty 25)',{description:'12x10x8 boxes',quantity:25}],
     ['12x10x8 corrugated boxes H-123',{description:'12x10x8 corrugated boxes',suppliersSku:'H-123'}],
     ['S-4128 - 12x10x8 corrugated boxes - 25',{description:'12x10x8 corrugated boxes',quantity:25,suppliersSku:'S-4128'}],
   ])('reads %j',(line,want)=>expectRow(line,want));

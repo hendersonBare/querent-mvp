@@ -43,7 +43,7 @@ const QUANTITY:RegExp[]=[
   new RegExp(`^${NUM}\\s*[x×]\\s+(?=[^\\d]|${DIM3})`,'i'),
   new RegExp(`^${NUM}\\s*${UNIT}\\b\\.?\\s*(?:of\\s+)?`,'i'),
   new RegExp(`^${NUM}(?=\\s)(?!\\s*${MEASURE})\\s+`,'i'),
-  new RegExp(`${SEP}+${NUM}\\s*${UNIT}\\.?$`,'i'),
+  new RegExp(`${SEP}+(?:[x×]\\s*)?${NUM}\\s*${UNIT}\\.?$`,'i'),
   new RegExp(`(?<![\\d"'.\\s])\\s+[x×]\\s*${NUM}$`,'i'),
   new RegExp(`(?<![x×*/]${SEP}*)${SEP}+${NUM}$`,'i'),
 ];
