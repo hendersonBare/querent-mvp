@@ -60,11 +60,11 @@ export function fakeJudge(answer:(description:string,candidates:JudgeCandidate[]
 
 // ---- Result lines for the dialog ------------------------------------------------------------------
 
-const BOX={sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84};
-const BOX_PLT={sku:'12108-PLT',description:'12x10x8" Corrugated Boxes, 32 ECT, pallet pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.71};
-const WRAP={sku:'SF188CAST',description:'Cast Stretch Wrap 18"x1500\' 80 Gauge',pack:'Case of 4',category:'Stretch Film',listPrice:24.5};
-const BAGS={sku:'PB3669',description:'Reclosable Poly Bags 30x30" 2 Mil',pack:'Case of 250',category:'Poly Bags',listPrice:89};
-const BAGS4={sku:'PB3670',description:'Reclosable Poly Bags 30x30" 4 Mil',pack:'Case of 100',category:'Poly Bags',listPrice:99};
+const BOX={sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,listPriceUnit:'each'};
+const BOX_PLT={sku:'12108-PLT',description:'12x10x8" Corrugated Boxes, 32 ECT, pallet pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.71,listPriceUnit:'each'};
+const WRAP={sku:'SF188CAST',description:'Cast Stretch Wrap 18"x1500\' 80 Gauge',pack:'Case of 4',category:'Stretch Film',listPrice:24.5,listPriceUnit:'case'};
+const BAGS={sku:'PB3669',description:'Reclosable Poly Bags 30x30" 2 Mil',pack:'Case of 250',category:'Poly Bags',listPrice:89,listPriceUnit:'case'};
+const BAGS4={sku:'PB3670',description:'Reclosable Poly Bags 30x30" 4 Mil',pack:'Case of 100',category:'Poly Bags',listPrice:99,listPriceUnit:'case'};
 
 export function resultLine(overrides:Partial<ResultLine>&Pick<ResultLine,'index'>):ResultLine{
   return {

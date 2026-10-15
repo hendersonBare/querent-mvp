@@ -25,10 +25,10 @@ describe('runPipeline',()=>{
     expect(line).toMatchObject({
       index:0,rawText:'S-4128 12x10x8 boxes 32 ECT 10 bdl',description:CLEAR_BOX,quantity:10,unit:'case',quantityUnclear:false,
       outcome:'matched',reason:'matched',score:1,
-      item:{sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84},
+      item:{sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,listPriceUnit:'each'},
     });
     expect(line.candidates.map(c=>c.sku)).toEqual(['12108-BDL','12108-PLT','161212-BDL']);
-    expect(line.candidates[2]).toEqual({sku:'161212-BDL',description:'16x12x12" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:1.52,score:expect.any(Number)});
+    expect(line.candidates[2]).toEqual({sku:'161212-BDL',description:'16x12x12" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:1.52,listPriceUnit:'each',score:expect.any(Number)});
     expect(result.counts).toEqual({rows:1,matched:1,unmatched:0,judged:1});
   });
 

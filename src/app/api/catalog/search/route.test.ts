@@ -48,7 +48,7 @@ describe('GET /api/catalog/search',()=>{
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     const {items}=await response.json() as {items:ScoredItem[]};
-    expect(items[0]).toEqual({sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,score:1});
+    expect(items[0]).toEqual({sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,listPriceUnit:'each',score:1});
     expect(items.map(i=>i.score)).toEqual([...items.map(i=>i.score)].sort((a,b)=>b-a));
     expect(items.every(i=>i.score>0)).toBe(true);
   });

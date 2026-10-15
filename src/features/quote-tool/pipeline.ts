@@ -5,7 +5,7 @@ import {decide,packLabel,retrieve,type MatchRule,type Retrieval} from '@/server/
 import type {Candidate} from '@/server/matching/retrieve';
 import type {CatalogItem} from '@/server/repository/types';
 import {nullSkuMap,type SupplierSkuMap} from './sku-map';
-import type {LineReason,MatchCounts,ProgressEvent,ResultItem,ResultLine,ScoredItem} from './types';
+import {listPriceUnit,type LineReason,type MatchCounts,type ProgressEvent,type ResultItem,type ResultLine,type ScoredItem} from './types';
 
 // The quote tool's pipeline (docs/boxt/plan.md product rule 3), as pure orchestration: everything it
 // talks to is passed in, so tests run it with a fake parser, judge and catalog.
@@ -109,8 +109,10 @@ function judgeCandidates(retrieval:Retrieval<CatalogItem>):JudgeCandidate[]{
   return retrieval.candidates.map(({item})=>({sku:item.sku,description:item.description,pack:packLabel(item),category:item.category}));
 }
 
-const toItem=(item:CatalogItem):ResultItem=>({sku:item.sku,description:item.description,pack:packLabel(item),category:item.category,listPrice:item.listPrice});
-const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toItem(c.item),score:c.score});
+export const toResultItem=(item:CatalogItem):ResultItem=>({
+  sku:item.sku,description:item.description,pack:packLabel(item),category:item.category,listPrice:item.listPrice,listPriceUnit:listPriceUnit(item.pack),
+});
+const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toResultItem(c.item),score:c.score});
 
 function resultLine(index:number,row:ParsedRow,retrieval:Retrieval<CatalogItem>,verdict:JudgeVerdict|undefined):ResultLine{
   const decision=decide(retrieval,{sku:verdict?.sku??null});
@@ -118,7 +120,7 @@ function resultLine(index:number,row:ParsedRow,retrieval:Retrieval<CatalogItem>,
     index,rawText:row.rawText,description:row.description,quantity:row.quantity,unit:row.unit,quantityUnclear:row.quantityUnclear,
     candidates:retrieval.candidates.map(toScored),nearMisses:retrieval.nearMisses.map(toScored),
   };
-  if(decision.outcome==='matched')return {...base,outcome:'matched',reason:'matched',item:toItem(decision.item),score:decision.score};
+  if(decision.outcome==='matched')return {...base,outcome:'matched',reason:'matched',item:toResultItem(decision.item),score:decision.score};
   const reason:LineReason=decision.reason==='judge_none'&&verdict?.reason===JUDGE_ERROR?'judge_error':decision.reason;
   return {...base,outcome:'no_match',reason,score:retrieval.top?.score??0};
 }

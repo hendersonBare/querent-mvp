@@ -11,6 +11,14 @@ export interface ResultItem {
   category:string|null;
   /** The public web list price: a reference label only, never a quote price. */
   listPrice:number|null;
+  /** What the list price is per ("each", "case", "roll", "coil"), from the catalog's pack; null when unknown. */
+  listPriceUnit:string|null;
+}
+
+/** What a catalog pack's list price is per: "Each" → each, "Case of 500" → case, "Roll" → roll. */
+export function listPriceUnit(pack:string|null|undefined):string|null{
+  const word=/^\s*([a-z]+)/i.exec(pack??'')?.[1]?.toLowerCase();
+  return word??null;
 }
 
 /** A catalog item with its scorer score (0 to 1): a Swap candidate, a near-miss or a search hit. */
