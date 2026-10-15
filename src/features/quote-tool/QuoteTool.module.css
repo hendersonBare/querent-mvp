@@ -1,0 +1,196 @@
+/* The quote creation tool's input, in the app's tokens (src/app/tokens.css): one white card holding the
+   list (or the chosen PDF), then the progress and the error line under it. */
+.tool {
+  max-width: 920px;
+}
+.card {
+  padding: 18px 20px 16px;
+  border: 1px solid var(--q-card-border);
+  border-radius: var(--q-radius-card);
+  background: var(--q-card);
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.label {
+  font-size: var(--q-text-control);
+  font-weight: 700;
+  color: var(--q-text);
+}
+.list {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 300px;
+  padding: 12px 14px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  background: var(--q-card);
+  color: var(--q-text);
+  font-family: var(--q-font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.list::placeholder {
+  color: var(--q-icon-muted);
+}
+.list:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: -1px;
+  border-color: var(--q-accent);
+}
+.list[aria-invalid="true"] {
+  border-color: var(--q-red-border);
+}
+.list:disabled {
+  background: var(--q-lane);
+  color: var(--q-text-2);
+}
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+}
+.counter {
+  font-size: var(--q-text-secondary);
+  color: var(--q-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.over {
+  color: var(--q-red);
+  font-weight: 700;
+}
+.primary {
+  height: 40px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--q-radius-button);
+  background: var(--q-accent);
+  color: #fff;
+  font-size: var(--q-text-control);
+  font-weight: 700;
+  cursor: pointer;
+}
+.primary:hover:not(:disabled) {
+  background: var(--q-accent-hover);
+}
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.secondary,
+.upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 13px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-button);
+  background: var(--q-card);
+  color: var(--q-text);
+  font-size: var(--q-text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+}
+.secondary:hover:not(:disabled),
+.upload:hover {
+  background: var(--q-row-picked);
+  border-color: var(--q-rule);
+}
+.upload:focus-within {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.file {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  border: 1px dashed var(--q-rule);
+  border-radius: var(--q-radius-field);
+  background: var(--q-row-picked);
+}
+.fileIcon {
+  flex: none;
+  color: var(--q-accent);
+}
+.fileText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.fileName {
+  font-weight: 700;
+  font-size: var(--q-text-control);
+  overflow-wrap: anywhere;
+}
+.fileMeta {
+  font-size: var(--q-text-secondary);
+  color: var(--q-text-muted);
+}
+.progress {
+  margin-top: 18px;
+}
+.track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-row-divider);
+}
+.bar {
+  height: 100%;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-accent);
+  transition: width 0.3s ease-out;
+}
+.reading {
+  background-image: linear-gradient(90deg, var(--q-accent) 0%, #5fb47f 50%, var(--q-accent) 100%);
+  background-size: 200% 100%;
+  animation: reading 1.4s linear infinite;
+}
+@keyframes reading {
+  to {
+    background-position: -200% 0;
+  }
+}
+.stage {
+  margin: 8px 0 0;
+  font-size: var(--q-text-secondary);
+  color: var(--q-text-2);
+}
+.error {
+  margin: 14px 0 0;
+  font-size: var(--q-text-control);
+  color: var(--q-red);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+  .reading {
+    animation: none;
+  }
+}

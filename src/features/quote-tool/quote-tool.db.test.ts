@@ -3,6 +3,8 @@ import {afterAll,beforeAll,describe,expect,it,vi} from 'vitest';
 import {NextRequest} from 'next/server';
 import {adminQuery} from '../../../scripts/lib/local-admin';
 import {DEV_USERS,devPassword} from '../../../scripts/lib/dev-users';
+import {signedInClient} from '../../../scripts/lib/test-clients';
+import {deleteQuote,getCatalogItems,getOrgSettings,getQuote,listQuotes,type Db} from '@/server/repository';
 import {POST as login} from '@/app/api/auth/login/route';
 import {POST as match} from '@/app/api/quote-tool/match/route';
 import {GET as search} from '@/app/api/catalog/search/route';
@@ -21,6 +23,7 @@ const ORIGIN='http://127.0.0.1:3000';
 const REP=DEV_USERS[0].email;
 const created:string[]=[];
 let cookie='';
+let db:Db;
 
 const headers=(extra:Record<string,string>={})=>({origin:ORIGIN,host:'127.0.0.1:3000',...(cookie?{cookie}:{}),...extra});
 const ctx={params:Promise.resolve({})};
@@ -48,10 +51,11 @@ const lastActivity=async(action:string)=>(await adminQuery('select metadata from
 beforeAll(async()=>{
   vi.stubEnv('QUERENT_SCRIPTED','1');
   await signIn();
+  db=(await signedInClient(REP)).db;
 });
 afterAll(async()=>{
   vi.unstubAllEnvs();
-  if(created.length)await adminQuery('delete from public.quotes where id = any($1::uuid[])',[created]);
+  for(const id of created)await deleteQuote(db,id);
 });
 
 const LIST=[
@@ -74,7 +78,7 @@ describe('the quote tool against the local stack',()=>{
   let run:MatchRun;
   it('matches a pasted list against the seeded catalog and logs match_run with numbers only',async()=>{
     run=await runMatch(LIST);
-    expect(run.level).toBe((await adminQuery('select match_strictness from public.org_settings where id=1'))[0].match_strictness);
+    expect(run.level).toBe((await getOrgSettings(db)).matchStrictness);
     expect(run.lines).toHaveLength(3);
     expect(run.lines[0]).toMatchObject({outcome:'matched',item:{sku:'12108-BDL'},quantity:10,unit:'bundle'});
     expect(run.lines[2]).toMatchObject({outcome:'no_match'});
@@ -107,23 +111,22 @@ describe('the quote tool against the local stack',()=>{
     expect(response.status).toBe(201);
     const {id}=await response.json() as {id:string};
     created.push(id);
-    const [quote]=await adminQuery('select customer_name,reference,match_strictness,created_by from public.quotes where id=$1',[id]);
-    expect(quote).toMatchObject({customer_name:'Test:db customer',reference:'B5 db test',match_strictness:run.level,created_by:await userId()});
-    const rows=await adminQuery('select position,sku,description,pack,list_price,quantity,unit_price,matched_by,original_text,unmatched,near_misses from public.quote_lines where quote_id=$1 order by position',[id]);
-    const [catalogRow]=await adminQuery('select description,list_price from public.catalog_items where sku=$1',[box.item!.sku]);
-    expect(rows[0]).toMatchObject({position:1,sku:'12108-BDL',description:catalogRow.description,list_price:catalogRow.list_price,quantity:'10.000',unit_price:'0.7900',matched_by:'auto',unmatched:false,original_text:box.rawText});
-    expect(rows[1]).toMatchObject({position:2,sku:null,matched_by:null,unmatched:true,original_text:unmatchedLine.rawText});
-    expect(rows[1].near_misses.map((n:{sku:string})=>n.sku)).toEqual(unmatchedLine.nearMisses.map(n=>n.sku));
+    const quote=(await getQuote(db,id))!;
+    expect(quote).toMatchObject({customerName:'Test:db customer',reference:'B5 db test',matchStrictness:run.level,createdBy:await userId()});
+    const [catalogRow]=await getCatalogItems(db,[box.item!.sku]);
+    expect(quote.lines[0]).toMatchObject({position:1,sku:'12108-BDL',description:catalogRow.description,listPrice:catalogRow.listPrice,
+      quantity:10,unitPrice:0.79,matchedBy:'auto',unmatched:false,originalText:box.rawText});
+    expect(quote.lines[1]).toMatchObject({position:2,sku:null,matchedBy:null,unmatched:true,originalText:unmatchedLine.rawText});
+    expect(quote.lines[1].nearMisses.map(n=>n.sku)).toEqual(unmatchedLine.nearMisses.map(n=>n.sku));
     // The saved total (quote_summaries: round(qty × price, 2) per line) is the total the dialog showed.
-    const [summary]=await adminQuery('select total from public.quote_summaries where id=$1',[id]);
-    expect(Number(summary.total)*100).toBe(totalCents(initialReview({...run,lines:[box]}).map(l=>({...l,price:'0.79',quantity:'10'}))));
+    expect(Math.round(quote.total*100)).toBe(totalCents(initialReview({...run,lines:[box]}).map(l=>({...l,price:'0.79',quantity:'10'}))));
     expect(await lastActivity('quote_create')).toEqual({lines:2,matched:1,unmatched:1,autoMatched:1,repMatched:0,level:run.level});
   });
 
   it('refuses a SKU that is not in the catalog and saves nothing',async()=>{
-    const before=(await adminQuery('select count(*)::int as n from public.quotes'))[0].n;
+    const before=(await listQuotes(db)).length;
     const response=await postQuote({lines:[{unmatched:false,sku:'S-4128',matchedBy:'rep',originalText:'S-4128 boxes',quantity:1,unitPrice:1}]});
     expect(response.status).toBe(400);
-    expect((await adminQuery('select count(*)::int as n from public.quotes'))[0].n).toBe(before);
+    expect((await listQuotes(db)).length).toBe(before);
   });
 });
