@@ -12,6 +12,9 @@
   justify-content: space-between;
   gap: 16px;
 }
+.intro {
+  max-width: none;
+}
 .head .summary {
   color: var(--dlg-ink);
   font-weight: 600;

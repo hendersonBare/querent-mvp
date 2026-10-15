@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {
-  blockersMessage,formatMoney,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,formatMoney,unitLabel,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
   type ReviewLine,
 } from './review';
 import {sampleRun} from './test-fixtures';
@@ -34,6 +34,17 @@ describe('money',()=>{
     expect(listPriceLabel({listPrice:81.08,listPriceUnit:'case'})).toBe('Web list: $81.08/case');
     expect(listPriceLabel({listPrice:5,listPriceUnit:null})).toBe('Web list: $5.00');
     expect(listPriceLabel({listPrice:null,listPriceUnit:'each'})).toBeNull();
+  });
+});
+
+describe('unitLabel',()=>{
+  it('reads the unit with its quantity',()=>{
+    expect(unitLabel(4,'roll')).toBe('rolls');
+    expect(unitLabel(1,'case')).toBe('case');
+    expect(unitLabel(2,'box')).toBe('boxes');
+    expect(unitLabel(3,'each')).toBe('each');
+    expect(unitLabel(null,'bundle')).toBe('bundles');
+    expect(unitLabel(2,null)).toBeNull();
   });
 });
 

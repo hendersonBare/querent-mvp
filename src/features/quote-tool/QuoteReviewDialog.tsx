@@ -6,7 +6,7 @@ import {trapTab} from '@/components/ui/focus';
 import {PRICE_HINT,QUANTITY_HINT} from './limits';
 import {saveQuote as defaultSave,searchCatalog as defaultSearch} from './client';
 import {
-  blockersMessage,formatMoney,initialReview,listPriceLabel,parsePrice,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,formatMoney,initialReview,unitLabel,listPriceLabel,parsePrice,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
   type ReviewLine,
 } from './review';
 import type {MatchRun,ResultItem,SaveQuoteRequest,ScoredItem} from './types';
@@ -109,8 +109,8 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
       <header className={`${d.head} ${s.head}`}>
         <div>
           <h2 id={titleId} className={d.title}>Review quote</h2>
-          <p id={introId} className={d.intro}>
-            <strong className={s.summary}>{matched.length} matched, {unmatched.length} could not be matched</strong>
+          <p id={introId} className={`${d.intro} ${s.intro}`}>
+            <strong className={s.summary}>{matched.length} matched, {unmatched.length} could not be matched.</strong>
             {' '}Add your unit price to each matched line. The web list price is shown for reference only.
           </p>
         </div>
@@ -175,7 +175,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                         <span className={s.original}>{line.rawText}</span>
                         <span className={s.nomatch}>Could not detect a match</span>
                       </div>
-                      <span className={s.uqty}>{quantity===null?'No quantity':`Qty ${line.quantity}${line.unit?` ${line.unit}`:''}`}</span>
+                      <span className={s.uqty}>{quantity===null?'No quantity':`Qty ${line.quantity}${line.unit?` ${unitLabel(quantity,line.unit)}`:''}`}</span>
                       {line.nearMisses.length>0
                         ?<button type="button" className={s.toggle} aria-expanded={open} disabled={saving}
                           onClick={()=>setOpenMisses(set=>{const next=new Set(set);if(next.has(line.key))next.delete(line.key);else next.add(line.key);return next;})}>
@@ -258,7 +258,7 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
         aria-invalid={badQuantity} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
       {badQuantity?<span className={d.fieldError}>{QUANTITY_HINT}</span>:flagQuantity
         ?<span className={s.flag}>Check quantity</span>
-        :line.unit&&<span className={s.unit}>{line.unit}</span>}
+        :line.unit&&<span className={s.unit}>{unitLabel(parseQuantity(line.quantity),line.unit)}</span>}
     </div>
     <div className={s.cell}>
       <span className={s.money}>

@@ -63,6 +63,13 @@ export const lineCents=(quantity:number,price:number)=>Math.round(Number((quanti
 const DOLLARS=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 export const formatMoney=(cents:number)=>DOLLARS.format(cents/100);
 
+/** A parsed unit for a quantity: "4 roll" reads "4 rolls"; "each" and 1 of anything stay as they are. */
+export function unitLabel(quantity:number|null,unit:string|null):string|null{
+  if(!unit)return null;
+  if(quantity===1||unit==='each'||/s$/.test(unit))return unit;
+  return /(x|ch|sh)$/.test(unit)?`${unit}es`:`${unit}s`;
+}
+
 /** "Web list: $0.84/each": the catalog's public price as a reference label (never a price to use), or null. */
 export function listPriceLabel(item:Pick<ResultItem,'listPrice'|'listPriceUnit'>):string|null{
   if(item.listPrice===null)return null;
