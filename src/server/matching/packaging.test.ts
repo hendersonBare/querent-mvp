@@ -248,3 +248,70 @@ describe('productGroup',()=>{
     expect(productGroup({sku:'IQRT80',description:'Expandable Foam Bags, 22x27"'})).not.toBe(productGroup({sku:'IQRT80B',description:'Expandable Foam Bags (Bulk Pack), 22x27"'}));
   });
 });
+
+describe('round 3: every number classified, tuples by label, negation, kept tokens, closures, units',()=>{
+  const tuple=(text:string)=>parseSpec(text).dims?.map(d=>d.value);
+  it.each(['10 pk','10-pack','10 pack','pk of 10','10/pk','10 per pack','10 ct','10 count','qty 10/case','10 pcs'])('"%s" is a pack of 10',text=>{
+    expect(parseSpec(`Corrugated Boxes 12 x 10 x 8" ${text}`).pack).toEqual({outer:10});
+  });
+
+  it('keeps a number it cannot classify as a stray, never as a size',()=>{
+    const spec=parseSpec('Corrugated Boxes 12 x 10 x 8" 10');
+    expect(spec.strays.map(s=>s.value)).toEqual([10]);
+    expect(spec.measures).toEqual([]);
+  });
+
+  it.each([
+    ['12*8*10 boxes',[12,8,10]],
+    ['12 * 8 * 10 boxes',[12,8,10]],
+    ['12-8-10 boxes',[12,8,10]],
+    ['12 in. L x 8 in. W x 10 in. H boxes',[12,8,10]],
+    ['10" W x 12" L x 8" H boxes',[12,10,8]],
+    ['12" long x 10" wide x 8" high boxes',[12,10,8]],
+    ['L 12 x W 10 x D 8 boxes',[12,10,8]],
+    ['8 D x 10 W x 12 L boxes',[12,10,8]],
+  ])('"%s" -> %j',(text,expected)=>{
+    expect(tuple(text)).toEqual(expected);
+  });
+
+  it('does not read a mixed number or a two-part hyphen as a tuple',()=>{
+    expect(tuple('12-1/4 x 9-1/4 x 9" mailers')).toEqual([12.25,9.25,9]);
+    expect(parseSpec('bags 4-6').dims).toBeNull();
+  });
+
+  it('reads negations as negated things, not as the thing',()=>{
+    expect(parseSpec('Poly Bags 4 x 6" 2 Mil, No Zipper')).toMatchObject({negated:{choices:{closure:'reclosable'}},choices:{}});
+    expect(parseSpec('Poly Bags w/o Zipper').negated.choices.closure).toBe('reclosable');
+    expect(parseSpec('Poly Bags without zipper').negated.choices.closure).toBe('reclosable');
+    expect(parseSpec('Kraft Mailers No Bubble')).toMatchObject({negated:{features:['bubble']},features:[]});
+    expect(parseSpec('Bags 10 x 12" 1.5 Mil, No Suffocation Warning')).toMatchObject({negated:{features:['warning']},features:[]});
+    expect(parseSpec('Boxes non-printed').negated.words).toEqual(['printed']);
+    expect(parseSpec('Gloves latex-free').negated.words).toEqual(['latex']);
+    expect(parseSpec('Boxes not printed').negated.words).toEqual(['printed']);
+    expect(parseSpec('no zipper bags').words).toContain('bag');
+    expect(parseSpec('No. 2 kraft bubble mailers').number).toBe('2');
+  });
+
+  it('keeps single letters: flute letters are a choice, anything else is a word',()=>{
+    expect(parseSpec('Heavy Duty Boxes 24 x 18 x 12" B Flute').choices.flute).toBe('b');
+    expect(parseSpec('Heavy Duty Boxes 24x18x12", C Flute').choices.flute).toBe('c');
+    expect(parseSpec('Heavy Duty Boxes 24x18x18", BC Flute').choices).toMatchObject({flute:'bc',wall:'double'});
+    expect(parseSpec('Corrugated boxes q').words).toContain('q');
+  });
+
+  it('keeps closures apart: slider, press-to-close, self-seal, tuck, string and button',()=>{
+    expect(parseSpec('Slider Bags 4 x 6"').choices.closure).toBe('slider');
+    expect(parseSpec('slider zipper bags').choices.closure).toBe('slider');
+    expect(parseSpec('press to close bags').choices.closure).toBe('reclosable');
+    expect(parseSpec('peel and seal mailers').choices.closure).toBe('self-seal');
+    expect(parseSpec('tuck top mailers').choices.closure).toBe('tuck');
+    expect(parseSpec('string and button envelopes').choices.closure).toBe('string-button');
+  });
+
+  it('gives a unitless catalog number inches only where the category implies it (tape, storage)',()=>{
+    const strap=parseItemSpec({sku:'PS1231',description:'Black Poly Strapping, Hand Length, 0.5 600 lbs',category:'tape'});
+    expect(strap.measures.map(m=>[m.unit,m.value])).toEqual([['lb',600],['in',0.5]]);
+    const other=parseItemSpec({sku:'X1',description:'Widget 0.5',category:'bags'});
+    expect(other.measures.map(m=>[m.unit,m.value])).toEqual([[null,0.5]]);
+  });
+});
