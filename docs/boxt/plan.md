@@ -81,8 +81,13 @@ LLMs, never the network; also the behaviour when no key is set), `PORT`. Removed
   `SupplierSkuMap` in `src/features/quote-tool/sku-map.ts` (a null implementation today).
 - Packaging-aware scoring: positional dimension tuples (12x10x8 ≠ 12x8x10), ECT/mil/gauge/lb attributes,
   stated pack quantities ("500/case") contradict a different pack, kraft/white/colour contradictions.
+- `decide(retrieval, verdict)` in `src/server/matching/decide.ts` (pure): `matched` only when
+  `retrieval.clears` and the judge's SKU is in the top candidate's product group; the pipeline and the
+  evaluation suite both use it, so they cannot disagree.
 - `src/features/settings/strictness.ts`: `LEVELS = {strict, balanced, lenient}` → `{minScore, minLead}`,
-  `DEFAULT_LEVEL='strict'`, calibrated by the evaluation suite (`src/server/matching/eval/`).
+  `DEFAULT_LEVEL='strict'`, calibrated by the evaluation suite (`src/eval/`: cases, the recorded judge
+  verdicts `judge-recording.json`, the runner and its test; it may import the BOXT catalog, the matching
+  library cannot).
 
 ### LLM contract (`src/server/llm`)
 ```ts
@@ -169,7 +174,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 ### B3: Packaging-aware matching, strictness levels, evaluation suite
 - Extend the pure scorer per "Matching contract"; keep existing tests passing or update them where the
   Herrick behaviour no longer applies (state why in the commit).
-- `src/server/matching/eval/`: ≥ 30 hand-written Uline-style lines (`cases.ts`) grouped `must-match`
+- `src/eval/`: ≥ 30 hand-written Uline-style lines (`cases.ts`) grouped `must-match`
   (expected BOXT SKU) and `must-not-match` (near-identical wrong sizes, wrong materials, wrong pack
   quantities, items BOXT does not carry), run against the real catalog through the real scorer plus the
   judge fixture. Fails if any must-not-match line matches at the configured level. `npm run eval:report`
