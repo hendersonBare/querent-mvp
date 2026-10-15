@@ -1,0 +1,217 @@
+import {describe,expect,it} from 'vitest';
+import {itemPack,parseItemSpec,parseSpec,productGroup} from './packaging';
+
+// The packaging side of the text parser: what a customer's line (from another supplier, usually a
+// Uline catalog line with the supplier SKU already removed) and a BOXT catalog row say about size,
+// strength, film, colour, material, closure and pack quantity.
+
+const dims=(text:string)=>parseSpec(text).dims?.map(d=>[d.unit,d.value]);
+const measures=(text:string)=>parseSpec(text).measures.map(m=>[m.unit,m.value]);
+const row=(description:string,extra:{pack?:string|null;caseQty?:number|null;keywords?:string}={})=>({sku:'X',description,...extra});
+
+describe('parseSpec: dimensions are a positional tuple',()=>{
+  it.each([
+    ['12 x 10 x 8" Corrugated Boxes',[['in',12],['in',10],['in',8]]],
+    ['12x10x8 corrugated boxes',[[null,12],[null,10],[null,8]]],
+    ['12"x10"x8" boxes',[['in',12],['in',10],['in',8]]],
+    ['12 in. x 10 in. x 8 in. boxes',[['in',12],['in',10],['in',8]]],
+    ['12 by 10 by 8 inch boxes',[['in',12],['in',10],['in',8]]],
+    ['12-1/4 x 9-1/4 x 9" mailers',[['in',12.25],['in',9.25],['in',9]]],
+    ['Poly Bags 4 x 6" 2 Mil',[['in',4],['in',6]]],
+    ['Industrial Tape 2" x 110 yds clear',[['in',2],['yd',110]]],
+    ["Kraft paper roll 30\"x1200' 30 lb",[['in',30],['ft',1200]]],
+    ['Kraft Tape 70MMx450\'',[['mm',70],['ft',450]]],
+  ])('"%s"',(text,expected)=>{
+    expect(dims(text)).toEqual(expected);
+  });
+
+  it('keeps the order the line gives, so 12x8x10 is not 12x10x8',()=>{
+    expect(dims('12 x 8 x 10" boxes')).toEqual([['in',12],['in',8],['in',10]]);
+  });
+
+  it('reads numbers outside the tuple as separate measures, and weights never join a tuple',()=>{
+    expect(measures('Bubble roll 1/2" bubble 12" x 250\' perforated')).toEqual([['in',0.5]]);
+    expect(dims('Bubble roll 1/2" bubble 12" x 250\' perforated')).toEqual([['in',12],['ft',250]]);
+    expect(measures('Kraft paper sheets 24 x 36" 50 lb')).toEqual([['lb',50]]);
+    expect(measures('Poly strapping 1/2" 600 lb')).toEqual([['in',0.5],['lb',600]]);
+    expect(measures('Loose fill peanuts 14 cubic feet')).toEqual([['cuft',14]]);
+  });
+
+  it('has no tuple when the line gives no size',()=>{
+    expect(dims('Corrugated boxes')).toBeUndefined();
+  });
+});
+
+describe('parseSpec: strength, film and paper weights',()=>{
+  it.each(['32 ECT','32ECT','32-ECT','ECT 32','ect-32'])('"%s" is 32 ECT',text=>{
+    expect(parseSpec(`boxes ${text}`).ect).toBe(32);
+  });
+
+  it.each(['200 lb test','200 lb. test','200lb test','200# test','200#test','200 lbs test','burst 200','Mullen 200'])('"%s" is a 200 lb burst rating',text=>{
+    const spec=parseSpec(`12 x 10 x 8" boxes ${text}`);
+    expect(spec.burst).toBe(200);
+    expect(spec.measures).toEqual([]);
+  });
+
+  it('reads a bare "200#" as a burst rating on a box line, and "50#" as paper weight elsewhere',()=>{
+    expect(parseSpec('12x10x8 corrugated boxes 200#').burst).toBe(200);
+    expect(parseSpec('50# kraft paper roll 36"').burst).toBeNull();
+    expect(measures('50# kraft paper roll 36"')).toEqual([['lb',50],['in',36]]);
+  });
+
+  it('reads mil and gauge',()=>{
+    expect(parseSpec('Poly Bags 4 x 6" 2 Mil').mil).toBe(2);
+    expect(parseSpec('bags 1.5 mil').mil).toBe(1.5);
+    expect(parseSpec('Tape 2.0 MIL').mil).toBe(2);
+    expect(parseSpec('Stretch film 18" x 1500\' 80 gauge').gauge).toBe(80);
+    expect(parseSpec('Stretch film 80 ga').gauge).toBe(80);
+  });
+
+  it('reads the wall',()=>{
+    expect(parseSpec('single wall boxes').choices.wall).toBe('single');
+    expect(parseSpec('double-wall boxes').choices.wall).toBe('double');
+    expect(parseSpec('DW boxes').choices.wall).toBe('double');
+    expect(parseSpec('Triple Wall Gaylord').choices.wall).toBe('triple');
+    expect(parseSpec('Heavy Duty Boxes 24x18x18", BC Flute').choices.wall).toBe('double');
+  });
+});
+
+describe('parseSpec: colour, material, closure and kind',()=>{
+  it('reads colours, with brown and natural as kraft',()=>{
+    expect(parseSpec('Kraft bubble mailers #2').colors).toEqual(['kraft']);
+    expect(parseSpec('brown corrugated boxes').colors).toEqual(['kraft']);
+    expect(parseSpec('white corrugated mailers').colors).toEqual(['white']);
+    expect(parseSpec('clear tape').colors).toEqual(['clear']);
+    expect(parseSpec('tan carton sealing tape').colors).toEqual(['tan']);
+    expect(parseSpec('#2 Colored Bubble Mailers 8.5x11.25", Matte Black').colors).toEqual(['matte black']);
+  });
+
+  it('reads materials, with kraft as paper unless the line says corrugated',()=>{
+    expect(parseSpec('Poly Bags 4 x 6"').materials).toEqual(['poly']);
+    expect(parseSpec('plastic bags').materials).toEqual(['poly']);
+    expect(parseSpec('Kraft bubble mailers').materials).toEqual(['paper']);
+    expect(parseSpec('kraft corrugated boxes').materials).toEqual(['corrugated']);
+    expect(parseSpec('cardboard boxes').materials).toEqual(['corrugated']);
+    expect(parseSpec('foam rolls').materials).toEqual(['foam']);
+  });
+
+  it('reads closures, adhesives, print methods and film types as exclusive choices',()=>{
+    expect(parseSpec('Reclosable poly bags').choices.closure).toBe('reclosable');
+    expect(parseSpec('zip lock bags').choices.closure).toBe('reclosable');
+    expect(parseSpec('ziplock bags').choices.closure).toBe('reclosable');
+    expect(parseSpec('open top poly bags').choices.closure).toBe('open');
+    expect(parseSpec('self-seal bubble pouches').choices.closure).toBe('self-seal');
+    expect(parseSpec('hot melt tape').choices.adhesive).toBe('hot melt');
+    expect(parseSpec('acrylic tape').choices.adhesive).toBe('acrylic');
+    expect(parseSpec('direct thermal labels').choices.print).toBe('direct thermal');
+    expect(parseSpec('thermal transfer labels').choices.print).toBe('thermal transfer');
+    expect(parseSpec('cast stretch film').choices.film).toBe('cast');
+    expect(parseSpec('machine stretch film').choices.length).toBe('machine');
+  });
+
+  it('reads the features that make a different kind of item, and does not mistake thermal labels for insulated mailers',()=>{
+    expect(parseSpec('Thermal Mailers 8x11"').features).toContain('insulated');
+    expect(parseSpec('direct thermal labels').features).not.toContain('insulated');
+    expect(parseSpec('Glamour Bubble Mailers').features).toEqual(expect.arrayContaining(['glamour','bubble']));
+    expect(parseSpec('Corrugated Bin Boxes').features).toContain('bin');
+    expect(parseSpec('Clear Face Document Envelopes').features).toContain('clear face');
+    expect(parseSpec('Clear Face Document Envelopes').colors).toEqual([]);
+  });
+
+  it('reads a mailer size number, keeping #0, #00 and #000 apart',()=>{
+    expect(parseSpec('#2 kraft bubble mailers').number).toBe('2');
+    expect(parseSpec('#000 poly bubble mailers').number).toBe('000');
+    expect(parseSpec('#00 poly bubble mailers').number).toBe('00');
+  });
+});
+
+describe('parseSpec: stated pack quantities',()=>{
+  it.each([
+    ['25/bundle',{outer:25}],
+    ['25 / bdl',{outer:25}],
+    ['1000/case',{outer:1000}],
+    ['1,000/cs',{outer:1000}],
+    ['500/cs',{outer:500}],
+    ['case of 500',{outer:500}],
+    ['500 per case',{outer:500}],
+    ['500 bags/case',{outer:500}],
+    ['36 rolls/case',{outer:36}],
+    ['bundle of 25',{outer:25}],
+    ['500 labels/roll',{roll:500}],
+  ])('"%s"',(text,expected)=>{
+    expect(parseSpec(`poly bags 4 x 6" ${text}`).pack).toEqual(expected);
+  });
+
+  it('reads no pack when the line states none, and never reads a pack count as a size',()=>{
+    expect(parseSpec('poly bags 4 x 6"').pack).toEqual({});
+    expect(measures('poly bags 4 x 6" 1000/case')).toEqual([]);
+  });
+});
+
+describe('itemPack: what a catalog row is sold in',()=>{
+  it.each([
+    [{pack:'Case of 1,000',caseQty:1},{outer:1000}],
+    [{pack:'Case of 500',caseQty:1},{outer:500}],
+    [{pack:'Each',caseQty:25},{outer:25}],
+    [{pack:'Each',caseQty:1},{outer:1}],
+    [{pack:'Roll',caseQty:1},{outer:1}],
+    [{pack:'Coil',caseQty:1},{outer:1}],
+    [{pack:'Roll of 250',caseQty:1},{roll:250}],
+    [{pack:'Case',caseQty:1},{}],
+    [{pack:null,caseQty:null},{}],
+  ])('%j -> %j',(fields,expected)=>{
+    expect(itemPack(row('Something',fields))).toEqual(expected);
+  });
+
+  it('takes a count the description states over a bare "Case"',()=>{
+    expect(itemPack(row('Wardrobe Box Combo Pack, 3/Case',{pack:'Case',caseQty:1}))).toEqual({outer:3});
+  });
+});
+
+describe('parseItemSpec: catalog rows',()=>{
+  it('ignores the pricing tier and the bundle weight of kraft paper',()=>{
+    const box=parseItemSpec(row('Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing',{pack:'Each',caseQty:25,keywords:'bulk boxes cardboard boxes corrugated boxes rsc boxes shipping boxes wholesale boxes'}));
+    expect(box.words).not.toContain('pricing');
+    expect(box.words).not.toContain('bundle');
+    expect(box.ect).toBe(32);
+    expect(box.choices.wall).toBe('single');
+    const paper=parseItemSpec(row('Kraft Paper Sheets, 24x36" 30 lb., 50 lb./Bundle',{pack:'Case of 833',caseQty:1}));
+    expect(paper.measures.map(m=>[m.unit,m.value])).toEqual([['lb',30]]);
+  });
+
+  it('implies kraft for plain corrugated, and takes a colour from the keywords only when they name one',()=>{
+    const box=parseItemSpec(row('Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing',{keywords:'cardboard boxes corrugated boxes'}));
+    expect(box.colors).toEqual(['kraft']);
+    expect(box.statedColors).toEqual([]);
+    const white=parseItemSpec(row('White Corrugated Boxes 10x8x6", 32 ECT single wall, bundle pricing'));
+    expect(white.colors).toEqual(['white']);
+    expect(white.statedColors).toEqual(['white']);
+    const bag=parseItemSpec(row('Reclosable Poly Bags, 4x6" 2 MIL',{keywords:'clear poly bags plastic bags poly bags reclosable bags resealable bags zip lock bags'}));
+    expect(bag.colors).toEqual(['clear']);
+    expect(bag.statedColors).toEqual([]);
+    const tissue=parseItemSpec(row('Tissue Paper Sheets, 20x30", White',{keywords:'kraft tissue paper white tissue paper wrapping paper'}));
+    expect(tissue.colors).toEqual(['white']);
+  });
+
+  it('names the product and reads its words from the description and keywords',()=>{
+    const mailer=parseItemSpec(row('#2 Kraft Bubble Mailers 8.5x12"',{keywords:'brown bubble mailers kraft bubble mailers natural bubble mailers paper bubble mailers'}));
+    expect(mailer.number).toBe('2');
+    expect(mailer.name).toBe('kraft bubble mailers');
+    expect(mailer.words).toEqual(expect.arrayContaining(['bubble','mailer','paper']));
+  });
+});
+
+describe('productGroup',()=>{
+  it('puts the bundle and pallet pricing tiers of one box in one group',()=>{
+    const bundle={sku:'12108-BDL',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing'};
+    const pallet={sku:'12108-PLT',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, pallet pricing'};
+    const other={sku:'12106-BDL',description:'Corrugated Boxes 12x10x6", 32 ECT single wall, bundle pricing'};
+    expect(productGroup(bundle)).toBe(productGroup(pallet));
+    expect(productGroup(bundle)).not.toBe(productGroup(other));
+    expect(productGroup({sku:'HD1212DW-BDL',description:'Heavy Duty Boxes 12x12x12", bundle pricing, BC Flute'})).toBe(productGroup({sku:'HD1212DW-PLT',description:'Heavy Duty Boxes 12x12x12", pallet pricing, BC Flute'}));
+  });
+
+  it('keeps items with the same description but different packs apart',()=>{
+    expect(productGroup({sku:'A',description:'Foam Bags 22x27"',pack:'Case of 24'})).not.toBe(productGroup({sku:'B',description:'Foam Bags 22x27"',pack:'Case of 72'}));
+  });
+});
