@@ -1717,6 +1717,10 @@
     "a17-must": {
       "sku": "12108-BDL",
       "reason": "The candidate that is the item the line describes."
+    },
+    "a18-must": {
+      "sku": "PB3565",
+      "reason": "The candidate that is the item the line describes."
     }
   }
 }

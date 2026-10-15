@@ -102,6 +102,8 @@ function prepare(text:string){
     .replace(/(?<![\d.\/-])(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)(?![\d\/.-])/g,'$1 x $2 x $3')
     .replace(/(\d(?:mm|cm|yds?|ft|in|m)?|['"])\s*x\s*(?=[\d.])/g,'$1 x ')
     .replace(/\bcu(?:bic)?\.?\s*(?:feet|foot|ft)\.?/g,'cuft')
+    // "4 x 6 x 2 mil": an "x" before a film thickness joins it to the size; a thickness is never a dimension.
+    .replace(/\bx\s*(?=\d*\.?\d+\s*-?\s*(?:mils?|gauge|gage|ga|microns?)\b)/g,' ')
     .replace(/\s+/g,' ').trim();
 }
 

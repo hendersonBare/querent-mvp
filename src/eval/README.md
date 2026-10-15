@@ -6,7 +6,7 @@ is used to calibrate the strictness levels in `src/features/settings/strictness.
 
 | File | What it holds |
 |---|---|
-| `cases.ts` | 429 customer lines in another supplier's style. 152 must match a named BOXT SKU. 277 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`, `no_product_type`, `ambiguous`) and the loosest level at which it must still not match. Three sources: 181 hand-written lines (untagged), 196 held-out verifier probes (`heldout.ts`, tag `heldout`), and 52 lines written against the total-accounting design (tag `b3b`). |
+| `cases.ts` | 430 customer lines in another supplier's style. 153 must match a named BOXT SKU. 277 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`, `no_product_type`, `ambiguous`) and the loosest level at which it must still not match. Three sources: 181 hand-written lines (untagged), 196 held-out verifier probes (`heldout.ts`, tag `heldout`), and 53 lines written against the total-accounting design (tag `b3b`: 35 must not match, 18 must match). |
 | `heldout.ts` | The B3 verifiers' probe lines from rounds 2 and 3 that `cases.ts` did not already hold, with their ground truth, and round 2's 710 bare sizes (`HELDOUT_BARE_SIZES`, checked apart: they name no product). Round 1's probes were added to `cases.ts` earlier (n47 to n76). |
 | `judge-recording.json` | One verdict per case, in B4's `JudgeVerdict` shape (`{sku \| null, reason}`), plus `recordedBy`. **The current verdicts are `hand-written`**: they were written in the build session, not recorded from a model, because no API key was available. Each one imitates a careful judge that sees only the line and the candidate list, and follows B4's rule of picking the first pricing tier. For the held-out and B3b lines the verdict is simply the expected SKU (must match) or none (must not match), so the recorded columns measure the scorer's recall there; safety is measured with the always-agree judge. `npm run eval:record` replaces them all with the live judge's (`recordedBy: 'live'`, with the model and time). |
 | `run.ts` | Runs each case through the pipeline's own steps after parsing: `retrieve` (the real scorer and catalog), then the judge, then `decide`. The judge gets the candidates as B4's `JudgeCandidate` (SKU, description, pack label, category), and its answer passes B4's `withinCandidates` guard. It runs at every level with two judges: the recorded one, and an **always-agree** judge that picks the top candidate, so that no level's safety depends on the judge. Retrievals are memoized per line and level. |
@@ -82,12 +82,12 @@ candidate, the line's own blockers); `MatchRule.requireTotalAccounting` (true fo
 
 | Level | minScore | minLead | Judge | Matched | Precision | False positives | Must-match recall | No-match rate |
 |---|---|---|---|---|---|---|---|---|
-| Strict | 0.9 | 0.35 | recorded | 144/429 | 100% | 0 | 95% (144/152) | 66% |
-| Strict | 0.9 | 0.35 | always-agree | 144/429 | 100% | 0 | 95% (144/152) | 66% |
-| Balanced | 0.7 | 0.2 | recorded | 151/429 | 100% | 0 | 99% (151/152) | 65% |
-| Balanced | 0.7 | 0.2 | always-agree | 219/429 | 69% | 68 (see below) | 99% (151/152) | 49% |
-| Lenient | 0.55 | 0.15 | recorded | 152/429 | 100% | 0 | 100% (152/152) | 65% |
-| Lenient | 0.55 | 0.15 | always-agree | 256/429 | 59% | 104 (see below) | 100% (152/152) | 40% |
+| Strict | 0.9 | 0.35 | recorded | 145/430 | 100% | 0 | 95% (145/153) | 66% |
+| Strict | 0.9 | 0.35 | always-agree | 145/430 | 100% | 0 | 95% (145/153) | 66% |
+| Balanced | 0.7 | 0.2 | recorded | 152/430 | 100% | 0 | 99% (152/153) | 65% |
+| Balanced | 0.7 | 0.2 | always-agree | 220/430 | 69% | 68 (see below) | 99% (152/153) | 49% |
+| Lenient | 0.55 | 0.15 | recorded | 153/430 | 100% | 0 | 100% (153/153) | 64% |
+| Lenient | 0.55 | 0.15 | always-agree | 257/430 | 60% | 104 (see below) | 100% (153/153) | 40% |
 
 Precision is the share of matched lines that got the right item. Recall is the share of must-match
 lines that got their item. `npm run eval:report` lists every false positive.
@@ -115,12 +115,12 @@ held-out and B3b lines (table below), mostly because two values of one field now
 | held-out (123 must-not, 73 must-match) | Strict | **36** | **0** | 63/73 | 70/73 |
 | held-out | Balanced | 60 | 28 | 65/73 | 72/73 |
 | held-out | Lenient | 70 | 45 | 67/73 | 73/73 |
-| B3b (35 must-not, 17 must-match) | Strict | **11** | **0** | 16/17 | 17/17 |
-| B3b | Balanced | 22 | 18 | 16/17 | 17/17 |
-| B3b | Lenient | 24 | 22 | 16/17 | 17/17 |
+| B3b (35 must-not, 18 must-match) | Strict | **11** | **0** | 17/18 | 18/18 |
+| B3b | Balanced | 22 | 18 | 17/18 | 18/18 |
+| B3b | Lenient | 24 | 22 | 17/18 | 18/18 |
 | round 2 realistic must-match (b3v-must.txt, 39) | Strict | | | 35/39 | 37/39 |
 | round 3 realistic must-match (mm.json, 29 + R18) | Strict | | | 28/29 | 28/29 |
-| all 429 lines | Strict | **47** | **0** | 137/152 | 144/152 |
+| all 430 lines | Strict | **47** | **0** | 138/153 | 145/153 |
 
 - **Held-out baseline at Strict (before):** 36 wrong matches with the always-agree judge. 31 must-not
   lines matched: h3-F01, F02, F03, F05 ("for ... item"), M01 to M06 and M08 to M11 (second size, range,
@@ -139,7 +139,7 @@ held-out and B3b lines (table below), mostly because two values of one field now
 
 ### What total accounting costs in recall (Strict, realistic must-match lines)
 
-Strict recall is 95% (144/152) overall, 37/39 on round 2's realistic lines and 28/29 on round 3's
+Strict recall is 95% (145/153) overall, 37/39 on round 2's realistic lines and 28/29 on round 3's
 (29/30 counting R18, which is the same line as round 2's h2m35 and matches). The 8 lines Strict leaves
 for the rep, and the rule that costs each:
 - **Total accounting (new):** m61 `Reclosable Bags 4 x 6" 2 Mil, Not Printed` (a negation is never
@@ -150,7 +150,8 @@ for the rep, and the rule that costs each:
   (4x4 desktop labels, where the fanfold 4x4 is one unconfirmed word away).
 
 Realistic recall went up, not down: total accounting also fixed misses ("RSC" read as a box noun, the
-"8x8 Core" of machine strapping read as a core instead of a second size, W x L bags), and the rules
+"8x8 Core" of machine strapping read as a core instead of a second size, W x L bags, and "4" x 6" x 2
+mil", where the "x" before a film thickness joins it to the size), and the rules
 that cost recall cost it only where the line says something the catalog doesn't confirm.
 
 ### Margins (Strict, on the scorer alone)

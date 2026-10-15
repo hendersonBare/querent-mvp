@@ -309,6 +309,7 @@ const B3B:readonly EvalCase[]=[
   mine(match("a15-must","Blown Stretch Wrap Machine Length 20\" x 6000' 80 Gauge","MSF2080B","Realistic line; every part read and confirmed.")),
   mine(match("a16-must","Heavy Duty Double Wall Boxes 16 x 16 x 16\" BC Flute","HD161616DW-BDL","Realistic line; every part read and confirmed.")),
   mine(match("a17-must","Corrugated Boxes – 12 × 10 × 8″ – 32 ECT","12108-BDL","En dashes as separators, × and ″.")),
+  mine(match("a18-must","Reclosable Bags 4\" x 6\" x 2 mil","PB3565","The \"x\" before a film thickness joins it to the size.")),
 ];
 
 export const CASES:readonly EvalCase[]=[...HANDWRITTEN,...HELDOUT_CASES,...B3B];

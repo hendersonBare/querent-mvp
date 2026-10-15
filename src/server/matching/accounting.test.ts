@@ -260,3 +260,14 @@ describe('total accounting: what only keywords say, a second product, separators
     expect(blockers('Mailers 12-1/4 x 9-1/4 x 4"')).toEqual([]);
   });
 });
+
+describe('total accounting: a thickness joined to the size with "x"',()=>{
+  it('reads "4" x 6" x 2 mil" as a 4x6 bag of 2 mil, with nothing left over',()=>{
+    expect(blockers('Reclosable Bags 4" x 6" x 2 mil')).toEqual([]);
+    expect(parseSpec('Reclosable Bags 4x6x2mil').dims?.map(d=>d.value)).toEqual([4,6]);
+    expect(strictMatch('Reclosable Bags 4" x 6" x 2 mil')).toBe('PB3565');
+    // A bare third number is still a third dimension, which no 4x6 bag has.
+    expect(parseSpec('Reclosable Bags 4x6x2').dims?.map(d=>d.value)).toEqual([4,6,2]);
+    expect(strictMatch('Reclosable Bags 4x6x2')).toBeNull();
+  });
+});
