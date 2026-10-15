@@ -6,15 +6,15 @@ import type {StrictnessLevel} from '@/features/settings/strictness';
 //
 //   - must match: the BOXT SKU that truly is the same product (size, spec, material and pack);
 //   - must not match: a near-identical item BOXT sells with the wrong size, material, pack or spec,
-//     or an item BOXT doesn't sell at all. `level` is the loosest strictness level at which the
+//     or an item BOXT doesn't sell at all, or a line that names no product (a bare size). `level` is the loosest strictness level at which the
 //     line must still not match (default 'strict'): clear contradictions must hold even at Lenient.
 //
 // The supplier SKUs ("S-4128") are illustrative, not a claim about another supplier's catalog; the
 // parser removes them, and `description` is what reaches the matcher. Wrong items are the costly
 // error, so the suite fails the build if any must-not-match line matches (src/eval/eval.test.ts).
 
-export type NoMatchWhy='wrong_size'|'wrong_material'|'wrong_pack'|'wrong_spec'|'not_carried';
-export const NO_MATCH_WHYS:readonly NoMatchWhy[]=['wrong_size','wrong_material','wrong_pack','wrong_spec','not_carried'];
+export type NoMatchWhy='wrong_size'|'wrong_material'|'wrong_pack'|'wrong_spec'|'not_carried'|'no_product_type';
+export const NO_MATCH_WHYS:readonly NoMatchWhy[]=['wrong_size','wrong_material','wrong_pack','wrong_spec','not_carried','no_product_type'];
 
 export interface EvalCase {
   id:string;
@@ -86,6 +86,23 @@ export const CASES:readonly EvalCase[]=[
   match('m45-top-sheets','S-1748 Pallet Top Sheets 60" x 60\' 1.5 Mil Clear','PC91','Clear 1.5 mil, not black and not 1.25 mil.'),
   match('m46-tissue-white','S-5240 White Tissue Paper Sheets 20 x 30"','T2030J','White tissue, not kraft tissue.'),
   match('m47-strapping-hand','S-4604 Black Poly Strapping Hand 1/2" 600 lb','PS1231','Hand length, said after the noun.'),
+
+  // Pack counts, labelled and */- tuples, metric sizes, negations kept, flute letters (round 3).
+  match('m48-box-25pk','S-4128 Corrugated Boxes 12 x 10 x 8" 25 pk','12108-BDL','"25 pk" is the bundle of 25.'),
+  match('m49-bags-1000ct','S-1287 Reclosable Bags 4 x 6" 2 Mil 1000 ct','PB3565','"1000 ct" is the case count.'),
+  match('m50-kraft-100pk','S-3145 Kraft Bubble Mailers #2 8 1/2 x 12" 100 pk','B855SS','"100 pk" is the case of 100.'),
+  match('m51-edge-80pk','S-1658 Edge Protectors 2 x 2 x 48" .160" 80 pk','EP2248160BX','Case of 80; .160" read as inches against the catalog\'s unitless .160 (storage).'),
+  match('m52-box-lwh','S-4128 Corrugated Boxes 12" L x 10" W x 8" H, 32 ECT','12108-BDL','Labelled in the catalog\'s order.'),
+  match('m53-box-wld','S-4128 Corrugated Boxes 10 in. W x 12 in. L x 8 in. D','12108-BDL','Labels reorder W x L x D to 12x10x8.'),
+  match('m54-mailer-lwh','S-4247 White Corrugated Mailers 12 1/4" L x 9 1/4" W x 4" H','M1294','Fractions with labels.'),
+  match('m55-box-star','S-4128 Corrugated Boxes 12*10*8 32 ECT','12108-BDL','"*" separates a tuple.'),
+  match('m56-box-hyphen','S-4128 Corrugated Boxes 12-10-8 200# test','12108-BDL','A three-part hyphen is a tuple.'),
+  match('m57-kraft-roll-metric','S-8513 Kraft Paper Roll 914 mm x 274 m 40 lb','KP3640','914 mm is 36", 274 m is 899 ft (within 0.5%).'),
+  match('m58-stretch-metric','S-2963 Cast Hand Stretch Film 457 mm x 457 m 80 Gauge Clear','SF188CAST','457 mm is 18", 457 m is 1,499 ft.'),
+  match('m59-kraft-tape-mm','S-7700 Kraft Tape 70 mm x 450 ft','T9077000','Millimetres against the catalog\'s "70MM".'),
+  match('m60-strapping-mm','S-4604 Black Poly Strapping Hand Length 12.7 mm 600 lb','PS1231','12.7 mm is the catalog\'s unitless 0.5 (inches for strapping).'),
+  match('m61-bags-not-printed','S-1287 Reclosable Bags 4 x 6" 2 Mil, Not Printed','PB3565','A negation the item keeps adds nothing.'),
+  match('m62-hd-c-flute','S-4190 Heavy Duty Boxes 24 x 18 x 12" C Flute','HD241812DW-BDL','The flute letter is read, not dropped.'),
 
   // ---- Must not match: wrong size -----------------------------------------------------------------
   noMatch('n01-box-permuted','S-4129 12 x 8 x 10" Corrugated Boxes 200 lb test 25/bundle','wrong_size','lenient','12x8x10 is not the 12x10x8 BOXT sells: dimensions are positional.'),
@@ -177,4 +194,49 @@ export const CASES:readonly EvalCase[]=[
   noMatch('n74-wax-coated','S-4309 Wax Coated Corrugated Boxes 12 x 10 x 8"','wrong_material','strict','No wax coated boxes.'),
   noMatch('n75-moisture-resistant','S-8516 Moisture Resistant Kraft Paper Roll 36" x 900\' 40 lb','wrong_material','strict','Not stated as moisture resistant.'),
   noMatch('n76-economy-box','S-4310 Economy Corrugated Boxes 12 x 10 x 8"','wrong_spec','strict','Economy grade is a different (lighter) board.'),
+
+  // ---- Must not match: round 3 classes (verifier probes and variants) ----
+  noMatch('p01-box-10pk','S-4128 Corrugated Boxes 12 x 10 x 8" (10 pk)','wrong_pack','lenient','BOXT bundles 25; "10" is a pack count, never a dimension.'),
+  noMatch('p02-box-ect-10pk','S-4128 Corrugated Boxes 12 x 10 x 8" 32 ECT 10 pk','wrong_pack','lenient','Bundle of 25, not 10.'),
+  noMatch('p03-bags-6pk','S-1300 Reclosable Bags 6 x 9" 4 Mil 6 pk','wrong_pack','lenient','Case of 1,000, not 6.'),
+  noMatch('p04-kraft-12pk','S-3145 Kraft Bubble Mailers #2 8 1/2 x 12" 12 pk','wrong_pack','lenient','Case of 100, not 12.'),
+  noMatch('p05-edge-2pk','S-1658 Edge Protectors 2 x 2 x 48" .160" 2 pk','wrong_pack','lenient','Case of 80, not 2.'),
+  noMatch('p06-poly-bubble-50pack','S-3216 Poly Bubble Mailers #0 6 1/2 x 10" 50-pack','wrong_pack','lenient','Case of 250, not 50.'),
+  noMatch('p07-bags-pk-of-100','S-1287 Reclosable Bags 4 x 6" 2 Mil pk of 100','wrong_pack','lenient','Case of 1,000, not 100.'),
+  noMatch('p08-kraft-roll-2pk','S-8513 Kraft Paper Roll 36" x 900\' 40 lb 2 pk','wrong_pack','lenient','Sold by the roll, not in twos.'),
+  noMatch('d01-box-lwh-order','S-4129 Corrugated Boxes 12 in. L x 8 in. W x 10 in. H, 32 ECT','wrong_size','lenient','12 L x 8 W x 10 H is 12x8x10, not the 12x10x8 BOXT sells.'),
+  noMatch('d02-box-star-order','S-4129 Corrugated Boxes 12*8*10 32 ECT','wrong_size','lenient','12x8x10 written with "*".'),
+  noMatch('d03-box-hyphen-order','S-4129 Corrugated Boxes 12-8-10 200# test','wrong_size','lenient','12x8x10 written with hyphens.'),
+  noMatch('d04-box-wlh-order','S-4129 Corrugated Boxes 8" W x 12" L x 10" H','wrong_size','lenient','Labels make it 12x8x10.'),
+  noMatch('d05-box-words-order','S-4129 Corrugated Boxes 12" long x 8" wide x 10" high','wrong_size','lenient','Word labels make it 12x8x10.'),
+  noMatch('d06-mailer-swapped','S-4249 White Corrugated Mailers 9 1/4 x 12 1/4 x 4"','wrong_size','lenient','9.25x12.25x4 is not the 12.25x9.25x4 mailer.'),
+  noMatch('s01-hd-b-flute','S-4190 Heavy Duty Boxes 24 x 18 x 12" B Flute','wrong_spec','balanced','BOXT\'s 24x18x12 heavy duty box is C flute (the plain 24x18x12 has two details unconfirmed: Lenient admits it).'),
+  noMatch('s02-hd-e-flute','S-4191 Heavy Duty Boxes 24 x 18 x 12" E Flute','wrong_spec','balanced','C flute, not E (the plain box has two details unconfirmed: Lenient admits it).'),
+  noMatch('s03-box-b-flute','S-4128 Corrugated Boxes 12 x 10 x 8" B Flute','wrong_spec','strict','The plain box doesn\'t state its flute.'),
+  noMatch('s04-box-grade-b','S-4128 Corrugated Boxes 12 x 10 x 8" Grade B','not_carried','strict','"Grade B" (seconds) is not a BOXT item; the single letter is kept.'),
+  noMatch('c01-slider','S-1295 Slider Bags 4 x 6" 2 Mil','wrong_material','lenient','Slider closure, not press-to-close.'),
+  noMatch('c02-slider-zipper','S-1297 Slider Zipper Bags 6 x 9" 4 Mil','wrong_material','balanced','Slider, not press-to-close (the 6x9 flat poly mailer has two details unconfirmed: Lenient admits it).'),
+  noMatch('c03-tuck-flap','S-3163 Kraft Bubble Mailers #2 8 1/2 x 12" Tuck Flap','wrong_material','strict','The catalog doesn\'t state a tuck flap.'),
+  noMatch('c04-string-button','S-7244 String and Button Envelopes 10 x 13"','not_carried','strict','No string-and-button envelopes.'),
+  noMatch('g01-no-zipper','S-1695 Poly Bags 4 x 6" 2 Mil, No Zipper','wrong_material','lenient','BOXT\'s 4x6 2 mil bag has a zipper.'),
+  noMatch('g02-wo-zipper','S-1695 Poly Bags 4 x 6" 2 Mil w/o Zipper','wrong_material','lenient','"w/o" is without.'),
+  noMatch('g03-kraft-no-bubble','S-3170 Kraft Mailers #2 8 1/2 x 12" No Bubble','wrong_material','lenient','The kraft #2 mailer is a bubble mailer.'),
+  noMatch('g04-kraft-5-no-bubble','S-3171 Kraft Mailers #5 10 1/2 x 16" No Bubble','wrong_material','lenient','Bubble mailer.'),
+  noMatch('g05-poly-no-bubble','S-3172 Poly Mailers #2 8 1/2 x 12" No Bubble','wrong_material','lenient','Bubble mailer.'),
+  noMatch('g06-no-warning','S-1640 Bags 10 x 12" 1.5 Mil, No Suffocation Warning','wrong_material','lenient','BOXT\'s 10x12 1.5 mil bag carries the warning.'),
+  noMatch('g07-without-warning','S-1641 Bags 4 x 6" 1.5 Mil without warning','wrong_material','lenient','Warning print.'),
+  noMatch('g08-non-clear-cover','S-1749 Pallet Covers 48 x 42 x 48" 2 Mil, Non-Clear','wrong_material','lenient','BOXT\'s cover is clear.'),
+  noMatch('g09-non-hot-melt','S-424 Tape 2" x 110 yds 1.9 Mil, Non-Hot Melt','wrong_material','lenient','The 1.9 mil 2" tape is hot melt.'),
+  noMatch('u01-strap-cm','S-4605 Poly Strapping Hand Length 0.5 cm 600 lb Black','wrong_size','lenient','0.5 cm is not 0.5".'),
+  noMatch('u02-kraft-roll-cm','S-8517 Kraft Paper Roll 36 cm x 900 ft 40 lb','wrong_size','lenient','36 cm is about 14", not 36".'),
+  noMatch('u03-edge-mm','S-1659 Edge Protectors 2 x 2 x 48" .160 mm','wrong_size','lenient','.160 mm is not .160".'),
+  noMatch('u04-strap-half-cm','S-4606 Black Poly Strapping Hand Length 1/2 cm 600 lb','wrong_size','lenient','1/2 cm is not 1/2".'),
+  noMatch('b01-bare-19x24','S-9001 19x24','no_product_type','lenient','A bare size names no product.'),
+  noMatch('b02-bare-7.5x10.5','S-9002 7.5x10.5','no_product_type','lenient','A bare size names no product.'),
+  noMatch('b03-bare-20x6500','S-9003 20x6500','no_product_type','lenient','A bare size names no product.'),
+  noMatch('b04-bare-48x250','S-9004 48x250','no_product_type','lenient','A bare size names no product.'),
+  noMatch('b05-bare-24x18','S-9005 24x18','no_product_type','lenient','A bare size names no product.'),
+  noMatch('b06-bare-12x10x8','S-9006 12 x 10 x 8"','no_product_type','lenient','A bare size names no product, however well it fits a box.'),
+  noMatch('b07-bare-4x6-mil','S-9007 4x6 2 mil 1000/case','no_product_type','lenient','Size, mil and case count, but no product.'),
+  noMatch('b08-bare-number-size','S-9008 #2 8 1/2 x 12"','no_product_type','lenient','A mailer number and size, but no product.'),
 ];

@@ -274,6 +274,17 @@ describe('round 3: every number classified, tuples by label, negation, kept toke
     expect(tuple(text)).toEqual(expected);
   });
 
+  it('reads a legend after the tuple ("(L x W x H)", "W x L x D") as its labels',()=>{
+    expect(tuple('Corrugated Boxes 12" x 8" x 10" (L x W x H)')).toEqual([12,8,10]);
+    expect(tuple('Corrugated Boxes 10 x 12 x 8 W x L x D')).toEqual([12,10,8]);
+    expect(parseSpec('Corrugated Boxes 10 x 12 x 8 (WxLxH)').words).toEqual(['corrugated','box']);
+  });
+
+  it('reads microns as a thickness, in mil',()=>{
+    expect(parseSpec('Reclosable Bags 4 x 6" 50.8 micron').mil).toBeCloseTo(2,6);
+    expect(parseSpec('Reclosable Bags 4 x 6" 50 µm').mil).toBeCloseTo(50/25.4,6);
+  });
+
   it('does not read a mixed number or a two-part hyphen as a tuple',()=>{
     expect(tuple('12-1/4 x 9-1/4 x 9" mailers')).toEqual([12.25,9.25,9]);
     expect(parseSpec('bags 4-6').dims).toBeNull();

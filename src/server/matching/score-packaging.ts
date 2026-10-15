@@ -122,8 +122,10 @@ function fit(line:Spec,item:ScoredSpec){
     const said=line[key];
     if(said===null)continue;
     const has=item[key];
-    const label=(v:string|number)=>unit==='#'?`#${v}`:`${v}${unit}`;
-    add(A,has===null?0:has===said?1:-1,has===null?`${key}: ${label(said)}`:`${key}: ${label(said)} vs ${label(has)}`);
+    const label=(v:string|number)=>unit==='#'?`#${v}`:`${typeof v==='number'?Number(v.toFixed(2)):v}${unit}`;
+    // Mil may come from microns, so it compares within half a percent.
+    const same=typeof said==='number'&&typeof has==='number'?Math.abs(said-has)<=0.005*Math.max(said,has):has===said;
+    add(A,has===null?0:same?1:-1,has===null?`${key}: ${label(said)}`:`${key}: ${label(said)} vs ${label(has)}`);
   }
 
   for(const color of line.colors){
@@ -149,9 +151,17 @@ function fit(line:Spec,item:ScoredSpec){
 
   // What the line negates must not be there.
   const {negated}=line;
-  for(const [key,value] of Object.entries(negated.choices) as [ChoiceKey,string][])if(item.choices[key]===value)conflicts.push(`not: ${key} ${value}`);
+  // A choice or colour the item doesn't state is unknown, so its negation is unconfirmed, not kept.
+  // Features and words are stated when an item has them ("Bubble", "Printed"), so their absence keeps it.
+  for(const [key,value] of Object.entries(negated.choices) as [ChoiceKey,string][]){
+    if(item.choices[key]===value)conflicts.push(`not: ${key} ${value}`);
+    else if(item.choices[key]===undefined)unexplained.push(`not: ${key} ${value}`);
+  }
   for(const feature of negated.features)if(item.features.includes(feature))conflicts.push(`not: ${feature}`);
-  for(const color of negated.colors)if(item.colors.includes(color))conflicts.push(`not: ${color}`);
+  for(const color of negated.colors){
+    if(item.colors.includes(color))conflicts.push(`not: ${color}`);
+    else if(!item.colors.length)unexplained.push(`not: ${color}`);
+  }
   for(const word of negated.words)if(item.wordSet.has(word))conflicts.push(`not: ${word}`);
 
   for(const key of ['outer','roll'] as const){

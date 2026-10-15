@@ -235,6 +235,14 @@ describe('round 3 classes',()=>{
     expect(score('Kraft Mailers #2 8 1/2 x 12" No Bubble','B855SS')).toBeLessThanOrEqual(CONFLICT);
     expect(score('Poly Mailers #2 8 1/2 x 12" No Bubble','B833')).toBeLessThanOrEqual(CONFLICT);
   });
+  it('does not take an item\'s silence on a choice or colour as keeping a negation',()=>{
+    expect(score('Kraft Bubble Mailers #2 8 1/2 x 12" without self seal','B855SS')).toBeLessThanOrEqual(UNCONFIRMED);
+    expect(score('Corrugated Boxes 12 x 10 x 8" Not Printed','12108-BDL')).toBe(1);
+  });
+  it('compares microns with mil after conversion, never as a stray number',()=>{
+    expect(score('Reclosable Bags 4 x 6" 50.8 micron','PB3565')).toBe(1);
+    expect(score('Reclosable Bags 4 x 6" 100 micron','PB3565')).toBeLessThanOrEqual(CONFLICT);
+  });
   it('contradicts slider against press-to-close',()=>{
     expect(score('Slider Bags 4 x 6" 2 Mil','PB3565')).toBeLessThanOrEqual(CONFLICT);
   });

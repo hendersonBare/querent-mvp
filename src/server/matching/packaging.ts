@@ -143,6 +143,10 @@ const BURST=/\b(\d{3})\s*(?:#|lbs?\.?)\s*-?\s*(?:test|burst)\b|\b(?:mullen|burst
 const BARE_POUNDS=/\b(\d{2,4})\s*#(?!\s*\d)/g;
 const BOX_LINE=/\b(?:box(?:es)?|cartons?|corrugated|cardboard|gaylords?|rsc)\b/;
 const MIL=/(?<![\w.])(\d*\.?\d+)\s*-?\s*mils?\b/g;
+/** Film thickness in microns, read as mil (1 mil = 25.4 µm). */
+const MICRON=/(?<![\w.])(\d*\.?\d+)\s*-?\s*(?:microns?|µm|μm|um|mic)(?![\w])/g;
+/** A legend after a tuple, "(L x W x H)" or "W x L x D": the members' labels, in order. */
+const LEGEND=/\(?\b([lwhd])\s*x\s*([lwhd])(?:\s*x\s*([lwhd]))?\b\)?/g;
 const GAUGE=/\b(\d+)\s*-?\s*(?:gauge|gage|ga)\b/g;
 const NUMBER=/(?<![\w#])#\s*(\d+[a-z]?)\b/g;
 
@@ -444,7 +448,13 @@ export function parseSpec(raw:string):Spec{
     if(BOX_LINE.test(said)&&Number(n)>=100){bareBurst??=Number(n);return ' ';}
     return `${n} lb`;
   });
+  const micron=takeFirst(text,MICRON,raw=>Number(raw)/25.4);text=micron.text;
   const mil=takeFirst(text,MIL,Number);text=mil.text;
+  let legend:number[]|null=null;
+  text=text.replace(LEGEND,(_m:string,...labels:(string|undefined)[])=>{
+    legend??=labels.slice(0,3).filter((l):l is string=>!!l).map(l=>LABEL_RANK[l]);
+    return ' ';
+  });
   const gauge=takeFirst(text,GAUGE,Number);text=gauge.text;
   const number=takeFirst(text,NUMBER,String);text=number.text;
   const choices=takeChoices(text);text=choices.text;
@@ -458,10 +468,15 @@ export function parseSpec(raw:string):Spec{
   const grade=PAPER_GRADES.find(([,re])=>re.test(text))?.[0]??(kraft&&materials.includes('paper')?'kraft':undefined);
   if(grade)choices.choices.paper=grade;
   const sizes=takeSizes(text.replace(SIZE_ADJECTIVE,'$1 '));
+  // A legend labels the tuple's members in order; with each label once, put them in L, W, H/D order.
+  const order=legend as number[]|null;
+  if(order&&sizes.dims&&order.length===sizes.dims.length&&new Set(order).size===order.length){
+    sizes.dims=sizes.dims.map((d,i)=>({d,rank:order[i]})).sort((a,b)=>a.rank-b.rank).map(x=>x.d);
+  }
   return {
     dims:sizes.dims,altDims:sizes.altDims,measures:sizes.measures.filter(m=>m.unit),strays:sizes.measures.filter(m=>!m.unit),
     ect:ect.value as number|null,burst:(burst.value as number|null)??bareBurst,
-    mil:mil.value as number|null,gauge:gauge.value as number|null,number:number.value as string|null,
+    mil:(mil.value as number|null)??(micron.value as number|null),gauge:gauge.value as number|null,number:number.value as string|null,
     colors:colors.found,materials,choices:choices.choices,features:features.found,pack:packed.pack,negated:negations.negated,
     words:wordsOf(sizes.text),
   };

@@ -493,6 +493,238 @@
     "n76-economy-box": {
       "sku": null,
       "reason": "The listed box is not described as economy grade."
+    },
+    "m48-box-25pk": {
+      "sku": "12108-BDL",
+      "reason": "12x10x8 corrugated box, bundle of 25."
+    },
+    "m49-bags-1000ct": {
+      "sku": "PB3565",
+      "reason": "Reclosable 4x6, 2 mil, case of 1,000."
+    },
+    "m50-kraft-100pk": {
+      "sku": "B855SS",
+      "reason": "#2 kraft bubble mailer 8.5x12, case of 100."
+    },
+    "m51-edge-80pk": {
+      "sku": "EP2248160BX",
+      "reason": "Edge protector 2x2x48, .160 thick, case of 80."
+    },
+    "m52-box-lwh": {
+      "sku": "12108-BDL",
+      "reason": "12x10x8 (L x W x H) single wall 32 ECT."
+    },
+    "m53-box-wld": {
+      "sku": "12108-BDL",
+      "reason": "12 L x 10 W x 8 D is the 12x10x8 box."
+    },
+    "m54-mailer-lwh": {
+      "sku": "M1294",
+      "reason": "White corrugated mailer 12.25x9.25x4."
+    },
+    "m55-box-star": {
+      "sku": "12108-BDL",
+      "reason": "12x10x8 32 ECT."
+    },
+    "m56-box-hyphen": {
+      "sku": "12108-BDL",
+      "reason": "12x10x8, 200# test is 32 ECT."
+    },
+    "m57-kraft-roll-metric": {
+      "sku": "KP3640",
+      "reason": "Kraft roll 36 inch (914 mm) x 900 ft (274 m), 40 lb."
+    },
+    "m58-stretch-metric": {
+      "sku": "SF188CAST",
+      "reason": "Clear cast hand film 18 inch x 1500 ft, 80 gauge."
+    },
+    "m59-kraft-tape-mm": {
+      "sku": "T9077000",
+      "reason": "Kraft tape 70 mm x 450 ft."
+    },
+    "m60-strapping-mm": {
+      "sku": "PS1231",
+      "reason": "Black hand strapping 1/2 inch (12.7 mm), 600 lb."
+    },
+    "m61-bags-not-printed": {
+      "sku": "PB3565",
+      "reason": "Plain (unprinted) reclosable 4x6, 2 mil."
+    },
+    "m62-hd-c-flute": {
+      "sku": "HD241812DW-BDL",
+      "reason": "Heavy duty 24x18x12, C flute."
+    },
+    "p01-box-10pk": {
+      "sku": null,
+      "reason": "The 12x10x8 comes 25 to a bundle, not 10."
+    },
+    "p02-box-ect-10pk": {
+      "sku": null,
+      "reason": "The 12x10x8 comes 25 to a bundle, not 10."
+    },
+    "p03-bags-6pk": {
+      "sku": null,
+      "reason": "The 6x9 4 mil bag comes 1,000 to a case."
+    },
+    "p04-kraft-12pk": {
+      "sku": null,
+      "reason": "The #2 kraft mailer comes 100 to a case."
+    },
+    "p05-edge-2pk": {
+      "sku": null,
+      "reason": "The 2x2x48 edge protector comes 80 to a case."
+    },
+    "p06-poly-bubble-50pack": {
+      "sku": null,
+      "reason": "The #0 poly mailer comes 250 to a case."
+    },
+    "p07-bags-pk-of-100": {
+      "sku": null,
+      "reason": "The 4x6 2 mil bag comes 1,000 to a case."
+    },
+    "p08-kraft-roll-2pk": {
+      "sku": null,
+      "reason": "The kraft roll is sold singly, not in packs of 2."
+    },
+    "d01-box-lwh-order": {
+      "sku": null,
+      "reason": "No 12x8x10 box is listed; 12x10x8 is 10 wide and 8 high."
+    },
+    "d02-box-star-order": {
+      "sku": null,
+      "reason": "No 12x8x10 box is listed."
+    },
+    "d03-box-hyphen-order": {
+      "sku": null,
+      "reason": "No 12x8x10 box is listed."
+    },
+    "d04-box-wlh-order": {
+      "sku": null,
+      "reason": "No 12 L x 8 W x 10 H box is listed."
+    },
+    "d05-box-words-order": {
+      "sku": null,
+      "reason": "No 12 L x 8 W x 10 H box is listed."
+    },
+    "d06-mailer-swapped": {
+      "sku": null,
+      "reason": "The listed mailer is 12.25x9.25x4, not 9.25x12.25x4."
+    },
+    "s01-hd-b-flute": {
+      "sku": null,
+      "reason": "The listed heavy duty 24x18x12 is C flute, not B."
+    },
+    "s02-hd-e-flute": {
+      "sku": null,
+      "reason": "The listed heavy duty 24x18x12 is C flute, not E."
+    },
+    "s03-box-b-flute": {
+      "sku": null,
+      "reason": "The listed 12x10x8 does not say B flute."
+    },
+    "s04-box-grade-b": {
+      "sku": null,
+      "reason": "Nothing listed is grade B."
+    },
+    "c01-slider": {
+      "sku": null,
+      "reason": "The listed 4x6 bags are press-to-close reclosable, not slider bags."
+    },
+    "c02-slider-zipper": {
+      "sku": null,
+      "reason": "The listed 6x9 bags are press-to-close, not slider."
+    },
+    "c03-tuck-flap": {
+      "sku": null,
+      "reason": "The listed kraft mailer does not say tuck flap."
+    },
+    "c04-string-button": {
+      "sku": null,
+      "reason": "None listed has a string and button closure."
+    },
+    "g01-no-zipper": {
+      "sku": null,
+      "reason": "The listed 4x6 2 mil bag is reclosable; the line asks for no zipper."
+    },
+    "g02-wo-zipper": {
+      "sku": null,
+      "reason": "The listed 4x6 2 mil bag is reclosable; the line asks for none."
+    },
+    "g03-kraft-no-bubble": {
+      "sku": null,
+      "reason": "The listed kraft #2 mailer is a bubble mailer."
+    },
+    "g04-kraft-5-no-bubble": {
+      "sku": null,
+      "reason": "The listed kraft #5 mailer is a bubble mailer."
+    },
+    "g05-poly-no-bubble": {
+      "sku": null,
+      "reason": "The listed poly #2 mailer is a bubble mailer."
+    },
+    "g06-no-warning": {
+      "sku": null,
+      "reason": "The listed 10x12 1.5 mil bag is a suffocation warning bag."
+    },
+    "g07-without-warning": {
+      "sku": null,
+      "reason": "The listed 4x6 1.5 mil bag is a warning bag."
+    },
+    "g08-non-clear-cover": {
+      "sku": null,
+      "reason": "The listed pallet cover is clear."
+    },
+    "g09-non-hot-melt": {
+      "sku": null,
+      "reason": "The listed 1.9 mil tape is hot melt."
+    },
+    "u01-strap-cm": {
+      "sku": null,
+      "reason": "0.5 cm is about 3/16 inch; the listed strapping is 1/2 inch."
+    },
+    "u02-kraft-roll-cm": {
+      "sku": null,
+      "reason": "No 14 inch (36 cm) roll is listed."
+    },
+    "u03-edge-mm": {
+      "sku": null,
+      "reason": "The listed edge protector is .160 inch thick, not .160 mm."
+    },
+    "u04-strap-half-cm": {
+      "sku": null,
+      "reason": "1/2 cm is not the listed 1/2 inch strapping."
+    },
+    "b01-bare-19x24": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b02-bare-7.5x10.5": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b03-bare-20x6500": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b04-bare-48x250": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b05-bare-24x18": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b06-bare-12x10x8": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b07-bare-4x6-mil": {
+      "sku": null,
+      "reason": "The line names no product."
+    },
+    "b08-bare-number-size": {
+      "sku": null,
+      "reason": "The line names no product."
     }
   }
 }

@@ -29,7 +29,10 @@ if(markdown){
   console.log(`\nMust-match lines Strict leaves for the rep (recorded judge): ${missed.length}`);
   for(const r of missed)console.log(`  ${r.id}: ${r.reason} (top ${r.topSku} ${r.topScore}, lead ${r.lead})`);
   // Strict's margin: how far the must-not-match lines are from clearing it on each axis.
-  const falses=CASES.filter(c=>c.expect==='no_match').map(c=>strict.results.find(r=>r.id===c.id)!);
+  const allFalses=CASES.filter(c=>c.expect==='no_match').map(c=>strict.results.find(r=>r.id===c.id)!);
+  // A line that names no product type never clears, whatever its score (rule in retrieve()).
+  const falses=allFalses.filter(r=>r.namesProduct);
+  console.log(`\n${allFalses.length-falses.length} must-not-match lines name no product type the top item confirms; they cannot clear at any level.`);
   const {minScore,minLead}=strict.rule;
   const scoreSide=falses.filter(r=>r.lead>=minLead).sort((a,b)=>b.topScore-a.topScore)[0];
   const leadSide=falses.filter(r=>r.topScore>=minScore).sort((a,b)=>b.lead-a.lead)[0];
