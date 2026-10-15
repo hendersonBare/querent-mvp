@@ -110,8 +110,31 @@ describe('scorePackaging: what the line says',()=>{
     expect(score('10 x 8 x 6" corrugated boxes','1086W-BDL')).toBe(UNSTATED);
   });
 
-  it('charges each contradiction by the CONFLICT factor on top of its lost weight',()=>{
+  it('contradicts on paper grade: newsprint is not kraft paper',()=>{
+    const catalog=[
+      {sku:'NP2430',description:'Newsprint Sheets, 24x36" 50 lb.',pack:'Case of 800',caseQty:1,keywords:'newsprint sheets packing paper pre-cut paper void fill wrapping paper'},
+      {sku:'KPS243650',description:'Kraft Paper Sheets, 24x36" 50 lb., 50 lb./Bundle',pack:'Case of 500',caseQty:1,keywords:'kraft paper sheets packing paper recycled paper void fill wrapping paper'},
+    ];
+    const s=(line:string)=>Object.fromEntries(scorePackaging(line,catalog).map(c=>[c.item.sku,c.score]));
+    expect(s('Newsprint sheets 24 x 36" 50 lb')).toMatchObject({NP2430:1});
+    expect(s('Newsprint sheets 24 x 36" 50 lb').KPS243650).toBeLessThan(0.5);
+    expect(s('Kraft paper sheets 24 x 36" 50 lb').NP2430).toBeLessThan(0.5);
+  });
+
+  it('caps any item with a contradiction at CONFLICT, so it can never clear a level (every minScore is above it)',()=>{
     expect(CONFLICT).toBeLessThanOrEqual(0.5);
+    for(const line of ['12 x 8 x 10" Corrugated Boxes 32 ECT 25/bundle','Reclosable poly bags 4 x 6" 4 mil 1000/case','10 x 8 x 6" kraft corrugated boxes']){
+      for(const c of scorePackaging(line,CATALOG))if(c.conflicts.length)expect(c.score,`${line} -> ${c.item.sku}`).toBeLessThanOrEqual(CONFLICT);
+    }
+  });
+
+  it('keeps an item that contradicts only the size as a scored near-miss, nearest size first',()=>{
+    const r=scorePackaging('12 x 10 x 7" corrugated boxes 32 ECT',CATALOG);
+    expect(r.length).toBeGreaterThan(0);
+    expect(r.slice(0,3).map(c=>c.item.sku)).toEqual(['12108-BDL','12108-PLT','12106-BDL']);
+  });
+
+  it('charges each contradiction by the CONFLICT factor on top of its lost weight',()=>{
     const [one,two]=[score('Reclosable poly bags 4 x 6" 4 mil 1000/case','PB3565'),score('Reclosable poly bags 4 x 6" 4 mil 500/case','PB3565')];
     expect(two).toBeLessThan(one);
   });

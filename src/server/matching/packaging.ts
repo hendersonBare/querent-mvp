@@ -6,7 +6,7 @@ import {normalize,stem} from './text';
 //   - dims: the first "a x b x c" group, in the order given (12x10x8 is not 12x8x10);
 //   - measures: every other number with its unit (a 1/2" bubble, 600 lb strapping, 50 lb paper);
 //   - strength (ECT, or a burst rating "200 lb test" / "200#"), mil, gauge, a "#2" size number;
-//   - exclusive choices: wall, closure, adhesive, print method, film type, hand/machine;
+//   - exclusive choices: wall, closure, adhesive, print method, film type, hand/machine, paper grade;
 //   - features that make a different kind of item (bubble, padded, insulated, heavy duty, ...);
 //   - colours (brown and natural are kraft) and materials (poly, paper, corrugated, foam);
 //   - the stated pack quantity ("25/bundle", "1000/case", "case of 500");
@@ -17,7 +17,7 @@ import {normalize,stem} from './text';
 export interface Size {unit:string|null;value:number;label:string}
 /** A pack quantity: `outer` is the count per case, bundle or carton; `roll` the count per roll. */
 export interface Pack {outer?:number;roll?:number}
-export type ChoiceKey='wall'|'closure'|'adhesive'|'print'|'film'|'length';
+export type ChoiceKey='wall'|'closure'|'adhesive'|'print'|'film'|'length'|'paper';
 
 /** What a line (or a catalog row) says about the item. */
 export interface Spec {
@@ -164,8 +164,11 @@ const CHOICES:{key:ChoiceKey;values:[string,RegExp][]}[]=[
     ['machine',/\bmachine[\s-]*(?:length|grade)\b|\bmachine(?=[\s-]+(?:stretch|pallet|wrap|film|strapping)\b)/g],
   ]},
 ];
-/** The choices that make an item a different kind when the line doesn't say them (single wall is the default). */
-export const DEFINING_CHOICE=(key:ChoiceKey,value:string)=>key==='closure'||(key==='wall'&&value!=='single');
+/** The choices that make an item a different kind when the line doesn't say them (single wall is the default; kraft paper is also its colour). */
+export const DEFINING_CHOICE=(key:ChoiceKey,value:string)=>key==='closure'||(key==='wall'&&value!=='single')||(key==='paper'&&value!=='kraft');
+
+/** The paper grade, read without removing the words: newsprint, tissue and kraft paper are different papers. */
+const PAPER_GRADES:[string,RegExp][]=[['newsprint',/\bnewsprint\b/],['tissue',/\btissue\b/],['crinkle',/\bcrinkle\b/],['honeycomb',/\bhoneycomb\b/]];
 
 /** Features that make a different kind of item; an item's feature the line doesn't state is unconfirmed. */
 const FEATURES:[string,RegExp][]=[
@@ -305,7 +308,7 @@ export function sameSize(a:Size,b:Size){
 /** Words that say nothing about the item. The supplier's own name is one of them. */
 const STOP=new Set(`a an the and or of for with w to in on at by per from x please pls need our we item items qty quantity
   each ea pc pcs piece pieces uline brand size sz approx approximately inch inches ft feet lb lbs mil mils ga gauge ect test
-  count ct case cases cs bundle bundles bdl bdls ctn ctns pk pkg pkgs new style no`.split(/\s+/));
+  count ct case cases cs bundle bundles bdl bdls ctn ctns pk pkg pkgs new style no thick thickness wide width long high tall`.split(/\s+/));
 
 function wordsOf(text:string){
   const words:string[]=[];
@@ -341,6 +344,8 @@ export function parseSpec(raw:string):Spec{
   const colors=takeAll(text,COLORS);text=colors.text;
   const materials=MATERIALS.filter(([,re])=>re.test(text)).map(([value])=>value);
   if(kraft&&!materials.length)materials.push('paper');
+  const grade=PAPER_GRADES.find(([,re])=>re.test(text))?.[0]??(kraft&&materials.includes('paper')?'kraft':undefined);
+  if(grade)choices.choices.paper=grade;
   const sizes=takeSizes(text);
   return {
     dims:sizes.dims,measures:sizes.measures,

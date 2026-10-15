@@ -9,10 +9,11 @@ import {OFF_NOUN,hundredths} from './score';
 //   - the dims tuple weighs 3; every typed attribute (a measure, ECT or burst rating, mil, gauge,
 //     "#2", colour, material, wall, closure, adhesive, print, film, hand/machine, pack quantity)
 //     weighs 2; a feature (bubble, padded, ...) and each word weigh 1;
-//   - an attribute the item contradicts subtracts its weight AND multiplies the score by CONFLICT,
-//     once per contradiction: 12x8x10 for a 12x10x8 box, 44 ECT for 32 ECT, 4 mil for 2 mil,
-//     500/case for a case of 1,000, white for kraft, poly for a kraft (paper) mailer, open top for
-//     reclosable. One contradiction puts any item well under every threshold;
+//   - an attribute the item contradicts earns nothing AND multiplies the score by CONFLICT, once
+//     per contradiction: 12x8x10 for a 12x10x8 box, 44 ECT for 32 ECT, 4 mil for 2 mil, 500/case
+//     for a case of 1,000, white for kraft, poly for a kraft (paper) mailer, open top for
+//     reclosable, newsprint for kraft paper. So an item with any contradiction scores at most
+//     CONFLICT (0.5), under every level's minScore, yet stays on the list as a near-miss;
 //   - an attribute the item doesn't state adds nothing (unconfirmed, not contradicted);
 //   - a pack quantity the item doesn't state ("Case") is left out entirely: no evidence either way;
 //   - a burst rating compares with ECT through the standard equivalents (200 lb test = 32 ECT,
@@ -56,10 +57,10 @@ const packLabel=(n:number,key:'outer'|'roll')=>key==='roll'?`${n}/roll`:`${n}/pa
 
 /** How well an item fits a line, before rounding. */
 function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
-  let total=0,got=0;
+  let total=0,got=0,distance=0;
   const conflicts:string[]=[],unstated:string[]=[];
   const add=(weight:number,fit:1|0|-1,conflict?:string)=>{
-    total+=weight;got+=weight*fit;
+    total+=weight;got+=weight*Math.max(fit,0);
     if(fit<0&&conflict)conflicts.push(conflict);
   };
   const A=PACKAGING_WEIGHTS.attribute;
@@ -68,7 +69,11 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
     const dims=item.dims;
     if(!dims)add(PACKAGING_WEIGHTS.dims,0);
     else if(dims.length===line.dims.length&&dims.every((d,i)=>sameSize(line.dims![i],d)))add(PACKAGING_WEIGHTS.dims,1);
-    else add(PACKAGING_WEIGHTS.dims,-1,`size: ${tuple(line.dims)} vs ${tuple(dims)}`);
+    else{
+      add(PACKAGING_WEIGHTS.dims,-1,`size: ${tuple(line.dims)} vs ${tuple(dims)}`);
+      // How far off the size is, to list the nearest sizes first among equal scores.
+      distance=dims.length===line.dims.length?dims.reduce((sum,d,i)=>sum+Math.abs(Math.log((line.dims![i].value||1e-9)/(d.value||1e-9))),0):Infinity;
+    }
   }
   for(const m of line.measures){
     const comparable=[...(item.dims??[]),...item.measures].filter(x=>!m.unit||!x.unit||familyOf(x.unit)===familyOf(m.unit));
@@ -120,9 +125,9 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
   const named=line.words.filter(w=>NOUNS.has(w));
   const offNoun=named.length>0&&!named.some(w=>item.wordSet.has(w));
 
-  if(!total||got<=0)return {score:0,conflicts,unstated};
+  if(!total||got<=0)return {score:0,conflicts,unstated,distance};
   const score=(got/total)*CONFLICT**conflicts.length*UNSTATED**unstated.length*(offNoun?OFF_NOUN:1);
-  return {score,conflicts:offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts,unstated};
+  return {score,conflicts:offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts,unstated,distance};
 }
 
 const WORD_SETS=new WeakMap<object,ReadonlySet<string>>();
@@ -134,16 +139,17 @@ function itemOf(item:PackagingItem){
 }
 
 /**
- * Every catalog item that fits `description` at all, best first, scored 0 to 1 in hundredths. Ties
- * keep catalog order (so a bundle-pricing tier comes before its pallet-pricing twin).
+ * Every catalog item that fits `description` at all, best first, scored 0 to 1 in hundredths. Among
+ * equal scores the nearer size comes first, then catalog order (so a bundle-pricing tier comes
+ * before its pallet-pricing twin).
  */
 export function scorePackaging<T extends PackagingItem>(description:string,catalog:readonly T[]):Candidate<T>[]{
   const line=parseSpec(description);
-  const scored:(Candidate<T>&{index:number})[]=[];
+  const scored:(Candidate<T>&{index:number;distance:number})[]=[];
   catalog.forEach((item,index)=>{
-    const {score,conflicts,unstated}=fit(line,itemOf(item));
+    const {score,conflicts,unstated,distance}=fit(line,itemOf(item));
     const rounded=hundredths(score)/100;
-    if(rounded>0)scored.push({item,score:rounded,group:productGroup(item),conflicts,unstated,index});
+    if(rounded>0)scored.push({item,score:rounded,group:productGroup(item),conflicts,unstated,index,distance});
   });
-  return scored.sort((a,b)=>b.score-a.score||a.index-b.index).map(({index:_,...c})=>c);
+  return scored.sort((a,b)=>b.score-a.score||a.distance-b.distance||a.index-b.index).map(({index:_,distance:__,...c})=>c);
 }

@@ -35,6 +35,7 @@ describe('parseSpec: dimensions are a positional tuple',()=>{
     expect(measures('Kraft paper sheets 24 x 36" 50 lb')).toEqual([['lb',50]]);
     expect(measures('Poly strapping 1/2" 600 lb')).toEqual([['in',0.5],['lb',600]]);
     expect(measures('Loose fill peanuts 14 cubic feet')).toEqual([['cuft',14]]);
+    expect(parseSpec('Edge protectors 2 x 2 x 48", .160" thick').words).toEqual(['edge','protector']);
   });
 
   it('has no tuple when the line gives no size',()=>{
@@ -107,6 +108,15 @@ describe('parseSpec: colour, material, closure and kind',()=>{
     expect(parseSpec('thermal transfer labels').choices.print).toBe('thermal transfer');
     expect(parseSpec('cast stretch film').choices.film).toBe('cast');
     expect(parseSpec('machine stretch film').choices.length).toBe('machine');
+  });
+
+  it('reads the paper grade: newsprint, tissue, crinkle, or kraft for kraft paper',()=>{
+    expect(parseSpec('Newsprint Sheets 24 x 36" 50 lb').choices.paper).toBe('newsprint');
+    expect(parseSpec('Kraft Tissue Paper 20 x 30"').choices.paper).toBe('tissue');
+    expect(parseSpec('Kraft Paper Sheets 24 x 36"').choices.paper).toBe('kraft');
+    expect(parseSpec('Kraft bubble mailers #2').choices.paper).toBe('kraft');
+    expect(parseSpec('Kraft corrugated boxes').choices.paper).toBeUndefined();
+    expect(parseSpec('Packing paper 24 x 36"').choices.paper).toBeUndefined();
   });
 
   it('reads the features that make a different kind of item, and does not mistake thermal labels for insulated mailers',()=>{
