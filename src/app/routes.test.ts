@@ -25,6 +25,8 @@ const ROUTES=[
   '/api/auth/login','/api/auth/signout','/api/auth/reset','/api/auth/update-password',
   // B6: a quote's page and the quotes API (POST /api/quotes is B5's, in the same route file).
   '/quotes/[id]','/api/quotes','/api/quotes/[id]',
+  // B7: the settings API.
+  '/api/settings',
 ];
 
 describe('routes',()=>{
