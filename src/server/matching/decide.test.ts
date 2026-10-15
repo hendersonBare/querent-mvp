@@ -7,11 +7,11 @@ import type {Candidate,Retrieval} from './retrieve';
 // product group. Never on the judge alone, never on the scorer alone.
 
 type Row={sku:string;description:string};
-const candidate=(sku:string,score:number,group=sku):Candidate<Row>=>({item:{sku,description:sku},score,group,conflicts:[],unstated:[],unexplained:[],typeConfirmed:true});
+const candidate=(sku:string,score:number,group=sku):Candidate<Row>=>({item:{sku,description:sku},score,group,conflicts:[],unstated:[],unexplained:[],typeConfirmed:true,eligibility:{strictEligible:true,blockers:[]}});
 const RULE={minScore:0.9,minLead:0.2};
 
 function retrieval(candidates:Candidate<Row>[],{lead,clears}:{lead:number;clears:boolean}):Retrieval<Row>{
-  return {candidates,top:candidates[0]??null,lead,clears,namesProduct:true,nearMisses:candidates,rule:RULE};
+  return {candidates,top:candidates[0]??null,lead,clears,namesProduct:true,eligibility:candidates[0]?.eligibility??{strictEligible:false,blockers:[]},nearMisses:candidates,rule:RULE};
 }
 
 const BDL=candidate('12108-BDL',1,'box 12x10x8');
@@ -49,6 +49,13 @@ describe('decide',()=>{
 
   it('is no match when the line names no product type, whatever the scores and the judge',()=>{
     expect(decide({...retrieval([BDL,OTHER],{lead:0.6,clears:false}),namesProduct:false},{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'no_product_type'});
+  });
+
+  it('is no match when the level requires total accounting and the line is not Strict-eligible, whatever the judge',()=>{
+    const blocked={...retrieval([BDL,OTHER],{lead:0.6,clears:false}),eligibility:{strictEligible:false,blockers:['the line says "or"']},rule:{...RULE,requireTotalAccounting:true}};
+    expect(decide(blocked,{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'not_accounted'});
+    // Without the requirement (Balanced, Lenient) the score and lead give the reason.
+    expect(decide({...blocked,rule:RULE},{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'low_lead'});
   });
 
   it('is no match when there are no candidates',()=>{

@@ -37,8 +37,8 @@ describe('match strictness',()=>{
   });
 
   it('gives the matcher its rule, falling back to the default for an unknown level',()=>{
-    expect(matchConfig('strict')).toEqual({minScore:LEVELS.strict.minScore,minLead:LEVELS.strict.minLead});
-    expect(matchConfig('lenient')).toEqual({minScore:LEVELS.lenient.minScore,minLead:LEVELS.lenient.minLead});
+    expect(matchConfig('strict')).toEqual({minScore:LEVELS.strict.minScore,minLead:LEVELS.strict.minLead,requireTotalAccounting:true});
+    expect(matchConfig('lenient')).toEqual({minScore:LEVELS.lenient.minScore,minLead:LEVELS.lenient.minLead,requireTotalAccounting:false});
     expect(matchConfig('nonsense' as never)).toEqual(matchConfig(DEFAULT_LEVEL));
   });
 

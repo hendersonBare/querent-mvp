@@ -227,3 +227,47 @@ describe('total accounting: what retrieve and decide expose',()=>{
     expect(r.clears).toBe(true);
   });
 });
+
+describe('total accounting: what only keywords say, a second product, separators',()=>{
+  const WHITE=[{sku:'1184W-BDL',description:'White Corrugated Boxes 11.25x8.75x4", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:'bulk boxes premium boxes white boxes white corrugated white shipping boxes'}];
+  const DISPENSER=[{sku:'TDSS2',description:'Seal Safe Hand Tape Dispensers 2"',pack:'Each',caseQty:1,category:'tape',keywords:'carton sealer hand tape dispenser packing tape gun tape dispenser tape gun'}];
+
+  it('takes a claim only the family\'s keywords make ("premium") as unconfirmed at Strict, but plain synonyms ("shipping") as confirmed',()=>{
+    const [premium]=scorePackaging('Premium White Corrugated Boxes 11.25 x 8.75 x 4" 32 ECT',WHITE);
+    expect(premium.score).toBe(1);
+    expect(premium.eligibility.blockers.join(' ')).toContain('"premium"');
+    const [shipping]=scorePackaging('White Corrugated Shipping Boxes 11.25 x 8.75 x 4" 32 ECT',WHITE);
+    expect(shipping.eligibility).toEqual({strictEligible:true,blockers:[]});
+  });
+
+  it('reads "with" before a product as a second product, even when one item\'s description names both',()=>{
+    expect(blockers('Packing Tape 2" with Dispenser').join(' ')).toContain('with dispenser');
+    expect(scorePackaging('Packing Tape 2" with Dispenser',DISPENSER)[0].eligibility.strictEligible).toBe(false);
+    expect(blockers('Kraft Bubble Mailers with Self Seal Strip').join(' ')).not.toContain('with');
+  });
+
+  it('a pack phrase may count pieces or rolls, or the line\'s own product, but not another product',()=>{
+    expect(blockers('Reclosable Bags 4 x 6" 2 Mil 1000 labels/case').join(' ')).toContain('a pack of "label"');
+    expect(blockers('Reclosable Bags 4 x 6" 2 Mil 1000 bags/case')).toEqual([]);
+    expect(blockers('Clear Hot Melt Tape 2" x 110 yd 1.9 mil 36 rolls/case')).toEqual([]);
+  });
+
+  it('a spaced dash or bullet separates; an unspaced dash between numbers, or one unit on both sides, is a range',()=>{
+    expect(blockers('Corrugated Boxes – 12 × 10 × 8″ – 32 ECT')).toEqual([]);
+    expect(blockers('Corrugated Boxes 12x10x8 • 32 ECT • 25/bundle')).toEqual([]);
+    expect(blockers('Kraft Paper Roll 36" x 900\' 40-50 lb')).toContain('a range');
+    expect(blockers('Corrugated Boxes 12" - 14" x 10 x 8')).toContain('a range');
+    expect(blockers('Mailers 12-1/4 x 9-1/4 x 4"')).toEqual([]);
+  });
+});
+
+describe('total accounting: a thickness joined to the size with "x"',()=>{
+  it('reads "4" x 6" x 2 mil" as a 4x6 bag of 2 mil, with nothing left over',()=>{
+    expect(blockers('Reclosable Bags 4" x 6" x 2 mil')).toEqual([]);
+    expect(parseSpec('Reclosable Bags 4x6x2mil').dims?.map(d=>d.value)).toEqual([4,6]);
+    expect(strictMatch('Reclosable Bags 4" x 6" x 2 mil')).toBe('PB3565');
+    // A bare third number is still a third dimension, which no 4x6 bag has.
+    expect(parseSpec('Reclosable Bags 4x6x2').dims?.map(d=>d.value)).toEqual([4,6,2]);
+    expect(strictMatch('Reclosable Bags 4x6x2')).toBeNull();
+  });
+});

@@ -245,4 +245,71 @@ const HANDWRITTEN:readonly EvalCase[]=[
   noMatch('b08-bare-number-size','S-9008 #2 8 1/2 x 12"','no_product_type','lenient','A mailer number and size, but no product.'),
 ];
 
-export const CASES:readonly EvalCase[]=[...HANDWRITTEN,...HELDOUT_CASES];
+/** Tags a case written for B3b to attack the total-accounting rules (or to check they keep realistic lines). */
+const mine=(c:EvalCase):EvalCase=>({...c,tags:['b3b']});
+
+/**
+ * B3b: lines written against the total-accounting design itself, in classes the verifiers' probes
+ * did not cover: claims only a product family's keywords make, "with" adding a second product, pack
+ * phrases counting another product, trade shorthand (1M), two walls, flutes, colours, materials or
+ * cores, approximate and minimum ratings, prices, separators, units before or without numbers,
+ * four-number sizes, sizes in words, inside dimensions and tolerances; and realistic lines that must
+ * still match (pack counts, W x L bags, L x W x H boxes, en dashes and full-width marks).
+ */
+const B3B:readonly EvalCase[]=[
+  mine(noMatch("b01-attack","Eco Padded Paper Mailers 12.5 x 18.25\"","wrong_spec","strict","\"Eco\" is only in the padded mailer family's keywords, not the item's description.")),
+  mine(noMatch("b02-attack","Security Black Blown Stretch Wrap Hand Length 18\" x 1500' 80 Gauge","wrong_spec","strict","\"Security\" is only in the black wrap family's keywords.")),
+  mine(noMatch("b03-attack","Custom Clear Poly Tubing 8\" x 1075' 4 Mil","wrong_spec","lenient","\"Custom\" is only in the tubing family's keywords.")),
+  mine(noMatch("b04-attack","Premium White Corrugated Boxes 11.25 x 8.75 x 4\" 32 ECT","wrong_spec","strict","\"Premium\" is only in the white box family's keywords.")),
+  mine(noMatch("b05-attack","Reinforced Heavy Duty Boxes 24 x 18 x 12\" C Flute","wrong_spec","strict","\"Reinforced\" is only in the heavy duty family's keywords.")),
+  mine(noMatch("b06-attack","Packing Tape 2\" with Dispenser","ambiguous","lenient","\"with Dispenser\" adds a second product (the 2\" dispenser's description says both tape and dispenser).")),
+  mine(noMatch("b07-attack","Corrugated Boxes 12 x 10 x 8\" with Lids","ambiguous","strict","\"with Lids\" adds a second product.")),
+  mine(noMatch("b08-attack","Kraft Tape 72mm x 450' with a Dispenser","ambiguous","balanced","\"with a Dispenser\" adds a second product.")),
+  mine(noMatch("b09-attack","Reclosable Bags 4 x 6\" 2 Mil 1000 labels/case","wrong_pack","strict","A pack of labels on a line about bags.")),
+  mine(noMatch("b10-attack","Kraft Bubble Mailers #2 8 1/2 x 12\" 100 bags/case","wrong_pack","strict","A pack of bags on a line about mailers.")),
+  mine(noMatch("b11-attack","Reclosable Bags 4 x 6\" 2 Mil 1M/case","wrong_pack","lenient","\"1M/case\" is trade shorthand for 1,000; read as 1 metre it must not match.")),
+  mine(noMatch("b12-attack","Reclosable Bags 4 x 6\" 2 Mil 1000/cs 2 cs","wrong_pack","balanced","\"2 cs\" is an order quantity the matcher cannot read.")),
+  mine(noMatch("b13-attack","Corrugated Boxes 12 x 10 x 8\" Single Wall Double Wall","ambiguous","lenient","Two walls.")),
+  mine(noMatch("b14-attack","Heavy Duty Boxes 24 x 18 x 12\" C Flute B Flute","ambiguous","lenient","Two flutes.")),
+  mine(noMatch("b15-attack","Reclosable Bags 4 x 6\" 2 Mil Clear Blue","ambiguous","lenient","Two colours.")),
+  mine(noMatch("b16-attack","Paper Poly Bubble Mailers #2 8 1/2 x 12\"","ambiguous","lenient","Two materials (paper and poly).")),
+  mine(noMatch("b17-attack","Black Poly Strapping Machine Length 1/2\" x 9000' 300 lb 8x8 Core 9x8 Core","ambiguous","lenient","Two cores.")),
+  mine(noMatch("b18-attack","Corrugated Boxes 12 x 10 x 8\" ~32 ECT","wrong_spec","strict","\"~32 ECT\": approximately.")),
+  mine(noMatch("b19-attack","Corrugated Boxes 12 x 10 x 8\" 32 ECT @ $1.20","wrong_spec","strict","A price on the line (\"@ $1.20\").")),
+  mine(noMatch("b20-attack","Corrugated Boxes 12 x 10 x 8\" min. 32 ECT","wrong_spec","strict","\"min. 32 ECT\": a minimum, not a rating.")),
+  mine(noMatch("b21-attack","Corrugated Boxes 12 x 10 x 8\" 32 ECT (or equivalent)","wrong_spec","balanced","\"or equivalent\".")),
+  mine(noMatch("b22-attack","Kraft Paper Roll 36\" x 900' 40-50 lb","ambiguous","lenient","A weight range.")),
+  mine(noMatch("b23-attack","Reclosable Bags 4 x 6\" 2 Mil | Clear","wrong_spec","strict","A \"|\" separator nothing reads.")),
+  mine(noMatch("b24-attack","Corrugated Boxes 12 x 10 x 8\" ECT","wrong_spec","strict","\"ECT\" with no number.")),
+  mine(noMatch("b25-attack","Reclosable Bags 4 x 6\" Mil 2","wrong_spec","lenient","\"Mil 2\": the unit before its number is not read.")),
+  mine(noMatch("b26-attack","Corrugated Boxes 12 x 10 x 8 x 25","wrong_size","lenient","A four-number size.")),
+  mine(noMatch("b27-attack","Corrugated Boxes Twelve by Ten by Eight","wrong_size","lenient","Sizes in words.")),
+  mine(noMatch("b28-attack","Corrugated Boxes 12 x 10 x 8\" Tape","ambiguous","strict","Two products (boxes, tape) with no joining word.")),
+  mine(noMatch("b29-attack","Kraft Bubble Mailer Envelopes #2 8 1/2 x 12\"","ambiguous","strict","\"Envelopes\" is not in the mailer's description or keywords.")),
+  mine(noMatch("b30-attack","Corrugated Boxes 12 x 10 x 8\" ID","wrong_size","strict","\"ID\": inside dimensions.")),
+  mine(noMatch("b31-attack","Reclosable Bags 4 x 6\" Less Than 2 Mil","wrong_spec","balanced","\"Less than 2 mil\".")),
+  mine(noMatch("b32-attack","Corrugated Boxes 12\" L x 10\" L x 8\" H","wrong_size","strict","The L label used twice.")),
+  mine(noMatch("b33-attack","Corrugated Boxes 12 x 10 x 8\" +/- 1/8\"","wrong_size","lenient","A tolerance (\"+/- 1/8\\\"\").")),
+  mine(noMatch("b34-attack","Kraft Paper Roll 36\" x 900' 40 lb 2 rolls","wrong_pack","strict","\"2 rolls\" is an order quantity.")),
+  mine(noMatch("b35-attack","Corrugated Boxes 12 x 10 x 8\" 32 ECT 50 lb","wrong_spec","strict","A weight on a box line.")),
+  mine(match("a01-must","Corrugated Shipping Boxes 10 x 10 x 10\" 32 ECT, 25 per bundle","101010-BDL","Realistic line; every part read and confirmed.")),
+  mine(match("a02-must","Reclosable Poly Bags 5 x 8\" 4 mil, 1,000/case","PB3720","Realistic line; every part read and confirmed.")),
+  mine(match("a03-must","Clear Hot Melt Packing Tape 2\" x 110 yd 1.9 mil, 36 rolls per case","T902700","Realistic line; every part read and confirmed.")),
+  mine(match("a04-must","#6 Kraft Bubble Mailers 12 1/2 x 19\", 50/case","B859SS","Realistic line; every part read and confirmed.")),
+  mine(match("a05-must","Kraft Paper Roll 12\" x 1200' 30 lb","KP1230","Realistic line; every part read and confirmed.")),
+  mine(match("a06-must","Direct Thermal Desktop Labels 2 x 2\" White, 8,820/case","THD202","Realistic line; every part read and confirmed.")),
+  mine(match("a07-must","Kraft Tape 70 mm x 450', 10 rolls/case","T9077000","Realistic line; every part read and confirmed.")),
+  mine(match("a08-must","Clear Cast Stretch Wrap 18\" x 1500' 80 Gauge Hand Length, 4 rolls/case","SF188CAST","Clear stated: the red cast wrap of the same size is another item.")),
+  mine(match("a09-must","Edge Protectors 2\" x 2\" x 24\" .160\", 160/case","EP2224160BX","Realistic line; every part read and confirmed.")),
+  mine(match("a10-must","Corrugated Boxes 24\" L x 14\" W x 10\" H, 32 ECT","241410-BDL","Realistic line; every part read and confirmed.")),
+  mine(match("a11-must","Reclosable Bags 9\" W x 6\" L 2 Mil","PB3604","Bags are listed W x L: 9\" wide x 6\" long is the 9x6 bag.")),
+  mine(match("a12-must","Clear Face Document Envelopes 12 x 15\", 500/case","PL527","Realistic line; every part read and confirmed.")),
+  mine(match("a13-must","Newsprint Sheets 18 x 24\" 50 lb, 1,600/case","NP1830","Realistic line; every part read and confirmed.")),
+  mine(match("a14-must","Black Poly Strapping Hand Length 1/2\" 500 lb","PS1226","Realistic line; every part read and confirmed.")),
+  mine(match("a15-must","Blown Stretch Wrap Machine Length 20\" x 6000' 80 Gauge","MSF2080B","Realistic line; every part read and confirmed.")),
+  mine(match("a16-must","Heavy Duty Double Wall Boxes 16 x 16 x 16\" BC Flute","HD161616DW-BDL","Realistic line; every part read and confirmed.")),
+  mine(match("a17-must","Corrugated Boxes – 12 × 10 × 8″ – 32 ECT","12108-BDL","En dashes as separators, × and ″.")),
+  mine(match("a18-must","Reclosable Bags 4\" x 6\" x 2 mil","PB3565","The \"x\" before a film thickness joins it to the size.")),
+];
+
+export const CASES:readonly EvalCase[]=[...HANDWRITTEN,...HELDOUT_CASES,...B3B];

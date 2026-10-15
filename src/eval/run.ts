@@ -68,8 +68,20 @@ export interface CaseResult {
 
 const GROUP_OF=new Map(CATALOG.map(row=>[row.sku,productGroup(row)]));
 
+/** retrieve() is pure and the catalog fixed, so one retrieval per line and level serves every judge and test. */
+const RETRIEVALS=new Map<string,Retrieval<CatalogRow>>();
+export function retrieveAt(description:string,level:StrictnessLevel){
+  const key=`${level}\u0000${description}`;
+  let retrieval=RETRIEVALS.get(key);
+  if(!retrieval){
+    retrieval=retrieve(description,CATALOG,matchConfig(level));
+    RETRIEVALS.set(key,retrieval);
+  }
+  return retrieval;
+}
+
 export function runCase(c:EvalCase,level:StrictnessLevel,judge:JudgeKind):CaseResult{
-  const retrieval=retrieve(c.description,CATALOG,matchConfig(level));
+  const retrieval=retrieveAt(c.description,level);
   const decision=decide(retrieval,judgeVerdict(c,retrieval,judge));
   const sku=decision.outcome==='matched'?decision.item.sku:null;
   const expected=c.expect==='no_match'?null:GROUP_OF.get(c.expect.sku);

@@ -1509,6 +1509,218 @@
     "h3-R30": {
       "sku": "T2436J",
       "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "b01-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b02-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b03-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b04-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b05-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b06-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b07-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b08-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b09-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b10-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b11-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b12-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b13-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b14-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b15-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b16-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b17-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b18-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b19-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b20-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b21-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b22-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b23-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b24-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b25-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b26-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b27-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b28-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b29-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b30-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b31-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b32-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b33-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b34-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "b35-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "a01-must": {
+      "sku": "101010-BDL",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a02-must": {
+      "sku": "PB3720",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a03-must": {
+      "sku": "T902700",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a04-must": {
+      "sku": "B859SS",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a05-must": {
+      "sku": "KP1230",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a06-must": {
+      "sku": "THD202",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a07-must": {
+      "sku": "T9077000",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a08-must": {
+      "sku": "SF188CAST",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a09-must": {
+      "sku": "EP2224160BX",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a10-must": {
+      "sku": "241410-BDL",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a11-must": {
+      "sku": "PB3604",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a12-must": {
+      "sku": "PL527",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a13-must": {
+      "sku": "NP1830",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a14-must": {
+      "sku": "PS1226",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a15-must": {
+      "sku": "MSF2080B",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a16-must": {
+      "sku": "HD161616DW-BDL",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a17-must": {
+      "sku": "12108-BDL",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "a18-must": {
+      "sku": "PB3565",
+      "reason": "The candidate that is the item the line describes."
     }
   }
 }
