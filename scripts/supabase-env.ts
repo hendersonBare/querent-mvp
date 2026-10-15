@@ -1,8 +1,8 @@
 // npm run db:env — writes .env.local (git-ignored) for local development from the running local stack
 // (`supabase status`): the Supabase URL and anon key for the app, the local service-role key for the
-// scripts, DATABASE_URL, and QUERENT_SCRIPTED=1 (fixture parser and judge). Every other line already in
-// .env.local (ANTHROPIC_API_KEY, ANTHROPIC_MODEL, PORT, comments) is kept as it was. Values are never
-// printed. Start the stack first with `npm run db:start`.
+// scripts, DATABASE_URL, QUERENT_SCRIPTED=1 (fixture parser and judge) and MAILPIT_URL (the test suites'
+// mail catcher). Every other line already in .env.local (ANTHROPIC_API_KEY, ANTHROPIC_MODEL, PORT,
+// comments) is kept as it was. Values are never printed. Start the stack first with `npm run db:start`.
 import {existsSync,readFileSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {isLocalUrl,mergeEnvFile} from './lib/env';
@@ -18,6 +18,8 @@ function main(){
     DATABASE_URL:status.DB_URL,
     QUERENT_SCRIPTED:'1',
   };
+  // The local mail catcher (password-reset emails), for the test:db and E2E suites; the app never reads it.
+  if(status.MAILPIT_URL)values.MAILPIT_URL=status.MAILPIT_URL;
   const file=join(ROOT,'.env.local');
   const existing=existsSync(file)?readFileSync(file,'utf8'):'';
   writeFileSync(file,mergeEnvFile(existing,values),{mode:0o600});

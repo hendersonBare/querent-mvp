@@ -90,6 +90,7 @@ test('a PDF upload is read, matched and saved with its unmatched lines flagged',
   await expect(unmatched).toContainText('Kraft Packing Paper Roll 36"');
   await expect(unmatched).toContainText('Cast Stretch Wrap 18" x 1500\' 80 Gauge');
   await expect(unmatched.getByRole('table',{name:/Near-misses/}).first()).toBeVisible();
+  await shot(page,'08-quote-detail-unmatched');
 });
 
 test('an unmatched line: open its closest items, use one, price it and save it as picked by the rep',async({page})=>{

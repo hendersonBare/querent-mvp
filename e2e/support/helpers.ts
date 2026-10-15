@@ -47,9 +47,9 @@ export async function createQuote(request:APIRequestContext,body:unknown):Promis
 
 /** Lines that give the same outcome every run under Strict with the scripted parser and judge (checked against the real catalog). */
 export const LINES={
-  /** Matches 12108-BDL (12x10x8" Corrugated Boxes, 32 ECT, bundle pricing); qty 10 bundles. */
+  /** Matches 12108-BDL (the 12x10x8" 32 ECT box, bundle pricing); qty 10 bundles. */
   box:'12 x 10 x 8" Corrugated Boxes, 32 ECT   10 bundles',
-  /** Matches PB3669 (Reclosable Poly Bags 30x30" 2 Mil); qty 2 cases. */
+  /** Matches PB3669 (the 30x30" 2 mil reclosable bag); qty 2 cases. */
   bags:'Reclosable Poly Bags 30 x 30" 2 Mil, qty 2 cases',
   /** No match under Strict (coloured variants come within the lead); SF188CAST is its first near-miss. */
   wrap:'Cast Stretch Wrap 18" x 1500\' 80 Gauge   4 rolls',
