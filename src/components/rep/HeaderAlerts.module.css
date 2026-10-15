@@ -1,6 +1,0 @@
-/* No frame (decision 52): an empty bell is one plain line in the row's padding. */
-.empty {
-  padding: 12px 16px;
-  border-top: 1px solid var(--q-table-header);
-  color: var(--q-text-2);
-}

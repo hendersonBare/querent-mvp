@@ -1,0 +1,134 @@
+/* The left rail, in the U2 rail's look (tokens: src/app/tokens.css). */
+.rail {
+  flex: 0 0 var(--q-rail-width);
+  align-self: stretch;
+  background: var(--q-rail);
+}
+/* Sticky at the top as the page scrolls, one viewport tall. */
+.inner {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+}
+.brand svg {
+  display: block;
+}
+.wordmark {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.org {
+  padding: 6px 8px 22px;
+  font-size: var(--q-text-secondary);
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--q-rail-name);
+}
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--q-radius-control);
+  background: transparent;
+  color: var(--q-rail-text);
+  font-weight: 500;
+  text-decoration: none;
+}
+.link svg {
+  display: block;
+  flex: none;
+}
+.link[aria-current="page"] {
+  background: var(--q-accent);
+  color: #fff;
+  font-weight: 700;
+}
+.link:hover {
+  background: var(--q-titlebar);
+  text-decoration: none;
+}
+.link[aria-current="page"]:hover {
+  background: var(--q-accent-hover);
+}
+.label {
+  display: block;
+  font-size: var(--q-text-control);
+  white-space: nowrap;
+}
+.spacer {
+  flex: 1 1 auto;
+}
+.user {
+  border-top: 1px solid var(--q-rail-border);
+  padding: 14px 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--q-rail);
+  font-size: var(--q-text-secondary);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--q-text-secondary);
+  font-weight: 700;
+  color: #fff;
+}
+.signOutForm {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.signOut {
+  height: 36px;
+  margin: 0;
+  padding: 1px 6px;
+  border-radius: var(--q-radius-button);
+  border: 1px solid var(--q-rail-button-border);
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.signOut:hover {
+  background: var(--q-titlebar);
+}

@@ -3,34 +3,30 @@ import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
-// .env.example guard (decision 9, spec §11): one real env file, .env.local (git-ignored), and a
-// committed .env.example listing every key with placeholders only. JEV_API_KEY is never added.
+// .env.example guard (docs/boxt/plan.md "Environment variables"): one real env file, .env.local
+// (git-ignored), and a committed .env.example listing exactly the app's keys with placeholders only.
 
 const ROOT=resolve(__dirname,'..');
-const KEYS=['ANTHROPIC_API_KEY','ANTHROPIC_MODEL','DATABASE_PATH','OILPRICEAPI_KEY','QUERENT_SEED_DATE','QUERENT_SCRIPTED','QUERENT_E2E_RESET','PORT'];
-/** Decision 48: the feature flags, off by default (empty). */
-const FLAGS=['FEATURE_FREE_DELIVERY_PRICING','FEATURE_RECOVERY_POOL','FEATURE_DELIVERY_COST_MODEL'];
-const SECRETS=['ANTHROPIC_API_KEY','OILPRICEAPI_KEY'];
+const KEYS=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','ANTHROPIC_API_KEY','ANTHROPIC_MODEL','QUERENT_SCRIPTED','PORT'];
+const SECRETS=['NEXT_PUBLIC_SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','ANTHROPIC_API_KEY'];
+/** Keys of the SQLite demo this branch removed. */
+const REMOVED=/DATABASE_PATH|OILPRICEAPI|FEATURE_|QUERENT_SEED_DATE|QUERENT_E2E_RESET|JEV_API_KEY/;
 const text=()=>readFileSync(join(ROOT,'.env.example'),'utf8');
 const entries=()=>new Map(text().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i),l.slice(i+1)] as const;}));
 const ignored=(path:string)=>spawnSync('git',['check-ignore','-q',path],{cwd:ROOT}).status;
 
 describe('.env.example',()=>{
-  it('lists every key from decision 9, as KEY=value lines',()=>{
+  it('lists exactly the plan\'s keys, in order, as KEY=value lines',()=>{
     for(const line of text().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')))expect(line).toMatch(/^[A-Z][A-Z0-9_]*=/);
-    expect([...entries().keys()]).toEqual(expect.arrayContaining(KEYS));
+    expect([...entries().keys()]).toEqual(KEYS);
   });
 
-  it('lists the three feature flags of decision 48, each off (empty)',()=>{
-    for(const key of FLAGS)expect(entries().get(key),key).toBe('');
-  });
-
-  it('never mentions JEV_API_KEY',()=>{expect(text()).not.toMatch(/JEV_API_KEY/);});
+  it('never mentions a removed key',()=>{expect(text()).not.toMatch(REMOVED);});
 
   it('holds placeholders only: secrets are empty and no value looks like a key',()=>{
     for(const key of SECRETS)expect(entries().get(key),key).toBe('');
     for(const [key,value] of entries()){
-      expect(value,key).not.toMatch(/sk-|[A-Za-z0-9_-]{24,}/);
+      expect(value,key).not.toMatch(/sk-|eyJ|[A-Za-z0-9_-]{24,}/);
       expect(value,key).not.toMatch(/@|\d{3}[-. ]\d{4}/);
     }
   });

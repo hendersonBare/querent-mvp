@@ -14,10 +14,9 @@ concurrency:
 
 env:
   NEXT_TELEMETRY_DISABLED: '1'
-  # Scripted chat and the seeded fuel price only: CI never needs or receives an API key.
+  # Scripted (fixture) parser and judge only: CI never needs or receives an API key.
   QUERENT_SCRIPTED: '1'
   ANTHROPIC_API_KEY: ''
-  OILPRICEAPI_KEY: ''
 
 jobs:
   checks:
@@ -55,9 +54,9 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      # playwright.config.ts runs `npm run db:reset && npm run start` itself when CI is set.
+      # playwright.config.ts runs `npm run start` itself when CI is set. The specs come with task B8.
       - name: Playwright (Chromium)
-        run: npx playwright test
+        run: npx playwright test --pass-with-no-tests
         env:
           QUERENT_BASE_URL: http://127.0.0.1:3000
 
