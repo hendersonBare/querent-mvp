@@ -164,6 +164,11 @@ describe('scorePackaging: what the line says',()=>{
     expect(retrieve('12108-BDL',CATALOG,STRICT).clears).toBe(false);
   });
 
+  it('needs the item itself to fit: a matching pack quantity, mil or colour alone is no evidence',()=>{
+    expect(scorePackaging('Nitrile gloves large 1000/case',CATALOG)).toEqual([]);
+    expect(scorePackaging('Latex gloves 2 mil clear',CATALOG)).toEqual([]);
+  });
+
   it('returns nothing for an empty line or words no item has',()=>{
     expect(scorePackaging('',CATALOG)).toEqual([]);
     expect(scorePackaging('xyzzy plugh',CATALOG)).toEqual([]);

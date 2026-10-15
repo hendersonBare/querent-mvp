@@ -162,8 +162,8 @@ const CHOICES:{key:ChoiceKey;values:[string,RegExp][]}[]=[
   ]},
   {key:'film',values:[['cast',/\bcast\b/g],['blown',/\bblown\b/g]]},
   {key:'length',values:[
-    ['hand',/\bhand[\s-]*(?:length|grade)\b|\bhand(?=[\s-]+(?:stretch|pallet|wrap|film|strapping)\b)/g],
-    ['machine',/\bmachine[\s-]*(?:length|grade)\b|\bmachine(?=[\s-]+(?:stretch|pallet|wrap|film|strapping)\b)/g],
+    ['hand',/\bhand[\s-]*(?:length|grade)\b|\bhand(?=[\s-]+(?:stretch|pallet|wrap|film|strapping)\b)|(?<=\b(?:stretch|wrap|film|strapping),?[\s-]+)hand\b/g],
+    ['machine',/\bmachine[\s-]*(?:length|grade)\b|\bmachine(?=[\s-]+(?:stretch|pallet|wrap|film|strapping)\b)|(?<=\b(?:stretch|wrap|film|strapping),?[\s-]+)machine\b/g],
   ]},
 ];
 /** The choices that make an item a different kind when the line doesn't say them (single wall is the default; kraft paper is also its colour). */
@@ -388,11 +388,10 @@ export function parseItemSpec(item:PackagingItem):ItemSpec{
 }
 
 /**
- * The product group: pricing tiers of one item ("…, bundle pricing" and "…, pallet pricing") are one
- * group; anything else that differs (the description or what it is sold in) is another.
+ * The product group: the description without its pricing tier, so "…, bundle pricing" and "…,
+ * pallet pricing" of one item are one group even where the tiers count differently (a few bundle
+ * 10 and palletize 25). The catalog has no other two rows with one description.
  */
-export function productGroup<T extends Pick<PackagingItem,'description'|'pack'|'caseQty'>>(item:T){
-  const description=item.description.replace(TIER,'').toLowerCase().replace(/\s+/g,' ').trim();
-  const {outer,roll}=itemPack(item);
-  return `${description}|${outer??''}|${roll??''}`;
+export function productGroup<T extends Pick<PackagingItem,'description'>>(item:T){
+  return item.description.replace(TIER,'').toLowerCase().replace(/\s+/g,' ').trim();
 }

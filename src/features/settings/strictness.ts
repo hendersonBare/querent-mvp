@@ -10,9 +10,15 @@ export const STRICTNESS_LEVELS:readonly StrictnessLevel[]=['strict','balanced','
 export interface StrictnessConfig {label:string;description:string;minScore:number;minLead:number}
 
 export const LEVELS:Readonly<Record<StrictnessLevel,StrictnessConfig>>={
-  strict:{label:'Strict',description:'Matches only lines that confirm every detail they state, so a wrong item is very unlikely and more lines are left for you to match.',minScore:0.9,minLead:0.3},
-  balanced:{label:'Balanced',description:'Also matches lines that leave a detail of the item unconfirmed, so fewer lines are left over but you should check matches more closely.',minScore:0.8,minLead:0.2},
-  lenient:{label:'Lenient',description:'Matches whenever one item is clearly the best fit, which leaves the fewest lines over and needs the closest review.',minScore:0.7,minLead:0.15},
+  // Zero false positives in the evaluation with both judges. Safe there for minScore in (0.80, 0.87]
+  // and minLead in (0.20, 0.30]: an item with one unconfirmed defining feature scores 0.80, so 0.80
+  // would match plain "poly bags" to reclosable ones (case n46); minLead 0.20 would pick poly over
+  // kraft for "bubble mailers #2" (case n42). Both bounds are taken with margin.
+  strict:{label:'Strict',description:'Matches a line only when one item confirms everything it states and no other item comes close, which is the safest setting and leaves the most lines for you to match.',minScore:0.85,minLead:0.3},
+  // Admits a best item with one defining feature the line doesn't mention (it scores 0.80) when it
+  // leads by 0.20; relies on the judge for those (see src/eval/README.md).
+  balanced:{label:'Balanced',description:'Also matches when the best item has one feature the line does not mention, such as a zip closure or a white finish, so check those matches before you save.',minScore:0.8,minLead:0.2},
+  lenient:{label:'Lenient',description:'Matches whenever one item is clearly the best fit even if the line leaves details open, which leaves the fewest lines over but needs the closest review.',minScore:0.7,minLead:0.15},
 };
 
 export const DEFAULT_LEVEL:StrictnessLevel='strict';

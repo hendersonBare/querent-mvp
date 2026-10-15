@@ -22,6 +22,8 @@ import {OFF_NOUN,hundredths} from './score';
 //     (reclosable), a double or triple wall, a feature (heavy duty, bubble, insulated, warning
 //     print, ...) or a colour the description states (white boxes for a line that names no colour;
 //     implied colours, such as kraft for plain corrugated, are not charged);
+//   - an item scores 0 unless a word, a feature or the size fits (a matching pack quantity or
+//     colour alone says nothing about what the item is);
 //   - an item whose words don't include the product noun the line names (boxes, bags, mailers,
 //     tape, ...) is scaled by OFF_NOUN.
 
@@ -57,7 +59,7 @@ const packLabel=(n:number,key:'outer'|'roll')=>key==='roll'?`${n}/roll`:`${n}/pa
 
 /** How well an item fits a line, before rounding. */
 function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
-  let total=0,got=0,distance=0;
+  let total=0,got=0,distance=0,identity=false;
   const conflicts:string[]=[],unstated:string[]=[];
   const add=(weight:number,fit:1|0|-1,conflict?:string)=>{
     total+=weight;got+=weight*Math.max(fit,0);
@@ -69,7 +71,7 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
     const dims=item.dims;
     const same=(tuple:Size[]|null)=>!!tuple&&tuple.length===line.dims!.length&&tuple.every((d,i)=>sameSize(line.dims![i],d));
     if(!dims)add(PACKAGING_WEIGHTS.dims,0);
-    else if(same(dims)||same(item.altDims))add(PACKAGING_WEIGHTS.dims,1);
+    else if(same(dims)||same(item.altDims)){add(PACKAGING_WEIGHTS.dims,1);identity=true;}
     else{
       add(PACKAGING_WEIGHTS.dims,-1,`size: ${tuple(line.dims)} vs ${tuple(dims)}`);
       // How far off the size is, to list the nearest sizes first among equal scores.
@@ -113,7 +115,11 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
   for(const [key,value] of Object.entries(item.choices) as [ChoiceKey,string][]){
     if(line.choices[key]===undefined&&DEFINING_CHOICE(key,value))unstated.push(`${key}: ${value}`);
   }
-  for(const feature of line.features)add(PACKAGING_WEIGHTS.feature,item.features.includes(feature)?1:0);
+  for(const feature of line.features){
+    const has=item.features.includes(feature);
+    add(PACKAGING_WEIGHTS.feature,has?1:0);
+    identity||=has;
+  }
   for(const feature of item.features)if(!line.features.includes(feature))unstated.push(`feature: ${feature}`);
 
   for(const key of ['outer','roll'] as const){
@@ -122,11 +128,16 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
     add(A,said===has?1:-1,`pack: ${packLabel(said,key)} vs ${packLabel(has,key)}`);
   }
 
-  for(const word of line.words)add(PACKAGING_WEIGHTS.word,item.wordSet.has(word)?1:0);
+  for(const word of line.words){
+    const has=item.wordSet.has(word);
+    add(PACKAGING_WEIGHTS.word,has?1:0);
+    identity||=has;
+  }
   const named=line.words.filter(w=>NOUNS.has(w));
   const offNoun=named.length>0&&!named.some(w=>item.wordSet.has(w));
 
-  if(!total||got<=0)return {score:0,conflicts,unstated,distance};
+  // A pack quantity, mil or colour alone says nothing about what the item is: a word, a feature or the size must fit.
+  if(!total||got<=0||!identity)return {score:0,conflicts,unstated,distance};
   const score=(got/total)*CONFLICT**conflicts.length*UNSTATED**unstated.length*(offNoun?OFF_NOUN:1);
   return {score,conflicts:offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts,unstated,distance};
 }

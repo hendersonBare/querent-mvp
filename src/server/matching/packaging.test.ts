@@ -108,6 +108,9 @@ describe('parseSpec: colour, material, closure and kind',()=>{
     expect(parseSpec('thermal transfer labels').choices.print).toBe('thermal transfer');
     expect(parseSpec('cast stretch film').choices.film).toBe('cast');
     expect(parseSpec('machine stretch film').choices.length).toBe('machine');
+    expect(parseSpec('Black Poly Strapping Hand 1/2" 600 lb').choices.length).toBe('hand');
+    expect(parseSpec('stretch film, machine grade').choices.length).toBe('machine');
+    expect(parseSpec('Seal Safe Hand Tape Dispensers 3"').choices.length).toBeUndefined();
   });
 
   it('reads the paper grade: newsprint, tissue, crinkle, or kraft for kraft paper',()=>{
@@ -221,7 +224,9 @@ describe('productGroup',()=>{
     expect(productGroup({sku:'HD1212DW-BDL',description:'Heavy Duty Boxes 12x12x12", bundle pricing, BC Flute'})).toBe(productGroup({sku:'HD1212DW-PLT',description:'Heavy Duty Boxes 12x12x12", pallet pricing, BC Flute'}));
   });
 
-  it('keeps items with the same description but different packs apart',()=>{
-    expect(productGroup({sku:'A',description:'Foam Bags 22x27"',pack:'Case of 24'})).not.toBe(productGroup({sku:'B',description:'Foam Bags 22x27"',pack:'Case of 72'}));
+  it('keeps the tiers in one group even when they are counted differently (the gaylord lid bundles 10, its pallet tier 25)',()=>{
+    expect(productGroup({sku:'GAYLORDLID-BDL',description:'Gaylord Lid 48x40", bundle pricing',pack:'Each',caseQty:10}))
+      .toBe(productGroup({sku:'GAYLORDLID-PLT',description:'Gaylord Lid 48x40", pallet pricing',pack:'Each',caseQty:25}));
+    expect(productGroup({sku:'IQRT80',description:'Expandable Foam Bags, 22x27"'})).not.toBe(productGroup({sku:'IQRT80B',description:'Expandable Foam Bags (Bulk Pack), 22x27"'}));
   });
 });

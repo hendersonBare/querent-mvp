@@ -1,4 +1,5 @@
 import {describe,expect,it} from 'vitest';
+import {CONFLICT} from '@/server/matching/score-packaging';
 import {DEFAULT_LEVEL,LEVELS,STRICTNESS_LEVELS,isStrictnessLevel,matchConfig} from './strictness';
 
 describe('match strictness',()=>{
@@ -19,7 +20,7 @@ describe('match strictness',()=>{
     }
   });
 
-  it('gets looser from Strict to Lenient, never looser than a 0.5 score',()=>{
+  it('gets looser from Strict to Lenient, and never low enough to match an item with a contradiction',()=>{
     const [s,b,l]=STRICTNESS_LEVELS.map(level=>LEVELS[level]);
     expect(s.minScore).toBeGreaterThanOrEqual(b.minScore);
     expect(b.minScore).toBeGreaterThanOrEqual(l.minScore);
@@ -27,7 +28,8 @@ describe('match strictness',()=>{
     expect(b.minLead).toBeGreaterThanOrEqual(l.minLead);
     expect(s.minScore+s.minLead).toBeGreaterThan(b.minScore+b.minLead);
     expect(b.minScore+b.minLead).toBeGreaterThan(l.minScore+l.minLead);
-    expect(l.minScore).toBeGreaterThanOrEqual(0.5);
+    // Any item with a contradiction scores at most CONFLICT (0.5), so no level can match one.
+    expect(l.minScore).toBeGreaterThan(CONFLICT);
     for(const level of STRICTNESS_LEVELS){
       expect(LEVELS[level].minScore).toBeLessThanOrEqual(1);
       expect(LEVELS[level].minLead).toBeGreaterThan(0);
