@@ -16,6 +16,8 @@ export interface ReviewLine {
   restoreTo:'matched'|'unmatched';
   /** Why the pipeline did not match the line (null for a matched line). */
   reason:LineReason|null;
+  /** The matcher's Strict blockers for the line (empty when none were reported). */
+  blockers:string[];
   rawText:string;
   /** As typed. */
   quantity:string;
@@ -34,7 +36,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
   return run.lines.map(line=>{
     const matched=line.outcome==='matched'&&line.item!==undefined;
     return {
-      key:line.index,status:matched?'matched':'unmatched',restoreTo:matched?'matched':'unmatched',reason:matched?null:line.reason,
+      key:line.index,status:matched?'matched':'unmatched',restoreTo:matched?'matched':'unmatched',reason:matched?null:line.reason,blockers:[...line.eligibility?.blockers??[]],
       rawText:line.rawText,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
       price:'',item:matched?line.item!:null,matchedBy:matched?'auto':null,score:matched?line.score:null,
       candidates:line.candidates,nearMisses:line.nearMisses,
@@ -92,6 +94,30 @@ const REASON_HINTS:Readonly<Record<string,string>>={
 
 export function reasonHint(reason:string):string|null{
   return Object.hasOwn(REASON_HINTS,reason)?REASON_HINTS[reason]:null;
+}
+
+/** Reasons the matcher's Strict blockers explain (the line itself was the problem, not the judge or a close rival). */
+const BLOCKER_REASONS=new Set(['not_accounted','no_product_type','no_candidates']);
+const MAX_HINT=160;
+
+/** One blocker in the rep's words (the matcher's are already short phrases; a few get a plainer start). */
+function humanBlocker(blocker:string):string{
+  const contradiction=/^contradicts:\s*([a-z][a-z ]*):\s*(.+)$/i.exec(blocker);
+  if(contradiction)return `the closest item differs in ${contradiction[1]}: ${contradiction[2]}`;
+  if(/^two sizes:/i.test(blocker))return `the line names ${blocker}`;
+  return blocker;
+}
+
+/**
+ * The muted hint under "Could not detect a match": the matcher's blockers ("Not matched automatically:
+ * the line names two sizes: …") when they explain the reason, else the reason's hint, else null.
+ */
+export function lineHint(reason:string,blockers:readonly string[]=[]):string|null{
+  if(BLOCKER_REASONS.has(reason)&&blockers.length>0){
+    const text=`Not matched automatically: ${blockers.slice(0,2).map(humanBlocker).join('; ')}`;
+    return text.length+1>MAX_HINT?`${text.slice(0,MAX_HINT-1).trimEnd()}…`:`${text}.`;
+  }
+  return reasonHint(reason);
 }
 
 /** A parsed unit for a quantity: "4 roll" reads "4 rolls"; "each" and 1 of anything stay as they are. */

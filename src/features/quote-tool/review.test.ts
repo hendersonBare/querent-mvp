@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {
-  blockersMessage,formatMoney,reasonHint,unitLabel,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,formatMoney,lineHint,reasonHint,unitLabel,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
   type ReviewLine,
 } from './review';
 import {sampleRun} from './test-fixtures';
@@ -46,6 +46,24 @@ describe('reasonHint',()=>{
     expect(reasonHint('matched')).toBeNull();
     expect(reasonHint('something_new')).toBeNull();
     expect(reasonHint('toString')).toBeNull();
+  });
+});
+
+describe('lineHint',()=>{
+  it('names the matcher\'s blockers in words when the line was not accountable at Strict',()=>{
+    expect(lineHint('not_accounted',['two sizes: 12x10x8 and 4x4'])).toBe('Not matched automatically: the line names two sizes: 12x10x8 and 4x4.');
+    expect(lineHint('not_accounted',['the line says "or"','"/" in the line','a range'])).toBe('Not matched automatically: the line says "or"; "/" in the line.');
+    expect(lineHint('no_product_type',['the line names no product (box, bag, mailer, tape, ...)'])).toBe('Not matched automatically: the line names no product (box, bag, mailer, tape, ...).');
+    expect(lineHint('not_accounted',['contradicts: size: 12x8x10 in vs 12x10x8 in'])).toBe('Not matched automatically: the closest item differs in size: 12x8x10 in vs 12x10x8 in.');
+  });
+  it('falls back to the reason\'s hint without blockers, or for reasons the blockers do not explain',()=>{
+    expect(lineHint('not_accounted',[])).toBe(reasonHint('not_accounted'));
+    expect(lineHint('low_lead',['the line says "or"'])).toBe(reasonHint('low_lead'));
+    expect(lineHint('judge_none',['a range'])).toBe(reasonHint('judge_none'));
+    expect(lineHint('a_new_reason',[])).toBeNull();
+  });
+  it('keeps a long hint short',()=>{
+    expect(lineHint('not_accounted',['x'.repeat(400)])!.length).toBeLessThanOrEqual(160);
   });
 });
 

@@ -122,6 +122,15 @@ describe('QuoteReviewDialog',()=>{
     expect(unknown).not.toHaveTextContent('a_reason_added_later');
   });
 
+  it('shows the matcher\'s blockers as a short hint on an unmatched line',()=>{
+    const run=sampleRun();
+    run.lines[2]={...run.lines[2],reason:'not_accounted',eligibility:{strictEligible:false,blockers:['two sizes: 30x30 and 4x6']}};
+    render(<QuoteReviewDialog run={run} onClose={()=>{}} onSaved={()=>{}} save={async()=>({id:'x'})} search={async()=>[]}/>);
+    const line=within(unmatchedSection()).getByTestId('line-2');
+    expect(line).toHaveTextContent('Could not detect a match');
+    expect(line).toHaveTextContent('Not matched automatically: the line names two sizes: 30x30 and 4x6.');
+  });
+
   it('"Use this item" moves the line to Matched, picked by the rep, with an empty price',async()=>{
     const {save}=setup();
     const line=within(unmatchedSection()).getByTestId('line-2');

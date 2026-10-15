@@ -1,6 +1,7 @@
 // @vitest-environment node
 import {describe,expect,it,vi} from 'vitest';
 import {JUDGE_ERROR} from '@/server/llm/verdicts';
+import {retrieve} from '@/server/matching';
 import type {ParseOptions} from '@/server/llm/types';
 import {PARSE_TIMEOUT_ERROR,NO_ROWS_ERROR,eligibilityOf,runPipeline,type PipelineOptions} from './pipeline';
 import type {ProgressEvent} from './types';
@@ -187,6 +188,37 @@ describe('runPipeline',()=>{
     expect(eligibilityOf({eligibility:{strictEligible:'no',blockers:[]}})).toBeUndefined();
     expect(eligibilityOf({eligibility:{strictEligible:false,blockers:[1,{a:1},'ok']}})).toEqual({strictEligible:false,blockers:['ok']});
     expect(eligibilityOf({eligibility:{strictEligible:false,blockers:Array.from({length:30},(_,i)=>`b${i}`)}})!.blockers).toHaveLength(10);
+  });
+
+  it('never mutates the matcher\'s (cached) results: the same line twice gives identical lines, and changing one run\'s output leaves the next alone',async()=>{
+    const lines=[CLEAR_BOX,TIE,'Box for 12x10x8 item',NOTHING];
+    const before=JSON.stringify(lines.map(l=>retrieve(l,CATALOG,{...STRICT,requireTotalAccounting:true})));
+    const run=async()=>{
+      const result=await runPipeline(TEXT,options({config:{...STRICT,requireTotalAccounting:true},parser:fakeParser(lines.map(l=>row(l)))}));
+      if(!result.ok)throw new Error(result.error);
+      return result.lines;
+    };
+    const first=await run();
+    const snapshot=JSON.stringify(first);
+    // Change everything a caller could change in the first run's output.
+    for(const line of first){
+      line.candidates.forEach(c=>{c.description='changed';c.score=-1;});
+      line.nearMisses.length=0;
+      if(line.item)line.item.sku='CHANGED';
+      line.eligibility?.blockers.push('changed');
+    }
+    const second=await run();
+    expect(JSON.stringify(second)).toBe(snapshot);
+    expect(JSON.stringify(lines.map(l=>retrieve(l,CATALOG,{...STRICT,requireTotalAccounting:true})))).toBe(before);
+  });
+
+  it('carries the retrieval\'s Strict eligibility and blockers on each line',async()=>{
+    const result=await runPipeline(TEXT,options({config:{...STRICT,requireTotalAccounting:true},parser:fakeParser([row(CLEAR_BOX),row('Box for 12x10x8 item')])}));
+    if(!result.ok)throw new Error(result.error);
+    expect(result.lines[0].eligibility).toEqual({strictEligible:true,blockers:[]});
+    expect(result.lines[1].outcome).toBe('no_match');
+    expect(result.lines[1].eligibility?.strictEligible).toBe(false);
+    expect(result.lines[1].eligibility?.blockers.length).toBeGreaterThan(0);
   });
 
   it('asks the supplier-SKU map about a line with a supplier SKU, and still matches by description only',async()=>{
