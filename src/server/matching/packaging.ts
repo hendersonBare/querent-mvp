@@ -28,7 +28,9 @@ import {normalize,stem} from './text';
 /** A number with its unit (in, ft, yd, mm, cm, m, lb, oz, cuft; null when the text gave none). */
 export interface Size {unit:string|null;value:number;label:string;
   /** A size outside the tuple with a label ("12\" deep"): its place in L, W, H/D order (0, 1, 2). */
-  rank?:number}
+  rank?:number;
+  /** Said as a thickness (".160\" thick"): only a size besides an item's dimensions can confirm it. */
+  thickness?:true}
 /** A pack quantity: `outer` is the count per case, bundle or carton; `roll` the count per roll. */
 export interface Pack {outer?:number;roll?:number}
 export type ChoiceKey='wall'|'flute'|'closure'|'adhesive'|'print'|'film'|'length'|'paper'|'condition';
@@ -438,9 +440,9 @@ function takeSizes(text:string){
   for(const group of groups){
     if(group.length!==1||!group[0].unit||familyOf(group[0].unit)!=='length'||group[0].rank!==undefined)continue;
     const after=/^\s*thick\b/.exec(text.slice(group[0].end));
-    if(after)group[0].end+=after[0].length;
+    if(after){group[0].end+=after[0].length;group[0].thickness=true;}
   }
-  const strip=({unit,value,label,rank}:Size):Size=>({unit,value,label:unit?`${label} ${unit}`:label,...(rank!==undefined?{rank}:{})});
+  const strip=({unit,value,label,rank,thickness}:Size):Size=>({unit,value,label:unit?`${label} ${unit}`:label,...(rank!==undefined?{rank}:{}),...(thickness?{thickness}:{})});
   const tuples=groups.filter(g=>g.length>1);
   const tuple=tuples[0]??null;
   const at=tuple?groups.indexOf(tuple):-1;

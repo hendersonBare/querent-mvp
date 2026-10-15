@@ -802,6 +802,10 @@ export const HELDOUT_CASES:readonly EvalCase[]=[
   heldNoMatch("h7n12","Expandable Foam Bags 18 x 24 thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
   heldNoMatch("h7n13","Expandable Foam Bags 18\" x 24\" thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
   heldNoMatch("h7n14","Expandable Foam Bags 18 x 24\" Thin","wrong_spec","Round 7: \"thin\" after the size is a word the item doesn't say."),
+  heldNoMatch("h7n15","Seal Safe Hand Tape Dispensers 2\" Thick","wrong_spec","Round 7 (own sweep): the dispenser's size is the tape width, not a thickness; \"thick\" is unconfirmed."),
+  heldNoMatch("h7n16","Seal Safe Hand Tape Dispensers 3\" Thick","wrong_spec","Round 7 (own sweep): the dispenser's size is the tape width, not a thickness; \"thick\" is unconfirmed."),
+  heldNoMatch("h7n17","Workhorse Hand Tape Dispensers 2\" Thick","wrong_spec","Round 7 (own sweep): the dispenser's size is the tape width, not a thickness; \"thick\" is unconfirmed."),
+  heldNoMatch("h7n18","Workhorse Hand Tape Dispensers 3\" Thick","wrong_spec","Round 7 (own sweep): the dispenser's size is the tape width, not a thickness; \"thick\" is unconfirmed."),
 ];
 
 /** Round 2's bare sizes: no product named, so never a match at any level. */

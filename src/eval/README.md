@@ -6,7 +6,7 @@ is used to calibrate the strictness levels in `src/features/settings/strictness.
 
 | File | What it holds |
 |---|---|
-| `cases.ts` | 1,031 customer lines in another supplier's style. 337 must match a named BOXT SKU. 694 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`, `no_product_type`, `ambiguous`) and the loosest level at which it must still not match. Three sources: 181 hand-written lines (untagged), 774 held-out verifier probes (`heldout.ts`, tag `heldout`: rounds 2 to 7), and 76 lines written against the total-accounting design (tag `b3b`: 53 must not match, 23 must match). |
+| `cases.ts` | 1,035 customer lines in another supplier's style. 337 must match a named BOXT SKU. 698 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`, `no_product_type`, `ambiguous`) and the loosest level at which it must still not match. Three sources: 181 hand-written lines (untagged), 778 held-out verifier probes (`heldout.ts`, tag `heldout`: rounds 2 to 7), and 76 lines written against the total-accounting design (tag `b3b`: 53 must not match, 23 must match). |
 | `heldout.ts` | The B3 verifiers' probe lines from rounds 2 to 5 (fix round 1: `final.txt`, `sku.txt`, `recall.txt`; fix round 2: the 34 named lines and `a1`, `a2`, `t1`, `sku`, `m1`; final round: `final.tsv`, `border.tsv` and the lines named in the request) that `cases.ts` did not already hold, with their ground truth, and round 2's 710 bare sizes (`HELDOUT_BARE_SIZES`, checked apart: they name no product). Round 1's probes were added to `cases.ts` earlier (n47 to n76). |
 | `judge-recording.json` | One verdict per case, in B4's `JudgeVerdict` shape (`{sku \| null, reason}`), plus `recordedBy`. **The current verdicts are `hand-written`**: they were written in the build session, not recorded from a model, because no API key was available. Each one imitates a careful judge that sees only the line and the candidate list, and follows B4's rule of picking the first pricing tier. For the held-out and B3b lines the verdict is simply the expected SKU (must match) or none (must not match), so the recorded columns measure the scorer's recall there; safety is measured with the always-agree judge. `npm run eval:record` replaces them all with the live judge's (`recordedBy: 'live'`, with the model and time). |
 | `run.ts` | Runs each case through the pipeline's own steps after parsing: `retrieve` (the real scorer and catalog), then the judge, then `decide`. The judge gets the candidates as B4's `JudgeCandidate` (SKU, description, pack label, category), and its answer passes B4's `withinCandidates` guard. It runs at every level with two judges: the recorded one, and an **always-agree** judge that picks the top candidate, so that no level's safety depends on the judge. Retrievals are memoized per line and level. |
@@ -31,7 +31,9 @@ treated the rest as a perfect match. Strict now requires **total accounting**:
    - `FILLER`, a closed list of words that say nothing about the item: `an the of with please pls our
      we need qty quantity size sz thickness uline brand`, and "thick" directly after a single size in a
      length unit (`.160" thick`). After a size tuple ("18 x 24" Thick") or a number that is no length
-     ("40 lb thick", "2 mil thick") "thick" is a word the item must confirm (final verification). "a" is not
+     ("40 lb thick", "2 mil thick") "thick" is a word the item must confirm (final verification). A size
+     said as a thickness is confirmed only by an item that has dimensions besides it (a foam roll's 1/4",
+     an edge protector's .160"), never by a dispenser's 2", which is the tape width. "a" is not
      filler: it is a grade, a style or a flute letter as often as an article;
    - a word the item must confirm (charged `UNCONFIRMED` at every level); or
    - a **blocker**: a joining or relational word (`for to fit item style a or and approx each also
@@ -149,12 +151,12 @@ candidate, the line's own blockers); `MatchRule.requireTotalAccounting` (true fo
 
 | Level | minScore | minLead | Judge | Matched | Precision | False positives | Must-match recall | No-match rate |
 |---|---|---|---|---|---|---|---|---|
-| Strict | 0.9 | 0.35 | recorded | 320/1031 | 100% | 0 | 95% (320/337) | 69% |
-| Strict | 0.9 | 0.35 | always-agree | 320/1031 | 100% | 0 | 95% (320/337) | 69% |
-| Balanced | 0.7 | 0.2 | recorded | 332/1031 | 100% | 0 | 99% (332/337) | 68% |
-| Balanced | 0.7 | 0.2 | always-agree | 589/1031 | 56% | 257 (see below) | 99% (332/337) | 43% |
-| Lenient | 0.55 | 0.15 | recorded | 336/1031 | 100% | 0 | 100% (336/337) | 67% |
-| Lenient | 0.55 | 0.15 | always-agree | 668/1031 | 50% | 332 (see below) | 100% (336/337) | 35% |
+| Strict | 0.9 | 0.35 | recorded | 320/1035 | 100% | 0 | 95% (320/337) | 69% |
+| Strict | 0.9 | 0.35 | always-agree | 320/1035 | 100% | 0 | 95% (320/337) | 69% |
+| Balanced | 0.7 | 0.2 | recorded | 332/1035 | 100% | 0 | 99% (332/337) | 68% |
+| Balanced | 0.7 | 0.2 | always-agree | 589/1035 | 56% | 257 (see below) | 99% (332/337) | 43% |
+| Lenient | 0.55 | 0.15 | recorded | 336/1035 | 100% | 0 | 100% (336/337) | 68% |
+| Lenient | 0.55 | 0.15 | always-agree | 668/1035 | 50% | 332 (see below) | 100% (336/337) | 35% |
 
 Precision is the share of matched lines that got the right item. Recall is the share of must-match
 lines that got their item. `npm run eval:report` lists every false positive.
@@ -320,7 +322,7 @@ that cost recall cost it only where the line says something the catalog doesn't 
 
 ### Margins (Strict, on the scorer alone)
 
-All 694 must-not lines either name no product the top item confirms or are not Strict-eligible, so they
+All 698 must-not lines either name no product the top item confirms or are not Strict-eligible, so they
 cannot clear Strict whatever their score and lead. None of them is Strict-eligible against its top item,
 so in this set none rests on the lead alone (7 after fix round 1; on this set 5 at `3a23f0d`; 0 now); for a new
 line, the lead remains a real second gate. The lead and minScore

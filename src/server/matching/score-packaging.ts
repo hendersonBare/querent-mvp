@@ -241,6 +241,9 @@ function fit(line:Spec,item:ScoredSpec,variants:readonly ScoredSpec[]=[]){
       else add(A,sameSize(m,item.dims![at])?1:-1,`size: ${m.label} vs ${item.dims![at].label}`);
       continue;
     }
+    // A size said as a thickness (".160\" thick", "1/4\" thick foam") is a thickness besides the item's
+    // dimensions: an item with none (a 2" tape dispenser) has nothing it could be the thickness of.
+    if(m.thickness&&!item.dims){add(A,0,`size: ${m.label} thick, and this item has no dimensions it is the thickness of`);continue;}
     // Only catalog sizes with a unit of the same kind: 0.5 cm is never the unitless "0.5". A loose
     // size is confirmed by one of the item's own measures (each confirms one), never by a dimension.
     const family=familyOf(m.unit);
