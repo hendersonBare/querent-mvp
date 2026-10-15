@@ -145,6 +145,7 @@ test('an unmatched line: open its closest items, use one, price it and save it a
   const wrap=reviewLine(dialog,'SF188CAST');
   await expect(qty(dialog,'SF188CAST')).toHaveValue('4');
   await expect(wrap).toContainText('Check quantity (customer wrote: 4 rolls)');
+  await shot(page,'03c-review-dialog-check-quantity');
   await qty(dialog,'SF188CAST').fill('1');
   await expect(wrap).toContainText('Customer wrote: 4 rolls');
   await expect(wrap.getByTestId('qty-unit')).toHaveText('case');
