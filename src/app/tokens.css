@@ -1,7 +1,6 @@
-/* The new UI's tokens (plan U0). Every value is read from the canvas frames in
-   docs/design/canvas-frames/ (the style guide, docs/design/new-ui-style-guide.md, lists them);
-   e2e/frames-primitives.spec.ts compares each one with the frame that draws it. No page uses them
-   until it is rebuilt (U2 onwards); the primitives in src/components/ui/ do. */
+/* The UI's tokens (plan U0). Every value is read from the canvas frames in
+   docs/design/canvas-frames/ (the style guide, docs/design/new-ui-style-guide.md, lists them).
+   The shell (src/features/shell/) and the primitives in src/components/ui/ use them. */
 :root {
   /* Type: next/font sets --font-albert-sans and --font-geist-mono on <html> (src/app/layout.tsx). */
   --q-font-sans: var(--font-albert-sans);

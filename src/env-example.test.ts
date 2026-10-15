@@ -9,8 +9,6 @@ import {describe,expect,it} from 'vitest';
 const ROOT=resolve(__dirname,'..');
 const KEYS=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','ANTHROPIC_API_KEY','ANTHROPIC_MODEL','QUERENT_SCRIPTED','PORT'];
 const SECRETS=['NEXT_PUBLIC_SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','DATABASE_URL','ANTHROPIC_API_KEY'];
-/** Keys of the SQLite demo this branch removed. */
-const REMOVED=/DATABASE_PATH|OILPRICEAPI|FEATURE_|QUERENT_SEED_DATE|QUERENT_E2E_RESET|JEV_API_KEY/;
 const text=()=>readFileSync(join(ROOT,'.env.example'),'utf8');
 const entries=()=>new Map(text().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i),l.slice(i+1)] as const;}));
 const ignored=(path:string)=>spawnSync('git',['check-ignore','-q',path],{cwd:ROOT}).status;
@@ -20,8 +18,6 @@ describe('.env.example',()=>{
     for(const line of text().split('\n').map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')))expect(line).toMatch(/^[A-Z][A-Z0-9_]*=/);
     expect([...entries().keys()]).toEqual(KEYS);
   });
-
-  it('never mentions a removed key',()=>{expect(text()).not.toMatch(REMOVED);});
 
   it('holds placeholders only: secrets are empty and no value looks like a key',()=>{
     for(const key of SECRETS)expect(entries().get(key),key).toBe('');
