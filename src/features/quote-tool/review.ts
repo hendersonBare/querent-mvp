@@ -1,5 +1,5 @@
 import type {StrictnessLevel} from '@/features/settings/strictness';
-import {MAX_QUANTITY,MAX_UNIT_PRICE,PRICE_DECIMALS,QUANTITY_DECIMALS} from './limits';
+import {readPrice,readQuantity} from '@/features/quotes/limits';
 import type {MatchRun,ResultItem,SaveLine,SaveQuoteRequest,ScoredItem} from './types';
 
 // The review dialog's state and rules, kept out of the component so they can be tested without a DOM:
@@ -40,21 +40,31 @@ export function initialReview(run:MatchRun):ReviewLine[]{
   });
 }
 
-const PRICE=new RegExp(`^(?:\\d+(?:\\.\\d{0,${PRICE_DECIMALS}})?|\\.\\d{1,${PRICE_DECIMALS}})$`);
-const QUANTITY=new RegExp(`^(?:\\d+(?:\\.\\d{0,${QUANTITY_DECIMALS}})?|\\.\\d{1,${QUANTITY_DECIMALS}})$`);
+// Prices and quantities are read with the quotes module's shared limits (src/features/quotes/limits.ts),
+// so the dialog accepts exactly what the database stores and POST /api/quotes accepts.
 
 /** A unit price as typed ("$1,250.50" is 1250.5): at least 0, up to 4 decimals; else null. */
 export function parsePrice(input:string):number|null{
-  const text=input.trim().replace(/^\$\s*/,'').replace(/,/g,'');
-  return PRICE.test(text)&&Number(text)<=MAX_UNIT_PRICE?Number(text):null;
+  const read=readPrice(input);
+  return 'value' in read?read.value:null;
 }
 
 /** A quantity as typed: more than 0, up to 3 decimals; else null. */
 export function parseQuantity(input:string):number|null{
-  const text=input.trim().replace(/,/g,'');
-  if(!QUANTITY.test(text))return null;
-  const value=Number(text);
-  return value>0&&value<=MAX_QUANTITY?value:null;
+  const read=readQuantity(input);
+  return 'value' in read?read.value:null;
+}
+
+/** Why a typed value cannot be saved (the shared field message), or null when it can or the field is empty. */
+export function priceError(input:string):string|null{
+  if(!input.trim())return null;
+  const read=readPrice(input);
+  return 'error' in read?read.error:null;
+}
+export function quantityError(input:string):string|null{
+  if(!input.trim())return null;
+  const read=readQuantity(input);
+  return 'error' in read?read.error:null;
 }
 
 /** quantity × unit price in cents, rounded half up (the database's round(…, 2) for positive amounts). */

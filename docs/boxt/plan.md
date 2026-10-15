@@ -129,11 +129,12 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | merged |
 | B1 | Supabase schema, RLS, seed, repository | B0 | merged |
 | B2 | Auth (login, reset, proxy, guards) | B1 | merged |
-| B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
+| B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | blocked after 3 fix rounds (verifier FAIL x3); continued as B3b on the same branch |
+| B3b | Strict total-accounting hardening (fresh implementer, all verifier probe lines as held-out eval) | B3 branch | in progress (`boxt/task/B3-packaging-matching-eval`) |
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
-| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
-| B6 | Quotes list and detail | B1, B2 | in progress (`boxt/task/B6-quotes`, started from the B2 head) |
-| B7 | Settings (match strictness) | B1, B2, B3 | pending |
+| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | in progress (`boxt/task/B5-quote-tool`, B3 branch merged in for its API) |
+| B6 | Quotes list and detail | B1, B2 | merged |
+| B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
 | B8 | E2E, access control, CI | B5, B6, B7 | pending |
 | B9 | DEPLOY.md, OPERATIONS.md, README | B8 | pending |
 
@@ -219,6 +220,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| B6 | `6e55b92` | PASS (round 2) | Round 1 (`ad546d0`) FAIL: quantity decimals not limited to `numeric(14,3)`. Fixed with `src/features/quotes/limits.ts`. Round 2: typecheck 0; `npm test` 38 files / 556; build 0; `test:db` 51; API: qty 1.2345/0.0001/0.0005 and price 0.12345 → 400 with field messages, exact storage for 1.235 and 0.1235; UI shows field errors and disables Save; edit-mode totals equal saved totals; example 409 on PATCH/DELETE; 307/401 unauthenticated; create → edit → delete flow. |
+| B3 | `cd43017` | FAIL (round 3) | Gates pass; Strict FP with an always-agree judge: round 1: 12 (unexplained qualifiers), round 2: 22 (pack counts vs sides, L/W/H order, negation, single letters, units, bare sizes), round 3: 35 of 58 new lines (stop words drop "for … item"; extra sizes absorbed in any position; only first of repeated values kept; second closure/adhesive dropped; labelled bag sizes re-sorted length first; "-free"/"non-" claims pass; stated pack count ignored when catalog gives none; keywords confirm product type). Recall 94-97%. Blocked; B3b opened. |
 | B2 | `0ff8c5c` | PASS | typecheck 0; `npm test` 30 files / 367; build 0 (with env); `test:db` 43; curl: every page → 307 `/login?next=`, every API → 401, cross-origin POST → 403, no open redirect (20+ attack `next` values), identical errors for unknown vs wrong password; reset end to end via Mailpit (link reuse → expired); Supabase signup → 422; `getUser()` everywhere, every page re-checks. Follow-ups: F1 build fails without Supabase env (call `connection()` first); F2 proxy matcher skips paths ending `.png` etc. (handlers still check); F3 stack-level magic link for existing users (document; app cannot complete it); F4 password change needs no old password (Supabase default). |
 | B1 | `d2ee06f` | PASS | typecheck 0; `npm test` 25 files / 276; build 0; stack restarted from checkout; `db:reset` 1,555 rows + example + 2 dev users; `test:db` 32 pass; psql: RLS on all 5 tables, policies `authenticated` only, anon has no table/view/sequence/function privilege, view `security_invoker`; anon REST → 42501; signup → 422 `signup_disabled`; example quote refused for authenticated and service_role; bad line in `create_quote`/`update_quote` writes nothing; seed idempotent; planted boundary violations caught. Notes: metadata keys must come from a fixed list in app code; one misleading RPC error wording. |
 | B4 | `6509674` | PASS | typecheck 0; `npm test` 21 files / 244 tests offline; build 0; only `client.ts` names a model or reads the key; probes: case/space-variant SKU → null, empty candidates → no call, 201 rows refused, 4 MB+1 PDF refused, `judgeAll` ≤ 2 in flight with concurrency 2, timeouts abort. Follow-ups for B5: bound the parse time to fit the route's `maxDuration`; consider `strict` tools after an SDK upgrade. |

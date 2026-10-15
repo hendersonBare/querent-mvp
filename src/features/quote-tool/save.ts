@@ -5,8 +5,7 @@ import type {ApiSession} from '@/features/auth/server';
 import {packLabel} from '@/server/matching';
 import {createQuote,getCatalogItems,logActivity} from '@/server/repository';
 import {MATCH_STRICTNESS_LEVELS,type CatalogItem,type NearMiss,type QuoteLineInput} from '@/server/repository/types';
-import {MAX_QUANTITY,MAX_UNIT_PRICE,PRICE_DECIMALS,QUANTITY_DECIMALS} from './limits';
-import {MAX_LIST_LINES} from './types';
+import {QUOTE_LIMITS,quantitySchema,quoteTextSchema,unitPriceSchema} from '@/features/quotes/limits';
 
 // POST /api/quotes (create; the review dialog's Save quote). The body is validated with zod; matched
 // lines name a SKU that must exist in the catalog, which is read again here: the item's description,
@@ -19,14 +18,9 @@ const MAX_BODY_BYTES=1024*1024;
 const NO_STORE={'cache-control':'no-store'};
 const fail=(status:number,error:string)=>Response.json({error},{status,headers:NO_STORE});
 
-/** At most `places` decimal places (prices 4, quantities 3, as the database stores them). */
-const decimals=(places:number)=>(n:number)=>{
-  const scaled=n*10**places;
-  return Math.abs(scaled-Math.round(scaled))<1e-6*Math.max(1,Math.abs(scaled));
-};
-
 const originalText=z.string().trim().min(1,'Each line needs its original text.').max(2000,'A line\'s original text can be up to 2000 characters.');
-const quantity=z.number().finite().positive('Quantities must be greater than 0.').max(MAX_QUANTITY).refine(decimals(QUANTITY_DECIMALS),`Quantities can have up to ${QUANTITY_DECIMALS} decimal places.`);
+// Quantities, prices and text lengths use the quotes module's shared limits (src/features/quotes/limits.ts).
+const quantity=quantitySchema;
 const unit=z.string().trim().max(40).nullish();
 const sku=z.string().trim().min(1,'Each matched line needs an item.').max(64);
 
@@ -38,7 +32,7 @@ const matchedLine=z.object({
   quantity,
   unit,
   quantityUnclear:z.boolean().optional(),
-  unitPrice:z.number().finite().min(0,'Prices cannot be negative.').max(MAX_UNIT_PRICE).refine(decimals(PRICE_DECIMALS),`Prices can have up to ${PRICE_DECIMALS} decimal places.`),
+  unitPrice:unitPriceSchema,
   matchScore:z.number().finite().min(0).max(1).nullish(),
 });
 
@@ -52,11 +46,11 @@ const unmatchedLine=z.object({
 });
 
 export const saveQuoteSchema=z.object({
-  customerName:z.string().trim().max(200,'The customer name can be up to 200 characters.').optional(),
-  reference:z.string().trim().max(200,'The reference can be up to 200 characters.').optional(),
+  customerName:z.string().trim().pipe(quoteTextSchema).optional(),
+  reference:z.string().trim().pipe(quoteTextSchema).optional(),
   matchStrictness:z.enum(MATCH_STRICTNESS_LEVELS).optional(),
   lines:z.array(z.discriminatedUnion('unmatched',[matchedLine,unmatchedLine]))
-    .min(1,'A quote needs at least one line.').max(MAX_LIST_LINES,`A quote can have up to ${MAX_LIST_LINES} lines.`),
+    .min(1,'A quote needs at least one line.').max(QUOTE_LIMITS.linesMax,`A quote can have up to ${QUOTE_LIMITS.linesMax} lines.`),
 });
 
 type SaveBody=z.infer<typeof saveQuoteSchema>;

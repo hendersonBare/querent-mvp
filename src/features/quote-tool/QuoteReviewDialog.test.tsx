@@ -71,13 +71,13 @@ describe('QuoteReviewDialog',()=>{
     expect(screen.getByLabelText('Unit price for 12108-BDL')).toHaveAttribute('aria-invalid','true');
   });
 
-  it('explains a quantity it cannot save: more than 0, up to 3 decimals',()=>{
+  it('explains a quantity it cannot save with the shared field messages (above 0, up to 3 decimals)',()=>{
     setup();
     const qty=screen.getByLabelText('Quantity for 12108-BDL');
-    for(const bad of ['0','0.0004','1.2345','-2']){
+    for(const [bad,message] of [['0','Enter a quantity above 0.'],['0.0004','Enter a quantity of at least 0.001.'],['1.2345','Use up to 3 decimals.'],['-2','Enter a quantity above 0.']]){
       type(qty,bad);
       expect(qty).toHaveAttribute('aria-invalid','true');
-      expect(within(matchedSection()).getByTestId('line-0')).toHaveTextContent('More than 0, up to 3 decimals');
+      expect(within(matchedSection()).getByTestId('line-0')).toHaveTextContent(message);
     }
     type(qty,'2.125');
     expect(qty).toHaveAttribute('aria-invalid','false');

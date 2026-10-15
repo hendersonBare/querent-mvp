@@ -3,10 +3,9 @@ import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent
 import {createPortal} from 'react-dom';
 import d from '@/components/ui/Dialog.module.css';
 import {trapTab} from '@/components/ui/focus';
-import {PRICE_HINT,QUANTITY_HINT} from './limits';
 import {saveQuote as defaultSave,searchCatalog as defaultSearch} from './client';
 import {
-  blockersMessage,formatMoney,initialReview,unitLabel,listPriceLabel,parsePrice,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,formatMoney,initialReview,priceError,quantityError,unitLabel,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
   type ReviewLine,
 } from './review';
 import type {MatchRun,ResultItem,SaveQuoteRequest,ScoredItem} from './types';
@@ -239,8 +238,8 @@ interface MatchedLineProps {
 function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPrice,onSwap,onRemove}:MatchedLineProps){
   const item=line.item!;
   const cents=reviewLineCents(line);
-  const badPrice=line.price.trim()!==''&&parsePrice(line.price)===null;
-  const badQuantity=line.quantity.trim()!==''&&parseQuantity(line.quantity)===null;
+  const badPrice=priceError(line.price);
+  const badQuantity=quantityError(line.quantity);
   const label=listPriceLabel(item);
   return <li className={s.line} data-testid={`line-${line.key}`}>
     <div className={d.item}>
@@ -255,8 +254,8 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
     </div>
     <div className={s.cell}>
       <input className={d.input} value={line.quantity} inputMode="decimal" autoComplete="off" aria-label={`Quantity for ${item.sku}`}
-        aria-invalid={badQuantity} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
-      {badQuantity?<span className={d.fieldError}>{QUANTITY_HINT}</span>:flagQuantity
+        aria-invalid={badQuantity!==null} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
+      {badQuantity?<span className={d.fieldError}>{badQuantity}</span>:flagQuantity
         ?<span className={s.flag}>Check quantity</span>
         :line.unit&&<span className={s.unit}>{unitLabel(parseQuantity(line.quantity),line.unit)}</span>}
     </div>
@@ -264,9 +263,9 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
       <span className={s.money}>
         <span className={s.dollar} aria-hidden="true">$</span>
         <input className={`${d.input} ${s.priceInput}`} value={line.price} inputMode="decimal" autoComplete="off" aria-label={`Unit price for ${item.sku}`}
-          aria-invalid={badPrice} disabled={saving} onChange={e=>onPrice(e.target.value)}/>
+          aria-invalid={badPrice!==null} disabled={saving} onChange={e=>onPrice(e.target.value)}/>
       </span>
-      {badPrice&&<span className={d.fieldError}>{PRICE_HINT}</span>}
+      {badPrice&&<span className={d.fieldError}>{badPrice}</span>}
     </div>
     <div className={s.lineTotal}>{cents===null?<span className={s.muted}>No price</span>:formatMoney(cents)}</div>
     <div className={s.lineActions}>
