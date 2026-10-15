@@ -131,7 +131,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B2 | Auth (login, reset, proxy, guards) | B1 | merged |
 | B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
-| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
+| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | in progress (`boxt/task/B5-quote-tool`, B3 branch merged in for its API) |
 | B6 | Quotes list and detail | B1, B2 | in progress (`boxt/task/B6-quotes`, started from the B2 head) |
 | B7 | Settings (match strictness) | B1, B2, B3 | pending |
 | B8 | E2E, access control, CI | B5, B6, B7 | pending |
