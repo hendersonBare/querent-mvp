@@ -23,6 +23,8 @@ const ROUTES=[
   // B2: auth pages and APIs (no sign-up route).
   '/login','/reset-password','/auth/confirm','/update-password',
   '/api/auth/login','/api/auth/signout','/api/auth/reset','/api/auth/update-password',
+  // B5: the quote tool's APIs (match, Swap search, and POST /api/quotes; B6 adds GET to that file).
+  '/api/quote-tool/match','/api/catalog/search','/api/quotes',
 ];
 
 describe('routes',()=>{
