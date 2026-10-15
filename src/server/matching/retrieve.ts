@@ -1,6 +1,5 @@
 import type {PackagingItem} from './packaging';
-import {hundredths} from './score';
-import {scorePackaging,type Candidate} from './score-packaging';
+import {hundredths,scorePackaging,type Candidate} from './score-packaging';
 
 // Retrieve (BOXT pipeline step 2): the candidates for one parsed line, and whether the scorer alone
 // clears the threshold. The judge then sees `candidates`; decide() (decide.ts) makes the call.

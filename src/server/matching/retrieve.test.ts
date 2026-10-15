@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {CONFLICT,UNSTATED,scorePackaging} from './score-packaging';
+import {CONFLICT,UNSTATED,hundredths,scorePackaging} from './score-packaging';
 import {retrieve} from './retrieve';
 
 // Real BOXT rows with the near-duplicates that make wrong matches easy: permuted and near box sizes,
@@ -173,6 +173,14 @@ describe('scorePackaging: what the line says',()=>{
     expect(scorePackaging('',CATALOG)).toEqual([]);
     expect(scorePackaging('xyzzy plugh',CATALOG)).toEqual([]);
     expect(scorePackaging('boxes',[])).toEqual([]);
+  });
+});
+
+describe('hundredths',()=>{
+  it('compares in hundredths, so float noise never flips a threshold',()=>{
+    expect(0.95-0.8).toBeLessThan(0.15);
+    expect(hundredths(0.95-0.8)).toBe(15);
+    expect(hundredths(0.7499999999)).toBe(75);
   });
 });
 

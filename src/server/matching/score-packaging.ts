@@ -1,5 +1,4 @@
 import {DEFINING_CHOICE,familyOf,parseItemSpec,parseSpec,productGroup,sameSize,type ChoiceKey,type ItemSpec,type PackagingItem,type Size,type Spec} from './packaging';
-import {OFF_NOUN,hundredths} from './score';
 
 // Packaging-aware scoring (BOXT task B3). Matching is by description only: a SKU typed in the line is
 // just text, so a customer's own SKU can never match a BOXT SKU by coincidence. Pure; the catalog is
@@ -27,14 +26,19 @@ import {OFF_NOUN,hundredths} from './score';
 //   - an item whose words don't include the product noun the line names (boxes, bags, mailers,
 //     tape, ...) is scaled by OFF_NOUN.
 
+/** n in hundredths, without float noise: 0.95 - 0.8 is 15, not 14.999... Scores and leads compare in hundredths. */
+export const hundredths=(n:number)=>Math.round(Number((n*100).toPrecision(12)));
+
 /** What each thing the line says is worth. */
-export const PACKAGING_WEIGHTS={dims:3,attribute:2,feature:1,word:1} as const;
+const PACKAGING_WEIGHTS={dims:3,attribute:2,feature:1,word:1} as const;
 /** The factor per contradiction. */
 export const CONFLICT=0.5;
 /** The factor per defining item feature (closure, wall, kind, stated colour) the line doesn't state. */
 export const UNSTATED=0.8;
+/** The factor for an item whose words don't include the product noun the line names. */
+const OFF_NOUN=0.6;
 /** Burst (Mullen) ratings and the ECT they are sold as equivalent to. */
-export const BURST_TO_ECT:Readonly<Record<number,number>>={200:32,275:44,350:55};
+const BURST_TO_ECT:Readonly<Record<number,number>>={200:32,275:44,350:55};
 
 /** The product nouns a line can name. */
 const NOUNS=new Set(['box','carton','mailer','bag','pouch','envelope','tape','label','wrap','film','roll','sheet','pad','tubing','cover',

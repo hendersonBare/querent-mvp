@@ -1,5 +1,5 @@
 import type {Retrieval} from './retrieve';
-import {hundredths} from './score';
+import {hundredths} from './score-packaging';
 
 // Decide (BOXT pipeline step 4): Matched only when the scorer clears the threshold and lead AND the
 // judge picks an item of the top candidate's product group (it may pick the other pricing tier; that
