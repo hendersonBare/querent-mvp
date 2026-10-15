@@ -27,6 +27,8 @@ const ROUTES=[
   '/api/quote-tool/match','/api/catalog/search',
   // B6: a quote's page and the quotes API (GET and POST /api/quotes in one route file).
   '/quotes/[id]','/api/quotes','/api/quotes/[id]',
+  // B7: the settings API.
+  '/api/settings',
 ];
 
 describe('routes',()=>{
