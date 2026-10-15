@@ -46,7 +46,7 @@ describe('total accounting: a clean line is Strict-eligible',()=>{
     ['Corrugated Boxes 12" L x 10" W x 8" H, 32 ECT','12108-BDL'],
     ['Reclosable Bags 4 x 6", 2 Mil, 1,000/case','PB3565'],
     ['Kraft Bubble Mailers #2 8 1/2 x 12" 100/case','B855SS'],
-    ['Uline Industrial Tape 2" x 110 yds 1.9 Mil Clear Hot Melt 36 rolls/case','T902700'],
+    ['Uline Industrial Tape 2" x 110 yds 1.9 Mil Clear Hot Melt Hand Length 36 rolls/case','T902700'],
     ['Black Poly Strapping Machine Length 1/2" x 9000\' 300 lb 8x8 Core','PS2215'],
     ['Corrugated Boxes 12＂x10＂x8＂ 32 ECT','12108-BDL'],
   ])('"%s" has no blockers and matches %s',(line,sku)=>{
@@ -190,8 +190,9 @@ describe('total accounting: the product noun comes from the item\'s description'
     expect(t.eligible).toBe(false);
     expect(t.blockers.join(' ')).toContain('paper');
     expect(strictMatch('Kraft Paper 72mm x 450 ft')).toBeNull();
-    expect(strictMatch('Kraft Tape 72mm x 450\'')).toBe('T9077200');
-    expect(strictMatch('Kraft Paper Tape 72mm x 450\'')).toBe('T9077200');
+    // B3b fix 2: the item's #7200 must be said too.
+    expect(strictMatch('Kraft Tape #7200 72mm x 450\'')).toBe('T9077200');
+    expect(strictMatch('Kraft Paper Tape #7200 72mm x 450\'')).toBe('T9077200');
   });
 
   it('accepts the documented synonyms: bubble wrap is a bubble roll, stretch film is stretch wrap, an RSC is a box',()=>{
@@ -429,7 +430,7 @@ describe('fix round 2: a choice the item states must be stated by the line',()=>
   it('a line that states the choices still matches',()=>{
     expect(strict3('Black Poly Strapping Hand Length 5/8" 800 lb')).toBe('PS5826');
     expect(strict3('Blown Hand Stretch Wrap 18" x 1500\' 90 Gauge')).toBe('SF189');
-    expect(strict3('Heavy Duty Double Wall Boxes 12 x 12 x 12"')).toBe('HD1212DW-BDL');
+    expect(strict3('Blown Machine Stretch Wrap 20" x 7500\' 60 Gauge')).toBe('MSF2060B');
   });
 });
 
@@ -462,5 +463,16 @@ describe('fix round 2: no tolerance between yards, feet and inches',()=>{
   it('3000\' is exactly 1000 yd, and 330\' exactly 110 yd',()=>{
     expect(strict3('Clear Hot Melt Tape Machine Length 2" x 3000\' 1.9 Mil')).toBe('T903700');
     expect(strict3('Clear Hot Melt Tape Hand Length 2" x 330\' 1.9 Mil')).toBe('T902700');
+  });
+});
+
+describe('fix round 2: a colour shade is its own colour',()=>{
+  it('reads "Deep Lavender" apart from "Lavender", and "Light Blue" apart from "Blue"',()=>{
+    expect(parseSpec('#5 Colored Bubble Mailers 10.5x15.25", Deep Lavender').colors).toEqual(['deep lavender']);
+    expect(parseSpec('#5 Lavender Colored Bubble Mailers').colors).toEqual(['lavender']);
+    expect(parseSpec('Light Blue Mailers').colors).toEqual(['light blue']);
+    const deep=[{sku:'AJ5DL',description:'#5 Colored Bubble Mailers 10.5x15.25", Deep Lavender',pack:'Case',caseQty:1,category:'mailers',keywords:'colored bubble mailers'}];
+    expect(scorePackaging('#5 Lavender Colored Bubble Mailers 10 1/2 x 15 1/4"',deep)[0]?.score??0).toBeLessThanOrEqual(0.5);
+    expect(scorePackaging('#5 Deep Lavender Colored Bubble Mailers 10 1/2 x 15 1/4"',deep)[0].eligibility.strictEligible).toBe(true);
   });
 });

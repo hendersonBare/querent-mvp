@@ -256,10 +256,13 @@ const CHOICES:{key:ChoiceKey;values:[string,RegExp][]}[]=[
   ]},
 ];
 /**
- * The choices that make an item a different kind when the line doesn't say them. Single wall and
- * new are the defaults; kraft paper is also its colour, which is charged as a colour.
+ * The choices an item states that a line must state too (B3b fix round 2: when unsure, No match):
+ * closure, adhesive, print method, film type, hand or machine length, flute and paper grade, always;
+ * the wall and the condition unless they are the defaults (single wall, new). A choice the line leaves
+ * unsaid is unstated: 0.75, and a Strict blocker.
  */
-export const DEFINING_CHOICE=(key:ChoiceKey,value:string)=>key==='closure'||(key==='wall'&&value!=='single')||(key==='paper'&&value!=='kraft')||(key==='condition'&&value!=='new');
+export const DEFINING_CHOICE=(key:ChoiceKey,value:string)=>key==='closure'||key==='adhesive'||key==='print'||key==='film'||key==='length'||key==='flute'||key==='paper'
+  ||(key==='wall'&&value!=='single')||(key==='condition'&&value!=='new');
 
 /** The paper grade, read without removing the words: newsprint, tissue and kraft paper are different papers. */
 const PAPER_GRADES:[string,RegExp][]=[['newsprint',/\bnewsprint\b/],['tissue',/\btissue\b/],['crinkle',/\bcrinkle\b/],['honeycomb',/\bhoneycomb\b/]];
@@ -286,7 +289,10 @@ const COLORS:[string,RegExp][]=[
   ['steel blue',/\bsteel[\s-]*blue\b/g],
   ['pastel pink',/\bpastel[\s-]*pink\b/g],
   ['sherbet orange',/\bsherbet[\s-]*orange\b/g],
-  ['lavender',/\b(?:deep[\s-]*)?lavender\b/g],
+  // A shade is its own colour: "Deep Lavender" is not "Lavender", "Light Blue" not "Blue".
+  ...['light','dark','deep','pale','bright','neon'].flatMap(shade=>['lavender','blue','pink','green','gray','grey','red','yellow','orange','purple','brown','teal']
+    .map((base):[string,RegExp]=>[`${shade} ${base==='grey'?'gray':base}`,new RegExp(String.raw`\b${shade}[\s-]*${base}\b`,'g')])),
+  ['lavender',/\blavender\b/g],
   ['kraft',/\bkraft\b|\bbrown\b|\bnatural\b/g],
   ['white',/\bwhite\b/g],
   ['clear',/\bclear\b|\btransparent\b/g],
@@ -441,10 +447,11 @@ function takeSizes(text:string){
 }
 
 /**
- * How close two sizes in different units must be after conversion. A metric line rounds a standard
+ * How close a metric size must be to an imperial one after conversion. A metric line rounds a standard
  * imperial size to a whole millimetre or metre: 914 mm is 36" (0.04%), 203 mm is 8" (0.1%), 274 m is
  * 900' (0.12%). 0.2% admits those and nothing a supplier would sell as a different size. Sizes in one
- * unit (or with none) never get a tolerance: 12.05" is not 12", 6630' is not 6600'.
+ * unit (or with none), and conversions within one system (yards, feet, inches), are exact: 12.05" is
+ * not 12", 2995' is not 1000 yd.
  */
 export const UNIT_TOLERANCE=0.002;
 /** Equal as numbers: fractions and decimals are exact here (8 1/2 is 8.5, 5/8 is 0.625); 1e-9 absorbs float noise only. */
@@ -454,12 +461,19 @@ const EXACT=1e-9;
  * the scorer never compares a stray or a unitless measure this way), or within UNIT_TOLERANCE after
  * converting between units of one family (mm and inches, yards and feet).
  */
-export function sameSize(a:Size,b:Size){
-  if(a.unit&&b.unit&&a.unit!==b.unit){
+const METRIC=new Set(['mm','cm','m']);
+export function sameSize(a:Size,b:Size):boolean{
+  // Only a metric-imperial conversion rounds; yards to feet and feet to inches are exact.
+  if(a.unit&&b.unit&&a.unit!==b.unit&&METRIC.has(a.unit)!==METRIC.has(b.unit)){
     const [fa,ka]=TO_BASE[a.unit]??[a.unit,1],[fb,kb]=TO_BASE[b.unit]??[b.unit,1];
     if(fa!==fb)return false;
     const x=a.value*ka,y=b.value*kb;
     return Math.abs(x-y)<=Math.max(EXACT,UNIT_TOLERANCE*Math.max(x,y));
+  }
+  if(a.unit&&b.unit&&a.unit!==b.unit){
+    const [fa,ka]=TO_BASE[a.unit]??[a.unit,1],[fb,kb]=TO_BASE[b.unit]??[b.unit,1];
+    // Exact within the imperial (or metric) system: 300 yd is 900', 2995' is not 1000 yd.
+    return fa===fb&&Math.abs(a.value*ka-b.value*kb)<EXACT*Math.max(1,a.value*ka);
   }
   return Math.abs(a.value-b.value)<EXACT;
 }
@@ -608,7 +622,10 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
     raw=raw.replace(longDigits,' ');
   }
   let text=prepare(raw).replace(TIER,' ');
+  // A catalog row's "50 lb./Bundle" is the bundle's weight, not the paper's.
   if(item)text=text.replace(BUNDLE_WEIGHT,' ');
+  // "Perforated 12"" is the perforation spacing every BOXT roll has, on a line or an item: not a size of the item.
+  text=text.replace(/\bperforated\s+12\s*(?:"|''|in\b\.?|inch(?:es)?\b)/g,'perforated');
   const said=text;
   if(RANGES.some(re=>re.test(said)))blockers.push('a range');
   for(const m of said.matchAll(/(?<![\d.\/])(\d+)\s*\/\s*(\d+)(?![\d.\/])/g)){

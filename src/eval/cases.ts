@@ -151,7 +151,7 @@ const HANDWRITTEN:readonly EvalCase[]=[
   noMatch('n31-newsprint-30lb','S-3609 Newsprint Sheets 24 x 36" 30 lb','wrong_spec','lenient','24x36 newsprint is 10, 20, 25 or 50 lb; the 30 lb sheet is kraft.'),
 
   noMatch('n40-labels-unspecified','S-6902 Direct Thermal Labels 4 x 6"','wrong_spec','lenient','Desktop roll or fanfold: the line doesn\'t state the spec that tells them apart, so either could be wrong.'),
-  noMatch('n41-strapping-unspecified','S-4600 Black Poly Strapping 1/2" 600 lb','wrong_spec','lenient','Hand or machine length: the line doesn\'t say, so either could be wrong.'),
+  noMatch('n41-strapping-unspecified','S-4600 Black Poly Strapping 1/2" 600 lb','wrong_spec','strict','Hand or machine length: the line doesn\'t say, so either could be wrong. Declared strict since B3b fix 2: Balanced and Lenient used to hold it only because the hand and machine coils tied; the hand coil now leads with one unconfirmed detail (hand length), which Balanced admits by design.'),
 
   noMatch('n44-hd-275','S-4175 Heavy Duty Boxes 12 x 12 x 12" 275 lb test','wrong_spec','balanced','BOXT doesn\'t state the heavy duty box\'s rating, so 275 lb test can\'t be confirmed (two unconfirmed details: Lenient admits it).'),
   noMatch('n45-stretch-unspecified','S-2960 Stretch Film 18" x 1500\' 80 Gauge','wrong_spec','lenient','Cast or blown: the line doesn\'t say, and both are sold in this size and gauge.'),

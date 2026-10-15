@@ -6,8 +6,8 @@ is used to calibrate the strictness levels in `src/features/settings/strictness.
 
 | File | What it holds |
 |---|---|
-| `cases.ts` | 519 customer lines in another supplier's style. 200 must match a named BOXT SKU. 319 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`, `no_product_type`, `ambiguous`) and the loosest level at which it must still not match. Three sources: 181 hand-written lines (untagged), 262 held-out verifier probes (`heldout.ts`, tag `heldout`: rounds 2, 3 and 4), and 76 lines written against the total-accounting design (tag `b3b`: 53 must not match, 23 must match). |
-| `heldout.ts` | The B3 verifiers' probe lines from rounds 2, 3 and 4 (B3b fix round 1: `final.txt`, `sku.txt`, `recall.txt`) that `cases.ts` did not already hold, with their ground truth, and round 2's 710 bare sizes (`HELDOUT_BARE_SIZES`, checked apart: they name no product). Round 1's probes were added to `cases.ts` earlier (n47 to n76). |
+| `cases.ts` | 642 customer lines in another supplier's style. 239 must match a named BOXT SKU. 403 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`, `no_product_type`, `ambiguous`) and the loosest level at which it must still not match. Three sources: 181 hand-written lines (untagged), 385 held-out verifier probes (`heldout.ts`, tag `heldout`: rounds 2 to 5), and 76 lines written against the total-accounting design (tag `b3b`: 53 must not match, 23 must match). |
+| `heldout.ts` | The B3 verifiers' probe lines from rounds 2 to 5 (fix round 1: `final.txt`, `sku.txt`, `recall.txt`; fix round 2: the 34 named lines and `a1`, `a2`, `t1`, `sku`, `m1`) that `cases.ts` did not already hold, with their ground truth, and round 2's 710 bare sizes (`HELDOUT_BARE_SIZES`, checked apart: they name no product). Round 1's probes were added to `cases.ts` earlier (n47 to n76). |
 | `judge-recording.json` | One verdict per case, in B4's `JudgeVerdict` shape (`{sku \| null, reason}`), plus `recordedBy`. **The current verdicts are `hand-written`**: they were written in the build session, not recorded from a model, because no API key was available. Each one imitates a careful judge that sees only the line and the candidate list, and follows B4's rule of picking the first pricing tier. For the held-out and B3b lines the verdict is simply the expected SKU (must match) or none (must not match), so the recorded columns measure the scorer's recall there; safety is measured with the always-agree judge. `npm run eval:record` replaces them all with the live judge's (`recordedBy: 'live'`, with the model and time). |
 | `run.ts` | Runs each case through the pipeline's own steps after parsing: `retrieve` (the real scorer and catalog), then the judge, then `decide`. The judge gets the candidates as B4's `JudgeCandidate` (SKU, description, pack label, category), and its answer passes B4's `withinCandidates` guard. It runs at every level with two judges: the recorded one, and an **always-agree** judge that picks the top candidate, so that no level's safety depends on the judge. Retrievals are memoized per line and level. |
 | `eval.test.ts` | Part of `npm test`; `npm run test:eval` runs it alone. It **fails the build** in any of these cases: a must-not-match line matches at Strict with either judge; it matches at its declared level (or any stricter one) with either judge; a must-match line gets the wrong item at Strict; one of the 710 bare sizes matches at any level; a held-out or B3b must-not-match line clears Strict; Strict recall with the recorded judge drops below 90%. It also checks that every case has a recording and that every expected SKU is in the catalog. |
@@ -92,6 +92,24 @@ treated the rest as a perfect match. Strict now requires **total accounting**:
    parsed again when the row's fields change. The evaluation suite scores each line once and applies
    each level with `retrieveScored()`.
 
+9. **What the item states, the line must state (fix round 2).** When unsure, No match: an item's
+   defining attributes are charged when the line leaves them unsaid (0.75 each at every level, and a
+   Strict blocker), so Strict never rests on the lead because BOXT happens to carry one variant:
+   - its choices (`DEFINING_CHOICE`): closure, adhesive, print method, film (cast/blown), hand or
+     machine length, flute, paper grade always; a double or triple wall and a used or recycled
+     condition. A BC/EB flute is said by "double wall"; a tape's or stretch wrap's hand or machine
+     length is its roll length, so a line giving the full size with the roll length (2" x 110 yd) has
+     said it (strapping lists no hand length, so it must say "hand");
+   - its full size: an item with dims needs the line's dims; each of its own sizes, weights and
+     volumes (.160" thickness, 40 lb paper, 600 lb strapping, 14 cu ft) needs the line's; "Perforated
+     12"" is the spacing every roll has and is read as "perforated" on both sides;
+   - its mil, gauge, `#` (mailer size number, kraft tape model #7200, pallet grade #1/#2/#1B: #7500 and
+     #7700 are both 3" x 450') and core; its ECT unless it is the standard 32 ECT board (single wall
+     is the default too: every BOXT box that isn't says so);
+   - a mailer's or a sheet's material (kraft or poly bubble, paper or poly flat, corrugated sheets).
+   A shade is its own colour ("Deep Lavender" is not "Lavender"). Conversions within the imperial
+   system are exact (2995' is not 1000 yd); only metric to imperial gets `UNIT_TOLERANCE`.
+
 The result is explicit. `scorePackaging` gives every candidate an `eligibility`
 `{strictEligible, blockers}`; `retrieve` exposes the top candidate's as `retrieval.eligibility` (with no
 candidate, the line's own blockers); `MatchRule.requireTotalAccounting` (true for Strict in
@@ -104,19 +122,19 @@ candidate, the line's own blockers); `MatchRule.requireTotalAccounting` (true fo
 
 | Level | minScore | minLead | Judge | Matched | Precision | False positives | Must-match recall | No-match rate |
 |---|---|---|---|---|---|---|---|---|
-| Strict | 0.9 | 0.35 | recorded | 191/519 | 100% | 0 | 96% (191/200) | 63% |
-| Strict | 0.9 | 0.35 | always-agree | 191/519 | 100% | 0 | 96% (191/200) | 63% |
-| Balanced | 0.7 | 0.2 | recorded | 198/519 | 100% | 0 | 99% (198/200) | 62% |
-| Balanced | 0.7 | 0.2 | always-agree | 277/519 | 71% | 79 (see below) | 99% (198/200) | 47% |
-| Lenient | 0.55 | 0.15 | recorded | 200/519 | 100% | 0 | 100% (200/200) | 61% |
-| Lenient | 0.55 | 0.15 | always-agree | 324/519 | 62% | 124 (see below) | 100% (200/200) | 38% |
+| Strict | 0.9 | 0.35 | recorded | 225/642 | 100% | 0 | 94% (225/239) | 65% |
+| Strict | 0.9 | 0.35 | always-agree | 225/642 | 100% | 0 | 94% (225/239) | 65% |
+| Balanced | 0.7 | 0.2 | recorded | 236/642 | 100% | 0 | 99% (236/239) | 63% |
+| Balanced | 0.7 | 0.2 | always-agree | 365/642 | 65% | 129 (see below) | 99% (236/239) | 43% |
+| Lenient | 0.55 | 0.15 | recorded | 239/642 | 100% | 0 | 100% (239/239) | 63% |
+| Lenient | 0.55 | 0.15 | always-agree | 412/642 | 58% | 173 (see below) | 100% (239/239) | 36% |
 
 Precision is the share of matched lines that got the right item. Recall is the share of must-match
 lines that got their item. `npm run eval:report` lists every false positive.
 
 **Balanced and Lenient rely on the judge.** With the always-agree judge they let through what they are
-documented to allow: one (Balanced) or two (Lenient) unconfirmed details. Balanced's 79 are one-detail
-lines (the list below is from before fix round 1; `npm run eval:report` prints the current one), such as unstated features and claims (heavy duty, insulated, printed, telescoping, used, waterproof,
+documented to allow: one (Balanced) or two (Lenient) unconfirmed details. Balanced's 129 are one-detail
+lines (fix round 2 made every unsaid choice, size and spec one such detail, so it admits more of them; the list below is from before fix round 1 and `npm run eval:report` prints the current one), such as unstated features and claims (heavy duty, insulated, printed, telescoping, used, waterproof,
 economy, acid-free, BPA-free, non-toxic, lead-free, ...), a pack count the item doesn't state (h3-P01
 to P03), a noun only keywords confirm (h3-W01 "Kraft Paper 72mm x 450 ft" picks Kraft Tape), keyword-only
 claims (b01 to b05), a closure the item doesn't state (c03, c04), one unread qualifier (h3-S02 "12108",
@@ -159,6 +177,36 @@ held-out and B3b lines (table below), mostly because two values of one field now
 - **After:** 0 wrong matches at Strict with either judge, across all 277 must-not lines and the 710
   bare sizes.
 
+### Fix round 2 (verifier round 5): before and after
+
+"Before" is `c0f7271` (fix round 1 plus an integration merge); Strict, always-agree for wrong matches:
+
+| Source | Wrong matches before | after | Must-match recall before | after |
+|---|---|---|---|---|
+| round 5 must-not (84 lines: the coordinator's 34 and the rest of a1, a2, t1, sku) | **42** | **0** | 3/3 | 3/3 |
+| round 5 must-match (`m1.txt`, 36 new) | | | 36/36 | 36/36 |
+| all 642 lines | **42** | **0** | 230/239 | 225/239 |
+
+- **Lead-only must-not lines: 0** (was 7 before this round, 1 midway: "#5 Lavender" against "Deep
+  Lavender", fixed by reading shades as their own colour). All 403 must-not lines are blocked by total
+  accounting at Strict; none rests on the score or lead alone.
+- Three verifier lines are encoded as must-match, with the reason in the case note: "Double Cushion
+  Pillow Air Cushion Film Rolls" (h5n22, one of the 34): MINP67 has no size in the catalog, the line
+  says every word the item says, and "Double Cushion Pillow" tells it from the two Bubble Quilt rolls;
+  "Black Top Sheeting 60" x 60' 1.5 Mil" (h5n71, a2.txt) is PC85 word for word; "Plastic Reclosable
+  Bags 4 x 6" 2 Mil, Clear" is listed NO in a1.txt and must-match in m1.txt (plastic is poly, clear is
+  the bags' colour). Each is a one-line change if the decision goes the other way.
+- n41 ("Black Poly Strapping 1/2" 600 lb") is now declared `strict`: Balanced and Lenient held it only
+  because the hand and machine coils tied; the hand coil now leads with one unconfirmed detail (hand
+  length), which Balanced admits by design. Strict blocks it.
+- Lost at Strict this round (5): m59, h2m15, a07 ("Kraft Tape 70/72 mm x 450'": the item's #7000 or
+  #7200 is unsaid; the width alone is unique among kraft tapes, but the model number is what tells
+  #7500 from #7700 at 3" x 450', so it is required), h2m27 ("Edge Protectors 2 x 2 x 36"": the .160"
+  thickness is unsaid; all 21 BOXT edge protectors are .160", but the verifier's own probes treat the
+  thickness as required), h2m31 ("Recycled Heat Treated Pallets 48 x 40"": the #1 grade is unsaid;
+  recycled and heat treated is unique). The first and last could be argued to match (the rest of the
+  line is unique), but that is the lead reasoning this round removes.
+
 ### Fix round 1 (verifier round 4): before and after
 
 "Before" is the head the verifier failed (`612506c`); "after" is this head. Strict, always-agree judge
@@ -194,9 +242,9 @@ for wrong matches, recorded judge for recall:
 
 ### What total accounting costs in recall (Strict, realistic must-match lines)
 
-Strict recall is 96% (191/200) overall: 38/39 on round 2's realistic lines, 29/29 on round 3's (30/30
-counting R18, the same line as round 2's h2m35), and 38/40 on round 4's. The 9 lines Strict leaves for
-the rep, and the rule that costs each:
+Strict recall is 94% (225/239) overall: 35/39 on round 2's realistic lines, 29/29 on round 3's, 38/40
+on round 4's and 36/36 on round 5's. The 14 lines Strict leaves for the rep, and the rule that costs each
+(the five fix-round-2 losses are listed in the section above):
 - **Total accounting (new):** m61 `Reclosable Bags 4 x 6" 2 Mil, Not Printed` (a negation is never
   confirmed by silence) and h2m08 `Corrugated Boxes 6 x 6 x 6" 25/bundle 500 total` ("500 total" is the
   order quantity, an unread number). m36 (self seal, which the catalog doesn't state) and m37 (no
@@ -215,12 +263,11 @@ that cost recall cost it only where the line says something the catalog doesn't 
 
 ### Margins (Strict, on the scorer alone)
 
-312 of the 319 must-not lines either name no product the top item confirms or are not Strict-eligible,
-so they cannot clear Strict whatever their score and lead. The other 7 are Strict-eligible against
-their top item, and Strict rests on the lead for them: n41, n45, h2n78, h2n79 (lead 0: two items fit
-equally), n42, h2n74 and h4n26 "Gaylord Lid" with no size (lead 0.25). The best lead among them
-is **0.25**, 0.10 below minLead; none of them has a passing lead. minScore 0.90 now admits only a full
-score (1.00), since anything unconfirmed is both 0.75 and a blocker.
+All 403 must-not lines either name no product the top item confirms or are not Strict-eligible, so they
+cannot clear Strict whatever their score and lead. None is Strict-eligible against its top item: Strict
+never rests on the lead alone (fix round 2; it was 7 lines after fix round 1). The lead and minScore
+remain as a second line of defence: minScore 0.90 admits only a full score (1.00), since anything
+unconfirmed is both 0.75 and a blocker.
 
 ## How the scores fall, and how the levels were set
 

@@ -174,7 +174,15 @@ function fit(line:Spec,item:ScoredSpec){
       add(PACKAGING_WEIGHTS.dims,sameTuple(other,dims)||sameTuple(other,item.altDims)?1:-1,`size: ${tuple(other)} vs ${dims?tuple(dims):'none'}`);
     }
   }
+  // The line gives the item's full size, in the item's order.
+  const sizeSaid=!!line.dims&&!!item.dims&&item.dims.length>=2&&familyOf(item.dims.at(-1)!.unit)==='length'&&
+    ['ft','yd','m'].includes(item.dims.at(-1)!.unit??'')&&sameTuple(tupleFor(line,item.dimOrder)??[],item.dims);
   const used=new Set<Size>();
+  // The tuple matched the item's dims with the size before them ("1/2\" Bubble 12\"x250'"): that size is said.
+  if(line.dims&&item.altDims&&!line.dimRanks&&sameTuple(line.dims,item.altDims)){
+    const bubble=item.measures.find(x=>sameSize(x,item.altDims![0]));
+    if(bubble)used.add(bubble);
+  }
   for(const m of line.measures){
     if(m.rank!==undefined){
       // "12\" deep": the dimension at that position, in the item's order.
@@ -234,7 +242,13 @@ function fit(line:Spec,item:ScoredSpec){
     for(const value of values)add(A,has===undefined?0:has===value?1:-1,has===undefined?`${key}: ${value}`:`${key}: ${value} vs ${has}`);
   }
   for(const [key,value] of Object.entries(item.choices) as [ChoiceKey,string][]){
-    if(line.choices[key]===undefined&&line.negated.choices[key]!==value&&DEFINING_CHOICE(key,value))unstated.push(`${key}: ${value}`);
+    if(line.choices[key]!==undefined||line.negated.choices[key]===value||!DEFINING_CHOICE(key,value))continue;
+    // A BC or EB flute is double wall: a line that says double wall has said it.
+    if(key==='flute'&&(value==='bc'||value==='eb')&&line.choices.wall==='double')continue;
+    // A tape's or stretch wrap's "Hand Length"/"Machine Length" is its roll length: a line that gives the
+    // item's full size, roll length included (2" x 110 yd), has said it. Strapping lists no hand length.
+    if(key==='length'&&(item.head==='tape'||item.head==='wrap')&&sizeSaid)continue;
+    unstated.push(`${key}: ${value}`);
   }
   for(const feature of line.features){
     const has=item.features.includes(feature);
@@ -280,6 +294,20 @@ function fit(line:Spec,item:ScoredSpec){
   const named=line.words.filter(w=>PRODUCT_NOUNS.has(w));
   const typeConfirmed=named.some(w=>item.wordSet.has(w));
   const offNoun=named.length>0&&!typeConfirmed;
+  // Item-side accounting of the item's specs (fix round 2): what the item states, the line must state.
+  // Its full size; every size, weight or volume of its own (a .160" thickness, 40 lb paper, 600 lb
+  // strapping, 14 cu ft); its mil, gauge, # and core; and its ECT, unless it is the standard 32 ECT
+  // board every BOXT corrugated box is sold in. (The pack count is not a spec.)
+  if(item.dims&&!line.dims)unstated.push(`size: ${tuple(item.dims)}`);
+  for(const m of item.measures)if(m.unit&&!used.has(m))unstated.push(`size: ${m.label}`);
+  for(const [key,unit] of [['mil',' mil'],['gauge',' gauge'],['number','#'],['core',' core']] as const){
+    const has=item[key];
+    if(has!==null&&!(line.values[key] as unknown[]).length)unstated.push(`${key}: ${unit==='#'?`#${has}`:`${has}${unit}`}`);
+  }
+  if(item.ect!==null&&item.ect!==32&&!line.values.ect.length&&!line.values.burst.length)unstated.push(`strength: ${item.ect} ECT`);
+  // A mailer's or a sheet's material is what kind it is (kraft or poly bubble, paper or poly flat, corrugated sheets).
+  if((item.head==='mailer'||item.head==='sheet')&&item.materials.length&&!item.materials.some(m=>line.materials.includes(m)))
+    unstated.push(`material: ${item.materials.join('/')}`);
   // Strict: the line must name what the item is (its head noun, or a documented stand-in), and account
   // for every other word of the item's description: "Gaylord 48x40" is not the Gaylord Lid, "White
   // Paper" not White Flat Paper Mailers, "Expandable Foam Bags" not the Extra Thick (Bulk Pack) ones.
@@ -290,7 +318,9 @@ function fit(line:Spec,item:ScoredSpec){
   for(const word of item.descWords){
     if(word===item.head||NON_DEFINING_WORDS.has(word)||says(word))continue;
     const material=materialOfWord(word);
-    if(material&&(!line.materials.length||line.materials.includes(material)))continue;
+    // A material word is accounted for when the line says it or leaves the material unsaid (a mailer's
+    // or a sheet's unsaid material is charged once, above). A different material is a contradiction.
+    if(material&&(line.materials.includes(material)||!line.materials.length))continue;
     if((ITEM_WORD_SYNONYMS[word]??[]).some(w=>line.words.includes(w)))continue;
     unstated.push(`word: ${word}`);
   }
