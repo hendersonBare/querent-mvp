@@ -57,12 +57,15 @@ function toPayloadLine(line:QuoteLineInput){
 /** Every quote the caller can read, newest first, with its line count, unmatched count and total. */
 export async function listQuotes(db:Db):Promise<QuoteSummary[]>{
   const rows:QuoteSummary[]=[];
+  let total:number|null=null;
   for(;;){
-    const {data,error}=await db.from('quote_summaries').select('*')
+    const {data,error,count}=await db.from('quote_summaries').select('*',{count:total===null?'exact':undefined})
       .order('created_at',{ascending:false}).order('id',{ascending:true}).range(rows.length,rows.length+PAGE-1);
     if(error)throw new RepositoryError('listQuotes',error.code,error.message);
+    if(total===null)total=count??null;
     rows.push(...data.map(toSummary));
-    if(data.length<PAGE)return rows;
+    // PostgREST caps each response (max_rows); page until the count is reached or a page comes back empty.
+    if(data.length===0||(total!==null&&rows.length>=total))return rows;
   }
 }
 

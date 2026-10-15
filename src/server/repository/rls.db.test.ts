@@ -131,5 +131,13 @@ describe('the example quote through the API',()=>{
       const left=await query('select count(*)::int as n from public.quotes where id=$1',[EXAMPLE_QUOTE_ID]);
       if(left[0].n!==1)throw new Error('authenticated deleted the example quote');
     },{rollback:true})).resolves.toBeUndefined();
+    // The service role bypasses RLS, so here only the trigger stands in the way, switch or not.
+    for(const statement of ['update public.quotes set reference=$2 where id=$1','delete from public.quotes where id=$1','update public.quote_lines set unit_price=0 where quote_id=$1']){
+      await expect(adminTransaction(async query=>{
+        await query("select set_config('querent.seeding','on',true)");
+        await query('set local role service_role');
+        await query(statement,statement.includes('$2')?[EXAMPLE_QUOTE_ID,'hijacked']:[EXAMPLE_QUOTE_ID]);
+      },{rollback:true}),statement).rejects.toThrow(/example quote/i);
+    }
   });
 });

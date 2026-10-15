@@ -26,7 +26,7 @@ const SQL=[
   /\b(?:select\s+(?:\*|[\w.]+\s*,)|insert\s+into\s+[\w.]+\s*\(|delete\s+from\s+[\w.]+|update\s+[\w.]+\s+set\s+\w+\s*=|(?:create|drop|alter)\s+(?:table|index|view|trigger|function|policy)\s+[\w.]+)/,
 ];
 /** A service-role or secret key, by env name, option name or key prefix. */
-const PRIVILEGED_KEY=/service[_\s-]?role|serviceRole|SECRET_KEY|secretKey|sb_secret_/i;
+const PRIVILEGED_KEY=/service[_\s-]?role[_\s-]?key|SECRET_KEY|secretKey|sb_secret_/i;
 const CLIENT_FACTORY=/\bcreate(?:Server|Browser)?Client\s*\(/;
 
 function sourceFiles(dir:string):string[]{
@@ -143,6 +143,7 @@ describe('boundary detectors (self-check)',()=>{
     expect(violations('src/x.ts',"const k='sb_secret_abc';")).toHaveLength(1);
     expect(violations('src/x.test.ts','createClient(url, env.SECRET_KEY)')).toHaveLength(1);
     expect(violations('src/features/auth/server.ts','createServerClient(url, anonKey, {cookies})')).toEqual([]);
+    expect(violations('src/server/repository/rls.db.test.ts',"await query('set local role service_role');")).toEqual([]);
     expect(violations('src/server/repository/quotes.ts','const db=createClient(url, anonKey);')).toHaveLength(1);
     expect(violations('src/server/repository/rls.db.test.ts','const anon=createClient(url, anonKey);')).toEqual([]);
   });
