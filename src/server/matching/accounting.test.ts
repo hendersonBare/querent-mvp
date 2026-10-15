@@ -388,3 +388,79 @@ describe('fix round 1: a micron value is a second mil unless it converts within 
     expect(blockers('Reclosable Poly Bags 4" x 6" 2 Mil 50.8 micron')).toEqual([]);
   });
 });
+
+// ---- B3b fix round 2: what the item states, the line must state ---------------------------------
+const ITEMS3=[
+  {sku:'PS5826',description:'Black Poly Strapping, Hand Length, 0.625 800 lbs',pack:'Coil',caseQty:1,category:'tape',keywords:'hand strapping poly strapping'},
+  {sku:'PS3818',description:'Poly Strapping, Machine Length, 0.375"x12900\' 250 lbs White 9x8" Core',pack:'Coil',caseQty:1,category:'tape',keywords:'machine strapping poly strapping'},
+  {sku:'SF189',description:'Blown Stretch Wrap, Hand Length, 18"x1500\' 90 Gauge',pack:'Case of 4',caseQty:1,category:'stretch-wrap',keywords:'blown stretch wrap hand stretch wrap stretch film clear'},
+  {sku:'MSF2060B',description:'Blown Stretch Wrap, Machine Length, 20"x7500\' 60 Gauge',pack:'Roll',caseQty:1,category:'stretch-wrap',keywords:'blown stretch film machine stretch wrap clear'},
+  {sku:'DL1082',description:'Fragile Labels 3x5"',pack:'Case of 500',caseQty:1,category:'labels',keywords:'fragile labels shipping labels'},
+  {sku:'THD114',description:'White Direct Thermal Labels, Desktop, 4x6"',pack:'Case of 3,000',caseQty:1,category:'labels',keywords:'desktop labels direct thermal labels'},
+  {sku:'NP4890',description:'Newsprint Rolls, 48"x1440\'',pack:'Roll',caseQty:1,category:'paper',keywords:'newsprint rolls packing paper'},
+  {sku:'SP48',description:'Corrugated Sheets 48x48"',pack:'Each',caseQty:1,category:'boxes',keywords:'corrugated pads slip sheets'},
+  {sku:'B873',description:'#3 Flat Poly Mailers 9x12"',pack:'Case of 1,000',caseQty:1,category:'mailers',keywords:'flat poly mailers poly mailers'},
+  {sku:'B831',description:'#0 Poly Bubble Mailers 6.5x10"',pack:'Case of 250',caseQty:1,category:'mailers',keywords:'bubble mailers poly bubble mailers'},
+  {sku:'T903700',description:'Clear Hot Melt Tape, Machine Length, 2"x1000yd 1.9 MIL',pack:'Case of 6',caseQty:1,category:'tape',keywords:'machine tape'},
+  {sku:'T9077700',description:'Kraft Tape, #7700 3"x450\'',pack:'Case of 10',caseQty:1,category:'tape',keywords:'kraft tape'},
+  {sku:'CPW4840R2',description:'#2 Used Pallets, 48x40"',pack:'Each',caseQty:1,category:'storage',keywords:'used pallets'},
+  ...ITEMS2,
+];
+const strict3=(line:string)=>{const r=retrieve(line,ITEMS3,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+const top3=(line:string)=>scorePackaging(line,ITEMS3)[0];
+
+describe('fix round 2: a choice the item states must be stated by the line',()=>{
+  it.each([
+    ['Black Poly Strapping 5/8" 800 lb','PS5826','length'],
+    ['White Poly Strapping 3/8" x 12900\' 250 lb 9x8 Core','PS3818','length'],
+    ['Stretch Film 18" x 1500\' 90 Gauge','SF189','film'],
+    ['Hand Stretch Film 18" x 1500\' 90 ga Clear','SF189','film'],
+    ['Machine Stretch Film 20" x 7500\' 60 Gauge','MSF2060B','film'],
+    ['White Desktop Labels 4 x 6"','THD114','print'],
+    ['Clear Tape 2" x 110 yd 1.9 Mil','T902700','adhesive'],
+  ])('"%s" leaves %s\'s %s unsaid: not Strict',(line,sku,what)=>{
+    const t=top3(line);
+    expect(t.item.sku).toBe(sku);
+    expect(t.eligibility.strictEligible).toBe(false);
+    expect(t.eligibility.blockers.join(' ')).toContain(what);
+    expect(t.score).toBeLessThanOrEqual(0.75);
+    expect(strict3(line)).toBeNull();
+  });
+  it('a line that states the choices still matches',()=>{
+    expect(strict3('Black Poly Strapping Hand Length 5/8" 800 lb')).toBe('PS5826');
+    expect(strict3('Blown Hand Stretch Wrap 18" x 1500\' 90 Gauge')).toBe('SF189');
+    expect(strict3('Heavy Duty Double Wall Boxes 12 x 12 x 12"')).toBe('HD1212DW-BDL');
+  });
+});
+
+describe('fix round 2: the item\'s size, specs and kind must be stated',()=>{
+  it.each([
+    ['Fragile Labels','DL1082','size'],
+    ['Newsprint Rolls 48"','NP4890','size'],
+    ['Sheets 48 x 48"','SP48','material'],
+    ['Flat Mailers 9 x 12"','B873','material'],
+    ['Bubble Mailers #0 6 1/2 x 10"','B831','material'],
+    ['Edge Protectors 2 x 2 x 48"','EP2248160BX','size'],
+    ['Reclosable Bags 4 x 6"','PB3565','mil'],
+    ['Kraft Tape 3" x 450\'','T9077700','number'],
+    ['Used Pallets 48 x 40"','CPW4840R2','number'],
+  ])('"%s" leaves %s\'s %s unsaid: not Strict',(line,sku,what)=>{
+    const t=top3(line);
+    expect(t.item.sku).toBe(sku);
+    expect(t.eligibility.blockers.join(' ')).toContain(what);
+    expect(strict3(line)).toBeNull();
+  });
+  it('counts the bubble size given in the tuple, and ignores the 12" perforation spacing every roll has',()=>{
+    expect(top3('Bubble Wrap 1/2" x 12" x 250\' Perforated').eligibility).toEqual({strictEligible:true,blockers:[]});
+  });
+});
+
+describe('fix round 2: no tolerance between yards, feet and inches',()=>{
+  it.each(['Clear Hot Melt Tape Machine Length 2" x 2995\' 1.9 Mil','Clear Hot Melt Tape Hand Length 2" x 329.5\' 1.9 Mil'])('"%s" is not the tape',line=>{
+    expect(strict3(line)).toBeNull();
+  });
+  it('3000\' is exactly 1000 yd, and 330\' exactly 110 yd',()=>{
+    expect(strict3('Clear Hot Melt Tape Machine Length 2" x 3000\' 1.9 Mil')).toBe('T903700');
+    expect(strict3('Clear Hot Melt Tape Hand Length 2" x 330\' 1.9 Mil')).toBe('T902700');
+  });
+});
