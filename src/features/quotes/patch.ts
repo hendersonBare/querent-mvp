@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import type {Quote,QuoteLineInput,QuoteUpdate} from '@/server/repository/types';
-import {decimalPlaces} from './format';
 import {QUOTE_COPY} from './copy';
+import {QUOTE_LIMITS,quantitySchema,quoteTextSchema,unitPriceSchema} from './limits';
 
 // The body of PATCH /api/quotes/[id] (docs/boxt/plan.md B6), shared by the edit form and the route:
 //
@@ -11,27 +11,21 @@ import {QUOTE_COPY} from './copy';
 // price; a line left out is removed. Nothing else about a line can be changed here: its item, SKU,
 // matched_by, the customer's original text, the unmatched flag and the near-miss snapshot stay as
 // stored. Unknown fields are refused rather than ignored, so a client never thinks it saved one.
-
-/** The limits the database enforces (supabase/migrations/*_quote_rpcs.sql), checked here first. */
-export const LIMITS={text:200,lines:200,quantityBelow:100_000_000_000,priceBelow:100_000_000,priceDecimals:4} as const;
+// Quantity, price and text limits come from ./limits.ts (the columns' own), shared with the forms.
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid=(value:string)=>UUID.test(value);
 
-const quantity=z.number().finite().gt(0).lt(LIMITS.quantityBelow);
-const unitPrice=z.number().finite().min(0).lt(LIMITS.priceBelow)
-  .refine(n=>decimalPlaces(n)<=LIMITS.priceDecimals,{message:`at most ${LIMITS.priceDecimals} decimals`});
-
 const linePatch=z.strictObject({
   id:z.string().regex(UUID),
-  quantity:quantity.nullable().optional(),
-  unitPrice:unitPrice.nullable().optional(),
+  quantity:quantitySchema.nullable().optional(),
+  unitPrice:unitPriceSchema.nullable().optional(),
 });
 
 export const quotePatchSchema=z.strictObject({
-  customerName:z.string().max(LIMITS.text).optional(),
-  reference:z.string().max(LIMITS.text).optional(),
-  lines:z.array(linePatch).min(1).max(LIMITS.lines)
+  customerName:quoteTextSchema.optional(),
+  reference:quoteTextSchema.optional(),
+  lines:z.array(linePatch).min(1).max(QUOTE_LIMITS.linesMax)
     .refine(lines=>new Set(lines.map(l=>l.id.toLowerCase())).size===lines.length,{message:'a line is listed twice'})
     .optional(),
 });

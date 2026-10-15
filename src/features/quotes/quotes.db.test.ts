@@ -108,6 +108,25 @@ describe('the quotes API with a real session',()=>{
     expect(await getQuote(db,id)).toEqual(before);
   });
 
+  it('PATCH stores quantities with up to 3 decimals exactly, and refuses more (or one that rounds to 0) with a field error',async()=>{
+    const id=await newQuote();
+    const before=(await getQuote(db,id))!;
+    const [first,second,third]=before.lines;
+    const keep=[{id:second.id},{id:third.id}];
+    for(const [quantity,message] of [[1.2345,'Use up to 3 decimals.'],[0.0001,'Enter a quantity of at least 0.001.']] as const){
+      const response=await PATCH(call('PATCH',`/api/quotes/${id}`,{lines:[{id:first.id,quantity,unitPrice:1},...keep]}),ctx(id));
+      expect(response.status,String(quantity)).toBe(400);
+      expect((await response.json()).error).toContain(`lines.0.quantity: ${message}`);
+    }
+    expect(await getQuote(db,id)).toEqual(before);
+    const saved=await PATCH(call('PATCH',`/api/quotes/${id}`,{lines:[{id:first.id,quantity:1.235,unitPrice:0.1235},...keep]}),ctx(id));
+    expect(saved.status).toBe(200);
+    const after=(await getQuote(db,id))!;
+    expect(after.lines[0]).toMatchObject({quantity:1.235,unitPrice:0.1235});
+    // The view's total agrees with the page's: round(1.235 × 0.1235, 2) = 0.15, plus 12.00.
+    expect(after.total).toBe(12.15);
+  });
+
   it('GET, PATCH and DELETE answer 404 for an unknown or non-uuid id',async()=>{
     const unknown='99999999-9999-4999-8999-999999999999';
     for(const id of [unknown,'not-a-uuid']){

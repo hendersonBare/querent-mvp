@@ -38,11 +38,8 @@ export const QUOTE_COPY={
   saving:'Saving…',
   cancel:'Cancel',
   remove:'Remove',
+  // Field messages for quantities and prices: ./limits.ts LIMIT_COPY.
   needsLine:'A quote needs at least one line. To drop them all, delete the quote instead.',
-  quantityError:'Enter a quantity above 0.',
-  priceError:'Enter a price of 0 or more, with up to 4 decimals.',
-  required:'Required.',
-  textTooLong:'Use at most 200 characters.',
 
   // Delete dialog
   deleteTitle:'Delete this quote?',

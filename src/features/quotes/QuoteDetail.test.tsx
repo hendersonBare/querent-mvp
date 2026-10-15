@@ -124,6 +124,8 @@ describe('editing',()=>{
     ['an empty quantity','qty',''],
     ['a quantity of 0','qty','0'],
     ['a quantity that is not a number','qty','ten'],
+    ['a quantity with 4 decimals','qty','1.2345'],
+    ['a quantity that rounds to 0','qty','0.0001'],
   ])('disables Save for %s and says what is wrong',(_label,field,value)=>{
     startEditing();
     const input=field==='price'?price('M1044'):qty('M1044');
@@ -133,6 +135,13 @@ describe('editing',()=>{
     expect(input).toHaveAccessibleDescription(/\S/);
     fireEvent.change(input,{target:{value:field==='price'?'0':'2.5'}});
     expect(save()).toBeEnabled();
+  });
+
+  it('says a quantity takes up to 3 decimals',()=>{
+    startEditing();
+    fireEvent.change(qty('M1044'),{target:{value:'1.2345'}});
+    expect(qty('M1044')).toHaveAccessibleDescription('Use up to 3 decimals.');
+    expect(save()).toBeDisabled();
   });
 
   it('updates line totals and the total as the user types',()=>{

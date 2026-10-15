@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {checkDraft,draftFrom,draftTotal,parsePrice,parseQuantity,toPatch,type QuoteDraft} from './draft';
+import {LIMIT_COPY} from './limits';
 import {LINE_IDS,quote} from './test-fixtures';
 
 // Edit mode on /quotes/[id] (docs/boxt/plan.md B6): the inputs hold text; Save is enabled only when every
@@ -9,10 +10,10 @@ import {LINE_IDS,quote} from './test-fixtures';
 const [A,B,C,U]=LINE_IDS;
 
 describe('parseQuantity',()=>{
-  it.each([['1',1],['500',500],['2.5',2.5],['0.25',0.25],[' 12 ',12],['1,500',1500]])('%j → %s',(text,value)=>{
+  it.each([['1',1],['500',500],['2.5',2.5],['0.25',0.25],[' 12 ',12],['1,500',1500],['1.234',1.234],['0.001',0.001],['1.2500',1.25]])('%j → %s',(text,value)=>{
     expect(parseQuantity(text)).toBe(value);
   });
-  it.each(['','0','0.0','-1','abc','1.2.3','1e3','Infinity','100000000000'])('%j is not a quantity',text=>{
+  it.each(['','0','0.0','-1','abc','1.2.3','1e3','Infinity','100000000000','1.2345','0.0001'])('%j is not a quantity',text=>{
     expect(parseQuantity(text)).toBeNull();
   });
 });
@@ -46,6 +47,19 @@ describe('the draft',()=>{
       expect(result.ok,JSON.stringify(over)).toBe(false);
       expect(result.lines[LINE_IDS[i]]?.[field]).toMatch(/\S/);
     }
+  });
+
+  it('says why a quantity is refused: above 0, up to 3 decimals, at least 0.001',()=>{
+    const q=quote();
+    const message=(quantity:string)=>{const d=draftFrom(q);d.lines[0]={...d.lines[0],quantity};return checkDraft(d).lines[A]?.quantity;};
+    expect(message('1.2345')).toBe(LIMIT_COPY.quantityDecimals);
+    expect(message('0.0001')).toBe(LIMIT_COPY.quantityMinimum);
+    expect(message('0')).toBe(LIMIT_COPY.quantityPositive);
+    expect(message('')).toBe(LIMIT_COPY.required);
+    expect(message('1.234')).toBeUndefined();
+    const price=(unitPrice:string)=>{const d=draftFrom(q);d.lines[0]={...d.lines[0],unitPrice};return checkDraft(d).lines[A]?.unitPrice;};
+    expect(price('1.23456')).toBe(LIMIT_COPY.priceDecimals);
+    expect(price('-1')).toBe(LIMIT_COPY.priceInvalid);
   });
 
   it('does not ask for a price on an unmatched line',()=>{

@@ -41,11 +41,26 @@ function toCents(digits:bigint,scale:number):bigint{
 
 const centsOf=(amount:number)=>{const {digits,scale}=toDecimal(amount);return toCents(digits,scale);};
 
-/** quantity × unitPrice rounded half up to cents, in cents; null when either is missing. */
+/** `n` rounded half up (away from zero) to `places` decimals, as a numeric(_, places) column stores it. */
+function toScale(n:number,places:number):bigint{
+  const {digits,scale}=toDecimal(n);
+  if(scale<=places)return digits*pow10(places-scale);
+  const divisor=pow10(scale-places);
+  const negative=digits<ZERO,abs=negative?-digits:digits;
+  const quotient=abs/divisor,rounded=(abs%divisor)*TWO>=divisor?quotient+ONE:quotient;
+  return negative?-rounded:rounded;
+}
+
+/** The scales of quote_lines.quantity numeric(14,3) and unit_price numeric(12,4). */
+const QUANTITY_SCALE=3,PRICE_SCALE=4;
+
+/**
+ * quantity × unitPrice rounded half up to cents, in cents; null when either is missing. Each factor is
+ * first rounded to its column's scale, so a total shown before saving equals the saved one.
+ */
 function lineCents(quantity:number|null,unitPrice:number|null):bigint|null{
   if(quantity===null||unitPrice===null)return null;
-  const q=toDecimal(quantity),p=toDecimal(unitPrice);
-  return toCents(q.digits*p.digits,q.scale+p.scale);
+  return toCents(toScale(quantity,QUANTITY_SCALE)*toScale(unitPrice,PRICE_SCALE),QUANTITY_SCALE+PRICE_SCALE);
 }
 
 /** A line's total, round(quantity × unitPrice, 2), or null when it lacks either. */

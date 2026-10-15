@@ -1,11 +1,13 @@
 import type {Quote} from '@/server/repository/types';
 import {QUOTE_COPY} from './copy';
 import {quoteTotal} from './format';
-import {LIMITS,type LinePatch,type QuotePatch} from './patch';
+import {LIMIT_COPY,QUOTE_LIMITS,readPrice,readQuantity} from './limits';
+import type {LinePatch,QuotePatch} from './patch';
 
 // Edit mode on /quotes/[id] (docs/boxt/plan.md B6). The inputs hold text; checkDraft says what is wrong
 // with each field, and Save stays disabled until nothing is: every kept matched line needs a quantity
-// above 0 and a unit price of 0 or more with up to 4 decimals, and at least one line must be left.
+// above 0 with up to 3 decimals and a unit price of 0 or more with up to 4 decimals (./limits.ts, the
+// columns' own limits, shared with the API), and at least one line must be left.
 // Unmatched lines keep their stored quantity and have no price. Client-safe and pure.
 
 export interface LineDraft {
@@ -32,24 +34,16 @@ export interface DraftCheck {
   form?:string;
 }
 
-const QUANTITY=/^(\d+(\.\d+)?|\.\d+)$/;
-const PRICE=new RegExp(`^(\\d+(\\.\\d{1,${LIMITS.priceDecimals}})?|\\.\\d{1,${LIMITS.priceDecimals}})$`);
-const clean=(text:string)=>text.trim().replace(/,/g,'');
-
-/** A quantity typed by the rep ("1,500", "2.5"), or null when it is not a number above 0. */
+/** A quantity typed by the rep ("1,500", "2.5"), or null unless the column can hold it exactly (./limits.ts). */
 export function parseQuantity(text:string):number|null{
-  const value=clean(text);
-  if(!QUANTITY.test(value))return null;
-  const n=Number(value);
-  return n>0&&n<LIMITS.quantityBelow?n:null;
+  const read=readQuantity(text);
+  return 'value' in read?read.value:null;
 }
 
 /** A unit price typed by the rep ("0.375", "$1.50"), or null unless it is 0 or more with up to 4 decimals. */
 export function parsePrice(text:string):number|null{
-  const value=clean(text).replace(/^\$/,'');
-  if(!PRICE.test(value))return null;
-  const n=Number(value);
-  return n<LIMITS.priceBelow?n:null;
+  const read=readPrice(text);
+  return 'value' in read?read.value:null;
 }
 
 const asText=(n:number|null)=>n===null?'':String(n);
@@ -64,14 +58,15 @@ export function draftFrom(quote:Quote):QuoteDraft{
 
 export function checkDraft(draft:QuoteDraft):DraftCheck{
   const check:DraftCheck={ok:true,lines:{}};
-  if(draft.customerName.trim().length>LIMITS.text)check.customerName=QUOTE_COPY.textTooLong;
-  if(draft.reference.trim().length>LIMITS.text)check.reference=QUOTE_COPY.textTooLong;
+  if(draft.customerName.trim().length>QUOTE_LIMITS.textMax)check.customerName=LIMIT_COPY.textTooLong;
+  if(draft.reference.trim().length>QUOTE_LIMITS.textMax)check.reference=LIMIT_COPY.textTooLong;
   if(draft.lines.length===0)check.form=QUOTE_COPY.needsLine;
   for(const line of draft.lines){
     if(line.unmatched)continue;
     const errors:{quantity?:string;unitPrice?:string}={};
-    if(parseQuantity(line.quantity)===null)errors.quantity=line.quantity.trim()?QUOTE_COPY.quantityError:QUOTE_COPY.required;
-    if(parsePrice(line.unitPrice)===null)errors.unitPrice=line.unitPrice.trim()?QUOTE_COPY.priceError:QUOTE_COPY.required;
+    const quantity=readQuantity(line.quantity),price=readPrice(line.unitPrice);
+    if('error' in quantity)errors.quantity=quantity.error;
+    if('error' in price)errors.unitPrice=price.error;
     if(errors.quantity||errors.unitPrice)check.lines[line.id]=errors;
   }
   check.ok=!check.customerName&&!check.reference&&!check.form&&Object.keys(check.lines).length===0;

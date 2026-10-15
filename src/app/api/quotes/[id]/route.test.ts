@@ -121,6 +121,8 @@ describe('PATCH /api/quotes/[id]',()=>{
     ['an unknown field',{sku:'M1044'}],
     ['a price with 5 decimals',{lines:[{id:A,quantity:1,unitPrice:1.23456}]}],
     ['a quantity of 0',{lines:[{id:A,quantity:0,unitPrice:1}]}],
+    ['a quantity with 4 decimals',{lines:[{id:A,quantity:1.2345,unitPrice:1}]}],
+    ['a quantity that rounds to 0',{lines:[{id:A,quantity:0.0001,unitPrice:1}]}],
     ['no lines',{lines:[]}],
     ['a line the quote does not have',{lines:[{id:UNKNOWN,quantity:1,unitPrice:1}]}],
     ['a matched line without a price',{lines:[{id:A,quantity:1,unitPrice:null}]}],

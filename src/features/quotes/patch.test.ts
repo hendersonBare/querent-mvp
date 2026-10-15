@@ -1,4 +1,5 @@
 import {describe,expect,it} from 'vitest';
+import {LIMIT_COPY} from './limits';
 import {applyPatch,parsePatch} from './patch';
 import {LINE_IDS,quote} from './test-fixtures';
 
@@ -27,6 +28,8 @@ describe('parsePatch',()=>{
     ['a line id that is not a uuid',{lines:[{id:'line-1'}]}],
     ['the same line twice',{lines:[{id:A,quantity:1,unitPrice:1},{id:A,quantity:1,unitPrice:1}]}],
     ['a quantity of 0',{lines:[{id:A,quantity:0,unitPrice:1}]}],
+    ['a quantity with 4 decimals (the column keeps 3)',{lines:[{id:A,quantity:1.2345,unitPrice:1}]}],
+    ['a quantity that rounds to 0',{lines:[{id:A,quantity:0.0001,unitPrice:1}]}],
     ['a negative quantity',{lines:[{id:A,quantity:-1,unitPrice:1}]}],
     ['a quantity as text',{lines:[{id:A,quantity:'2',unitPrice:1}]}],
     ['a negative price',{lines:[{id:A,quantity:1,unitPrice:-0.01}]}],
@@ -37,6 +40,15 @@ describe('parsePatch',()=>{
     const result=parsePatch(body);
     expect(result.ok).toBe(false);
     if(!result.ok)expect(result.error).toMatch(/\S/);
+  });
+
+  it('names the field and the rule for a quantity the column cannot hold',()=>{
+    const decimals=parsePatch({lines:[{id:A,quantity:1.2345,unitPrice:1}]});
+    expect(decimals.ok===false&&decimals.error).toContain(`lines.0.quantity: ${LIMIT_COPY.quantityDecimals}`);
+    const tiny=parsePatch({lines:[{id:A,quantity:0.0001,unitPrice:1}]});
+    expect(tiny.ok===false&&tiny.error).toContain(`lines.0.quantity: ${LIMIT_COPY.quantityMinimum}`);
+    expect(parsePatch({lines:[{id:A,quantity:1.234,unitPrice:1}]}).ok).toBe(true);
+    expect(parsePatch({lines:[{id:A,quantity:0.001,unitPrice:1}]}).ok).toBe(true);
   });
 
   it('accepts a price of 0 and prices with up to 4 decimals',()=>{

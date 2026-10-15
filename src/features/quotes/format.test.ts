@@ -49,6 +49,14 @@ describe('lineTotal and quoteTotal',()=>{
     expect(lineTotal(1,0.005)).toBe(0.01);
   });
 
+  it('round quantity to 3 and price to 4 decimals first, as the columns store them (numeric(14,3), numeric(12,4))',()=>{
+    // 1.2345 is stored as 1.235 (half up), so 1.2345 × 1 totals 1.24, not 1.23.
+    expect(lineTotal(1.2345,1)).toBe(1.24);
+    // 0.12345 is stored as 0.1235: 10 × 0.1235 = 1.235 → 1.24.
+    expect(lineTotal(10,0.12345)).toBe(1.24);
+    expect(quoteTotal([line({quantity:1.2345,unitPrice:1})])).toBe(1.24);
+  });
+
   it('are null for a line missing its quantity or price',()=>{
     expect(lineTotal(null,1)).toBeNull();
     expect(lineTotal(3,null)).toBeNull();
