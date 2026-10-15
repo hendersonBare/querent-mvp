@@ -112,6 +112,12 @@ export function itemPack<T extends Pick<PackagingItem,'description'|'pack'|'case
   return {};
 }
 
+/** The pack as the judge and the rep see it: "Each" sold by the bundle is "Bundle of 25". */
+export function packLabel<T extends Pick<PackagingItem,'pack'|'caseQty'>>(item:T):string|null{
+  if(item.pack==='Each'&&(item.caseQty??1)>1)return `Bundle of ${item.caseQty}`;
+  return item.pack??null;
+}
+
 // ---- Strength, film and size numbers ---------------------------------------------------------------
 
 const ECT=/\b(\d{2})\s*-?\s*ect\b|\bect\s*-?\s*(\d{2})\b/g;

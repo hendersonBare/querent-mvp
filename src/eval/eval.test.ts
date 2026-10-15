@@ -1,7 +1,9 @@
 import {describe,expect,it} from 'vitest';
 import {STRICTNESS_LEVELS,type StrictnessLevel} from '@/features/settings/strictness';
 import {CASES,NO_MATCH_WHYS,withoutSupplierSku} from './cases';
-import {CATALOG,JUDGES,RECORDING,runCase,runEval} from './run';
+import {retrieve} from '@/server/matching/retrieve';
+import {matchConfig} from '@/features/settings/strictness';
+import {CATALOG,JUDGES,RECORDED_BY,RECORDING,judgeCandidates,judgeVerdict,runCase,runEval} from './run';
 
 // The false-positive gate (BOXT task B3, product rule 1: prefer false negatives over false
 // positives). Every hand-written line runs through the real scorer (retrieve), the judge and
@@ -41,6 +43,18 @@ describe('the evaluation set',()=>{
     }
     expect(withoutSupplierSku('S-4128 12 x 10 x 8" Corrugated Boxes')).toBe('12 x 10 x 8" Corrugated Boxes');
     expect(withoutSupplierSku('12 x 10 x 8" Corrugated Boxes')).toBe('12 x 10 x 8" Corrugated Boxes');
+  });
+
+  it('says how the verdicts were recorded: by hand, or by the live judge (npm run eval:record)',()=>{
+    expect(['hand-written','live']).toContain(RECORDED_BY);
+  });
+
+  it('gives the judge what the pipeline gives it (B4\'s JudgeCandidate), and validates its answer with B4\'s guard',()=>{
+    const c=CASES.find(x=>x.id==='m01-box-12x10x8')!;
+    const r=retrieve(c.description,CATALOG,matchConfig('strict'));
+    expect(judgeCandidates(r)[0]).toEqual({sku:'12108-BDL',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing',pack:'Bundle of 25',category:'boxes'});
+    expect(judgeVerdict(c,r,'recorded')).toEqual({sku:'12108-BDL',reason:RECORDING[c.id].reason});
+    expect(judgeVerdict({...c,id:'m02-box-12x10x6'},r,'recorded')).toEqual({sku:null,reason:'not_in_candidates'});
   });
 
   it('has a recorded verdict for every line and no other, naming only catalog SKUs',()=>{

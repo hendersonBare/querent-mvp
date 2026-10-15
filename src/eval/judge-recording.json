@@ -1,5 +1,6 @@
 {
-  "_about": "Recorded judge verdicts for src/eval/cases.ts, one per case id: the SKU the judge picks from the candidate list, or null for none. HAND-WRITTEN in the build session, not recorded from a model (no API key was available): each verdict imitates a careful judge that sees only the customer's line and the candidate list (SKU, description, pack). Re-record with the real judge once one exists and a key is set.",
+  "_about": "Recorded judge verdicts for src/eval/cases.ts, one per case id: the SKU the judge picks from the candidate list, or null for none. HAND-WRITTEN in the build session, not recorded from a model (no API key was available): each verdict imitates a careful judge that sees only the customer's line and the candidate list (SKU, description, pack). Re-record with the real judge: `npm run eval:record` (needs ANTHROPIC_API_KEY).",
+  "recordedBy": "hand-written",
   "verdicts": {
     "m01-box-12x10x8": {
       "sku": "12108-BDL",
@@ -30,8 +31,8 @@
       "reason": "Heavy duty 16x16x16, BC flute is double wall."
     },
     "m08-gaylord-tw": {
-      "sku": "GAYLORDTW-PLT",
-      "reason": "Triple wall gaylord 48x40x36; both listings are this gaylord at different pricing tiers."
+      "sku": "GAYLORDTW-BDL",
+      "reason": "Triple wall gaylord 48x40x36; both listings are this gaylord at different pricing tiers, so the first."
     },
     "m09-mailer-white-box": {
       "sku": "M1294",

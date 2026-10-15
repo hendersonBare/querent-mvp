@@ -1,7 +1,9 @@
 import catalogJson from '../../data/boxt-catalog.json';
 import {LEVELS,STRICTNESS_LEVELS,matchConfig,type StrictnessLevel} from '@/features/settings/strictness';
 import {decide,type NoMatchReason} from '@/server/matching/decide';
-import {productGroup} from '@/server/matching/packaging';
+import type {JudgeCandidate,JudgeVerdict} from '@/server/llm/types';
+import {withinCandidates} from '@/server/llm/verdicts';
+import {packLabel,productGroup} from '@/server/matching/packaging';
 import {retrieve,type Retrieval} from '@/server/matching/retrieve';
 import {CASES,type EvalCase} from './cases';
 import recording from './judge-recording.json';
@@ -16,16 +18,33 @@ import recording from './judge-recording.json';
 export interface CatalogRow {sku:string;description:string;category:string;pack:string|null;caseQty:number|null;list:number|null;keywords:string}
 export const CATALOG:readonly CatalogRow[]=catalogJson as CatalogRow[];
 
-export interface RecordedVerdict {sku:string|null;reason:string}
-export const RECORDING:Readonly<Record<string,RecordedVerdict>>=(recording as {verdicts:Record<string,RecordedVerdict>}).verdicts;
+/** judge-recording.json: B4's JudgeVerdict per case id, and how they were recorded. */
+export interface Recording {
+  _about:string;
+  /** 'hand-written' in the build session; 'live' when `npm run eval:record` wrote them with the real judge. */
+  recordedBy:'hand-written'|'live';
+  model?:string;
+  recordedAt?:string;
+  verdicts:Record<string,JudgeVerdict>;
+}
+const RECORDED=recording as Recording;
+export const RECORDED_BY=RECORDED.recordedBy;
+export const RECORDING:Readonly<Record<string,JudgeVerdict>>=RECORDED.verdicts;
 
 export type JudgeKind='recorded'|'always-agree';
 export const JUDGES:readonly JudgeKind[]=['recorded','always-agree'];
 
-/** The judge's answer for a case, validated as the server does: a SKU that is not on the candidate list is none. */
-export function judgeVerdict(c:EvalCase,retrieval:Retrieval<CatalogRow>,judge:JudgeKind){
-  const sku=judge==='always-agree'?retrieval.top?.item.sku??null:RECORDING[c.id]?.sku??null;
-  return {sku:sku!==null&&retrieval.candidates.some(x=>x.item.sku===sku)?sku:null};
+/** The candidates as the judge sees them (B4's JudgeCandidate): SKU, description, pack and category, never prices. */
+export function judgeCandidates(retrieval:Retrieval<CatalogRow>):JudgeCandidate[]{
+  return retrieval.candidates.map(({item})=>({sku:item.sku,description:item.description,pack:packLabel(item),category:item.category}));
+}
+
+/** The judge's answer for a case, validated with B4's guard: a SKU that is not on the candidate list is none. */
+export function judgeVerdict(c:EvalCase,retrieval:Retrieval<CatalogRow>,judge:JudgeKind):JudgeVerdict{
+  const verdict:JudgeVerdict=judge==='always-agree'
+    ?{sku:retrieval.top?.item.sku??null,reason:'always agrees with the scorer'}
+    :RECORDING[c.id]??{sku:null,reason:'no recording'};
+  return withinCandidates(verdict,judgeCandidates(retrieval));
 }
 
 export interface CaseResult {

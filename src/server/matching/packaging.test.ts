@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {itemPack,parseItemSpec,parseSpec,productGroup} from './packaging';
+import {itemPack,packLabel,parseItemSpec,parseSpec,productGroup} from './packaging';
 
 // The packaging side of the text parser: what a customer's line (from another supplier, usually a
 // Uline catalog line with the supplier SKU already removed) and a BOXT catalog row say about size,
@@ -178,6 +178,15 @@ describe('itemPack: what a catalog row is sold in',()=>{
 
   it('takes a count the description states over a bare "Case"',()=>{
     expect(itemPack(row('Wardrobe Box Combo Pack, 3/Case',{pack:'Case',caseQty:1}))).toEqual({outer:3});
+  });
+});
+
+describe('packLabel: the pack as the judge and the rep see it',()=>{
+  it('names the bundle count of an item sold "Each" by the bundle, and passes other packs through',()=>{
+    expect(packLabel({description:'Corrugated Boxes 12x10x8"',pack:'Each',caseQty:25})).toBe('Bundle of 25');
+    expect(packLabel({description:'Gaylord',pack:'Each',caseQty:1})).toBe('Each');
+    expect(packLabel({description:'Bags',pack:'Case of 1,000',caseQty:1})).toBe('Case of 1,000');
+    expect(packLabel({description:'Mailers',pack:null,caseQty:null})).toBeNull();
   });
 });
 

@@ -7,13 +7,31 @@ is used to calibrate the strictness levels in `src/features/settings/strictness.
 | File | What it holds |
 |---|---|
 | `cases.ts` | 93 hand-written customer lines in another supplier's style. 47 must match a named BOXT SKU. 46 must not match, and each carries a reason (`wrong_size`, `wrong_material`, `wrong_pack`, `wrong_spec`, `not_carried`) and the loosest level at which it must still not match. |
-| `judge-recording.json` | One judge verdict per case: `{sku \| null, reason}`. **These were written by hand in the build session, not recorded from a model**, because no API key was available. Each verdict imitates a careful judge that sees only the line and the candidate list. Re-record them once the real judge (`src/server/llm/judge.ts`, task B4) and a key exist. |
-| `run.ts` | Runs each case through the pipeline's own steps after parsing: `retrieve` (the real scorer and catalog), then the judge, then `decide`. It runs at every level with two judges: the recorded one, and an **always-agree** judge that picks the top candidate, so that no level's safety depends on the judge. |
+| `judge-recording.json` | One verdict per case, in B4's `JudgeVerdict` shape (`{sku \| null, reason}`), plus `recordedBy`. **The current verdicts are `hand-written`**: they were written in the build session, not recorded from a model, because no API key was available. Each one imitates a careful judge that sees only the line and the candidate list, and follows B4's rule of picking the first pricing tier. `npm run eval:record` replaces them with the live judge's (`recordedBy: 'live'`, with the model and time). |
+| `run.ts` | Runs each case through the pipeline's own steps after parsing: `retrieve` (the real scorer and catalog), then the judge, then `decide`. The judge gets the candidates as B4's `JudgeCandidate` (SKU, description, pack label, category), and its answer passes B4's `withinCandidates` guard. It runs at every level with two judges: the recorded one, and an **always-agree** judge that picks the top candidate, so that no level's safety depends on the judge. |
 | `eval.test.ts` | Part of `npm test`; `npm run test:eval` runs it alone. It **fails the build** in any of these cases: a must-not-match line matches at Strict with either judge; it matches at its declared level (or any stricter one) with either judge; a must-match line gets the wrong item at Strict; Strict recall with the recorded judge drops below 90%. It also checks that every case has a recording and that every expected SKU is in the catalog. |
 | `../../scripts/eval-report.ts` | `npm run eval:report` prints the table below and the cases that drive the calibration. Add `--markdown` for the table only, or `--cases` for every outcome. |
 
 The supplier SKUs in `cases.ts` (`S-4128`, ...) are illustrative. The parser removes them, and
 `description` is what the matcher sees. The matcher ignores SKUs: a BOXT SKU typed into a line is plain text.
+
+## Re-recording with the live judge (`npm run eval:record`)
+
+`scripts/eval-record.ts` runs every case's `retrieve` candidates through B4's live judge
+(`getJudge()` from `src/server/llm`, the same judge as the quote tool, with concurrency 4 and B4's
+timeout), then rewrites `judge-recording.json` with `recordedBy: 'live'`, the model and the time. It
+prints which verdicts changed.
+
+- It needs `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL` is optional. Without a key, or with
+  `QUERENT_SCRIPTED=1`, it exits 1 and does not touch the file.
+- If any call fails (`judge_error`), it writes nothing and exits 1. A network problem never becomes
+  a recorded "none".
+- `src/server/llm` imports `server-only`, which only Next resolves. The script therefore runs with
+  `tsx --import ./scripts/server-only-shim.mjs`, which maps that import to Next's empty module.
+- After recording, run `npm run eval:report` and `npm run test:eval`. A live judge that picks a wrong
+  item still cannot cause a match at Strict, because Strict also has zero false positives with the
+  always-agree judge. Recall with the recorded judge may change, and the 90% floor in
+  `eval.test.ts` will say so.
 
 ## Results (`npm run eval:report`)
 
