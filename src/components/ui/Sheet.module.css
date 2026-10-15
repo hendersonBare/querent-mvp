@@ -1,0 +1,64 @@
+/* The side sheet (C_QOB5): 400 wide on the right over a light green-black backdrop. */
+.layer {
+  display: contents;
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--q-backdrop-sheet);
+  z-index: 20;
+}
+.sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: var(--q-card);
+  border-left: 1px solid var(--q-border);
+  padding: 26px 28px;
+  box-shadow: var(--q-shadow-sheet);
+  z-index: 30;
+  color: var(--q-text);
+  font-size: var(--q-text-body);
+}
+.sheet:focus {
+  outline: none;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: normal;
+}
+.subtitle {
+  color: var(--q-text-2);
+  margin-top: 2px;
+}
+.close {
+  box-sizing: border-box;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--q-radius-field);
+  background: var(--q-close);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: start;
+  cursor: pointer;
+}

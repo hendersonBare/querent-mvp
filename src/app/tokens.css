@@ -1,0 +1,141 @@
+/* The UI's tokens (plan U0). Every value is read from the canvas frames in
+   docs/design/canvas-frames/ (the style guide, docs/design/new-ui-style-guide.md, lists them).
+   The shell (src/features/shell/) and the primitives in src/components/ui/ use them. */
+:root {
+  /* Type: next/font sets --font-albert-sans and --font-geist-mono on <html> (src/app/layout.tsx). */
+  --q-font-sans: var(--font-albert-sans);
+  --q-font-mono: var(--font-geist-mono);
+
+  /* Rail */
+  --q-rail: #1F2422;
+  --q-rail-border: #343A37;
+  --q-rail-text: #A9AEAB;
+  --q-rail-name: #E6E8E7;
+  --q-rail-button-border: #4A514D;
+  --q-rail-width: 216px;
+
+  /* Surfaces */
+  --q-page: #E9EBEA;
+  --q-card: #FFFFFF;
+  --q-card-border: #DDDFDE;
+  --q-titlebar: #2A302D;
+  --q-titlebar-muted: #C7CBC9;
+  /* A control's line on a title bar (C_TRBase "Filter"). */
+  --q-titlebar-line: #5A615D;
+  /* A picked row (C_TR5: the selected team). */
+  --q-row-picked: #F7FAF8;
+  --q-table-header: #E8EAE9;
+  --q-table-header-text: #3A403D;
+  --q-row-divider: #E8EAE9;
+  --q-row-divider-soft: #ECEEED;
+  --q-lane: #F0F1F0;
+  --q-border: #D6D9D7;
+  --q-rule: #C4C7C5;
+  --q-close: #EEF2F0;
+  --q-count-bg: rgba(0, 0, 0, 0.08);
+
+  /* Text */
+  --q-text: #1B1F1D;
+  --q-text-2: #585F5B;
+  --q-text-muted: #767D79;
+  --q-text-code: #666C69;
+  --q-icon-muted: #9DA29F;
+  --q-more-text: #343A37;
+  /* Buttons the frames leave uncoloured inherit the browser's button text colour. */
+  --q-button-text: #000000;
+
+  /* Accent, problems, notes */
+  --q-accent: #14803C;
+  --q-accent-hover: #0F6A31; /* no frame: "States not drawn" in the style guide */
+  --q-red: #C92A1C;
+  --q-red-tint: #FFEDEA;
+  --q-red-border: #E8A8A0;
+  --q-note: #FBE7A1;
+  --q-note-text: #5C4300;
+  --q-note-quote: #3D2E00; /* the customer's words in a note box (C_QOB5, C_QOB6) */
+  --q-toggle-off: #BFC3C1;
+  --q-check-disabled: #B0B4B2;
+
+  /* Overlays */
+  --q-backdrop-sheet: rgba(15, 35, 25, 0.22);
+  --q-backdrop-dialog: rgba(15, 35, 25, 0.45);
+  --q-shadow-popover: 0 20px 44px rgba(20, 24, 22, 0.24);
+  --q-shadow-picker: 0 18px 40px rgba(20, 24, 22, 0.22);
+  --q-shadow-sheet: -16px 0 40px rgba(20, 24, 22, 0.2);
+  --q-shadow-lane-drag: 0 24px 40px rgba(20, 24, 22, 0.35);
+  --q-shadow-header-drag: 0 14px 26px rgba(0, 0, 0, 0.35);
+
+  /* Type sizes */
+  --q-text-body: 14.5px;
+  --q-text-title: 32px;
+  --q-title-tracking: -0.035em;
+  --q-text-card-title: 15.5px;
+  --q-text-table-head: 12.5px;
+  --q-text-control: 14px;
+  --q-text-secondary: 13px;
+  --q-text-label: 12px;
+  /* The browser's button font size, which the frames' buttons inherit. */
+  --q-text-button: 13.333333px;
+
+  /* Shape and size */
+  --q-page-padding: 24px 32px 40px;
+  --q-radius-card: 14px;
+  --q-radius-control: 10px;
+  --q-radius-button: 9px;
+  --q-radius-field: 8px;
+  --q-radius-pill: 999px;
+  --q-control-height: 38px;
+  --q-header-button: 40px;
+  --q-picker-height: 42px;
+  --q-scrollbar: 8px;
+}
+
+/* The frame's root: wrap a page of the new UI (and anything portalled out of it) in .ui-root. It sets
+   what the frames inherit from their own root and from the browser, over the old global stylesheet:
+   Albert Sans 14.5px with normal line height, content-box sizing except buttons, and thin 8px
+   scrollbars with a #C4C7C5 thumb on a transparent track. :where() keeps it at zero specificity, so a
+   primitive's own class always wins. */
+:where(.ui-root) {
+  font-family: var(--q-font-sans);
+  font-size: var(--q-text-body);
+  line-height: normal;
+  color: var(--q-text);
+  background: var(--q-page);
+}
+:where(.ui-root) *,
+:where(.ui-root) *::before,
+:where(.ui-root) *::after {
+  box-sizing: content-box;
+}
+:where(.ui-root) :is(button, select) {
+  box-sizing: border-box;
+}
+:where(.ui-root) :is(button, input, select, textarea) {
+  font-size: var(--q-text-button);
+  line-height: normal;
+}
+/* The frames draw no animation; the old global stylesheet fades button colours. */
+:where(.ui-root) button {
+  transition: none;
+}
+:where(.ui-root),
+:where(.ui-root) * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--q-rule) transparent;
+}
+:where(.ui-root) ::-webkit-scrollbar {
+  width: var(--q-scrollbar);
+  height: var(--q-scrollbar);
+}
+:where(.ui-root) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(.ui-root) ::-webkit-scrollbar-thumb {
+  background: var(--q-rule);
+  border-radius: var(--q-scrollbar);
+}
+/* Focus (no frame: "States not drawn"): a 2px accent outline, 2px off the element. */
+:where(.ui-root) :focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}

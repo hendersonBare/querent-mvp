@@ -36,6 +36,10 @@ Numbers below are the expected order. Each slice takes the next free number on `
 | `006_roles.sql` | D1 | `reps.role TEXT NOT NULL DEFAULT 'rep' CHECK(role IN ('rep','manager'))`, `reps.team TEXT`, `reps.active INTEGER NOT NULL DEFAULT 1`; sets `brandi` to `manager` |
 | `007_original_rep.sql` | D2 | `quotes.original_rep_id TEXT REFERENCES reps(id)`, backfilled from `rep_id` |
 | `008_suggestion_lines.sql` | E1 | Rebuild `quote_lines` and `quote_removed_lines`: `added_by` CHECK adds `'suggestion'` |
+| `009_ui_table_prefs.sql` | U0 | `ui_table_prefs(user_id TEXT NOT NULL, table_id TEXT NOT NULL, column_order TEXT NOT NULL, hidden_columns TEXT NOT NULL, PRIMARY KEY(user_id,table_id))`; both lists are JSON arrays of column ids (CHECKed) |
+| `010_customer_notification_reads.sql` | U10 | `customer_notification_reads(customer_id TEXT NOT NULL REFERENCES customers(id), notification_id TEXT NOT NULL, read_at TEXT NOT NULL, PRIMARY KEY(customer_id,notification_id))`: the bell's read marks; the notifications themselves are derived on read |
+| `011_teams.sql` | U7 | `teams(id INTEGER PRIMARY KEY, name TEXT NOT NULL COLLATE NOCASE UNIQUE` (1 to 40 characters after trimming), `parent_team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL` (never itself)`)` and `team_members(rep_id TEXT PRIMARY KEY REFERENCES reps(id), team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE)`; backfilled from `reps.team` (one team per label, trimmed and case-insensitive). `reps.team` stays for old code and is no longer read |
+| `013_rep_profile.sql` | U9 | `reps.picture BLOB`, `reps.picture_type TEXT` (CHECK `image/png`, `image/jpeg`, `image/webp`), `reps.picture_updated_at TEXT`; `rep_notification_prefs(rep_id TEXT NOT NULL REFERENCES reps(id), event_key TEXT NOT NULL` (CHECK the eight Appendix C keys)`, in_app INTEGER NOT NULL CHECK(in_app IN (0,1)), PRIMARY KEY(rep_id,event_key))`; no row means on |
 
 Rebuild migrations (002, 008) follow SQLite's 12-step recipe: create `<t>_new` with the new definition, `INSERT INTO <t>_new SELECT …` with explicit columns, `DROP TABLE <t>`, `ALTER TABLE <t>_new RENAME TO <t>`, recreate the table's indexes, and rely on the runner's `foreign_key_check`. Each has a Vitest test that builds a database at the previous migration, inserts rows that reference the rebuilt table (`quote_lines`, `quote_revisions`, `quote_activity`, `orders.quote_id`, `quotes.duplicated_from`), migrates, and asserts row counts, values and that foreign keys still resolve.
 
@@ -111,9 +115,9 @@ Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `agi
 - A `sent` quote is also amber from 2 days before expiry and red on its last day. Expiry is 00:00Z on the day after `valid_until` (`expiresAt` in `lifecycle.ts`), so amber starts at 00:00Z on `valid_until - 1 day` and red at 00:00Z on `valid_until`. The worse of the two levels wins.
 - Worked example (`sent`, sent 2026-10-01T15:00Z, valid_until 2026-10-15): ok until 10-04T15:00Z; amber from 10-04T15:00Z (72 h); red from 10-08T15:00Z (168 h). A quote sent 10-10T09:00Z valid until 10-14 (expires 10-15T00:00Z): amber from 10-13T00:00Z (expiry rule), red from 10-14T00:00Z.
 - UI: amber shows a clock icon and the text "Aging", red shows an alert icon and "Overdue" (text label and icon besides colour). The tooltip gives the reason ("Sent 4 days ago", "Expires tomorrow").
-- Quotes list: a **Needs attention** filter shows amber and red open quotes. In that view the default sort is red first, then amber, then quoted total descending; a toggle switches to oldest clock first (OA-9). Other filters keep today's sort.
-- Header badge: a red "Needs attention" count in the rep header counts red quotes only, scoped like the list (own quotes; all reps for a manager in All-reps scope after D2). The existing unread badge stays (OA-8).
-- Touch and view clocks (used by Team, section 7.3):
+- Quotes list (U3): Needs attention is the header's caution dropdown plus the filter panel's Only show **Overdue** (red) and **Aging** (amber); the list keeps newest request first. The old Needs attention view (`?attention=1`) opens as Only show Overdue and Aging. `GET /api/rep/quotes?attention=1` still answers red first, then amber, then quoted total descending, or oldest clock first with `&sort=oldest` (OA-9).
+- Header caution (U2, replacing the old red badge and the nav unread count): the caution button in every rep page header opens the "Needs attention" dropdown of amber and red open quotes, red first (C_QOB3); its accessible name counts the red ones only ("Needs attention, 2 items"). Scoped like the list: own quotes, every rep's for the manager (U1). Unread customer events are in the bell dropdown (C_QOB4).
+- Touch and view clocks (used by Analytics' Untouched quotes, section 7.3):
   - `last_rep_touch_at` is set to now when the owning rep opens the quote detail (`GET /api/rep/quotes/[id]` and the page load) or makes any edit (lines, terms, fulfillment, freight, notes, send). A manager's read-only open does not touch it.
   - `customer_viewed_at` is set to now when the customer opens the PDF preview of a sent revision (the existing customer read path that clears `unread_for_customer`).
 
@@ -123,7 +127,7 @@ Aging is derived on read, never stored: `src/server/quotes/aging.ts`, pure, `agi
 
 ### 4.1 Freight line
 
-- Free delivery pricing **off**: freight is exactly as today (`freight/engine.ts`, rules and rates unchanged).
+- Free delivery pricing **off** (stored off, or `FEATURE_FREE_DELIVERY_PRICING` off, section 4.8): freight is exactly as today (`freight/engine.ts`, rules and rates unchanged).
 - Free delivery pricing **on**: a delivery quote within the radius gets rule `free_delivery_pricing`, amount $0.00, explanation "Free delivery pricing: freight is recovered in item prices." `free_threshold` and `min_charge` are ignored but kept. Beyond the radius, no ship-to and no distance still give "call for freight" (OA-7). Will call stays $0.00.
 - A rep's explicit freight override still wins (section 4.5).
 
@@ -223,12 +227,27 @@ Per-line cap example (rate cap raised to 10%): a $5.00 item (cost $1.00, qty 1) 
 - Rep "Why this price?" row: "Freight recovery +$2.40 (rate 5.0%, ramp step 2 of 3)" (per-unit amount, the quote's frozen rate and step).
 - Rep quote header: "Freight recovery 5.0%" chip when the quote carries recovery.
 - Customer and customer PDF: final unit price and "Freight $0.00" only. Nothing about recovery, rates or cost crosses the customer-safe boundary.
-- Pricing & Delivery (manager): pool rate (computed or starting, with the eligible count), cap, ramp step and its schedule, trailing 90-day modelled cost and recovered amount, cost-model inputs, fuel price and its age, the toggle and the impact preview.
+- Pricing and delivery (manager; each section only while its feature flag is on, decision 48, U8): pool rate (computed or starting, with the eligible count), cap, ramp step and its schedule, trailing 90-day modelled cost and recovered amount, cost-model inputs, fuel price and its age, the toggle and the impact preview.
 
 ### 4.7 Impact preview and safeguards (C3)
 
-- `GET /api/rep/settings/freight/preview` computes, over delivery quotes created in the last 90 days that would carry recovery: the number of quotes affected, and per product category the average line price change in percent at the step-1 rate and at the full (step n) rate. It records `free_delivery_preview_viewed_at`.
+- `GET /api/rep/settings/freight/preview` computes, over delivery quotes created in the last 90 days that would carry recovery: the number of quotes affected, and per product category the average line price change in percent and in cents at the step-1 rate and at the full (step n) rate, and the affected quotes with a line in it (U8: the C_S7 dialog shows "N of <delivery quotes>" and the change in dollars). It records `free_delivery_preview_viewed_at`. Refused (403 `feature_off`) while `FEATURE_FREE_DELIVERY_PRICING` is off.
 - Enabling (`PUT … {free_delivery_pricing:true}`) is refused with 409 `preview_required` unless the preview was viewed within the last 24 hours (OA-11).
+
+### 4.8 Feature flags (decisions 48 and 71; U8, U12)
+
+Three environment variables read on the server on every request, off unless set to `1`, `true`, `on` or `yes`: `FEATURE_FREE_DELIVERY_PRICING`, `FEATURE_RECOVERY_POOL`, `FEATURE_DELIVERY_COST_MODEL` (`src/server/flags.ts`; listed in `.env.example`; no flags table). While a flag is off:
+
+- its section on Settings > Pricing and delivery does not render, and its settings writes are refused (403 `feature_off`, section 5);
+- what it governs is off whatever is stored (decision 71, OA-81). One place answers what is in effect, `src/server/freight/in-effect.ts` (stored setting AND flag on), and every reader in pricing, freight, recovery allocation, intake rate freezing, draft repricing, the impact preview and the pool panel goes through it (a test fails if another module reads the stored getters):
+
+| Flag off | In effect, whatever is stored |
+|---|---|
+| `FEATURE_FREE_DELIVERY_PRICING` | Free delivery pricing off: the normal freight line (section 4.1) and no recovery. The enable time is kept, so the ramp carries on from it when the flag is back on. |
+| `FEATURE_RECOVERY_POOL` | No computed pool (the starting rate applies), and the starting rate, rate cap, per-line cap and ramp are the code defaults (3.0%, 8%, 8%, 3 steps over 90 days). The daily pool cache is not computed. |
+| `FEATURE_DELIVERY_COST_MODEL` | The cost-model inputs are the code defaults (section 1.3): gasoline at the stored state price, no manual fuel price. |
+
+Stored settings are never changed by a flag and apply again once it is on. The math is unchanged. Drafts (`ready_for_review`, `changes_requested`) reprice on their next open or edit (section 4.5): with free delivery pricing no longer in effect the rate is cleared, and back in effect the rate in force is frozen again; a rate or modelled cost a draft already froze stays, as with any settings change (decision 31), and what it freezes next, and the per-line cap on its next reprice, follow what is in effect. Sent quotes stay frozen in their snapshot (decision 35). The manager's `GET /api/rep/settings/freight` returns the stored toggle, cost inputs and rates (what the sections show and edit) and the pool panel, ramp schedule and fuel price as in effect; with every flag on the two agree.
 
 ---
 
@@ -240,19 +259,39 @@ All `/api/rep/*` routes keep `repRoute()`. New helper `managerRoute()` (D1) answ
 |---|---|---|---|
 | `POST /api/query/customer/quotes/[id]/decline` | A1 | customer | `{reason?:DeclineReason\|null, note?:string}`; Idempotency-Key replay like accept; 409 when not respondable |
 | `GET /api/rep/quotes?attention=1&sort=oldest` | A2 | rep | Needs-attention filter and sort; rows carry `aging` |
-| `GET /api/rep/badges` | A2 | rep | adds `attention` (red count) |
+| `GET /api/rep/quotes?status=a,b&customer=&rep=&requested_from=&requested_to=&only=` | U3 | rep, manager | The Quotes page's filter panel: any set of statuses, the page's own customer, Rep (the manager only; ignored for a rep), requested days (YYYY-MM-DD, UTC, both included) and Only show `overdue`, `aging`, `below_floor` (any of them). `counts` (the board's lanes) cover every filter but the status ones. Rows carry `contact_name`; the list carries `customers` (the picker: a rep's own, every customer for the manager), `statuses`, `requested_from`, `requested_to`, `only`. The page and its poll send the same query |
+| `POST /api/rep/quotes/[id]/reply` | U3 | owning rep | `{body}` (1 to 2000 characters): the rep's reply to the customer's change request note (C_QOB6 "Send reply"), posted into the customer's Querent conversation as a sent quote is (decision 63: the quote's own conversation, else the latest; the customer's chat shows it as the "replied about" card, decision 66) and recorded on the quote's Activity (`kind='replied'`, "Brandi Gallegos replied to Dana Ortiz: …"). 409 without a change request, 404 for another rep's quote |
+| `GET /api/rep/badges` | A2, U2 | rep | `{quotes, attention, caution, bell}`: the unread count, the red count, and the two header dropdowns' rows `{id, quote_number, kind, label, tag, line, at}` (caution: amber and red open quotes, red first, tag "Overdue" or "Aging", one line in C_QOB3's sentence for the quote's status: "Dana Ortiz asked to move pickup to Ogden.", "Draft has 1 line below the margin floor.", "Sent Oct 6, no reply yet."; bell: the reader's own unread customer events, newest first, worded as C_QOB4 ("Dana Ortiz replied on Q-24790", "Q-24763 accepted by Canyon Ridge Builders": the customer's full name, decision 59, also for a quote with no contact; "Q-24815 expired"), `line` null and `at` printed in the browser's time zone, except an expired row, whose `line` is its day). Preferences (U9) filter the rows through one seam (`notify` in `src/server/rep/badges.ts`) |
 | `GET /api/rep/quotes/[id]/messages?before=&limit=50` | B1 | owner rep, manager (after D2) | `{total, messages:[{id,role,kind,content,created_at}], next_before}` oldest-first pages of 50, newest page first |
-| `GET/PUT /api/rep/settings/freight` | C3 | manager | toggle, cost inputs, rates, caps, ramp; GET returns pool, fuel status, warnings |
+| `GET/PUT /api/rep/settings/freight` | C3, U8 | manager | toggle, cost inputs, rates, caps, ramp; GET returns pool, fuel status, warnings. A PUT touching a section whose flag is off is refused whole (403 `feature_off`): `enabled` needs `FEATURE_FREE_DELIVERY_PRICING`, `rates` `FEATURE_RECOVERY_POOL`, `cost` `FEATURE_DELIVERY_COST_MODEL` (decision 48) |
 | `GET /api/rep/settings/freight/preview` | C3 | manager | impact preview (4.7) |
 | `GET/PUT /api/rep/settings/aging` | D1 | manager | thresholds in hours |
-| `GET /api/rep/team/reps`, `PUT /api/rep/team/reps/[id]` | D1 | manager | list reps; set `team`, `active` (deactivate refused 409 `has_customers` while the rep has customers) |
+| `GET /api/rep/settings` | U8, U9 | rep, manager | The manager: `{rep_id, manager:{access, accessTable, orgFloors, repMargins, pricing, delivery, aging, flags, profile}, mine, own:null}` (`profile`: her own, decision 69); `?customer=<id>` fills `accessTable` with that customer searched by name. A rep: `{rep_id, manager:null, mine, own:{orgFloors, profile, notifications}}`, their own margins, the organization floors, their profile and switches only (OA-69) |
+| `PUT /api/rep/settings/floors` | 6.1, U9 | rep, manager | The signed-in rep's own margins: `{category_id, floor_pct}` or `{floors:[{category_id, floor_pct}]}` (all or none). Another rep's: 403. Below the category's organization floor: 400 `{detail, code:'below_org_floor', fields:[{category_id, floor, detail}]}` |
+| `GET/PUT /api/rep/profile`, `GET/PUT/DELETE /api/rep/profile/picture` | U9 | rep, manager | The signed-in rep's own profile `{name, initials, title, phone, email, picture_url}`; PUT `{name, phone, email}` (400 `{detail, field}`). The picture: PUT with the image as the body, PNG, JPEG or WebP by its bytes (400), 2 MB at most (413); served with its stored type, `nosniff`, a sandboxing CSP, private |
+| `GET/PUT /api/rep/notification-prefs` | U9 | rep, manager | The signed-in rep's in-app switches, the eight Appendix C keys, on until turned off; PUT `{<key>: boolean}` (400 for anything else) |
+| `GET /api/query/customer/contacts/picture` | U9 | customer | The picture of the customer's own rep (404 without one); `GET /api/query/customer/contacts` gives `{rep:{name, initials, title, phone, email, picture_url}}` |
+| `GET /api/rep/settings/access?q=&items_stock=&pricing=&orders_quotes=&account=`, `PUT /api/rep/settings/access` | U8 | manager | Customer access (C_S1b): the customers whose name or account number contains `q` and whose data types are in the states given (`any`, `answers`, `not_shared`), `{q, customers:[{id,name,account_number,access}], total}`; 400 for another state. PUT `{customer_id\|null, category, enabled}` answers `{customer_id, rules, all}` |
+| `GET/PUT /api/rep/settings/org-floors` | U8 | manager | Organization margin floors (`org_margin_floors`): every category with `{floor, label}`; PUT `{floors:[{category_id, floor_pct}]}` (0 to 99.9, 0.1 point, each category once, all or none) |
+| `GET /api/rep/settings/margins` | U8 | manager | Every rep's own margins, by name, read-only (Rep margins) |
+| `PUT /api/rep/settings/pricing`, `PUT /api/rep/settings/delivery`, `GET /api/rep/settings/sources` | U8 | manager | Manager only since U8 (Appendix B; a rep 403). `/sources` has no page any more |
+| `GET /api/rep/team/reps`, `PUT /api/rep/team/reps/[id]` | D1, U7 | manager | list reps (with their team entity's name and id); set `active` (deactivate refused 409 `has_customers` while the rep has customers). The free-text team label is gone (U7): teams are set through `/api/rep/teams`. Teams and Reps' Save writes here |
+| `GET /api/rep/teams`, `POST /api/rep/teams` `{name, rep_ids?, parent_team_id?}`, `PATCH /api/rep/teams/[id]` `{name?, parent_team_id?}`, `DELETE /api/rep/teams/[id]`, `PUT /api/rep/teams/[id]/members` `{add?, remove?}` | U7 | manager | Teams and Reps' board (the reps without managers, with their customers and open quotes; everyone who can own a customer; the teams in list order with their own members and the reps each counts; every customer with its rep and the owners of its open quotes). Team names are 1 to 40 characters and unique whatever their case; a rep is in at most one team (adding moves them); a team can sit inside another, never inside itself or a team inside it (400); deleting a team leaves its reps with no team and its child teams on their own. Every write answers the board. A parent is grouping only (decision 47) |
 | `POST /api/rep/quotes/reassign` | D2 | manager | `{quoteIds:string[], toRepId}` single or bulk; writes `quote_activity` (`kind='reassigned'`, actor manager, message "from A to B") per quote |
-| `PUT /api/rep/settings/assignments` | D2 | manager | adds `{moveOpenQuotes:boolean}` |
-| `GET /api/rep/quotes?scope=all&rep=<id>&team=<label>` | D2 | manager | All-reps scope with rep and team filters |
-| `GET /api/rep/team/metrics?from=&to=&reps=&team=` | D3 | manager | metrics (section 7); `from`/`to` are ISO instants computed in the browser's time zone |
-| `GET /api/rep/team/metrics.csv?…` | D3 | manager | same rows via `src/server/export/csv.ts` |
+| `PUT /api/rep/settings/assignments` | D2, U7 | manager | adds `{moveOpenQuotes:boolean}`; the backing route of Teams and Reps' disconnect (C_TR2) and connect (C_TR4) |
+| `GET /api/rep/quotes?rep=<id>&team=<name>` | D2, U1, U11 | rep, manager | Scope is role based (U1): a rep's own quotes, every rep's for the manager, who also filters by rep and team. A team is a team entity (U7) and counts the reps of the teams inside it (decision 47); `manager.teams` lists every team by name. `?scope=all` is ignored (no switch, never a 403) |
+| `GET /api/rep/badges`, `/api/rep/analytics`, `/api/rep/settings` | U1 | rep, manager | Role based: a rep's own customers and quotes, the whole organization for the manager. `?customer=` is a page's own filter; a customer the rep can't read is ignored |
+| `GET /api/rep/team/metrics`, `GET /api/rep/team/metrics.csv` | D3, U11 | (removed) | Removed in U11: no page read them after U6 and U7, and they matched a team by exact name. `GET /api/rep/analytics` and `/api/rep/analytics/csv` serve the same section 7 metrics |
+| `GET /api/rep/analytics?customer=&reps=a,b&teams=X,Y&breakdown=org\|rep\|team\|customer&from=&to=` (or `&period=7\|30\|90`) | U6 | rep, manager | The Analytics page: the Overview (stat cards, weekly trend, margin vs floor, top items), the customer questions and query analytics, `filter`, `options` (reps, team names in the Teams card's order, readable customers), and `groups`: the section 7 metrics, one row per rep, team (each team with any of the reps, a parent counting the reps of the teams inside it, decision 47; "No team" for reps without one) or customer, plus the totals and the Other notes, over the quotes created in the window. Reps and teams narrow every number to those reps' quotes and their customers' questions; the whole organization groups the rows by rep. A rep is forced to their own data (reps, teams and breakdown ignored, another rep's customer reads as none, never a 403). The window defaults to the last 30 UTC days; the browser sends its own midnights (OA-19). 400 for an unknown rep, team or breakdown or a bad window |
+| `GET /api/rep/analytics/csv?…` | U6 | manager | Export CSV on the Rep leaderboard: the rows as filtered and broken down, then the totals, `rep-leaderboard.csv`; the first column is named Rep, Team or Customer. 403 for a rep |
 | `POST /api/query/customer/item-popup` (existing payload) | E1 | customer | adds `suggestions:[{item_id,sku,description,pack,reason}]` (no prices, no cost) |
 | line add with `added_by:'suggestion'` | E1 | customer | adding a suggestion to the cart at qty 1 |
+| `GET /api/query/customer/orders` | U10 | customer | the session customer's own orders, newest first: `[{id, order_number, order_date, status, fulfillment, branch_code, total, quote_number}]`; no lines, subtotal, freight, tax, cost or margin |
+| `GET /api/query/customer/notifications` | U10 | customer | the bell: `{unread, items:[{id, kind, title, body, at, day_only, read, quote}]}`, newest ten, derived on read |
+| `POST /api/query/customer/notifications/read` | U10 | customer | `{ids:[…]}` (1 to 100) or `{all:true}`; ids that are not the customer's notifications are ignored; answers the bell as it now reads |
+| `GET /api/query/customer/contacts` | U10 | customer | trimmed to `{rep}` for the My rep sheet (departments stay with the chat's answers) |
+| `POST /api/query/visitor/chat` | U10 | anyone | the visitor box's stub: always `{answer:"Sign in to continue."}`, imports nothing (decision 49, `TODO(R-14)`) |
+| `GET /api/rep/table-prefs?table=<id>`, `PUT /api/rep/table-prefs` | U0 | rep, manager | the signed-in user's column order and hidden columns for one table: `{table_id, prefs:{column_order, hidden_columns}\|null}`; PUT takes `{table_id, column_order, hidden_columns}` and refuses any other field (a `user_id` included) with 400 |
 
 Rep write routes refuse a quote the caller does not own (existing "not found"), including managers: a manager reads any quote but edits only after reassigning it to themselves (D2).
 
@@ -260,46 +299,90 @@ Rep write routes refuse a quote the caller does not own (existing "not found"), 
 
 ## 6. UI changes by page
 
-### Customer workspace (`/`)
-- Quotes sidebar chip: "Declined" (A1).
+### Customer site (`/`, U10; frames C_CVE0 to C_CVL5)
+- Querent is a box on the supplier's own site; only the box, the Orders and My rep sheets, the bell and the account chip are built (the frames' Herrick header and page are a stand-in).
+- No session: the visitor box (C_CVE0) with the four public starter questions and a Sign in button that opens the demo chooser at `/demo` (decision 53). Every question goes to `POST /api/query/visitor/chat`, a stub that always answers "Sign in to continue." and never calls the model or a tool (decision 49, `TODO(R-14)`).
+- Customer session: the same box with the logged-in starter questions (C_CVL1), Orders (C_CVL2: previous orders, five then "Show N more") and My rep (C_CVL3) side sheets, the notification bell with its unread count, and the account chip (its Sign out menu has no frame and returns to the visitor box). The contacts and quotes sidebars, the three panes, the phone tabs, the ERP indicator and "Switch workspace" are gone; there is no phone layout (decision 43). New conversation shows next to Orders once the conversation has turns (no frame).
+- Bell (C_CVL4, decision 41): notifications derived from quote activity and order status, newest ten, one per quote (its latest news): a quote sent ("Quote Q-… is ready to review"), sent again after Dana asked for changes ("Brandi updated Q-…"), expired ("Quote Q-… expired", no frame copy), and an order whose status is shipped ("Order SO-… has shipped"). Read per customer: pressing one or "Mark all read" marks it read, and a quote Dana answered or opened after the news counts as read. Polled every 5 s like the rep badges, and re-read when a quote changes. A quote notification opens the quote preview (C_CVL5) with Decline, Request changes and Accept.
+- Quote preview (C_CVL5): the existing preview and its three routes, restyled to the frame; its status is plain text ("Sent" in the accent).
+- `QuoteNoticeCard` stays in the chat as the in-conversation twin of the bell's quote notices.
 - PDF preview modal action bar: **Decline** next to Accept / Request changes, opening a centered dialog with the five reasons as radio buttons, a 250-character field for Other, red Cancel, and a **Decline** confirm button (A1).
 - Item pop-up: "Frequently bought together" below the cart, at least 2 suggestions when the pool allows, each with its reason and an "Add" button that adds qty 1 (E1).
 
-### Rep: Quotes list (`/rep/quotes`)
-- Aging marker (icon + "Aging"/"Overdue") per row; Needs attention filter with sort toggle (A2).
-- "Declined" filter and chip (A1).
-- Manager: scope switch "My quotes / All reps", Rep column, rep filter, team filter, row checkboxes and "Reassign…" bulk action (D2).
+### Rep: Quotes list (`/rep/quotes`; U3, frames C_QOBoard, C_QOTable, C_RQBoard, C_RQTable)
+- One toolbar: the customer picker ("All customers", a rep's "All my customers"; first five rows, the rest scroll, typing narrows; C_QOB1, C_QOT7, C_RQB1), **Filter** (C_QOB2) and the **Board** / **Table** toggle (`?view=table`). No status strip, no "Viewing" line, no unread dot, no sort toggle.
+- Board: one lane per status (Draft ready, Changes requested, Sent, Accepted, Expired, Declined) with its count (real data), seven cards, then "Show N more" and "Show less" (C_QOB7); an empty lane reads "No quotes here". A card: number, requested day, customer, View note (a change request), total, margin and one red line when something is wrong ("Overdue", "Aging", "1 line below floor", "Overdue. 1 line below floor"). Lanes move by drag or Alt+Left / Alt+Right (C_QOB8); the order is the user's own (`ui_table_prefs`, table `quotes-board`). A status filter shows only its lanes.
+- Table: Quote, Customer, Requested, Status, Total, Margin; the columns picker (C_QOT2) also offers Rep (the manager only), Valid until and Purchasing agent, hidden at first; order and visibility are the user's own (table `quotes`). Fourteen rows, then "Show N more quotes" and "Show fewer quotes" (C_QOT5).
+- Filter (C_QOB2, C_RQB2 for a rep): status (all ticked means every status), Rep (the manager only), Customer, Requested from and to, Only show Overdue, Aging, Below margin floor; the badge counts what is applied. Everything lives in the URL; an Analytics drill-down (`?rep=a,b&from=&to=&aging=`, decision 65) opens that list (`aging=red|amber` reads as Only show Overdue or Aging).
+- A card or row opens the quote preview (C_QOB5, C_QOT3): total, requested day, margin, status, the customer's note, **Open quote** (which opens the quote page and marks it read) and **Reply to Dana** (which opens the note). **View note** (C_QOB6, C_QOT4) shows the note with a reply box; **Send reply** records the reply on the quote's Activity.
+- Manager: every rep's quotes by default (no "My quotes / All reps" switch, U1). No bulk reassign on this page (decision 45: Teams and Reps, U7); `POST /api/rep/quotes/reassign` stays.
+- Rep: own quotes and customers only, no Rep column or Rep filter (U1).
+- `?customer=` filters this page only (U1); its links keep it, no other page's links do.
 
-### Rep: header (`RepShell`)
-- Red Needs-attention badge (A2). Team nav item for managers (D3).
+### Rep: shell (`RepShell`, `Rail`, `RepPageHeader`; U2)
+- Left rail, 216px charcoal, sticky at the top at 100vh (every page frame; C_QOBoard, C_RQBoard; U11 checks it against a frame of every page family): the Querent logo, the supplier name, the nav with icons (each label one block span, as 61 of the 83 page frames draw it; the 22 Quotes frames wrap it in a second, inline span), and the user block (initials, short name such as "Brandi G.", role Manager or Rep, **Sign out**). Manager nav: Quotes, Customers, Orders, Stock, Analytics, Teams and Reps, Settings. Rep nav: Quotes, Customers, Orders, Stock, My Analytics, Settings. No search, no avatar menu, no "Switch workspace", no role switch (decision 42), no count on the nav.
+- Sign out asks first ("Sign out of Querent?", C_QOB9); confirming calls `DELETE /api/session` and returns to `/` (decision 53).
+- Every rep page header (`RepPageHeader` on the U0 `PageHeader`): the title, the page's own picker or Filter (added by U3 to U9), then the caution and bell on the right. Each opens a dropdown and never navigates on open (C_QOB3, C_QOB4); choosing a row opens that quote (no frame, status.md).
+- Routes (decision 46): `/rep/items` is `/rep/stock` and `/rep/team` is `/rep/teams`; the old paths (and `/rep/items/<sku>`) answer 308 with the query kept (`next.config.ts`).
+- No "Viewing" customer picker and no `?customer=` on nav links (U1). Customer filters live on the pages that need them (Quotes, Customers, Orders, Analytics, Settings > Customer access).
+- No phone or tablet layout (decision 43): the old app bar, its scrolling nav strip and its breakpoints are gone.
+- Type (U0): every rep page renders in Albert Sans (UI) and Geist Mono (numbers, codes), loaded once by `next/font` in the root layout; Archivo and IBM Plex are gone. Every page is built on the shared primitives in `src/components/ui/` and the tokens in `src/app/tokens.css`, inside `.ui-root`; the old `--rep-*` page tokens are gone (U11).
 
-### Rep: Quote detail (`/rep/quotes/[id]`)
-- `RequestPanel`: "View full chat" button with "N messages", opening a side drawer: customer messages emphasised, assistant turns collapsed to one line each (expand on click), pages of 50 with "Load earlier" (B1).
-- Declined quotes show the reason and the Other note in the header and Activity (A1).
-- Aging marker in the header (A2).
-- "Why this price?" freight recovery line and header recovery chip (C2).
-- Manager viewing another rep's quote: read-only banner "Read only: Mara Jensen's quote. Reassign it to edit." with Reassign, and every edit control disabled (D2).
+### Rep: Quote editor (`/rep/quotes/[id]`; U4, frames C_QEBase and C_QE1 to C_QE11)
+- Minimal header (C_QEBase): the customer as the title with the caution and bell, then Quote, Status (with Overdue or Aging), Purchasing agent, Requested and Valid until. No breadcrumb, status banners or request box (the "Freight recovery N%" chip stays when the quote carries recovery, decision 64): what the banners said (the change request note, the decline reason and Other note (A1), the accepted PO and pickup) is in Quote details, Activity.
+- Items card: Show cost and stock (off by default; on, Available and Cost appear between Qty and Unit price, C_QE7), the lines with fixed columns Qty 60, Unit price 118, Margin 78, Total 82 and a 34px centre line, each line's price-basis dropdown (C_QE10) and Line details (C_QE9, three columns, with the freight recovery line when the quote carries recovery, C2), then + Add item with its results dropdown (C_QE8: Add, or "Already on quote"). Suggested by Querent below (C_QE5).
+- Total column: the total box (total before tax, gross profit, margin with the floor, **Approve and send**), the Save draft (C_QE11), Export (C_QE2), Chat (C_QE6, the "Full chat" drawer of B1) and More (C_QE3) icon buttons, and Quote details (C_QE4: Customer, Pickup or delivery, Quote terms, Internal notes, Activity), closed by default.
+- Send blockers (decision 44): Approve and send is disabled while `sendBlockers()` finds anything; the first blocker is named under it in red with "+N more", and clicking it jumps to the line's field, opens Quote details at the section, or scrolls to + Add item. Stock short at the branch and a match below 0.75 show as inline notes on their line and never block. The server still refuses a blocked send (422 `send_blocked`). The checks box is gone.
+- Manager viewing another rep's quote (D2, decision 22): read-only, one line under Approve and send "Read only: Mara Jensen's quote. Reassign it to edit.", every edit control off, Reassign in More actions.
 
-### Rep: Settings (`/rep/settings`)
-- Pricing & delivery: free delivery pricing card (toggle, impact preview, ramp schedule), cost-model inputs, fuel price status and warnings, pool panel (C3, manager-only).
-- Aging thresholds card (D1, manager-only). Reps card: team label, active, deactivate blocked while customers are assigned (D1).
-- Rep assignments: "Also move this customer's open quotes" checkbox (D2).
+### Rep: Settings (`/rep/settings`, U8, U9; frames C_S1 to C_S8, C_RS1 to C_RS4)
+- Manager tabs: Customer access, Margin floors, Pricing and delivery, Aging; an unknown `?tab=` opens Customer access. Data sources is gone; Rep assignments and Reps moved to Teams and Reps (U7). No descriptions except the frames' own lines.
+- Customer access (C_S1, C_S1a, C_S1b): with no search and no filter, one switch per data type (Items and stock, Pricing, Orders and quotes, Account) for every customer; the search (name or account number) or the Filter (each type Any, Querent answers, Not shared) lists the matching customers with one switch per type and "2 of 6 customers" beside the Filter. Analytics' Manage customer access link (`?customer=`) opens it searched for that customer.
+- Margin floors (C_S2, C_S3): Organization margin floors (a field and the 0% to 50% bar per category, Save floors), then Rep margins, read-only: a searchable rep (the first rep who is not the signed-in manager first) with their margin against the organization floor. Since U9 every rep's own margin must be at or above its organization floor (checked on write).
+- Pricing and delivery (C_S4): Pricing (scarcity uplift, broken case) and Delivery rates (right-aligned fields, units under the labels, Save rates on the title bar). Free delivery pricing (toggle, ramp-in, View impact preview, C_S5, C_S7), Recovery pool and Delivery cost model (C_S6) render only while their flags are on (decision 48).
+- Aging (C_S8): the three status rows (Draft ready, Changes requested, Sent) with amber and red hours and the "1 day" conversions, Save thresholds.
+- The manager's tabs end with her own **Profile** (decision 69; C_RS2's layout, the rep's component), because customers see her in My rep: she edits her own picture, name, phone and email only.
+- A rep's tabs (U9): Margins, Profile, Notifications, nothing else; any other `?tab=` opens Margins. No descriptions except the legend.
+- Margins (C_RS1, C_RS3): "Your margins", one row per category: the 0% to 50% bar filled to the rep's margin with the dark organization floor tick and the green margin tick, the 80px field, the organization floor. Under the floor the row turns red ("Below the 30.0% organization floor. Pick 30.0% or higher.", the real floor) and Save margins is disabled (drawn grey). The legend ("Organization floor, set by your manager", "Your margin") stays. Save margins sends the changed margins together through `PUT /api/rep/settings/floors {floors}`.
+- Profile (C_RS2): the picture (initials until one is uploaded; Upload picture: PNG, JPEG or WebP, 2 MB at most; Remove), Name, Phone, Email; Save profile. Customers see them in the My rep sheet, and quotes carry the rep's name, phone and email from the next send.
+- Notifications (C_RS4): in-app switches only, Needs attention (Quote overdue, Quote aging, Below margin floor, Change requested: the caution dropdown) and Notifications (Quote accepted, Quote declined, Quote expired, Customer chat needs a rep: the bell), each card with its own Save notifications. `GET /api/rep/badges` drops the rows they turn off.
 
-### Rep: Team (`/rep/team`, manager-only, D3)
-- Filters: rep multi-select, team label filter, presets 7 / 30 / 90 days and a custom range.
-- Leaderboard: one row per selected rep plus a totals row, columns per section 7.
-- Drill-down: any count or row links to `/rep/quotes?scope=all&…` filtered to those quotes; decline counts show reasons and Other text.
-- "Why quotes went untouched" table: counts per reason per rep.
-- Export CSV.
+### Rep: Analytics (`/rep/analytics`, U6; frames C_ANBase to C_AN8, C_RAN1 to C_RAN5)
+- Manager tabs: Overview, Rep leaderboard, Decline reasons, Untouched quotes, Customer questions. Rep ("My Analytics"): the same without Rep leaderboard.
+- Header: the title and the line under it ("Quotes and customer questions for the whole organization", "for your customers", or the filtered customer's name), **Filter**, and on the Rep leaderboard tab **Export CSV**.
+- Manager filter (C_AN4): Reps and Teams checkboxes, a Customer select ("Any customer"), "Break the numbers down by" Whole organization, Rep, Team, Customer. Rep filter (C_RAN2): Customer ("Any of my customers") and Period 7, 30 (default), 90 days or Custom. The manager picks the window in the leaderboard's title bar ("Created"). The window is the cohort of the leaderboard, Decline reasons and Untouched quotes (section 7); the Overview keeps its own spans (26 weeks, all time).
+- Overview: the five stat cards with an "i" each, quotes and wins by week (a column per week, a label under every fourth from the first, **Show table** newest first, nine weeks then "Show N more weeks"), average margin vs floor per category, top requested items (bars by quantity).
+- Rep leaderboard (C_AN6): the section 7 counts and rates per row and in the totals, each count linked to its quotes; the frame's 18 columns, with the rest of section 7 in the columns picker. Decline reasons (C_AN7): per reason, a column per row for the manager, and the Other notes ("Q-24767, Mara Jensen, Sep 28"; a rep's notes name the customer). Untouched quotes (C_AN8): per reason, a row per rep and the totals; a rep's single row is "Your quotes".
+- Customer questions (C_AN2): questions answered without a rep, then Query analytics (Total queries, Estimated time saved, Queries by category with the Assigned rep for the manager, and the access card with "Manage customer access" for the manager).
+- Table headers carry "::" and reorder by drag or Alt+Left/Right; the week and leaderboard tables have the columns picker. Order and hidden columns are the user's own (`ui_table_prefs`).
 
-### Workspace chooser
+### Rep: Teams and Reps (`/rep/teams`, was `/rep/team`; manager-only; U7, frames C_TRBase to C_TR7)
+- No analytics here: the old dashboard's content is on Analytics (U6). A rep is sent to their Quotes; every route answers them 403.
+- Header: "Teams and Reps" and "Who is on your team and which customers they own", then the caution and bell.
+- Reps card (C_TRBase): "N reps. Managers are not listed.", **Filter** (no frame: by team, a parent taking in the reps of the teams inside it, plus "No team"), **Save**; columns Rep name, Customers (a count button), Role (the rep's title), Team, Active (a switch), with the `::` handles and the columns picker (`ui_table_prefs` table `teams-reps`). Active switches change on the page and **Save** stores them through `PUT /api/rep/team/reps/[id]`; deactivating a rep with customers is refused and the server's reason shows in one red line (decision 21).
+- Customers under a rep (C_TR1): "Hide customers", "Customers for <rep>", each customer with its account code and an **x**, and **+ Connect a customer**. The x opens "Disconnect <customer>?" (C_TR2): the new rep is picked in the same step among the other active reps and the manager ("2 customers", "No customers yet"), with "Also move this customer's open quotes"; **Disconnect and reassign**. Connect (C_TR3) searches the customers that are not the rep's, each "With <rep>"; picking one asks "<customer> is with <rep>" (C_TR4): "Connecting it to <new rep> takes it off <old rep>. <first name> will keep N customers.", "Also move this customer's open quotes (N quotes)" (the open quotes the new rep doesn't own yet), **Move to <new rep>**. Both go through `PUT /api/rep/settings/assignments`: one rep per customer, open quotes moved only when ticked, each with an Activity entry.
+- Bulk reassign (decision 45; no frame): clicking a rep's row (or Space or Enter on it) picks it; a bar under the title shows the rep (or "N reps") and **Reassign open quotes**, which opens the reassign dialog with their open quotes (`POST /api/rep/quotes/reassign`, an Activity entry each).
+- Teams card (C_TRBase): **Filter** (no frame: the teams a picked rep counts in), **Create team**, a `::` Team header with the columns picker, and each team with its tick box and "N reps" (its own members plus those of the teams inside it; a team inside another is indented, no frame). A picked team (C_TR5) shows a bar with its name, **Add to team**, **Remove from team**, **Move into other team**, and its reps as chips. Create team (C_TR6): Team name, Add reps (every active rep and manager; a rep moves out of their old team), Inside another team (None or a team). Move team (C_TR7): "Reps in <team> stay in it, and also count in the team you pick.", the other teams except those inside it, and "No parent team". Add to team and Remove from team (no frame) tick reps in Create team's grid.
+- Teams are entities (`011_teams`: `teams(id, name, parent_team_id)`, `team_members(rep_id, team_id)`), migrated from the reps' free-text labels. A parent is grouping only (decision 47): it counts the reps of the teams inside it for the Teams card, the Reps filter and Analytics' team filter and breakdown, and grants nothing (TODO R-12).
+
+### Rep: Customers, Orders, Stock (`/rep/customers`, `/rep/orders`, `/rep/stock` and their record pages; U5, frames C_CUBase to C_ST3)
+- Lists (C_CUBase, C_ORBase, C_STBase): the page header holds the page's own search (Customers "Search customers", Stock "Search SKU or item name") or the customer picker (Orders), the Filter button and the count ("6 customers", "23 orders", "62 items, stock at SLC, Ogden and Provo"). Each table has the gray header with `::` handles, the columns picker and per-user column prefs (`ui_table_prefs`: tables `customers`, `orders`, `stock`), and about one screen of rows then "Show N more" (Orders 10, Stock 9). No breakpoints (decision 43).
+- Customers: Customer (name and account code), Rep (manager only), Terms, Open balance (of the credit limit), Last order, Orders, Quotes. Filter (C_CU1; C_RCU1 for a rep): Rep with counts (manager only), Terms (the terms on file, then Not on file), Open balance from and to, Only show Has open quotes (a Draft ready, Changes requested or Sent quote of the reader's), Over 80% of credit limit, Never ordered. Applied groups show as chips with "x" and Clear all (C_CU2); the badge counts groups. `?customer=` still narrows the list.
+- Orders (read-only, ERP): Order (with "PO 7777, from Q-24816"), Customer, Rep (the customer's rep; manager only), Ordered, Fulfillment ("Delivery, SLC"), Status (Shipped green, Closed muted), Lines, Total. Filter (C_OR1): Rep (manager only), Status, Fulfillment, Branch, Ordered from and to. The picker loads `?customer=`.
+- Stock: Item (SKU and pack), Category, List price, one column per branch, Total, and "Add to quote" on each row. Filter (C_ST1) replaces the category dropdown: Category with counts, In stock at, Only show Low stock (less than one full case at some branch, an open assumption) and On order, List price from and to. `?category=` starts the Filter on that category.
+- Record pages (C_CU3, C_OR2, C_ST2): a header with the name and one facts line (the order number in Geist Mono with its status chip), then the main column and a 340px side column of cards with charcoal title bars. Detail tables have no filter and no columns picker. No breadcrumb.
+- Add to quote (C_ST3), from a Stock row or the item page: the signed-in rep's own editable drafts (Draft ready, Changes requested; a manager only their own, decision 22), newest quote first, the first picked; Quantity (1 by default); "Add to Q-…" posts to `POST /api/rep/quotes/<number>/lines`, so the engine prices the line, then the quote opens. "Start a new quote" is drawn; no route starts a quote from Stock yet, so its button stays disabled (to ask).
+- A rep sees the same layouts with their own customers, orders and drafts (U1).
+
+### Workspace chooser (`/demo`)
+- Moved unchanged from `/` to `/demo` (decision 53); the visitor box's Sign in opens it, and it shows even with a session, to switch workspaces. Choosing the customer opens `/`; a rep persona opens the rep portal.
 - Rep personas: Brandi (manager), Mara (rep), Eli (rep) (F1; server personas in D1).
 
 ---
 
-## 7. Team metrics (D3)
+## 7. Team metrics (D3; served by Analytics since U6)
 
-Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and team label. Statuses use `effectiveStatus` at request time. Rates are `null` (shown "–") when the denominator is 0.
+Cohort for rate metrics: quotes whose `created_at` falls in `[from, to)`, where the browser computes `from`/`to` at local midnight. Filtered to the selected reps (current owner `rep_id`) and teams (U7: a team counts its members and those of the teams inside it). Statuses use `effectiveStatus` at request time. Rates are `null` (shown "-") when the denominator is 0. Analytics (U6) groups the same metrics by rep, team (U7: team entities) or customer; only the grouping changes.
 
 | Metric | Definition |
 |---|---|
@@ -338,9 +421,9 @@ All queries are live SQL in `src/server/repository/team.ts`; no materialised tab
 ## 8. Roles, reassignment and scope (D1, D2)
 
 - Roles `rep | manager` on `reps.role`. `Principal.role` stays `supplier_admin` for every supplier persona; a new `Principal.rep_role` (from the session persona, checked against `reps.role` in `managerRoute`) decides manager features (OA-12). Personas: `brandi` (manager), `mara` and `eli` (rep).
-- A manager sees all reps; a rep sees only their own quotes (unchanged).
-- Deactivation: refused while any customer has the rep in `customer_rep`. Inactive reps cannot be chosen as a reassignment target, do not appear in the workspace chooser, and stay in Team history.
-- Reassignment: `quotes.rep_id` becomes the new owner; `original_rep_id` keeps the first owner (set at creation, never changed). Open and closed quotes can both be moved. Each move writes `quote_activity` (`actor='rep'`, `actor_id`=manager, `kind='reassigned'`, "Brandi Gallegos reassigned Q-24817 from Mara Jensen to Eli Porter"). Reassigning a customer's rep (Settings) offers "Also move this customer's open quotes".
+- Scope is purely role based on the server (U1; Appendix B of `docs/design/new-ui-implementation-prompt.md`): a rep reads only their own customers (`customer_rep`), those customers' orders, their own quotes (`quotes.rep_id`) and their own analytics (quote numbers from the quotes they own, chat-question numbers from their own customers; OA-67); a manager reads the whole organization. No request parameter widens it: the "Viewing" picker and the "My quotes / All reps" switch (`?scope=all`) are gone, and `?customer=` only narrows a page. Another rep's customer, order or quote reads as not found (404) for a rep. The manager still edits only her own quotes and opens other reps' read-only until she reassigns them (decision 22). The role switch is not built (decision 42).
+- Deactivation: refused while any customer has the rep in `customer_rep`. Inactive reps cannot be chosen as a reassignment target, do not appear in the workspace chooser, and stay in Analytics' history (pickable in its filter).
+- Reassignment: `quotes.rep_id` becomes the new owner; `original_rep_id` keeps the first owner (set at creation, never changed). Open and closed quotes can both be moved. Each move writes `quote_activity` (`actor='rep'`, `actor_id`=manager, `kind='reassigned'`, "Brandi Gallegos reassigned Q-24817 from Mara Jensen to Eli Porter"). Reassigning a customer's rep (Teams and Reps, U7) offers "Also move this customer's open quotes".
 - Hierarchies and named groups: `TODO(R-12)`.
 
 ---
@@ -358,7 +441,7 @@ All queries are live SQL in `src/server/repository/team.ts`; no materialised tab
 - Candidate pool (server, cost-free path in `src/server/customer/suggestions.ts`): items from the existing co-occurrence and fastener rules, in the catalog, in stock at the chosen branch, not already in the cart. The rules are reached through a new cost-free function so `boundary.test.ts` stays green (customer code may not import the priced upsell service).
 - Selection: live mode asks the LLM (customer-safe module only) to pick up to 3 from the pool and write a short reason in the chip style; scripted mode picks the first N deterministically with template reasons. The server drops any SKU not in the pool. If fewer than 2 candidates exist, show what exists.
 - Payload: `{item_id, sku, description, pack, reason}`, no prices or costs.
-- Add: qty 1, line `added_by='suggestion'` (migration 008). Offered suggestion count is recorded on the pop-up message payload so the Team acceptance rate has a denominator.
+- Add: qty 1, line `added_by='suggestion'` (migration 008). Offered suggestion count is recorded on the pop-up message payload so the leaderboard's acceptance rate has a denominator.
 
 ---
 
@@ -394,4 +477,4 @@ Each slice writes failing tests first, then implements.
 | Suggestions | pool filter (stock, cart, catalog), LLM output validated against pool, scripted determinism, payload has no price-like field, `added_by='suggestion'` |
 | Boundary | `boundary.test.ts` and `customer.test.ts` stay green; new customer exports added to the cost scan |
 | TODO registry | every `TODO(R-n)` in `src/` exists in `docs/todo-registry.md` |
-| Playwright | `e2e/decline.spec.ts` (A1), `e2e/rep-aging.spec.ts` (A2), `e2e/chat-drawer.spec.ts` (B1), `e2e/free-delivery.spec.ts` (C3), `e2e/rep-roles.spec.ts` (D1), `e2e/rep-reassign.spec.ts` (D2), `e2e/team-dashboard.spec.ts` (D3), `e2e/popup-suggestions.spec.ts` (E1), `e2e/demo-script.spec.ts` (F1); existing specs stay green |
+| Playwright | `e2e/decline.spec.ts` (A1), `e2e/rep-aging.spec.ts` (A2), `e2e/chat-drawer.spec.ts` (B1), `e2e/free-delivery.spec.ts` (C3), `e2e/rep-roles.spec.ts` (D1), `e2e/rep-reassign.spec.ts` (D2), `e2e/rep-analytics.spec.ts` (D3's dashboard checks, moved there in U7), `e2e/rep-teams.spec.ts` and `e2e/frames-teams.spec.ts` (U7), `e2e/popup-suggestions.spec.ts` (E1), `e2e/demo-script.spec.ts` (F1), every `e2e/frames-*.spec.ts` (lane U frame proof) and `e2e/accessibility.spec.ts` (U11, Appendix H); existing specs stay green |

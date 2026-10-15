@@ -183,8 +183,8 @@ ol.flat,ul.flat{padding-left:20px}
 <body>
 <header>
   <div>
-    <h1>Querent v2: request path from chat message to quote</h1>
-    <div class="sub">An evidence-based reading of the code at commit 5a60741 (main). The code is the only source of truth used here.</div>
+    <h1>Querent v3: request path from chat message to quote</h1>
+    <div class="sub">An evidence-based reading of the code at commit 5a60741 (main), refreshed for v3 and lane U on 2026-10-13 (see the Overview). The code is the only source of truth used here.</div>
   </div>
   <div class="filters" role="group" aria-label="Filter claims by evidence label">
     <label><input type="checkbox" data-f="V" checked><span class="tag V">VERIFIED</span></label>
@@ -249,26 +249,35 @@ ol.flat,ul.flat{padding-left:20px}
 </table></div>
 
 <h3>System at a glance</h3>
-<div class="claim" data-l="V"><p>One Next.js app (Node runtime) serves both the customer chat and the rep portal. All data is in one SQLite file opened with <code>better-sqlite3</code> (synchronous), WAL mode, foreign keys on. There are no migrations: a database with another schema version refuses to open.</p>
-<details class="cite"><summary>src/server/db/index.ts:8-38</summary><script type="text/plain">export const databasePath=()=>resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH||'./data/querent.sqlite');
-let singleton:Database.Database|undefined;
-
-export function db(){
-  if(singleton)return singleton;
-  ...
-  const database=new Database(path);
-  try{
+<div class="claim" data-l="V"><p>One Next.js app (Node runtime) serves both the customer site and the rep portal. All data is in one SQLite file opened with <code>better-sqlite3</code> (synchronous), WAL mode, foreign keys on. Since v3 (task T1) every open applies the pending numbered SQL migrations in <code>src/server/db/migrations</code>; an unmigrated database other than v4 refuses to open.</p>
+<details class="cite"><summary>src/server/db/index.ts</summary><script type="text/plain">export const databasePath=()=>resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH||'./data/querent.sqlite');
+...
     database.pragma('journal_mode = WAL');
     database.pragma('foreign_keys = ON');
     bootstrap(database);
-  }catch(error){database.close();throw error;}
-  ...
-// No migrations (spec §6.6): a database from another schema version refuses to open, and
-// `npm run db:reset` deletes it and reseeds. A new, empty database is seeded on first open.
+...
+// Every open applies the pending migrations (spec §1.1, ./migrate.ts): a pre-T1 v4 database is
+// adopted, any other unmigrated one refuses to open and `npm run db:reset` rebuilds it. A new,
+// empty database is seeded on first open.
 function bootstrap(database:Database.Database){
+  migrate(database);
   ...
-    if(Number(version)!==SCHEMA_VERSION)throw new Error(`SQLite schema ${version??'(unversioned)'} at ${databasePath()} is incompatible with schema ${SCHEMA_VERSION}. Run npm run db:reset.`);</script></details>
-</div>
+}</script></details></div>
+<div class="claim" data-l="V"><p><b>Refreshed for v3 and lane U (2026-10-13).</b> The request path below is the v2 reading at 5a60741; the backend steps 2 to 19 still hold. What changed at the two ends:</p>
+<ul class="flat">
+<li><b>Before step 1.</b> With no session, <code>/</code> is the visitor box; its questions go to <code>POST /api/query/visitor/chat</code>, a stub that imports nothing and answers only "Sign in to continue." (decision 49, <code>TODO(R-14)</code>), so no model call, tool or data is reached. The workspace chooser moved to <code>/demo</code>. A signed-in customer chats in the same box (<code>src/components/customer/site/</code>), with Orders and My rep sheets and a notification bell.</li>
+<li><b>Steps 17 to 19 (rep).</b> The quote editor follows the canvas frames: <b>Approve and send</b> is disabled while <code>sendBlockers()</code> finds anything, naming the first blocker (decision 44); the server still refuses a blocked send (422 <code>send_blocked</code>). Send quote opens a centered Confirm send. A rep can answer a change request from the Quotes page (<code>POST /api/rep/quotes/&lt;n&gt;/reply</code>), which is posted into the customer's conversation (decision 63).</li>
+<li><b>Step 20 (customer).</b> Besides the chat's quote notice, the bell (<code>GET /api/query/customer/notifications</code>, derived from quote activity and order status, polled) lists a sent, revised or expired quote and a shipped order; a quote notification opens the PDF preview with Accept, Request changes and Decline (v3 task A1).</li>
+<li><b>Scope.</b> Rep reads are role based (task U1): a rep sees only their own customers, quotes, orders and analytics; a manager the whole organization, editing only her own quotes.</li>
+</ul>
+<details class="cite"><summary>src/app/api/query/visitor/chat/route.ts:4-11</summary><script type="text/plain">// TODO(R-14): the real anonymous query route: public tool allow-list, rate limit, CORS, then Supabase auth and embed.
+export const dynamic='force-dynamic';
+
+const REPLY='Sign in to continue.';
+
+export async function POST(_request?:unknown){
+  return Response.json({answer:REPLY});
+}</script></details></div>
 <div class="claim" data-l="V"><p>The engine is chosen per request from environment variables: <b>scripted</b> when <code>QUERENT_SCRIPTED=1|true</code> or <code>ANTHROPIC_API_KEY</code> is empty; otherwise <b>live</b>. CI forces scripted mode, so the live tool loop is exercised only by unit tests with a fake client.</p>
 <details class="cite"><summary>src/server/chat/mode.ts:8-19</summary><script type="text/plain">export const DEFAULT_MODEL='claude-sonnet-5';
 
@@ -953,10 +962,10 @@ function insertLine(quoteId:string,line:NewQuoteLine,addedBy:LineSource,atLineNo
   return sends.onceAsync(`${repId}:${q.id}`,idempotencyKey,async()=>{</script></details></div>
 </div></details>
 
-<details class="step"><summary><span class="n">20</span><span class="t">Customer sees the quote; accepts or requests changes</span><span class="tag ND">NONDETERMINISTIC (polling, human)</span><span class="f">src/features/chat/Chat.tsx, src/server/quotes/service.ts:243-268</span></summary><div class="body">
+<details class="step"><summary><span class="n">20</span><span class="t">Customer sees the quote; accepts, requests changes or declines</span><span class="tag ND">NONDETERMINISTIC (polling, human)</span><span class="f">src/features/chat/Chat.tsx, src/server/quotes/service.ts:243-268</span></summary><div class="body">
 <div class="kv">
-<div>Input</div><div>The chat polls <code>GET customer/notices/&lt;conversation&gt;</code> while the tab is visible; the customer opens the PDF of the sent revision.</div>
-<div>Output</div><div>Accept (<code>sent → accepted</code>, with PO and pickup/delivery time) or Request changes (<code>sent → changes_requested</code>, with a note). Both refuse an expired quote or a stale revision.</div>
+<div>Input</div><div>The chat polls <code>GET customer/notices/&lt;conversation&gt;</code> and the bell polls <code>GET customer/notifications</code> while the tab is visible; the customer opens the PDF of the sent revision from either.</div>
+<div>Output</div><div>Accept (<code>sent → accepted</code>, with PO and pickup/delivery time), Request changes (<code>sent → changes_requested</code>, with a note) or Decline (<code>sent → declined</code>, with an optional reason, v3 task A1). Each refuses an expired quote or a stale revision.</div>
 </div>
 <div class="claim" data-l="V"><details class="cite"><summary>src/server/quotes/lifecycle.ts:28-33</summary><script type="text/plain">export const TRANSITIONS:Readonly<Record<QuoteEvent,TransitionRule>>={
   send:{from:['ready_for_review','changes_requested'],to:'sent',actor:'rep'},
