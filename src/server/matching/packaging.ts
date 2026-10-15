@@ -22,6 +22,8 @@ export type ChoiceKey='wall'|'closure'|'adhesive'|'print'|'film'|'length'|'paper
 /** What a line (or a catalog row) says about the item. */
 export interface Spec {
   dims:Size[]|null;
+  /** The dims with the single length just before them in front ("1/2" Bubble 12"x250'" also reads 1/2 x 12 x 250). */
+  altDims:Size[]|null;
   measures:Size[];
   ect:number|null;
   burst:number|null;
@@ -285,11 +287,13 @@ function takeSizes(text:string){
     }
   }
   const strip=({unit,value,label}:Size):Size=>({unit,value,label:unit?`${label} ${unit}`:label});
-  const tuple=groups.find(g=>g.length>1)??null;
+  const at=groups.findIndex(g=>g.length>1);
+  const tuple=at>=0?groups[at]:null;
+  const before=at>0&&groups[at-1].length===1&&isLength(groups[at-1][0])?groups[at-1][0]:null;
   const measures=groups.filter(g=>g!==tuple).flat().map(strip);
   let rest=text;
   for(const {start,end} of [...found].reverse())rest=`${rest.slice(0,start)} ${rest.slice(end)}`;
-  return {dims:tuple?tuple.map(strip):null,measures,text:rest};
+  return {dims:tuple?tuple.map(strip):null,altDims:tuple&&before?[before,...tuple].map(strip):null,measures,text:rest};
 }
 
 /** Two sizes are the same when equal in a shared unit family; a size without a unit compares by number alone. */
@@ -348,7 +352,7 @@ export function parseSpec(raw:string):Spec{
   if(grade)choices.choices.paper=grade;
   const sizes=takeSizes(text);
   return {
-    dims:sizes.dims,measures:sizes.measures,
+    dims:sizes.dims,altDims:sizes.altDims,measures:sizes.measures,
     ect:ect.value as number|null,burst:(burst.value as number|null)??bareBurst,
     mil:mil.value as number|null,gauge:gauge.value as number|null,number:number.value as string|null,
     colors:colors.found,materials,choices:choices.choices,features:features.found,pack:packed.pack,

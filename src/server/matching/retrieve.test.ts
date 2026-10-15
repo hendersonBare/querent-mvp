@@ -110,6 +110,18 @@ describe('scorePackaging: what the line says',()=>{
     expect(score('10 x 8 x 6" corrugated boxes','1086W-BDL')).toBe(UNSTATED);
   });
 
+  it('reads a roll written thickness first (1/2" x 12" x 250\') against one written "1/2" Bubble 12"x250\'"',()=>{
+    const catalog=[
+      {sku:'BW12S12P',description:'Bubble Rolls, 1/2" Bubble 12"x250\' Perforated 12"',pack:'Roll',caseQty:1,keywords:'bubble rolls bubble wrap cushioning protective packaging shipping cushioning'},
+      {sku:'BW316S12P',description:'Bubble Rolls, 3/16" Bubble 12"x750\' Perforated 12"',pack:'Roll',caseQty:1,keywords:'bubble rolls bubble wrap cushioning protective packaging shipping cushioning'},
+    ];
+    const s=(line:string)=>Object.fromEntries(scorePackaging(line,catalog).map(c=>[c.item.sku,c.score]));
+    expect(s('Bubble wrap roll 1/2" x 12" x 250\' perforated').BW12S12P).toBe(1);
+    expect(s('Bubble wrap roll 12" x 250\' 1/2" perforated').BW12S12P).toBe(1);
+    expect(s('Bubble wrap roll 3/16" x 12" x 250\' perforated').BW12S12P).toBeLessThan(0.5);
+    expect(s('Bubble wrap roll 12" x 1/2" x 250\' perforated').BW12S12P).toBeLessThan(0.5);
+  });
+
   it('contradicts on paper grade: newsprint is not kraft paper',()=>{
     const catalog=[
       {sku:'NP2430',description:'Newsprint Sheets, 24x36" 50 lb.',pack:'Case of 800',caseQty:1,keywords:'newsprint sheets packing paper pre-cut paper void fill wrapping paper'},

@@ -67,8 +67,9 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
 
   if(line.dims){
     const dims=item.dims;
+    const same=(tuple:Size[]|null)=>!!tuple&&tuple.length===line.dims!.length&&tuple.every((d,i)=>sameSize(line.dims![i],d));
     if(!dims)add(PACKAGING_WEIGHTS.dims,0);
-    else if(dims.length===line.dims.length&&dims.every((d,i)=>sameSize(line.dims![i],d)))add(PACKAGING_WEIGHTS.dims,1);
+    else if(same(dims)||same(item.altDims))add(PACKAGING_WEIGHTS.dims,1);
     else{
       add(PACKAGING_WEIGHTS.dims,-1,`size: ${tuple(line.dims)} vs ${tuple(dims)}`);
       // How far off the size is, to list the nearest sizes first among equal scores.
