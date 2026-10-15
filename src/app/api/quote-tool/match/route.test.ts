@@ -41,7 +41,7 @@ function post(form:FormData|null,{headers={}}:{headers?:Record<string,string>}={
   return new NextRequest(`${ORIGIN}/api/quote-tool/match`,{method:'POST',headers:{origin:ORIGIN,host:'127.0.0.1:3000',...headers},body:form??undefined});
 }
 const textForm=(text:string)=>{const f=new FormData();f.set('text',text);return f;};
-const fileForm=(data:Uint8Array,type='application/pdf',name='list.pdf')=>{const f=new FormData();f.set('file',new File([data],name,{type}));return f;};
+const fileForm=(data:Uint8Array,type='application/pdf',name='list.pdf')=>{const f=new FormData();f.set('file',new File([new Uint8Array(data)],name,{type}));return f;};
 
 async function events(response:Response):Promise<MatchStreamEvent[]>{
   const text=await response.text();
