@@ -8,14 +8,14 @@ The spec, decisions, tasks, and build status live in [`docs/plans/`](docs/plans/
 
 ## Personas and demo data
 
-The workspace chooser at `/` offers four personas. It is not a login (see [Security and known limitations](#security-and-known-limitations)).
+`/` is the customer site: with no session it shows the visitor box, whose **Sign in** opens the workspace chooser at `/demo`. The chooser offers four personas. It is not a login (see [Security and known limitations](#security-and-known-limitations)).
 
 | Persona | Who | Role | Where they work |
 |---|---|---|---|
-| **Herrick Industrial Supply** | **Brandi Gallegos (BG)**, Inside Sales | `manager`: her own book plus every rep's quotes (read-only until reassigned), Team, and the manager-only settings | The rep portal at `/rep` |
+| **Herrick Industrial Supply** | **Brandi Gallegos (BG)**, Inside Sales | `manager`: her own book plus every rep's quotes (read-only until reassigned), Analytics for the whole organization, Teams and Reps, and the manager-only settings | The rep portal at `/rep` |
 | **Mara Jensen** | Inside Sales | `rep`: her own quotes only | The rep portal at `/rep` |
 | **Eli Porter** | Outside Sales | `rep`: his own quotes only | The rep portal at `/rep` |
-| **Wasatch Mechanical Contractors** | **Dana Ortiz**, Purchasing (account WAS-1142) | customer | The customer workspace at `/`: contacts, chat, and quotes |
+| **Wasatch Mechanical Contractors** | **Dana Ortiz**, Purchasing (account WAS-1142) | customer | The customer site at `/`: the Querent box, the Orders and My rep sheets, and the notification bell |
 
 A rep a manager marks inactive drops off the chooser and loses access. Nora Chen is a fourth rep with no persona.
 
@@ -24,8 +24,8 @@ The seed (`src/server/db/seed/`) is the demo's only data source:
 - **Customers:** Wasatch (Brandi) has twelve months of history: orders, contracts, prices, quotes and chat logs. Mara's Canyon Ridge Builders and Eli's Utah Valley Electric and Weber Basin Fabricators have a ship-to, terms, a buyer and quotes, but no orders. Great Basin Fabrication (Brandi) and Uinta Facility Services (Nora) are placeholders with only a name, an account number and a rep, to show the empty states.
 - **Branches:** SLC, Ogden, and Provo.
 - **Catalog:** 62 SKUs in 6 categories (Fasteners; Abrasives & Cutting; Safety & PPE; Material Handling & Tie-downs; Tools; Janitorial/MRO). It includes deliberate near-duplicates (Grade 5 vs 8, Type 1 vs 27) so clarification has something to ask.
-- **Quotes:** 24 historical Wasatch quotes, plus the sample quote **Q-24817**, which starts in `ready_for_review` with Brandi's unread badge set. The rep portal's ⋯ menu has **Reset sample quote** to restore it.
-- **The demo book** (`seed/aging.ts`, `seed/demo.ts`), dated from the reset time rather than the seed date, so every reset shows the same mix: fresh, Aging and Overdue quotes for Brandi, Mara and Eli; every status, including declines with each reason (one Other with a note) and expired quotes; quotes Brandi reassigned; pop-up suggestions offered and taken; and 22 accepted delivery quotes from the last 90 days that carried freight recovery in an earlier pilot, so Pricing & delivery shows a computed pool rate next to the starting rate.
+- **Quotes:** 24 historical Wasatch quotes, plus the sample quote **Q-24817**, which starts in `ready_for_review` with Brandi's unread badge set. The quote editor's More menu has **Reset sample quote** to restore it.
+- **The demo book** (`seed/aging.ts`, `seed/demo.ts`), dated from the reset time rather than the seed date, so every reset shows the same mix: fresh, Aging and Overdue quotes for Brandi, Mara and Eli; every status, including declines with each reason (one Other with a note) and expired quotes; quotes Brandi reassigned; pop-up suggestions offered and taken; and 22 accepted delivery quotes from the last 90 days that carried freight recovery in an earlier pilot, so Pricing and delivery shows a computed pool rate next to the starting rate.
 
 ## The golden flow (workflow steps 1–8)
 
@@ -37,20 +37,21 @@ These are steps 1–8 of the flowchart in `docs/design/querent-quote-flow.html`.
 4. **Querent builds the cart.** It matches each line to one SKU and asks a clarifying question when it isn't confident. After 2 rounds it shows the top 3 candidates as buttons, plus Brandi's contact details. When every line is matched, the **item pop-up** opens with items, quantities, and branch stock, but **no prices**. Dana picks pickup or delivery and a branch, then presses **Request quote**.
 5. **Querent prices the draft.** Each line gets a price basis, a "Why this price?" note, and the GP it adds over the customer price. The quote also gets distance-based freight and "Suggested by Querent" upsells. The quote is `ready_for_review`, and Brandi's Quotes badge lights up.
 6. **Brandi reviews it** in the rep portal. She can switch price bases, type any price (a red warning appears above a price that falls below her floor), add upsells, set freight, and edit terms and notes.
-7. **Brandi approves and sends it** with **Approve & send**, then the centered **Confirm send**. The quote arrives in Dana's chat and her quotes sidebar, and opens as a PDF preview.
+7. **Brandi approves and sends it** with **Approve and send**, then the centered **Confirm send**. The quote arrives in Dana's chat and her notification bell, and opens as a PDF preview.
 8. **Dana accepts** (with a pickup or delivery time and a PO) **or requests changes** (with a note), each after a centered Confirm dialog. After a change request, Brandi edits the quote and sends rev 2. Acceptance ends the MVP flow, and Brandi sees the quote as Accepted.
 
-`e2e/golden-quote-flow.spec.ts` walks this flow end to end with both personas. `e2e/mobile-flow.spec.ts` walks it again on 390×844 phones.
+`e2e/golden-quote-flow.spec.ts` walks this flow end to end with both personas. The app is built for 1920×1080 and has no phone layout (v3 decision 43).
 
 ## v3 features
 
 - **Pop-up suggestions.** Below the cart, the item pop-up shows **Frequently bought together**: up to three items from a server-built pool (in the catalog, in stock at the chosen branch, not in the cart, from the co-occurrence and fastener rules), each with a short reason and no price. The LLM only picks from the pool and the server drops anything else; scripted mode picks deterministically. **Add** puts the item in the cart at qty 1, and the line is stored as `added_by='suggestion'` (`src/server/customer/suggestions.ts`).
 - **Decline.** Next to Accept and Request changes, Dana can **Decline** a sent quote, optionally with a reason: Price too high, Found other source, Need it sooner than quoted, Wrong items or quantity, or Other (250 characters, shown to the rep only, never in the PDF). `declined` is final: the rep gets an unread badge and an Activity entry, and Dana's chip reads Declined.
-- **Aging and Needs attention.** Open quotes are marked **Aging** (amber, clock icon) or **Overdue** (red, alert icon), derived on read: drafts and change requests at 4 and 24 hours, sent quotes at 3 and 7 days, or 2 days before expiry and on their last day. The **Needs attention** filter lists amber and red quotes (red first, then the largest total, or oldest first), and the red header badge counts overdue quotes only. Managers can change the thresholds (Settings > Aging). Nothing is sent to anyone: reminders are deferred.
-- **View full chat.** The quote detail keeps the compact Customer request box and adds **View full chat, N messages**: a side drawer with the whole conversation, the customer's messages emphasised and Querent's turns one line each, 50 at a time. Only the owning rep and managers can open it.
-- **Roles and reassignment.** `rep` and `manager` (`reps.role`), a free-text team label, and inactive reps (only once their customers are reassigned). Managers get an **All reps** scope in Quotes with a Rep column, rep and team filters, read-only access to any quote, and single or bulk **Reassign…** (each move is logged; `quotes.original_rep_id` keeps the first owner). Reassigning a customer in Settings can also move their open quotes.
-- **Team dashboard** (`/rep/team`, managers only): a leaderboard per selected rep with a totals row, a team filter, 7/30/90-day presets or a custom range (bucketed in the browser's time zone), created and status counts with open quotes split by aging, quote-to-order (accepted ÷ created for now), unaccepted and decided win rates, time to send and to respond, quoted and accepted value, margin, freight recovered against modelled cost, suggestion acceptance, decline reasons with the Other text, and "why quotes went untouched" inferred from events. Leaderboard counts drill into the matching quotes (see Known limitations for the decline-reason and untouched counts); Export CSV gives the same rows.
-- **Free delivery pricing** (Settings > Pricing & delivery, managers only). One toggle replaces the freight charge with a recovery built into item prices: quotes show **Freight $0.00**, and each eligible line carries a per-unit `freight_recovery`, allocated by margin and capped per line. The rate comes from a pool: the trailing 90 days' modelled delivery cost ÷ the goods value of accepted, recovery-carrying delivery quotes, once there are at least 20 (a manual starting rate before that), capped at 8%, ramped in over 3 steps, and frozen into each quote at creation. Delivery cost is modelled from manager inputs (MPG, wear, depreciation, driver pay, speed, stop time) and a daily state gasoline price from OilPriceAPI. The toggle stays locked until the manager has viewed the **impact preview**. Reps see the recovery in "Why this price?"; customers and the PDF see only the final unit price.
+- **Aging and Needs attention.** Open quotes are marked **Aging** (amber, clock icon) or **Overdue** (red, alert icon), derived on read: drafts and change requests at 4 and 24 hours, sent quotes at 3 and 7 days, or 2 days before expiry and on their last day. The Quotes page's Filter has **Only show** Overdue and Aging, and the caution button in every rep page header opens a dropdown of the amber and red quotes (red first; its label counts the overdue ones). Managers can change the thresholds (Settings > Aging). Nothing is sent to anyone: reminders are deferred.
+- **The full chat.** The quote editor's Chat button opens a side drawer with the whole conversation (C_QE6), the customer's messages emphasised and Querent's turns one line each, 50 at a time. Only the owning rep and managers can open it.
+- **Roles and reassignment.** `rep` and `manager` (`reps.role`), teams with an optional parent team (a parent is grouping only, decision 47), and inactive reps (only once their customers are reassigned). Scope is role based: a rep reads only their own customers, quotes, orders and analytics, and a manager reads the whole organization (Quotes with a Rep column and a Rep filter, no switch), with read-only access to any quote. A manager reassigns one quote from its More menu, or every open quote of the reps she picks on **Teams and Reps** (each move is logged; `quotes.original_rep_id` keeps the first owner), and moves a customer to another rep there, optionally with its open quotes.
+- **Analytics** (`/rep/analytics`; lane U task U6, frames C_ANBase to C_AN8). The manager's five tabs: Overview (stat cards, quotes and wins by week with a table, average margin vs floor, top requested items), Rep leaderboard (created and status counts with open quotes split by aging, quote-to-order (accepted ÷ created for now), unaccepted and decided win rates, time to send and to respond, quoted and accepted value, margin, freight recovered against modelled cost, suggestion acceptance; each count links to its quotes; Export CSV), Decline reasons (with the Other text), Untouched quotes ("why quotes went untouched", inferred from events) and Customer questions. Her Filter takes any mix of reps and teams (a parent team counts its child teams' reps), a customer, and a breakdown by the whole organization, rep, team or customer; the leaderboard, decline reasons and untouched quotes cover the quotes created in 7, 30 or 90 days or a custom range. A rep's **My Analytics** has the same tabs but the leaderboard, over their own quotes and customers only.
+- **Teams and Reps** (`/rep/teams`, managers only; lane U task U7, frames C_TRBase to C_TR7; the old `/rep/team` redirects): the reps (customers count, role, team, active switch), each rep's customers with Disconnect (which asks for the new rep in the same step and can move the open quotes) and Connect a customer (which confirms a move and says how many open quotes go with it), and the teams (create, add and remove reps, move a team inside another).
+- **Free delivery pricing** (Settings > Pricing and delivery, managers only, behind the feature flags). One toggle replaces the freight charge with a recovery built into item prices: quotes show **Freight $0.00**, and each eligible line carries a per-unit `freight_recovery`, allocated by margin and capped per line. The rate comes from a pool: the trailing 90 days' modelled delivery cost ÷ the goods value of accepted, recovery-carrying delivery quotes, once there are at least 20 (a manual starting rate before that), capped at 8%, ramped in over 3 steps, and frozen into each quote at creation. Delivery cost is modelled from manager inputs (MPG, wear, depreciation, driver pay, speed, stop time) and a daily state gasoline price from OilPriceAPI. The toggle stays locked until the manager has viewed the **impact preview**. Reps see the recovery in "Why this price?"; customers and the PDF see only the final unit price.
 
 ## Run locally
 
@@ -62,7 +63,7 @@ npm run db:reset
 npm run dev
 ```
 
-Open <http://localhost:3000> and choose a persona. The dev server listens on all interfaces, so a phone on the same network can open it at your computer's IP address.
+Open <http://localhost:3000>, press **Sign in** and choose a persona. The dev server listens on all interfaces, so another computer on the same network can open it at your computer's IP address.
 
 ### The demo database
 
@@ -107,8 +108,9 @@ The one real env file is `.env.local` (git-ignored). Copy the committed `.env.ex
 | `QUERENT_SEED_DATE` | yesterday (UTC) | The seed date (`YYYY-MM-DD`) for `db:reset` and first-open seeding. `2026-09-23` matches the mockup. |
 | `ANTHROPIC_API_KEY` | unset | Turns on live chat. Leave it unset for scripted mode. |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | The model live chat and the chip writer use. |
-| `OILPRICEAPI_KEY` | unset | OilPriceAPI key for the daily state gasoline price on Pricing & Delivery. Without it the fuel price is entered by hand. Server-only; never logged. |
+| `OILPRICEAPI_KEY` | unset | OilPriceAPI key for the daily state gasoline price on Pricing and delivery. Without it the fuel price is entered by hand. Server-only; never logged. |
 | `QUERENT_SCRIPTED` | unset | `1` forces scripted mode, even with a key. |
+| `FEATURE_FREE_DELIVERY_PRICING`, `FEATURE_RECOVERY_POOL`, `FEATURE_DELIVERY_COST_MODEL` | unset (off) | Feature flags (decision 48), read on the server on every request; `1`, `true`, `on` or `yes` turns one on. While a flag is off its section on Settings > Pricing and delivery does not render, its writes are refused, and what it governs is off whatever is stored (decision 71: free delivery pricing off, or the pool's and cost model's code defaults); the stored settings apply again once it is on. The Playwright server and the Vitest setup turn them on unless the shell sets them. |
 | `PORT` | `3000` | The port for `npm start`. |
 | `QUERENT_E2E_RESET` | unset | **Tests only.** `1` enables `POST /api/test/reset` and `POST /api/test/rep-quotes`. Never set it on a shared deployment, because it lets anyone reset the demo (`TODO(R-6)`). |
 | `QUERENT_WEBSERVER`, `QUERENT_BASE_URL` | unset, `http://127.0.0.1:3000` | Playwright: whether it starts the server itself, and where the app is. |
@@ -143,7 +145,7 @@ To run against a server you started yourself, start it with `QUERENT_SCRIPTED=1 
 `src/e2e-suite.test.ts` runs as part of `npm test`, so a switched-off E2E test fails CI before Playwright could quietly pass without it. It checks two things:
 
 - **Nothing in any `e2e/*.spec.ts` switches a test or step off, focuses one, or expects one to fail.** This covers `test.skip` / `fixme` / `only` / `fail`, `test.step.skip`, `test.describe.*`, `testInfo.skip` / `fixme` / `fail`, bracket and destructured forms, annotations of type skip, fixme, or fail, and the word "fixme" anywhere.
-- **The golden spec declares exactly the tests in `GOLDEN_TESTS`**, by title and tag and in order. These are the spec's tests 0–8, with test 6 split into its rep half and its customer half. The test numbers are the spec's own, not the workflow step numbers in [The golden flow](#the-golden-flow-workflow-steps-18). For example, spec test 6 (Approve & send, and Dana receiving the quote) is workflow step 7, and spec tests 7 and 8 are both workflow step 8. If you rename, add, or remove a golden test, edit `GOLDEN_TESTS` in the same change.
+- **The golden spec declares exactly the tests in `GOLDEN_TESTS`**, by title and tag and in order. These are the spec's tests 0–8, with test 6 split into its rep half and its customer half. The test numbers are the spec's own, not the workflow step numbers in [The golden flow](#the-golden-flow-workflow-steps-18). For example, spec test 6 (Approve and send, and Dana receiving the quote) is workflow step 7, and spec tests 7 and 8 are both workflow step 8. If you rename, add, or remove a golden test, edit `GOLDEN_TESTS` in the same change.
 
 The guard has known gaps (see [Known limitations](#known-limitations)).
 
@@ -166,10 +168,11 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 
 | Path | What it is |
 |---|---|
-| `src/app/page.tsx` → `src/components/App.tsx` | The workspace chooser, then the customer workspace |
-| `src/app/rep/` | The rep portal: `quotes`, `quotes/[id]`, `customers`, `orders`, `items`, `analytics`, `team` (managers), `settings` |
-| `src/app/api/` | API routes: `session` (and `session/personas` for the chooser), `query/customer/*` (customer), `rep/*` (rep; managers for `rep/team/*` and the manager-only settings), `quotes/[id]/pdf` (both), and `test/*` (E2E only) |
-| `src/components/customer/`, `src/features/chat/` | The customer layout, chat, item pop-up, and PDF preview modal |
+| `src/app/page.tsx` → `src/components/App.tsx` | The customer site: the visitor box with no session, the customer's box when signed in |
+| `src/app/demo/page.tsx` | The workspace chooser (`DemoChooser` in `src/components/App.tsx`) |
+| `src/app/rep/` | The rep portal: `quotes`, `quotes/[id]`, `customers`, `orders`, `stock`, `analytics`, `teams` (managers), `settings` (`/rep/items` and `/rep/team` redirect, `next.config.ts`) |
+| `src/app/api/` | API routes: `session` (and `session/personas` for the chooser), `query/customer/*` (customer), `rep/*` (rep; managers for `rep/teams/*`, `rep/team/reps/*`, `rep/quotes/reassign`, `rep/analytics/csv` and the manager-only settings), `quotes/[id]/pdf` (both), and `test/*` (E2E only) |
+| `src/components/customer/`, `src/features/chat/` | The customer site (`customer/site/`: box, bell, Orders and My rep sheets), chat, item pop-up, and PDF preview modal |
 | `src/components/rep/` | The rep portal shell and screens |
 | `src/domain/` | Shared domain types |
 | `src/server/repository/` | All data access (below) |
@@ -177,7 +180,7 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 | `src/server/*` | The server logic, one folder per concern (below) |
 | `scripts/reset-db.ts` | `npm run db:reset` |
 | `e2e/` | Playwright specs |
-| `docs/design/` | The mockup, screenshots, and [intentional differences](docs/design/README.md) |
+| `docs/design/` | The canvas frames (`canvas-frames/`, the visual source since lane U), the style guide, the old mockup (superseded), and [intentional differences](docs/design/README.md) |
 
 ### Repository layer and the customer-safe boundary
 
@@ -205,35 +208,36 @@ API routes run on the Node.js runtime and are never cached. The UI polls for cha
 | `src/server/chat/clarify.ts` | The clarification loop. From round 2, it offers the top 3 candidates, Drop this line, and the rep's contact. |
 | `src/server/pricing/` | The price suggestion. An active contract price wins. Otherwise it takes the customer price, raised only by a fact: last paid higher, a broken case (a qty under a full case: customer price + 10%), or scarcity (customer price + 5%, off by default). The highest wins, capped at list. It also writes "Why this price?", the reasons behind the "?" next to the price, and the "+$X GP vs customer price" figure. |
 | `src/server/floors/` | Margin is (price − cost) ÷ price. Each quote rep × product category has its own floor. 20% is the default, and it is also the fallback for a pair with no floor row. The seed sets three of Brandi's floors differently: Abrasives & Cutting 25%, Safety & PPE 30%, and Tools 18% (`src/server/db/seed/accounts.ts`). Below the floor only warns. |
-| `src/server/freight/` | Freight by distance: a `DistanceProvider` (haversine × the road factor), the rates from `delivery_rates`, and a rep override with a reason. The seeded rates are $25 + $2.50/mi with a $35 minimum, "call for freight" beyond 75 mi, free from $1,500 (at or above it), and a 1.25 road factor; any rep can change all six on Settings > Pricing & delivery (`rates.ts` holds the limits). Free delivery pricing: the modelled delivery cost (`cost-model.ts`), the pool rate and ramp (`pool.ts`), the margin-weighted allocation (`recovery.ts`), the impact preview (`preview.ts`) and the OilPriceAPI client (`fuel-price.ts`). |
+| `src/server/freight/` | Freight by distance: a `DistanceProvider` (haversine × the road factor), the rates from `delivery_rates`, and a rep override with a reason. The seeded rates are $25 + $2.50/mi with a $35 minimum, "call for freight" beyond 75 mi, free from $1,500 (at or above it), and a 1.25 road factor; the manager can change all six on Settings > Pricing and delivery (`rates.ts` holds the limits). Free delivery pricing: the modelled delivery cost (`cost-model.ts`), the pool rate and ramp (`pool.ts`), the margin-weighted allocation (`recovery.ts`), the impact preview (`preview.ts`) and the OilPriceAPI client (`fuel-price.ts`). |
 | `src/server/quotes/` | The lifecycle state machine (`lifecycle.ts`: ready_for_review → sent → accepted / changes_requested / declined, changes_requested → sent rev n+1; sent → expired), aging (`aging.ts`), send blockers (`send-check.ts`), snapshots, and the "quote is ready" chat message |
-| `src/server/team/` | The Team dashboard's metrics (`metrics.ts`, pure) over live repository reads (`repository/team.ts`) |
+| `src/server/team/`, `src/server/teams/` | The Analytics leaderboard's metrics (`team/metrics.ts`, pure) and CSV over live repository reads (`repository/team.ts`); the team tree (`teams/tree.ts`: a parent counts its child teams' reps, for grouping and filters only) |
 | `src/server/upsells/`, `src/server/upsells-writer/` | Deterministic upsell rules (matching nut and washer, full case, bought together), priced by the engine, and Claude's chip wording in live mode |
 | `src/server/intake/`, `src/server/customer-response/` | Request quote, and the customer's Accept or Request changes |
 | `src/server/pdf/`, `src/server/export/` | PDFs made with `@react-pdf/renderer` (no headless browser). The **Customer quote** is formal, black and white, with "via Querent" and "Sample data" marks. The **Internal worksheet** adds cost, margin, floors, Querent's reasoning, credit, and internal notes under a CONFIDENTIAL banner. There is also the Line items CSV. |
-| `src/server/analytics/` | The Analytics tab's stat cards, trends, and query analytics |
+| `src/server/analytics/` | Analytics: the Overview's stat cards, trends and query analytics, the filter (`query.ts`), and the leaderboard cohort (`service.ts`) |
 
 ### Rep portal
 
 - **Access:** `src/app/rep/layout.tsx` admits only the rep personas (Brandi, Mara, Eli) whose rep is active, and sends anyone else back to `/`. Each page also checks with `signedInRepId()`.
-- **Navigation:** Quotes / Customers / Orders / Items (filtered by one category dropdown, All by default) / Analytics / Team (managers) / Settings. The header keeps the **Viewing** customer picker (`?customer=`); Quotes has an unread badge, and the red Needs attention badge counts overdue quotes (`GET /api/rep/badges`).
-- **Quote detail:**
-  - A line grid with a price-basis dropdown (Contract / Customer / List / Last paid / Custom), with Querent's pick in bold, and a "?" beside it whose tip lists why Querent suggests that price. A red floor warning appears above the price field when a line is below its floor, and each line has a "Why this price?" row.
-  - Show cost, Undo, add item, "Suggested by Querent", and the margin bar with its blended-floor marker.
-  - Side panels: Customer (with the credit bar), Pickup or delivery (with freight), Quote terms (any expiration date from tomorrow to a year out; 14 days after sending by default), Internal notes, and Activity.
-  - The ⋯ menu (Duplicate, Reset sample quote, and a disabled "Open customer in ERP"), the Export menu, and Approve & send → Confirm send. Sending is blocked for an unfinished quote.
-- **Settings:** Rep assignments (one rep per customer; managers change them), Reps (team labels and active flags, managers only), Customer access toggles, Margin floors, Pricing & delivery (delivery rates and the scarcity toggle; the free delivery pricing, cost-model and pool cards are managers' only), Aging thresholds (managers only), and Data sources.
+- **Navigation:** a 216px left rail, sticky as the page scrolls: Quotes / Customers / Orders / Stock / Analytics (My Analytics for a rep) / Teams and Reps (managers) / Settings, then the signed-in user with their role and **Sign out** (it asks first, clears the session and returns to `/`). There is no search, no customer picker and no workspace switch: `?customer=` is a page's own filter (Quotes, Customers, Orders, Analytics, Settings > Customer access), and nav links never carry it. Every page header ends with the caution (Needs attention: amber and red open quotes, every rep's for a manager) and the bell (the reader's unread customer events), each a dropdown (`GET /api/rep/badges`).
+- **Quote editor** (lane U task U4, frames C_QEBase and C_QE1 to C_QE11):
+  - A minimal header (customer, quote number, status with Overdue or Aging, purchasing agent, requested, valid until).
+  - The Items card: Show cost and stock (adds Available and Cost), lines with a price-basis dropdown (Contract / Customer / List / Last paid / Custom), with Querent's pick in bold, and a "?" beside it whose tip lists why Querent suggests that price. A red floor warning appears above the price field when a line is below its floor; stock-short and low-confidence matches show as notes on their line; Details opens Why this price?, Price options and Stock by branch. Then + Add item with its results dropdown, and "Suggested by Querent". Undo for the last edit.
+  - The total column: total, gross profit, margin against the blended floor, **Approve and send** → Confirm send; the Save draft, Export, Chat (the full chat) and More (Duplicate, Reset sample quote, a disabled "Open customer in ERP") buttons; and Quote details: Customer (credit used with this quote), Pickup or delivery (with freight), Quote terms (any expiration date from tomorrow to a year out; 14 days after sending by default), Internal notes, and Activity.
+  - Approve and send is disabled while anything blocks a send, with the first blocker under it ("+N more"); pressing it jumps to the line or field. The server refuses a blocked send too.
+- **Lists:** Quotes (Board and Table with one toolbar: the customer picker, Filter, Board/Table; per-user column order and visibility), Customers, Orders and Stock (search and Filter; Add to quote from Stock), each with "Show N more". A rep's lists hold their own customers only.
+- **Settings:** for the manager, Customer access (every customer's switches, or a searched or filtered table of customers), Margin floors (the organization floors and a read-only review of each rep's margins), Pricing and delivery (delivery rates and the scarcity toggle; the free delivery pricing, pool and cost-model sections only while their feature flags are on), Aging thresholds and her own Profile. A rep has Margins (their own, never below the organization floor), Profile (picture, name, phone and email, shown in the customer's My rep sheet) and Notifications (which rows the caution and bell show). Rep assignments and reps are on Teams and Reps.
 - **API:** every `/api/rep/*` route answers 401 without a session and 403 for the customer or an inactive rep, and takes the rep's id from the session, never from the request. They go through `repRoute`, and the manager-only ones through `managerRoute` (`src/server/rep/http.ts`), except `GET /api/rep/badges`, which makes the same check inline. Write routes refuse a quote the caller doesn't own, managers included.
 
-### Customer layout
+### Customer site
 
-`src/components/customer/CustomerLayout.tsx` has three columns:
+`/` is Querent's box on the supplier's own site (`src/components/customer/site/`, lane U task U10, frames C_CVE0 to C_CVL5):
 
-- **Left:** the assigned rep at the top, then Customer Service, AR / Finance, and Warehouse / Will-call for each branch (`ContactsSidebar`).
-- **Center:** the chat (`src/features/chat/Chat.tsx`).
-- **Right:** one button per quote, "Quote · date · $total", with a status chip (`QuotesSidebar`).
+- **No session:** the visitor box with four public starter questions. Every question goes to `POST /api/query/visitor/chat`, a stub that answers "Sign in to continue." and never calls the model or a tool (`TODO(R-14)`). **Sign in** opens the chooser at `/demo`.
+- **Signed in:** the same box with the chat (`src/features/chat/Chat.tsx`), **Orders** and **My rep** side sheets, the **notification bell** and the account chip (Sign out returns to the visitor box).
+- **The bell** lists notifications derived from quote activity and order status (sent, revised after a change request, expired, shipped) with a read state per customer (`customer_notification_reads`), and polls like the rep badges. A quote notification opens the **PDF preview modal** (`quote-preview/`), which has Download and a Decline / Request changes / Accept bar that opens centered dialogs.
 
-A quote button, or the chat's "View quote", opens the **PDF preview modal** (`quote-preview/`). The modal has Download, and a Decline / Request changes / Accept bar that opens centered dialogs. Below 960px the three columns become Chat / Contacts / Quotes tabs. The customer API (`/api/query/customer/*`) serves only the session's customer. The customer can see only revisions the rep sent, never a draft or the internal worksheet.
+The customer API (`/api/query/customer/*`) serves only the session's customer. The customer can see only revisions the rep sent, never a draft or the internal worksheet.
 
 ### ERP integration
 
@@ -272,8 +276,8 @@ This is a demo, not a product. Never put real customer, financial, or personal d
 
 These are still open from the build and waiting on a product decision:
 
-- **Analytics after a reassignment.** Quotes follow `quotes.rep_id`, which a manager can now move (with "Also move this customer's open quotes" when reassigning a customer), but the Analytics tab still follows the customer's current rep (`customer_rep`). A customer's closed quotes left with the old rep therefore show in that rep's Quotes list and in the new rep's Analytics. The Team dashboard counts quotes by their current owner.
-- **Team drill-down coverage.** Leaderboard counts open the matching quotes; decline-reason counts open all declined quotes in the window, and the "why untouched" counts are not links yet, because the Quotes list cannot filter by those reasons.
+- **Customer questions after a reassignment.** Quote numbers follow `quotes.rep_id` (the current owner) everywhere, but chat questions have no rep, so Customer questions follows the customer's current rep (`customer_rep`).
+- **Analytics drill-down coverage.** Leaderboard counts open the matching quotes; the decline count opens all declined quotes in the window, and the "why untouched" counts are not links yet, because the Quotes list cannot filter by those reasons.
 - **Q-24817's total vs the mockup.** The pricing engine prices the seeded quote at **$1,122.40**, against the mockup's **$1,109.50**. The open question is whether to keep the engine's prices or change the seed. `docs/design/README.md` lists the numbers that follow from it.
 - **Exporting the customer's revision.** On a `changes_requested` quote, the Export menu exports the rep's draft of the next revision (marked "draft, not sent"), not the revision Dana answered. The PDF and CSV routes accept `?rev=N`, but the menu has no item for it.
 - **E2E guard bypasses.** The guard reads only `e2e/*.spec.ts`, so three things still get past it: a skip taken from a helper file outside `*.spec.ts` (for example `export const later = test.skip`), `grepInvert` or `testIgnore` in `playwright.config.ts`, and an early `return` inside a test body. One suggested fix is to scan every file in `e2e/` and `playwright.config.ts`, or to have CI assert the golden spec's test count.

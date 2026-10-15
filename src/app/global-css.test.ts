@@ -2,15 +2,11 @@ import {readdirSync,readFileSync} from 'node:fs';
 import {join,posix,resolve} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
-// Dead CSS guard (task 7.1): every class the global stylesheets style is used by a component. The
-// old supplier dashboard, the pre-2.4 customer sidebar, the login screen and the text-to-SQL
-// "query" disclosure left rules behind that no page rendered. CSS modules are checked by
-// TypeScript usage instead (an unknown key is undefined, and reviews catch it).
+// Dead CSS guard (task 7.1): every class the global stylesheets style is used by a component.
+// CSS modules are checked by TypeScript usage instead (an unknown key is undefined, and reviews catch it).
 
 const ROOT=resolve(__dirname,'../..');
-const STYLESHEETS=['src/app/globals.css','src/app/customer.css','src/app/persona.css'];
-/** Classes built at runtime from a prefix (`cx-chip-${tone}`, `ip-stock-${tone}`). */
-const DYNAMIC=[/^cx-chip-/,/^ip-stock-/];
+const STYLESHEETS=['src/app/globals.css','src/app/tokens.css'];
 
 function sources(dir:string):string[]{
   return readdirSync(join(ROOT,dir),{withFileTypes:true}).flatMap(entry=>{
@@ -41,7 +37,7 @@ describe('global stylesheets',()=>{
 
   it('style only classes a component uses',()=>{
     const unused=STYLESHEETS.flatMap(sheet=>[...styledClasses(readFileSync(join(ROOT,sheet),'utf8'))]
-      .filter(name=>!DYNAMIC.some(p=>p.test(name))&&!new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(used)).map(name=>`${sheet}: .${name}`));
+      .filter(name=>!new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(used)).map(name=>`${sheet}: .${name}`));
     expect(unused).toEqual([]);
   });
 

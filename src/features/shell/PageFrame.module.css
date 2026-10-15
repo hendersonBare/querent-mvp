@@ -1,0 +1,10 @@
+/* A page inside the shell: the header, then the body. */
+.frame {
+  background: transparent;
+}
+.header {
+  background: transparent;
+}
+.body {
+  margin-top: 22px;
+}

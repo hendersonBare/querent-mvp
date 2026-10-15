@@ -15,11 +15,11 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 | Brandi Gallegos (manager) | Wasatch: Q-24789 sent 4 days ago (Aging), Q-24790 changes requested 30 hours ago (Overdue), Q-24791 sent yesterday (fresh). Three accepted Canyon Ridge quotes she covered for Mara. |
 | Mara Jensen (rep, Inside Sales) | Canyon Ridge Builders: fresh, Aging and Overdue drafts and sent quotes, a change request, 8 accepted deliveries, declines (Price too high, Other with a note, Need it sooner) and an expired quote. Two of her quotes were moved to Eli. |
 | Eli Porter (rep, Outside Sales) | Utah Valley Electric and Weber Basin Fabricators: the same spread, 11 accepted deliveries, declines (Found other source, Wrong items, no reason) and two expired quotes. |
-| The pool | 22 accepted delivery quotes from the last 90 days that carried freight recovery during an earlier pilot, so Pricing & delivery shows a computed pool rate (about 1.6%) next to the 3.0% starting rate. Free delivery pricing itself is off. |
+| The pool | 22 accepted delivery quotes from the last 90 days that carried freight recovery during an earlier pilot, so Pricing and delivery shows a computed pool rate (about 1.6%) next to the 3.0% starting rate. Free delivery pricing itself is off. |
 
 ## Act 1: Dana asks in chat and requests a quote
 
-1. Choose **Wasatch Mechanical Contractors** (Dana Ortiz).
+1. Open `/`: with no session it is the visitor box (ask anything: the answer is *Sign in to continue.*). Press **Sign in**, then choose **Wasatch Mechanical Contractors** (Dana Ortiz) in the chooser at `/demo`.
 2. Ask: *Please quote 10 boxes of the 1/2 in grade 8 hex bolts and 6 boxes of cut-off wheels. We'll pick up at SLC.*
 3. Querent asks *Type 1 or Type 27 cut-off wheels?* Answer *Type 1*. The item pop-up opens.
 4. Below the cart, **Frequently bought together** shows at least two suggestions (the matching Grade 8 nut and washer, flap discs), each with a reason and no price. Add the hex nut: it joins the cart at qty 1.
@@ -27,29 +27,29 @@ What the seed holds, besides Wasatch's twelve months of history and the sample q
 
 ## Act 2: Brandi opens it, reads the chat, sees what needs attention, and sends it
 
-1. In the other window, choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
-2. The header shows the red **Needs attention** badge (overdue quotes only) next to the unread Quotes badge. Click it: the Needs attention view lists Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, red first.
-3. Open Q-24818 from **All** (it is unread). In the Customer request box press **View full chat**: the drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
-4. The hex nut line is tagged **Chat suggestion**. Press **Approve & send**, then **Send quote**, then **Send**. The quote reads *Sent*.
+1. In the other window, open `/demo` and choose **Herrick Industrial Supply** (Brandi, manager). The chooser also offers **Mara Jensen** and **Eli Porter**, each labelled Rep with their team.
+2. Brandi is the manager, so her Quotes board shows every rep's quotes, one lane per status. Press the red caution button at the top right of the page: the **Needs attention** dropdown lists her Q-24790 and Q-24817 marked **Overdue** and Q-24789 marked **Aging**, with the other reps' overdue and aging quotes, red first. It opens in place. In **Filter**, tick **Overdue** and **Aging** under Only show and press **Apply filters**: the board shows the same quotes.
+3. Press the bell beside it: **Notifications** lists *Q-24818 requested by Dana Ortiz*. Open Q-24818 from it (or from its card in the Draft ready lane, then **Open quote**). Press the **Chat** button under the total box: the Full chat drawer shows Dana's messages in bold and Querent's turns on one line each. Close it.
+4. The hex nut line is tagged **CHAT SUGGESTION**. Press **Approve and send**, then **Send quote**, then **Send**. The quote reads *Sent*.
 
 ## Act 3: Dana declines a different quote
 
-1. Back in Dana's window, open **Q-24791** from the Quotes sidebar (sent yesterday).
+1. Back in Dana's window, open the **notification bell** and press *Quote Q-24791 is ready to review* (sent yesterday). The quote opens with Decline, Request changes and Accept.
 2. Press **Decline**. The dialog offers five reasons and no "no response". Pick **Price too high** and press **Decline**.
-3. The chip reads **Declined**. Brandi gets an unread badge and the reason in the quote's header and Activity.
+3. The quote reads **Declined**, and its notification in Dana's bell is read. Brandi's bell lists *Q-24791 declined by Dana Ortiz*, and the quote's header and Activity give the reason.
 
 ## Act 4: Brandi compares reps, reads decline reasons, and reassigns a quote
 
-1. In Herrick's window open **Team** (managers only). The 30-day preset is on.
-2. Untick Brandi Gallegos and Nora Chen to compare **Mara Jensen** and **Eli Porter**: one row each and a totals row, with created, open quotes by aging, status counts, rates, times, values, freight recovered and suggestions taken.
-3. **Decline reasons** lists every reason with each rep's share, and the Other note in the customer's words. Press the declined-quotes link to drill into exactly those quotes in the All reps list.
-4. Back on Team, press Mara's **overdue** count. Tick her overdue draft, press **Reassign…**, choose **Eli Porter** and **Reassign**. The list now shows it as Eli's, and its Activity says who moved it.
+1. In Herrick's window open **Analytics** in the rail and its **Rep leaderboard** tab (managers only). The 30-day window is on.
+2. In **Filter**, tick **Eli Porter** and **Mara Jensen** and press **Apply filters** to compare them: one row each and a totals row, with created, open quotes by aging, status counts, rates and times.
+3. The **Decline reasons** tab lists every reason with each rep's share, and the Other note in the customer's words. Press the declined-quotes link to drill into exactly those quotes in the Quotes list.
+4. Back on the Rep leaderboard, press Mara's **overdue** count. Press her overdue draft's card, then **Open quote**. On the read-only quote, open **More actions** and choose **Reassign to another rep**, then choose **Eli Porter** and **Reassign**. The quote now reads as Eli's, and its Activity (in **Quote details**) says who moved it. (Customers, and all of a rep's open quotes at once, move on **Teams and Reps**.)
 
-## Act 5: Pricing & delivery, impact preview, free delivery and the ramp
+## Act 5: Pricing and delivery, impact preview, free delivery and the ramp
 
-1. Open **Settings → Pricing & delivery** (manager-only cards).
+1. Open **Settings → Pricing and delivery**. Its free delivery sections show only with the feature flags `FEATURE_FREE_DELIVERY_PRICING` and `FEATURE_RECOVERY_POOL` (and `FEATURE_DELIVERY_COST_MODEL` for the cost model) set to `1` on the server (decision 48); they are off by default.
 2. **Recovery pool** shows the computed pool rate from 22 eligible quotes next to the 3.0% starting rate, the 8.0% cap, the 90-day modelled delivery cost and what was recovered. Free delivery pricing is **Off** and locked.
-3. Press **View impact preview**: how many of the last 90 days' delivery quotes would carry recovery, and the average line price change per category at step 1 and at the full rate.
+3. Press **View impact preview**: per category, how many of the last 90 days' delivery quotes it touches, and the average line price change in dollars at step 1 and at the full rate. **Close** it.
 4. Turn **Free delivery pricing** on. The ramp-in schedule shows step 1 of 3 starting now, then steps 2 and 3 a month apart, and the pool's rate in force.
 
 ## After the demo

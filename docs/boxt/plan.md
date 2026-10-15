@@ -126,8 +126,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | ID | Task | Blocked by | Status |
 |---|---|---|---|
-| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | in progress (`boxt/task/B0-strip-to-shell`) |
-| B1 | Supabase schema, RLS, seed, repository | B0 | pending |
+| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | merged |
+| B1 | Supabase schema, RLS, seed, repository | B0 | in progress (`boxt/task/B1-supabase-schema`) |
 | B2 | Auth (login, reset, proxy, guards) | B1 | pending |
 | B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | in progress (`boxt/task/B4-llm-parser-judge`) |
@@ -219,6 +219,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| B0 | `90a07a5` | PASS | typecheck 0; `npm test` 13 files / 147 tests; build routes only `/`, `/quote-tool`, `/quotes`, `/settings`; acceptance grep empty; curl: `/` 307 → `/quote-tool`, old routes 404; planted skip/key violations fail the guards; matching/llm untouched. Notes: Dialog.module.css kept for B5; `catalog.test.ts` excluded until B3; sign-out endpoint pending B2. |
 
 ## Open assumptions
 - "The rep can edit … and delete their quotes": every signed-in user can edit or delete any quote (one

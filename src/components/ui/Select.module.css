@@ -1,0 +1,57 @@
+/* A field that opens a list (C_QOB2 "Rep" and "Customer"): the closed box is the frame's field box.
+   The opened list has no frame; it uses the customer picker's list (C_QOB1). */
+.wrap {
+  position: relative;
+}
+.box {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--q-control-height);
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  background: transparent;
+  color: var(--q-text-2);
+  font-family: inherit;
+  font-size: var(--q-text-control);
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: normal;
+  text-align: start;
+  cursor: pointer;
+}
+.filled {
+  background: var(--q-card);
+}
+.list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  max-height: 222px;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--q-card);
+  border: 1px solid var(--q-rule);
+  border-radius: 12px;
+  box-shadow: var(--q-shadow-picker);
+  z-index: 7;
+  color: var(--q-text);
+  font-size: var(--q-text-control);
+  font-weight: 600;
+}
+.list:focus {
+  outline: none;
+}
+.option {
+  padding: 9px 10px;
+  border-radius: var(--q-radius-field);
+  cursor: pointer;
+}
+.active {
+  background: var(--q-table-header);
+}
