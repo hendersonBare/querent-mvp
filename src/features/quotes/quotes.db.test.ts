@@ -7,7 +7,7 @@ import {signedInClient} from '../../../scripts/lib/test-clients';
 import {POST as login} from '@/app/api/auth/login/route';
 import {GET as list} from '@/app/api/quotes/route';
 import {DELETE,GET,PATCH} from '@/app/api/quotes/[id]/route';
-import {EXAMPLE_QUOTE_ID,createQuote,getQuote,type Db,type QuoteLineInput} from '@/server/repository';
+import {EXAMPLE_QUOTE_ID,createQuote,deleteQuote,getQuote,type Db,type QuoteLineInput} from '@/server/repository';
 
 // The quotes API against the local Supabase stack (npm run test:db): a dev user signs in through the
 // login route, then lists, reads, edits and deletes quotes through the route handlers, which go through
@@ -21,6 +21,8 @@ const REP=DEV_USERS[0].email;
 let cookie='';
 let db:Db;
 let userId:string;
+/** Quotes this file created, removed again at the end (through the repository). */
+const created:string[]=[];
 
 async function signIn(){
   const response=await login(new NextRequest(`${ORIGIN}/api/auth/login`,{method:'POST',
@@ -50,6 +52,7 @@ async function newQuote(){
     matched(),matched({sku:'M962',description:'White Literature Mailers',quantity:10,unitPrice:1.2,matchedBy:'rep',originalText:'10 lit mailers'}),unmatched,
   ]});
   if(!result.ok)throw new Error(result.message);
+  created.push(result.id);
   return result.id;
 }
 
@@ -60,7 +63,7 @@ beforeAll(async()=>{
   ({db,userId}=await signedInClient(REP));
 });
 afterAll(async()=>{
-  await adminQuery('delete from public.quotes where reference like $1',[`${TAG}%`]);
+  for(const id of created)await deleteQuote(db,id);
 });
 
 describe('the quotes API with a real session',()=>{

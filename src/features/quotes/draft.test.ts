@@ -32,7 +32,7 @@ describe('the draft',()=>{
     expect(draft.customerName).toBe('Acme Fulfilment');
     expect(draft.reference).toBe('PO-7781');
     expect(draft.lines.map(l=>[l.id,l.quantity,l.unitPrice])).toEqual([[A,'1500','1.05'],[B,'200','0.375'],[C,'4','31.495'],[U,'250','']]);
-    expect(checkDraft(draft,quote())).toMatchObject({ok:true});
+    expect(checkDraft(draft)).toMatchObject({ok:true});
   });
 
   it('is invalid while a matched line lacks a quantity or a price, or has a bad one',()=>{
@@ -42,7 +42,7 @@ describe('the draft',()=>{
       [0,{quantity:''},'quantity'],[0,{quantity:'0'},'quantity'],[0,{quantity:'-2'},'quantity'],
       [1,{unitPrice:''},'unitPrice'],[1,{unitPrice:'1.23456'},'unitPrice'],[1,{unitPrice:'-1'},'unitPrice'],
     ] as const){
-      const result=checkDraft(edit(i,over),q);
+      const result=checkDraft(edit(i,over));
       expect(result.ok,JSON.stringify(over)).toBe(false);
       expect(result.lines[LINE_IDS[i]]?.[field]).toMatch(/\S/);
     }
@@ -50,17 +50,17 @@ describe('the draft',()=>{
 
   it('does not ask for a price on an unmatched line',()=>{
     const d=draftFrom(quote());
-    expect(checkDraft(d,quote()).lines[U]).toBeUndefined();
+    expect(checkDraft(d).lines[U]).toBeUndefined();
   });
 
   it('is invalid once every line is removed',()=>{
     const d={...draftFrom(quote()),lines:[]};
-    expect(checkDraft(d,quote())).toMatchObject({ok:false,form:expect.stringMatching(/at least one line/i)});
+    expect(checkDraft(d)).toMatchObject({ok:false,form:expect.stringMatching(/at least one line/i)});
   });
 
   it('is invalid with a customer name or reference over 200 characters',()=>{
-    expect(checkDraft({...draftFrom(quote()),customerName:'x'.repeat(201)},quote())).toMatchObject({ok:false,customerName:expect.any(String)});
-    expect(checkDraft({...draftFrom(quote()),reference:'x'.repeat(201)},quote())).toMatchObject({ok:false,reference:expect.any(String)});
+    expect(checkDraft({...draftFrom(quote()),customerName:'x'.repeat(201)})).toMatchObject({ok:false,customerName:expect.any(String)});
+    expect(checkDraft({...draftFrom(quote()),reference:'x'.repeat(201)})).toMatchObject({ok:false,reference:expect.any(String)});
   });
 
   it('becomes the PATCH body: header fields, and the kept lines with numbers (none for an unmatched line)',()=>{
@@ -73,10 +73,10 @@ describe('the draft',()=>{
   it('totals the valid priced matched lines as the user types',()=>{
     const q=quote();
     const d=draftFrom(q);
-    expect(draftTotal(d,q)).toBe(1775.98);
+    expect(draftTotal(d)).toBe(1775.98);
     d.lines=d.lines.filter(l=>l.id!==A);
-    expect(draftTotal(d,q)).toBe(200.98);
+    expect(draftTotal(d)).toBe(200.98);
     d.lines[0]={...d.lines[0],unitPrice:'oops'};
-    expect(draftTotal(d,q)).toBe(125.98);
+    expect(draftTotal(d)).toBe(125.98);
   });
 });

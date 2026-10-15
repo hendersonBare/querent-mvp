@@ -1,0 +1,506 @@
+/* The quotes list and a quote's page (docs/boxt/plan.md B6), in the app's tokens (src/app/tokens.css):
+   the old Quotes table's white card with a grey header bar and hairline rows, pared down. */
+
+/* ---- Shared ---- */
+.card {
+  background: var(--q-card);
+  border: 1px solid var(--q-card-border);
+  border-radius: var(--q-radius-card);
+  overflow: hidden;
+}
+.scroll {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--q-text-body);
+}
+.table th {
+  padding: 10px 20px;
+  background: var(--q-table-header);
+  color: var(--q-table-header-text);
+  font-size: var(--q-text-table-head);
+  font-weight: 800;
+  text-align: left;
+  white-space: nowrap;
+}
+.table td {
+  padding: 14px 20px;
+  border-top: 1px solid var(--q-row-divider);
+  vertical-align: middle;
+}
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.money {
+  font-weight: 800;
+}
+.none,
+.muted {
+  color: var(--q-text-muted);
+}
+.secondaryText {
+  color: var(--q-text-2);
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--q-radius-pill);
+  background: rgba(20, 128, 60, 0.1);
+  color: var(--q-accent);
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- The list ---- */
+.emptyLine {
+  color: var(--q-text-2);
+}
+/* The customer link covers its row: the row is the positioning box for the link's ::after. */
+.linkRow {
+  position: relative;
+}
+.linkRow:hover td {
+  background: var(--q-lane);
+}
+.customerCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.rowLink {
+  color: var(--q-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+.rowLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.rowLink:focus-visible {
+  outline: none;
+}
+.rowLink:focus-visible::after {
+  outline: 2px solid var(--q-accent);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
+/* ---- A quote ---- */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: transparent;
+}
+.detail input,
+.detail button {
+  box-sizing: border-box;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  color: var(--q-text-2);
+  font-size: var(--q-text-secondary);
+  font-weight: 700;
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--q-text);
+}
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-top: -8px;
+}
+.headerText {
+  min-width: 0;
+}
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.title {
+  margin: 0;
+  font-size: var(--q-text-title);
+  font-weight: 800;
+  letter-spacing: var(--q-title-tracking);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+  margin: 10px 0 0;
+}
+.meta div {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.meta dt {
+  color: var(--q-text-muted);
+  font-size: var(--q-text-secondary);
+}
+.meta dd {
+  margin: 0;
+  color: var(--q-text);
+  font-weight: 600;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.secondaryButton,
+.primaryButton,
+.deleteButton {
+  height: var(--q-header-button);
+  padding: 0 16px;
+  border-radius: var(--q-radius-button);
+  font-size: var(--q-text-control) !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.secondaryButton {
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  color: var(--q-text);
+}
+.secondaryButton:hover:not(:disabled) {
+  background: var(--q-lane);
+}
+.primaryButton {
+  border: 0;
+  background: var(--q-accent);
+  color: #fff;
+}
+.primaryButton:hover:not(:disabled) {
+  background: var(--q-accent-hover);
+}
+.deleteButton {
+  border: 1px solid var(--q-red-border);
+  background: var(--q-card);
+  color: var(--q-red);
+}
+.deleteButton:hover:not(:disabled) {
+  background: var(--q-red-tint);
+}
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.5;
+}
+.note {
+  align-self: flex-start;
+  padding: 10px 14px;
+  border-radius: var(--q-radius-control);
+  background: var(--q-note);
+  color: var(--q-note-text);
+  font-size: var(--q-text-control);
+  font-weight: 600;
+}
+.error,
+.formProblem {
+  color: var(--q-red);
+  font-size: var(--q-text-control);
+  font-weight: 600;
+}
+
+/* Customer and reference in edit mode. */
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 360px));
+  gap: 16px 24px;
+  padding: 18px 20px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fieldLabel {
+  color: var(--q-text);
+  font-size: var(--q-text-secondary);
+  font-weight: 700;
+}
+.input {
+  height: var(--q-control-height);
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  background: var(--q-card);
+  color: var(--q-text);
+  font-size: var(--q-text-control) !important;
+}
+.input:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: -1px;
+  border-color: var(--q-accent);
+}
+.input[aria-invalid="true"] {
+  border-color: var(--q-red);
+  background: var(--q-red-tint);
+}
+.fieldError {
+  color: var(--q-red);
+  font-size: var(--q-text-label);
+  font-weight: 600;
+  text-align: left;
+  white-space: normal;
+}
+
+/* The matched lines. */
+.items td {
+  vertical-align: top;
+}
+.items .num {
+  width: 1%;
+}
+.itemCell {
+  min-width: 260px;
+}
+.desc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.repTag {
+  display: inline-flex;
+  padding: 1px 8px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-count-bg);
+  color: var(--q-text-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.original {
+  margin-top: 4px;
+  color: var(--q-text-muted);
+  font-size: var(--q-text-secondary);
+  line-height: 1.4;
+}
+.sku {
+  color: var(--q-text-code);
+  font-family: var(--q-font-mono);
+  font-size: var(--q-text-secondary);
+  white-space: nowrap;
+}
+.unit {
+  color: var(--q-text-muted);
+  font-size: var(--q-text-secondary);
+}
+.removeCol {
+  width: 1%;
+  padding-left: 0 !important;
+  text-align: right;
+}
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--q-radius-field);
+  background: transparent;
+  color: var(--q-text-muted);
+}
+.removeButton:hover {
+  background: var(--q-red-tint);
+  color: var(--q-red);
+}
+.numberField {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 150px;
+}
+.inputWrap {
+  position: relative;
+  display: block;
+}
+.prefix {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--q-text-muted);
+  font-size: var(--q-text-control);
+  pointer-events: none;
+}
+.numberInput {
+  width: 110px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.withPrefix {
+  padding-left: 22px;
+}
+.noLines {
+  padding: 14px 20px;
+  border-top: 1px solid var(--q-row-divider);
+  color: var(--q-text-muted);
+}
+.totalRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 24px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--q-rule);
+  background: var(--q-row-picked);
+}
+.totalLabel {
+  color: var(--q-text-2);
+  font-weight: 700;
+}
+.totalValue {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The unmatched lines. */
+.unmatched {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: var(--q-text-card-title);
+  font-weight: 800;
+}
+.count {
+  padding: 0 8px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-count-bg);
+  font-size: var(--q-text-label);
+  line-height: 20px;
+}
+.unmatchedList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.unmatchedLine {
+  padding: 16px 20px;
+}
+.unmatchedHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.unmatchedText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.label {
+  color: var(--q-red);
+  font-size: var(--q-text-label);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.originalBig {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.nearMisses {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  font-size: var(--q-text-secondary);
+}
+.caption {
+  padding-bottom: 6px;
+  color: var(--q-text-2);
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  text-align: left;
+}
+.nearMisses th {
+  padding: 6px 12px;
+  background: var(--q-lane);
+  color: var(--q-table-header-text);
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  text-align: left;
+}
+.nearMisses td {
+  padding: 8px 12px;
+  border-top: 1px solid var(--q-row-divider-soft);
+}
+.score {
+  font-family: var(--q-font-mono);
+  color: var(--q-text-2);
+}
+
+/* ---- The delete dialog (inside Dialog.module.css's .backdrop, whose palette it reads) ---- */
+.confirm {
+  width: min(440px, 100%);
+}
+.confirmFoot {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.dialogError {
+  margin: 12px 0 0;
+  color: var(--dlg-bad);
+  font-size: 14px;
+  font-weight: 600;
+}
+.dangerButton {
+  padding: 10px 18px;
+  border-radius: 9px;
+  background: var(--q-red);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.dangerButton:hover:not(:disabled) {
+  background: #a82216;
+}
