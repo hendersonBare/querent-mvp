@@ -19,7 +19,8 @@ beforeAll(async()=>{
 
 describe('the anon key without a session',()=>{
   it.each(TABLES)('cannot read %s (no grant at all)',async table=>{
-    const {data,error}=await anon.from(table).select('*').limit(1);
+    // (Cast: from() is overloaded for tables and views, and `table` ranges over both.)
+    const {data,error}=await anon.from(table as 'quotes').select('*').limit(1);
     expect(data??[]).toEqual([]);
     expect(error?.code).toBe('42501');
   });

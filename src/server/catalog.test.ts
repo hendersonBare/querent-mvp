@@ -75,6 +75,15 @@ describe('createCatalogCache',()=>{
     expect((await cache.get(load)).map(r=>r.sku)).toEqual(['NEW']);
   });
 
+  it('does not cache an empty catalog (an unseeded database), so the next call looks again',async()=>{
+    const cache=createCatalogCache({now:()=>0});
+    const load=vi.fn(async():Promise<CatalogItem[]>=>[]);
+    expect(await cache.get(load)).toEqual([]);
+    load.mockResolvedValueOnce([item('A')]);
+    expect((await cache.get(load)).map(r=>r.sku)).toEqual(['A']);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
   it('accepts a custom TTL',async()=>{
     let now=0;
     const cache=createCatalogCache({ttlMs:50,now:()=>now});
