@@ -25,6 +25,8 @@ export const METADATA_ENUMS=[
   'auto','rep',
   // outcomes
   'matched','unmatched','success','failure','timeout',
+  // sign-in methods (B2 logs login with {method:'password'})
+  'password',
 ] as const;
 export type MetadataEnum=typeof METADATA_ENUMS[number];
 

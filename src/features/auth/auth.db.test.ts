@@ -55,7 +55,7 @@ const authCookies=(jar:Jar)=>jar.names().filter(n=>/^sb-.+-auth-token(\.\d+)?$/.
 const userId=async(email:string)=>(await adminQuery('select id from auth.users where email=$1',[email]))[0].id as string;
 const activity=(id:string,action:string)=>adminQuery('select metadata from public.activity_log where user_id=$1 and action=$2 order by id',[id,action]);
 
-async function signIn(email=REP,password=devPassword()){
+async function signIn(email:string=REP,password:string=devPassword()){
   const response=await login(post('/api/auth/login',{email,password}));
   return {response,jar:new Jar().take(response)};
 }
@@ -98,15 +98,15 @@ describe('POST /api/auth/login',()=>{
   it('works as a plain form post: 303 to next, or back to /login with the error',async()=>{
     const ok=await login(post('/api/auth/login',{email:REP,password:devPassword(),next:'/quotes'},{form:true}));
     expect(ok.status).toBe(303);
-    expect(ok.headers.get('location')).toBe(`${ORIGIN}/quotes`);
+    expect(ok.headers.get('location')).toBe(`/quotes`);
     expect(authCookies(new Jar().take(ok)).length).toBeGreaterThan(0);
 
     const evil=await login(post('/api/auth/login',{email:REP,password:devPassword(),next:'//evil.com'},{form:true}));
-    expect(evil.headers.get('location')).toBe(`${ORIGIN}/quote-tool`);
+    expect(evil.headers.get('location')).toBe(`/quote-tool`);
 
     const bad=await login(post('/api/auth/login',{email:REP,password:'nope',next:'/quotes'},{form:true}));
     expect(bad.status).toBe(303);
-    expect(bad.headers.get('location')).toBe(`${ORIGIN}/login?error=1&next=%2Fquotes`);
+    expect(bad.headers.get('location')).toBe(`/login?error=1&next=%2Fquotes`);
   });
 
   it('refuses a cross-origin post',async()=>{
@@ -124,7 +124,7 @@ describe('POST /api/auth/signout',()=>{
     const before=(await activity(id,'logout')).length;
     const response=await signout(post('/api/auth/signout',{},{jar,form:true}));
     expect(response.status).toBe(303);
-    expect(response.headers.get('location')).toBe(`${ORIGIN}/login`);
+    expect(response.headers.get('location')).toBe(`/login`);
     jar.take(response);
     expect(authCookies(jar)).toEqual([]);
     expect(await activity(id,'logout')).toHaveLength(before+1);
@@ -137,7 +137,7 @@ describe('POST /api/auth/signout',()=>{
   it('without a session it still lands on /login',async()=>{
     const response=await signout(post('/api/auth/signout',{},{form:true}));
     expect(response.status).toBe(303);
-    expect(response.headers.get('location')).toBe(`${ORIGIN}/login`);
+    expect(response.headers.get('location')).toBe(`/login`);
   });
 
   it('refuses a cross-origin post (a forced sign-out)',async()=>{
@@ -195,13 +195,13 @@ describe('password reset',()=>{
     // Following the link signs the user in for the recovery and sends them to /update-password.
     const confirmed=await confirm(get(`${link.pathname}${link.search}`));
     expect([303,307]).toContain(confirmed.status);
-    expect(confirmed.headers.get('location')).toBe(`${ORIGIN}/update-password`);
+    expect(confirmed.headers.get('location')).toBe(`/update-password`);
     const jar=new Jar().take(confirmed);
     expect(authCookies(jar).length).toBeGreaterThan(0);
 
     // The link works once.
     const again=await confirm(get(`${link.pathname}${link.search}`));
-    expect(again.headers.get('location')).toBe(`${ORIGIN}/reset-password?error=expired`);
+    expect(again.headers.get('location')).toBe(`/reset-password?error=expired`);
 
     // Too short, or not confirmed: refused, nothing changes.
     expect((await updatePassword(post('/api/auth/update-password',{password:'short',confirm:'short'},{jar}))).status).toBe(400);
@@ -224,7 +224,7 @@ describe('password reset',()=>{
   it('sends a bad or missing link to /reset-password?error=expired',async()=>{
     for(const path of ['/auth/confirm?token_hash=not-a-real-token&type=recovery','/auth/confirm?code=not-a-real-code','/auth/confirm','/auth/confirm?token_hash=x&type=signup','/auth/confirm?token_hash=x&type=magiclink']){
       const response=await confirm(get(path));
-      expect(response.headers.get('location'),path).toBe(`${ORIGIN}/reset-password?error=expired`);
+      expect(response.headers.get('location'),path).toBe(`/reset-password?error=expired`);
       expect(authCookies(new Jar().take(response)),path).toEqual([]);
     }
   });

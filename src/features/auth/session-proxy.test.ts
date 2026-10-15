@@ -1,6 +1,7 @@
 // @vitest-environment node
 import {describe,expect,it} from 'vitest';
-import {unstable_doesProxyMatch} from 'next/experimental/testing/server';
+// (Next 16 still names the matcher helper after middleware, proxy's former name.)
+import {unstable_doesMiddlewareMatch} from 'next/experimental/testing/server';
 import {routeDecision} from './session-proxy';
 import {APP_HOME,loginPath,safeNext} from './paths';
 import {config} from '../../proxy';
@@ -120,10 +121,10 @@ describe('loginPath',()=>{
 
 describe('the proxy matcher',()=>{
   it('runs on pages and APIs',()=>{
-    for(const url of ['/','/quote-tool','/quotes/3f2a','/api/quotes','/api/auth/login','/login','/signup'])expect(unstable_doesProxyMatch({config,url}),url).toBe(true);
+    for(const url of ['/','/quote-tool','/quotes/3f2a','/api/quotes','/api/auth/login','/login','/signup'])expect(unstable_doesMiddlewareMatch({config,url}),url).toBe(true);
   });
 
   it('skips build assets, image optimisation, the favicon and public images',()=>{
-    for(const url of ['/_next/static/chunks/main.js','/_next/image?url=%2Fquerent-logo.png&w=64&q=75','/favicon.ico','/querent-logo.png','/x.svg'])expect(unstable_doesProxyMatch({config,url}),url).toBe(false);
+    for(const url of ['/_next/static/chunks/main.js','/_next/image?url=%2Fquerent-logo.png&w=64&q=75','/favicon.ico','/querent-logo.png','/x.svg'])expect(unstable_doesMiddlewareMatch({config,url}),url).toBe(false);
   });
 });
