@@ -576,3 +576,19 @@ describe('final verification: "thick" after a size tuple is a word the item must
     expect(parseSpec('Reclosable Poly Bags 4 x 6" 2 mil thick').words).toContain('thick');
   });
 });
+
+describe('final verification: a "thick" size is a thickness besides the item\'s dimensions',()=>{
+  const ROWS5=[
+    {sku:'TDSS2',description:'Seal Safe Hand Tape Dispensers 2"',pack:'Each',caseQty:1,category:'tape',keywords:'carton sealer hand tape dispenser packing tape gun tape dispenser tape gun'},
+    ...ROWS4,
+  ];
+  const strict5=(line:string)=>{const r=retrieve(line,ROWS5,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+  it('"2" Thick" on a dispenser is no thickness of it (its 2" is the tape width): not Strict',()=>{
+    expect(strict5('Seal Safe Hand Tape Dispensers 2" Thick')).toBeNull();
+    expect(strict5('Seal Safe Hand Tape Dispensers 2"')).toBe('TDSS2');
+  });
+  it('a foam roll\'s or an edge protector\'s thickness still reads as one',()=>{
+    expect(strict5('Foam Rolls, 1/4" Thick Foam 12"x250\' Perforated')).toBe('FW14S12P');
+    expect(strict4('Edge Protectors 2 x 2 x 48", .160" thick')).toBe('EP2248160BX');
+  });
+});
