@@ -7,11 +7,11 @@ import type {Candidate,Retrieval} from './retrieve';
 // product group. Never on the judge alone, never on the scorer alone.
 
 type Row={sku:string;description:string};
-const candidate=(sku:string,score:number,group=sku):Candidate<Row>=>({item:{sku,description:sku},score,group,conflicts:[],unstated:[],unexplained:[]});
+const candidate=(sku:string,score:number,group=sku):Candidate<Row>=>({item:{sku,description:sku},score,group,conflicts:[],unstated:[],unexplained:[],typeConfirmed:true});
 const RULE={minScore:0.9,minLead:0.2};
 
 function retrieval(candidates:Candidate<Row>[],{lead,clears}:{lead:number;clears:boolean}):Retrieval<Row>{
-  return {candidates,top:candidates[0]??null,lead,clears,nearMisses:candidates,rule:RULE};
+  return {candidates,top:candidates[0]??null,lead,clears,namesProduct:true,nearMisses:candidates,rule:RULE};
 }
 
 const BDL=candidate('12108-BDL',1,'box 12x10x8');
@@ -45,6 +45,10 @@ describe('decide',()=>{
   it('is no match on a small lead, whatever the judge says',()=>{
     const close=retrieval([candidate('A',1),candidate('B',0.9)],{lead:0.1,clears:false});
     expect(decide(close,{sku:'A'})).toEqual({outcome:'no_match',reason:'low_lead'});
+  });
+
+  it('is no match when the line names no product type, whatever the scores and the judge',()=>{
+    expect(decide({...retrieval([BDL,OTHER],{lead:0.6,clears:false}),namesProduct:false},{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'no_product_type'});
   });
 
   it('is no match when there are no candidates',()=>{

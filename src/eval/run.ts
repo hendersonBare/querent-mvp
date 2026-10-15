@@ -58,6 +58,8 @@ export interface CaseResult {
   topSku:string|null;
   topScore:number;
   lead:number;
+  /** The line names a product type the top candidate confirms (a line without one never clears). */
+  namesProduct:boolean;
   /** Matched the expected product (any pricing tier of it), or no match where none is expected. */
   correct:boolean;
   /** Matched where it must not, or matched the wrong item. */
@@ -74,7 +76,7 @@ export function runCase(c:EvalCase,level:StrictnessLevel,judge:JudgeKind):CaseRe
   const correct=sku===null?c.expect==='no_match':expected!==undefined&&expected!==null&&GROUP_OF.get(sku)===expected;
   return {
     id:c.id,level,judge,outcome:decision.outcome,sku,reason:decision.outcome==='no_match'?decision.reason:null,
-    topSku:retrieval.top?.item.sku??null,topScore:retrieval.top?.score??0,lead:retrieval.lead,
+    topSku:retrieval.top?.item.sku??null,topScore:retrieval.top?.score??0,lead:retrieval.lead,namesProduct:retrieval.namesProduct,
     correct,falsePositive:sku!==null&&!correct,
   };
 }

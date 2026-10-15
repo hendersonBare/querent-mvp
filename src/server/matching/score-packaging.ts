@@ -22,8 +22,14 @@ import {DEFINING_CHOICE,familyOf,parseItemSpec,parseSpec,productGroup,sameSize,t
 //         bubble, insulated, warning print, ...), a paper grade, or a colour the description states
 //         (implied colours, such as kraft for plain corrugated, are not charged);
 //     So one unaccounted thing puts any item at 0.75 or below, and two at 0.56;
+//   - a negation the item breaks ("no zipper" for a reclosable bag, "no bubble" for a bubble mailer)
+//     is a contradiction; a negation the item keeps adds nothing;
+//   - a number the parser could not classify (a stray "10", "0.5" with no unit outside a tuple) is
+//     unaccounted for, and is never confirmed by an equal dimension; a measure with a unit is only
+//     compared with a catalog size that has a unit of the same kind, after conversion;
 //   - OFF_NOUN (0.6) when the item's words don't include the product noun the line names (boxes,
-//     bags, mailers, tape, ...);
+//     bags, mailers, tape, ...). Whether the line names a product type the item confirms is reported
+//     as `typeConfirmed`; retrieve() never clears a line without one (bare sizes);
 //   - among contradictions, the share of the line's weighted attributes the item confirms (the dims
 //     tuple 3, an attribute 2, a feature or word 1), so near-misses rank by how much else fits.
 // An item scores 0 unless a word, a feature or the size fits (a matching pack or colour alone says
@@ -45,8 +51,9 @@ const OFF_NOUN=0.6;
 const BURST_TO_ECT:Readonly<Record<number,number>>={200:32,275:44,350:55};
 
 /** The product nouns a line can name. */
-const NOUNS=new Set(['box','carton','mailer','bag','pouch','envelope','tape','label','wrap','film','roll','sheet','pad','tubing','cover',
-  'strapping','strap','dispenser','protector','pallet','peanut','sheeting','gaylord','lid','cutter','knife','liner','tube']);
+export const PRODUCT_NOUNS:ReadonlySet<string>=new Set(['box','carton','mailer','bag','pouch','envelope','tape','label','wrap','film','roll','sheet','pad','tubing','cover',
+  'strapping','strap','dispenser','protector','pallet','peanut','sheeting','gaylord','lid','cutter','knife','liner','tube','paper','tissue','newsprint',
+  'pillow','cushion','bin','sleeve','container','crate','tote','racking']);
 
 /** A scored catalog item, with what lowered its score. */
 export interface Candidate<T> {
@@ -61,6 +68,8 @@ export interface Candidate<T> {
   unstated:string[];
   /** What the line states that the item doesn't account for: "word: telescoping", "feature: heavy duty". */
   unexplained:string[];
+  /** The line names a product type ("boxes", "bags", ...) and this item's words include it. */
+  typeConfirmed:boolean;
 }
 
 const tuple=(dims:Size[])=>`${dims.map(d=>d.value).join('x')}${dims.at(-1)?.unit?` ${dims.at(-1)!.unit}`:''}`;
@@ -92,11 +101,14 @@ function fit(line:Spec,item:ScoredSpec){
     }
   }
   for(const m of line.measures){
-    const comparable=[...(item.dims??[]),...item.measures].filter(x=>!m.unit||!x.unit||familyOf(x.unit)===familyOf(m.unit));
+    // Only catalog sizes with a unit of the same kind: 0.5 cm is never the unitless "0.5".
+    const comparable=[...(item.dims??[]),...item.measures].filter(x=>x.unit&&familyOf(x.unit)===familyOf(m.unit));
     if(comparable.some(x=>sameSize(m,x)))add(A,1,'');
     else if(comparable.length)add(A,-1,`size: ${m.label} vs ${comparable.map(x=>x.label).join(', ')}`);
     else add(A,0,`size: ${m.label}`);
   }
+
+  for(const stray of line.strays)add(A,0,`number: ${stray.label}`);
 
   if(line.ect!==null||line.burst!==null){
     if(item.ect===null&&item.burst===null)add(A,0,`strength: ${strengthLabel(line)}`);
@@ -110,8 +122,10 @@ function fit(line:Spec,item:ScoredSpec){
     const said=line[key];
     if(said===null)continue;
     const has=item[key];
-    const label=(v:string|number)=>unit==='#'?`#${v}`:`${v}${unit}`;
-    add(A,has===null?0:has===said?1:-1,has===null?`${key}: ${label(said)}`:`${key}: ${label(said)} vs ${label(has)}`);
+    const label=(v:string|number)=>unit==='#'?`#${v}`:`${typeof v==='number'?Number(v.toFixed(2)):v}${unit}`;
+    // Mil may come from microns, so it compares within half a percent.
+    const same=typeof said==='number'&&typeof has==='number'?Math.abs(said-has)<=0.005*Math.max(said,has):has===said;
+    add(A,has===null?0:same?1:-1,has===null?`${key}: ${label(said)}`:`${key}: ${label(said)} vs ${label(has)}`);
   }
 
   for(const color of line.colors){
@@ -126,14 +140,29 @@ function fit(line:Spec,item:ScoredSpec){
     add(A,has===undefined?0:has===value?1:-1,has===undefined?`${key}: ${value}`:`${key}: ${value} vs ${has}`);
   }
   for(const [key,value] of Object.entries(item.choices) as [ChoiceKey,string][]){
-    if(line.choices[key]===undefined&&DEFINING_CHOICE(key,value))unstated.push(`${key}: ${value}`);
+    if(line.choices[key]===undefined&&line.negated.choices[key]!==value&&DEFINING_CHOICE(key,value))unstated.push(`${key}: ${value}`);
   }
   for(const feature of line.features){
     const has=item.features.includes(feature);
     add(PACKAGING_WEIGHTS.feature,has?1:0,`feature: ${feature}`);
     identity||=has;
   }
-  for(const feature of item.features)if(!line.features.includes(feature))unstated.push(`feature: ${feature}`);
+  for(const feature of item.features)if(!line.features.includes(feature)&&!line.negated.features.includes(feature))unstated.push(`feature: ${feature}`);
+
+  // What the line negates must not be there.
+  const {negated}=line;
+  // A choice or colour the item doesn't state is unknown, so its negation is unconfirmed, not kept.
+  // Features and words are stated when an item has them ("Bubble", "Printed"), so their absence keeps it.
+  for(const [key,value] of Object.entries(negated.choices) as [ChoiceKey,string][]){
+    if(item.choices[key]===value)conflicts.push(`not: ${key} ${value}`);
+    else if(item.choices[key]===undefined)unexplained.push(`not: ${key} ${value}`);
+  }
+  for(const feature of negated.features)if(item.features.includes(feature))conflicts.push(`not: ${feature}`);
+  for(const color of negated.colors){
+    if(item.colors.includes(color))conflicts.push(`not: ${color}`);
+    else if(!item.colors.length)unexplained.push(`not: ${color}`);
+  }
+  for(const word of negated.words)if(item.wordSet.has(word))conflicts.push(`not: ${word}`);
 
   for(const key of ['outer','roll'] as const){
     const said=line.pack[key],has=item.pack[key];
@@ -146,13 +175,14 @@ function fit(line:Spec,item:ScoredSpec){
     add(PACKAGING_WEIGHTS.word,has?1:0,`word: ${word}`);
     identity||=has;
   }
-  const named=line.words.filter(w=>NOUNS.has(w));
-  const offNoun=named.length>0&&!named.some(w=>item.wordSet.has(w));
+  const named=line.words.filter(w=>PRODUCT_NOUNS.has(w));
+  const typeConfirmed=named.some(w=>item.wordSet.has(w));
+  const offNoun=named.length>0&&!typeConfirmed;
 
   // A pack quantity, mil or colour alone says nothing about what the item is: a word, a feature or the size must fit.
-  if(!total||got<=0||!identity)return {score:0,conflicts,unstated,unexplained,distance};
+  if(!total||got<=0||!identity)return {score:0,conflicts,unstated,unexplained,typeConfirmed,distance};
   const score=(got/total)*CONFLICT**conflicts.length*UNCONFIRMED**(unstated.length+unexplained.length)*(offNoun?OFF_NOUN:1);
-  return {score,conflicts:offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts,unstated,unexplained,distance};
+  return {score,conflicts:offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts,unstated,unexplained,typeConfirmed,distance};
 }
 
 type ScoredSpec=ItemSpec&{wordSet:ReadonlySet<string>;group:string};
@@ -181,9 +211,9 @@ export function scorePackaging<T extends PackagingItem>(description:string,catal
     const spec=itemOf(item);
     // fit() scores 0 unless a word, a feature or the size fits; skip the rest cheaply (same result).
     if(!line.words.some(w=>spec.wordSet.has(w))&&!line.features.some(f=>spec.features.includes(f))&&!sameDims(spec.dims)&&!sameDims(spec.altDims))return;
-    const {score,conflicts,unstated,unexplained,distance}=fit(line,spec);
+    const {score,conflicts,unstated,unexplained,typeConfirmed,distance}=fit(line,spec);
     const rounded=hundredths(score)/100;
-    if(rounded>0)scored.push({item,score:rounded,group:spec.group,conflicts,unstated,unexplained,index,distance});
+    if(rounded>0)scored.push({item,score:rounded,group:spec.group,conflicts,unstated,unexplained,typeConfirmed,index,distance});
   });
   return scored.sort((a,b)=>b.score-a.score||a.distance-b.distance||a.index-b.index).map(({index:_,distance:__,...c})=>c);
 }

@@ -16,7 +16,9 @@ export interface Retrieval<T> {
   top:Candidate<T>|null;
   /** The top score minus the best score of a DIFFERENT product group (the whole top score when there is none). */
   lead:number;
-  /** top.score >= minScore and lead >= minLead, compared in hundredths. */
+  /** The line names a product type (boxes, bags, mailers, ...) that the top candidate confirms. */
+  namesProduct:boolean;
+  /** namesProduct, top.score >= minScore and lead >= minLead (compared in hundredths). */
   clears:boolean;
   /** The best of each product group, at most nearMissLimit (default 5): what a No-match line offers the rep. */
   nearMisses:Candidate<T>[];
@@ -28,10 +30,12 @@ export function retrieve<T extends PackagingItem>(description:string,catalog:rea
   const rule={minScore,minLead};
   const scored=scorePackaging(description,catalog);
   const top=scored[0]??null;
-  if(!top)return {candidates:[],top:null,lead:0,clears:false,nearMisses:[],rule};
+  if(!top)return {candidates:[],top:null,lead:0,namesProduct:false,clears:false,nearMisses:[],rule};
   const rival=scored.find(c=>c.group!==top.group);
   const lead=(hundredths(top.score)-hundredths(rival?.score??0))/100;
-  const clears=hundredths(top.score)>=hundredths(minScore)&&hundredths(lead)>=hundredths(minLead);
+  // A bare size ("19x24") or bare numbers can fit an item perfectly by coincidence: never a match.
+  const namesProduct=top.typeConfirmed;
+  const clears=namesProduct&&hundredths(top.score)>=hundredths(minScore)&&hundredths(lead)>=hundredths(minLead);
   const nearMisses:Candidate<T>[]=[];
   const seen=new Set<string>();
   for(const c of scored){
@@ -40,5 +44,5 @@ export function retrieve<T extends PackagingItem>(description:string,catalog:rea
     seen.add(c.group);
     nearMisses.push(c);
   }
-  return {candidates:scored.slice(0,Math.max(1,Math.floor(candidateLimit))),top,lead,clears,nearMisses,rule};
+  return {candidates:scored.slice(0,Math.max(1,Math.floor(candidateLimit))),top,lead,namesProduct,clears,nearMisses,rule};
 }

@@ -1,6 +1,7 @@
 import {describe,expect,it} from 'vitest';
 import {CONFLICT,UNCONFIRMED,hundredths,scorePackaging} from './score-packaging';
 import {retrieve} from './retrieve';
+import {decide} from './decide';
 
 // Real BOXT rows with the near-duplicates that make wrong matches easy: permuted and near box sizes,
 // white vs kraft, pricing tiers of one box, 2/4 mil bags in both orientations, kraft vs poly bubble
@@ -210,6 +211,55 @@ describe('scorePackaging: what the line says',()=>{
     expect(scorePackaging('',CATALOG)).toEqual([]);
     expect(scorePackaging('xyzzy plugh',CATALOG)).toEqual([]);
     expect(scorePackaging('boxes',[])).toEqual([]);
+  });
+});
+
+describe('round 3 classes',()=>{
+  const STRAP=[{sku:'PS1231',description:'Black Poly Strapping, Hand Length, 0.5 600 lbs',pack:'Coil',caseQty:1,category:'tape',keywords:'poly strapping strapping'}];
+  it('compares a pack count with the item\'s pack, never with a dimension',()=>{
+    expect(score('Corrugated Boxes 12 x 10 x 8" (10 pk)','12108-BDL')).toBeLessThanOrEqual(CONFLICT);
+    expect(score('Corrugated Boxes 12 x 10 x 8" 25 pk','12108-BDL')).toBe(1);
+    expect(score('Reclosable Bags 6 x 4" 2 Mil 6 pk','PB3600')).toBeLessThanOrEqual(CONFLICT);
+  });
+  it('never confirms a stray number',()=>{
+    expect(score('Corrugated Boxes 12 x 10 x 8" 10','12108-BDL')).toBeLessThanOrEqual(UNCONFIRMED);
+  });
+  it('reads * and hyphen tuples and L/W/H labels positionally',()=>{
+    expect(score('Corrugated Boxes 12*8*10 32 ECT','12108-BDL')).toBeLessThanOrEqual(CONFLICT);
+    expect(score('Corrugated Boxes 12-8-10 200# test','12108-BDL')).toBeLessThanOrEqual(CONFLICT);
+    expect(score('Corrugated Boxes 12 in. L x 8 in. W x 10 in. H, 32 ECT','12108-BDL')).toBeLessThanOrEqual(CONFLICT);
+    expect(score('Corrugated Boxes 10" W x 12" L x 8" H, 32 ECT','12108-BDL')).toBe(1);
+  });
+  it('contradicts an item that has what the line negates',()=>{
+    expect(score('Poly Bags 4 x 6" 2 Mil, No Zipper','PB3565')).toBeLessThanOrEqual(CONFLICT);
+    expect(score('Kraft Mailers #2 8 1/2 x 12" No Bubble','B855SS')).toBeLessThanOrEqual(CONFLICT);
+    expect(score('Poly Mailers #2 8 1/2 x 12" No Bubble','B833')).toBeLessThanOrEqual(CONFLICT);
+  });
+  it('does not take an item\'s silence on a choice or colour as keeping a negation',()=>{
+    expect(score('Kraft Bubble Mailers #2 8 1/2 x 12" without self seal','B855SS')).toBeLessThanOrEqual(UNCONFIRMED);
+    expect(score('Corrugated Boxes 12 x 10 x 8" Not Printed','12108-BDL')).toBe(1);
+  });
+  it('compares microns with mil after conversion, never as a stray number',()=>{
+    expect(score('Reclosable Bags 4 x 6" 50.8 micron','PB3565')).toBe(1);
+    expect(score('Reclosable Bags 4 x 6" 100 micron','PB3565')).toBeLessThanOrEqual(CONFLICT);
+  });
+  it('contradicts slider against press-to-close',()=>{
+    expect(score('Slider Bags 4 x 6" 2 Mil','PB3565')).toBeLessThanOrEqual(CONFLICT);
+  });
+  it('converts units and never takes 0.5 cm for 0.5 in',()=>{
+    const s=(line:string)=>scorePackaging(line,STRAP)[0]?.score??0;
+    expect(s('Poly Strapping Hand Length 0.5 cm 600 lb Black')).toBeLessThanOrEqual(CONFLICT);
+    expect(s('Poly Strapping Hand Length 12.7 mm 600 lb Black')).toBe(1);
+    expect(s('Poly Strapping Hand Length 1/2" 600 lb Black')).toBe(1);
+  });
+  it('never clears a line that names no product type, and says why',()=>{
+    const r=retrieve('12 x 10 x 8"',CATALOG,STRICT);
+    expect(r.top?.score).toBe(1);
+    expect(r.namesProduct).toBe(false);
+    expect(r.clears).toBe(false);
+    expect(decide(r,{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'no_product_type'});
+    expect(r.nearMisses.length).toBeGreaterThan(0);
+    expect(retrieve('12 x 10 x 8" corrugated boxes',CATALOG,STRICT).namesProduct).toBe(true);
   });
 });
 
