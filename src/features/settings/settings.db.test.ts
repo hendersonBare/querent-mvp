@@ -76,13 +76,10 @@ describe('without a session',()=>{
     expect((await adminQuery('select match_strictness from public.org_settings where id=1'))[0].match_strictness).toBe('strict');
   });
 
-  it('the anon key can neither read nor update org_settings',async()=>{
+  it('the anon key can neither read nor update org_settings (through the repository, as the app would)',async()=>{
     const anon=anonClient();
-    const read=await anon.from('org_settings').select('*');
-    expect(read.data??[]).toEqual([]);
-    expect(read.error?.code).toBe('42501');
-    const update=await anon.from('org_settings').update({match_strictness:'lenient'}).eq('id',1);
-    expect(update.error?.code).toBe('42501');
+    await expect(getOrgSettings(anon)).rejects.toMatchObject({code:'42501'});
+    expect(await setMatchStrictness(anon,'lenient')).toMatchObject({ok:false,error:'unauthorized'});
     expect((await adminQuery('select match_strictness from public.org_settings where id=1'))[0].match_strictness).toBe('strict');
   });
 });
