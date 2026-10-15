@@ -9,7 +9,7 @@ import s from './Rail.module.css';
 
 /** What Sign out submits to: a URL (POSTed) or a server action. */
 export type SignOutAction=string|((formData:FormData)=>void|Promise<void>);
-/** Until auth lands (B2), Sign out posts here. */
+/** Sign out posts here (src/app/api/auth/signout/route.ts). */
 export const SIGN_OUT_PATH='/api/auth/signout';
 
 export interface RailProps {

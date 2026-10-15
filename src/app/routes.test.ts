@@ -3,7 +3,8 @@ import {join,posix,resolve} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
 // The app's routes (docs/boxt/plan.md, B0): `/` sends the browser to the quote creation tool, and the
-// only pages are the rail's three sections. Later tasks add their own routes to ROUTES here.
+// only pages are the rail's three sections plus the auth pages and APIs (B2). Later tasks add their own
+// routes to ROUTES here.
 
 const APP=resolve(__dirname);
 /** Every page and route handler under src/app/, as its URL path (route groups dropped). */
@@ -17,10 +18,15 @@ function routes(dir='.'):string[]{
   });
 }
 
-const ROUTES=['/','/quote-tool','/quotes','/settings'];
+const ROUTES=[
+  '/','/quote-tool','/quotes','/settings',
+  // B2: auth pages and APIs (no sign-up route).
+  '/login','/reset-password','/auth/confirm','/update-password',
+  '/api/auth/login','/api/auth/signout','/api/auth/reset','/api/auth/update-password',
+];
 
 describe('routes',()=>{
-  it('are only /, /quote-tool, /quotes and /settings',()=>{
+  it('are only /, the rail\'s three sections and the auth routes',()=>{
     expect(routes().sort()).toEqual([...ROUTES].sort());
   });
 

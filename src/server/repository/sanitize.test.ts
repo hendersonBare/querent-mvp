@@ -45,6 +45,10 @@ describe('sanitizeActivityMetadata',()=>{
     for(const value of METADATA_ENUMS)expect(value).toMatch(/^[a-z][a-z0-9_]{0,31}$/);
     expect(METADATA_ENUMS).toEqual(expect.arrayContaining(['strict','balanced','lenient','text','pdf','auto','rep']));
   });
+
+  it('keeps the sign-in method (B2 logs login with {method:"password"})',()=>{
+    expect(sanitizeActivityMetadata({method:'password'})).toEqual({method:'password'});
+  });
 });
 
 describe('activity actions',()=>{
