@@ -33,3 +33,10 @@ export function matchLine<T extends MatchableItem>(line:string,catalog:readonly 
   const confident=isConfident(scored);
   return {candidates:shortlist(scored,limit),confident,question:confident?null:clarifyingQuestion(scored)};
 }
+
+// BOXT packaging matching (task B3): description-only scoring, retrieval with product groups, and the
+// decision rule the quote tool's pipeline and the evaluation suite share.
+export {BURST_TO_ECT,CONFLICT,PACKAGING_WEIGHTS,UNSTATED,scorePackaging,type Candidate} from './score-packaging';
+export {itemPack,parseItemSpec,parseSpec,productGroup,type ItemSpec,type Pack,type PackagingItem,type Spec} from './packaging';
+export {retrieve,type MatchRule,type RetrieveOptions,type Retrieval} from './retrieve';
+export {decide,type Decision,type NoMatchReason,type Verdict} from './decide';
