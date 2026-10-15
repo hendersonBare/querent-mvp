@@ -137,7 +137,7 @@ test('an unmatched line: open its closest items, use one, price it and save it a
 
   await misses.filter({hasText:'SF188CAST'}).getByRole('button',{name:'Use this item'}).click();
   await expect(dialog.getByText('2 matched, 0 could not be matched.')).toBeVisible();
-  await expect(dialog.getByText('Picked by you')).toBeVisible();
+  await expect(dialog.getByText('Picked by rep')).toBeVisible();
   // The promoted line's price is focused and empty; Save waits for it.
   await expect(price(dialog,'SF188CAST')).toBeFocused();
   await expect(saveButton(dialog)).toBeDisabled();
@@ -155,16 +155,70 @@ test('an unmatched line: open its closest items, use one, price it and save it a
   await saveButton(dialog).click();
 
   await expect(page).toHaveURL(QUOTE_URL);
-  await expect(itemRow(page,'SF188CAST')).toContainText('Matched by rep');
+  await expect(itemRow(page,'SF188CAST')).toContainText('Picked by rep');
   await expect(itemRow(page,'SF188CAST')).toContainText(LINES.wrap);
   await expect(itemRow(page,'SF188CAST')).toContainText('$80.00');
   await expect(itemRow(page,'SF188CAST')).toContainText('1 case');
-  await expect(itemRow(page,'12108-BDL')).not.toContainText('Matched by rep');
+  await expect(itemRow(page,'12108-BDL')).not.toContainText('Picked by rep');
   await expect(page.getByTestId('quote-total')).toHaveText('$392.50');
   const id=new URL(page.url()).pathname.split('/').pop();
   const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
   expect(quote.lines.map((l:{sku:string;matchedBy:string;quantity:number;unit:string;quantityUnclear:boolean})=>[l.sku,l.matchedBy,l.quantity,l.unit,l.quantityUnclear]))
     .toEqual([['12108-BDL','auto',250,'each',false],['SF188CAST','rep',1,'case',false]]);
+});
+
+test('a quantity it cannot convert is kept and flagged; Swap to an item priced per another unit converts again and clears the price',async({page})=>{
+  const pallets=LINES.box.replace('10 bundles','10 pallets');
+  await page.goto('/quote-tool');
+  await list(page).fill([pallets,LINES.box].join('\n'));
+  const dialog=await findMatches(page);
+  await expect(dialog.getByText('2 matched, 0 could not be matched.')).toBeVisible();
+  await dialog.getByLabel('Customer name').fill('E2E Units Co');
+
+  // "10 pallets" of a box priced each: the number is kept, flagged with what the customer wrote, and
+  // counted under Save, which stays allowed (the rep decides).
+  const flagged=dialog.getByTestId('line-0');
+  await expect(flagged.getByLabel('Quantity for 12108-BDL')).toHaveValue('10');
+  await expect(flagged.getByTestId('qty-unit')).toHaveText('each');
+  await expect(flagged).toContainText('Check quantity (customer wrote: 10 pallets)');
+  await expect(dialog.getByText('1 line has a quantity to check.')).toBeVisible();
+  await flagged.getByLabel('Unit price for 12108-BDL').fill('1.25');
+
+  // Swap the second box line (10 bundles = 250 each, priced) for poly bags priced per case: the
+  // conversion runs again from the customer's 10 bundles (not convertible to cases: flagged), the unit
+  // labels change and the price is cleared.
+  const swapped=dialog.getByTestId('line-1');
+  await swapped.getByLabel('Unit price for 12108-BDL').fill('1.25');
+  await expect(swapped.getByLabel('Quantity for 12108-BDL')).toHaveValue('250');
+  await swapped.getByRole('button',{name:'Swap'}).click();
+  await swapped.getByRole('searchbox',{name:'Search the catalog'}).fill('reclosable poly bags 30 x 30 2 mil');
+  await swapped.getByRole('button',{name:/^Use PB3669,/}).click();
+  await expect(swapped.getByLabel('Quantity for PB3669')).toHaveValue('10');
+  await expect(swapped.getByLabel('Unit price for PB3669')).toHaveValue('');
+  await expect(swapped.getByTestId('qty-unit')).toHaveText('cases');
+  await expect(swapped.getByTestId('price-unit')).toHaveText('per case');
+  await expect(swapped).toContainText('Check quantity (customer wrote: 10 bundles)');
+  await expect(swapped).toContainText('Picked by rep');
+  await expect(dialog.getByText('2 lines have a quantity to check.')).toBeVisible();
+  await expect(saveButton(dialog)).toBeDisabled();
+  await shot(page,'03d-review-dialog-check-quantity');
+
+  await swapped.getByLabel('Unit price for PB3669').fill('90');
+  // 10 each x $1.25 + 10 cases x $90.
+  await expect(dialog.getByTestId('quote-total')).toHaveText('$912.50');
+  await expect(saveButton(dialog)).toBeEnabled();
+  await saveButton(dialog).click();
+
+  // After save the flags stay visible on the quote's page, with what the customer wrote.
+  await expect(page).toHaveURL(QUOTE_URL);
+  await expect(itemRow(page,'12108-BDL')).toContainText('Quantity was flagged: customer wrote 10 pallets');
+  await expect(itemRow(page,'PB3669')).toContainText('Quantity was flagged: customer wrote 10 bundles');
+  await expect(page.getByTestId('quote-total')).toHaveText('$912.50');
+  await shot(page,'08b-quote-detail-flagged');
+  const id=new URL(page.url()).pathname.split('/').pop();
+  const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
+  expect(quote.lines.map((l:{sku:string;quantity:number;unit:string;quantityUnclear:boolean;customerQuantity:string|null;matchedBy:string})=>[l.sku,l.quantity,l.unit,l.quantityUnclear,l.customerQuantity,l.matchedBy]))
+    .toEqual([['12108-BDL',10,'each',true,'10 pallets','auto'],['PB3669',10,'case',true,'10 bundles','rep']]);
 });
 
 test('a list over 200 lines is refused before anything is sent, here and by the API',async({page})=>{

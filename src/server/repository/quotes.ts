@@ -39,7 +39,7 @@ function toLine(row:LineRow):QuoteLine{
     id:row.id,position:row.position,originalText:row.original_text,unmatched:row.unmatched,sku:row.sku,
     matchedBy:row.matched_by==='auto'||row.matched_by==='rep'?row.matched_by as MatchedBy:null,
     description:row.description,pack:row.pack,listPrice:row.list_price,quantity:row.quantity,unit:row.unit,
-    quantityUnclear:row.quantity_unclear,unitPrice:row.unit_price,matchScore:row.match_score,
+    quantityUnclear:row.quantity_unclear,customerQuantity:row.customer_quantity,unitPrice:row.unit_price,matchScore:row.match_score,
     nearMisses:toNearMisses(row.near_misses),createdAt:row.created_at,updatedAt:row.updated_at,
   };
 }
@@ -49,7 +49,7 @@ function toPayloadLine(line:QuoteLineInput){
   return {
     original_text:line.originalText,unmatched:line.unmatched,sku:line.sku,matched_by:line.matchedBy,
     description:line.description,pack:line.pack,list_price:line.listPrice,quantity:line.quantity,unit:line.unit,
-    quantity_unclear:line.quantityUnclear,unit_price:line.unitPrice,match_score:line.matchScore,
+    quantity_unclear:line.quantityUnclear,customer_quantity:line.customerQuantity,unit_price:line.unitPrice,match_score:line.matchScore,
     near_misses:line.nearMisses.map(n=>({sku:n.sku,description:n.description,pack:n.pack,listPrice:n.listPrice,score:n.score})),
   };
 }

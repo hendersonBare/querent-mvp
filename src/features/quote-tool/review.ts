@@ -90,6 +90,12 @@ export function quantityFlag(line:ReviewLine):string|null{
   return null;
 }
 
+/** Matched lines whose quantity still has a flag (a valid quantity not yet checked); lines without one already block Save. */
+export const quantityChecks=(lines:ReviewLine[])=>lines.filter(l=>l.status==='matched'&&parseQuantity(l.quantity)!==null&&quantityFlag(l)!==null).length;
+
+/** The reminder under Save: "2 lines have a quantity to check." (Save stays allowed: the rep decides.) */
+export const quantityChecksMessage=(n:number)=>n===0?null:n===1?'1 line has a quantity to check.':`${n} lines have a quantity to check.`;
+
 /** The muted note under a matched line's quantity: the conversion ("Customer asked for 10 bundles = 250 each"), or what the customer wrote once a flagged quantity was edited. */
 export function quantityAside(line:ReviewLine):string|null{
   const note=line.quantityNote;
@@ -217,7 +223,8 @@ export function toSaveRequest(lines:ReviewLine[],{customerName,reference,level}:
     if(l.status==='removed')return [];
     if(l.status==='matched'&&l.item)return [{
       unmatched:false,sku:l.item.sku,matchedBy:l.matchedBy??'rep',originalText:l.rawText,
-      quantity:parseQuantity(l.quantity)!,unit:l.unit,quantityUnclear:l.quantityUnclear||l.quantityNote?.kind==='check',unitPrice:parsePrice(l.price)!,matchScore:l.score,
+      quantity:parseQuantity(l.quantity)!,unit:l.unit,quantityUnclear:l.quantityUnclear||l.quantityNote?.kind==='check',
+      customerQuantity:l.quantityNote?.wrote??null,unitPrice:parsePrice(l.price)!,matchScore:l.score,
     }];
     return [{
       unmatched:true,originalText:l.rawText,quantity:l.customerQuantity,unit:l.customerUnit,quantityUnclear:l.quantityUnclear,

@@ -53,10 +53,12 @@ describe('customerUnit',()=>{
   it.each([
     ['bundle','bundle'],['Bundles','bundle'],['bdl','bundle'],['BDLS','bundle'],['bndl','bundle'],
     ['case','case'],['cases','case'],['cs','case'],['cs.','case'],
+    // A carton is a case (scripts/fetch-boxt-catalog.ts reads "per carton" as "Case of N").
+    ['carton','case'],['Cartons','case'],['ctn','case'],['ctns','case'],
     ['each','each'],['ea','each'],['ea.','each'],['pcs','each'],['pc','each'],['piece','each'],['pieces','each'],
     ['roll','roll'],['rolls','roll'],['rl','roll'],['coil','coil'],['coils','coil'],
   ])('reads %j as %j',(written,unit)=>expect(customerUnit(written)).toBe(unit));
-  it.each([null,'','pallet','carton','box','bag','pack','gross','dozen'])('does not read %j',written=>expect(customerUnit(written)).toBeNull());
+  it.each([null,'','pallet','box','bag','pack','gross','dozen'])('does not read %j',written=>expect(customerUnit(written)).toBeNull());
 });
 
 const BOX=pricingUnit('Each',25)!;          // a box sold each, in bundles of 25
@@ -70,7 +72,6 @@ describe('convertQuantity',()=>{
   it('converts bundles of a box sold each in bundles: 10 bundles = 250 each',()=>{
     expect(convertQuantity(10,'bundle',BOX)).toEqual({quantity:250,note:{kind:'converted',wrote:'10 bundles',text:'Customer asked for 10 bundles = 250 each'}});
     expect(convertQuantity(1,'bdl',BOX)).toEqual({quantity:25,note:{kind:'converted',wrote:'1 bundle',text:'Customer asked for 1 bundle = 25 each'}});
-    expect(convertQuantity(2.5,'bundles',BOX)?.quantity).toBe(62.5);
   });
 
   it('keeps cases of an item priced per case: the same number, no note',()=>{
@@ -102,7 +103,7 @@ describe('convertQuantity',()=>{
     expect(convertQuantity(3,'bundle',BAGS)?.note?.kind).toBe('check');
     // Without the item's product noun, rolls are not known to be the pieces of a case.
     expect(convertQuantity(4,'roll',pricingUnit('Case of 4',1))).toEqual({quantity:4,note:{kind:'check',wrote:'4 rolls',text:'Check quantity (customer wrote: 4 rolls)'}});
-    expect(convertQuantity(1,'carton',BAGS)?.note?.text).toBe('Check quantity (customer wrote: 1 carton)');
+    expect(convertQuantity(1,'carton',BOX)?.note?.text).toBe('Check quantity (customer wrote: 1 carton)');
   });
 
   it('flags a quantity without a unit',()=>{
@@ -122,6 +123,20 @@ describe('convertQuantity',()=>{
     expect(convertQuantity(0.0001,'bundle',BOX)?.note?.kind).toBe('check');
     expect(convertQuantity(0.0001,'bundle',BOX)?.quantity).toBe(0.0001);
   });
+
+  it('flags a part of a countable unit: fractional bundles, cases, rolls or pieces are never presented as exact',()=>{
+    expect(convertQuantity(2.5,'bundles',BOX)).toEqual({quantity:2.5,note:{kind:'check',wrote:'2.5 bundles',text:'Check quantity (customer wrote: 2.5 bundles)'}});
+    expect(convertQuantity(0.001,'bundle',BOX)?.note?.kind).toBe('check');
+    expect(convertQuantity(2.5,'cases',BAGS)).toEqual({quantity:2.5,note:{kind:'check',wrote:'2.5 cases',text:'Check quantity (customer wrote: 2.5 cases)'}});
+    expect(convertQuantity(1.5,'rolls',FILM)?.note?.kind).toBe('check');
+    expect(convertQuantity(12.5,'each',BOX)?.note?.kind).toBe('check');
+    expect(convertQuantity(2500.5,'each',BAGS)?.note?.kind).toBe('check');
+  });
+
+  it('reads cartons as cases: the same number of an item priced per case, with a note naming the customer\'s word',()=>{
+    expect(convertQuantity(2,'cartons',BAGS)).toEqual({quantity:2,note:{kind:'converted',wrote:'2 cartons',text:'Customer asked for 2 cartons = 2 cases'}});
+    expect(convertQuantity(1,'ctn',TAPE)?.note?.text).toBe('Customer asked for 1 carton = 1 case');
+  });
 });
 
 describe('unitLabel and perUnitLabel',()=>{
@@ -130,11 +145,22 @@ describe('unitLabel and perUnitLabel',()=>{
     expect(unitLabel(1,'case')).toBe('case');
     expect(unitLabel(2,'case')).toBe('cases');
     expect(unitLabel(2,'box')).toBe('boxes');
+    expect(unitLabel(2,'pouch')).toBe('pouches');
+    expect(unitLabel(10,'pallet')).toBe('pallets');
+    expect(unitLabel(1,'pallet')).toBe('pallet');
     expect(unitLabel(3,'each')).toBe('each');
     expect(unitLabel(10,'bundle')).toBe('bundles');
     expect(unitLabel(10,'bundles')).toBe('bundles');
     expect(unitLabel(null,'bundle')).toBe('bundles');
     expect(unitLabel(2,null)).toBeNull();
+  });
+  it('echoes a unit word it does not know as written, never adding to it',()=>{
+    expect(unitLabel(10,'bundle(s)')).toBe('bundle(s)');
+    expect(unitLabel(10,'bx')).toBe('bx');
+    expect(unitLabel(3,'cu ft')).toBe('cu ft');
+    expect(unitLabel(4,'Rolls')).toBe('rolls'); // a known word, in lowercase
+    expect(convertQuantity(10,'bundle(s)',null)?.note?.text).toBe('Check quantity (customer wrote: 10 bundle(s))');
+    expect(convertQuantity(10,'bx',BOX)?.note?.text).toBe('Check quantity (customer wrote: 10 bx)');
   });
   it('labels a unit price by its unit',()=>{
     expect(perUnitLabel('each')).toBe('per each');
@@ -146,7 +172,15 @@ describe('unitLabel and perUnitLabel',()=>{
 describe('productNouns: what one piece of an item is called',()=>{
   it.each<[string,string|null,string[]]>([
     ['Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing','boxes',['box']],
-    ['White Corrugated Mailers 10x4x4"','boxes',['mailer','box']],
+    ['White Corrugated Mailers 10x4x4"','boxes',['mailer']],
+    // A noun used as a modifier is not the product: "Box Cutters", "Box Combo Pack", "Mailer Boxes".
+    ['Safety Knives & Box Cutters, 12/Case','storage',[]],
+    ['Wardrobe Box Combo Pack, 3/Case','boxes',['box']],
+    ['Kraft Mailer Boxes 9x6x3"','boxes',['box']],
+    ['Poly Bags on a Roll 12x15"','bags',['bag']],
+    // Categories that also hold other things give no noun.
+    ['Clear Pallet Covers, 48x42x48" 2 MIL','bags',[]],
+    ['Bubble Dispenser Packs, 24"x50\'','mailers',[]],
     ['#2 Kraft Bubble Mailers 8.5x12"','mailers',['mailer']],
     ['Reclosable Poly Bags, 30x30" 2 MIL','bags',['bag']],
     ['Expandable Foam Bags (Bulk Pack)','cushioning',['bag']],
@@ -162,6 +196,17 @@ describe('productNouns: what one piece of an item is called',()=>{
     ['Single Wall Gaylord 48x40x36", pallet pricing','boxes',['box']],
   ])('%j (%s) -> %j',(description,category,nouns)=>{
     expect(productNouns(description,category)).toEqual(nouns);
+  });
+
+  it('takes a case count the description states over a pack of "Each" or a bare "Case" (catalog anomalies)',()=>{
+    expect(pricingUnit('Each',1,{description:'Safety Knives & Box Cutters, 12/Case',category:'storage'})).toEqual({unit:'case',contains:12,bundleOf:null,nouns:[]});
+    expect(pricingUnit('Case',1,{description:'Wardrobe Box Combo Pack, 3/Case',category:'boxes'})).toEqual({unit:'case',contains:3,bundleOf:null,nouns:['box']});
+    expect(pricingUnit('Each',1,{description:'Gaylord, case of 4 pricing',category:'boxes'})?.unit).toBe('case');
+    // A stated count never overrides a pack that gives its own.
+    expect(pricingUnit('Case of 500',1,{description:'Poly Bags 500/case',category:'bags'})?.contains).toBe(500);
+    const knives=pricingUnit('Each',1,{description:'Safety Knives & Box Cutters, 12/Case',category:'storage'});
+    expect(convertQuantity(24,'each',knives)?.note?.text).toBe('Customer asked for 24 each = 2 cases');
+    expect(convertQuantity(12,'boxes',knives)?.note?.kind).toBe('check');
   });
 
   it('gives the nouns to the pricing unit when the item is given',()=>{
@@ -183,7 +228,18 @@ describe('convertQuantity: the item\'s own product noun counts as pieces',()=>{
   it('reads "500 boxes" of a box priced each as 500 each: the same unit, no note',()=>{
     expect(convertQuantity(500,'boxes',BOXES)).toEqual({quantity:500,note:null});
     expect(convertQuantity(500,'Boxes',BOXES)).toEqual({quantity:500,note:null});
-    expect(convertQuantity(500,'carton',BOXES)).toEqual({quantity:500,note:null});
+    expect(convertQuantity(500,'box',BOXES)).toEqual({quantity:500,note:null});
+  });
+
+  it('never reads cartons as pieces: "2 cartons" of a box sold each is flagged, not 2 each',()=>{
+    expect(convertQuantity(2,'cartons',BOXES)).toEqual({quantity:2,note:{kind:'check',wrote:'2 cartons',text:'Check quantity (customer wrote: 2 cartons)'}});
+    expect(convertQuantity(2,'ctn',BOXES)?.note?.kind).toBe('check');
+  });
+
+  it('flags boxes of an item priced per case: a box may be the case itself or a piece in it',()=>{
+    const COMBO=item('Case',1,'Wardrobe Box Combo Pack, 3/Case','boxes');
+    expect(convertQuantity(3,'boxes',COMBO)?.note?.text).toBe('Check quantity (customer wrote: 3 boxes)');
+    expect(convertQuantity(12,'boxes',item('Case of 12',1,'Corrugated Boxes 6x6x6"','boxes'))?.note?.kind).toBe('check');
   });
 
   it('divides pieces into whole cases, with a note in the customer\'s words',()=>{

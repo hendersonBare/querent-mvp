@@ -4,9 +4,10 @@ import {createPortal} from 'react-dom';
 import d from '@/components/ui/Dialog.module.css';
 import {trapTab} from '@/components/ui/focus';
 import {saveQuote as defaultSave,searchCatalog as defaultSearch} from './client';
+import {QUOTE_COPY} from '@/features/quotes/copy';
 import {formatSimilarity} from '@/features/quotes/format';
 import {
-  blockersMessage,editQuantity,formatMoney,initialReview,lineHint,priceError,quantityAside,quantityError,quantityFlag,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,withItem,
+  blockersMessage,editQuantity,quantityChecks,quantityChecksMessage,formatMoney,initialReview,lineHint,priceError,quantityAside,quantityError,quantityFlag,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,withItem,
   type ReviewLine,
 } from './review';
 import type {MatchRun,SaveQuoteRequest,ScoredItem} from './types';
@@ -107,6 +108,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
   const blockers=saveBlockers(lines);
   const why=blockersMessage(blockers);
   const canSave=!saving&&why===null;
+  const toCheck=quantityChecksMessage(quantityChecks(lines));
 
   async function onSave(){
     if(!canSave)return;
@@ -249,6 +251,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                 <button type="button" className={d.primary} onClick={()=>void onSave()} disabled={!canSave}>{saving?'Saving…':'Save quote'}</button>
               </div>
               {error?<p className={s.error} role="alert">{error}</p>:why&&<p className={s.why}>{why}</p>}
+              {toCheck&&<p className={s.toCheck}>{toCheck}</p>}
             </div>
           </>}
       </footer>
@@ -288,7 +291,7 @@ function MatchedLine({line,saving,swapping,picker,onQuantity,onPrice,onSwap,onRe
         <span className={d.sku}>{item.sku}</span>
         {item.pack&&<span className={d.pack}>{item.pack}</span>}
         {label&&<span className={s.listPrice}>{label}</span>}
-        {line.matchedBy==='rep'&&<span className={s.tag}>Picked by you</span>}
+        {line.matchedBy==='rep'&&<span className={s.tag}>{QUOTE_COPY.matchedByRep}</span>}
       </span>
     </div>
     <div className={s.cell}>

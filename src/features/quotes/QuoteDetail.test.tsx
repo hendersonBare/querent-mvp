@@ -4,7 +4,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {EXAMPLE_ID,LINE_IDS,QUOTE_ID,quote} from './test-fixtures';
 
 // /quotes/[id] (docs/boxt/plan.md B6): the header, the matched lines (item with the customer's original
-// text under it, SKU, qty, unit price, line total, "Matched by rep"), the unmatched lines with their
+// text under it, SKU, qty, unit price, line total, "Picked by rep"), the unmatched lines with their
 // original text and stored near-misses, the total; edit (customer, reference, qty, unit price, remove)
 // with Save disabled while anything is invalid; delete behind a confirm dialog; the example read-only.
 
@@ -62,6 +62,19 @@ describe('reading a quote',()=>{
     expect(cells('B855SS').slice(2)).toEqual(['4 cases','$31.495 per case','$125.98']);
   });
 
+  it('keeps a flagged quantity visible after save: "Quantity was flagged: customer wrote 10 pallets"',()=>{
+    const q=quote();
+    render(<QuoteDetail initial={{...q,lines:[
+      {...q.lines[0],quantity:10,quantityUnclear:true,customerQuantity:'10 pallets'},
+      {...q.lines[1],quantityUnclear:true,customerQuantity:null},
+      {...q.lines[2],customerQuantity:'400 mailers'},
+    ]}}/>);
+    expect(rowOf('12108-BDL')).toHaveTextContent('Quantity was flagged: customer wrote 10 pallets');
+    expect(rowOf('M1044')).toHaveTextContent('Quantity was flagged');
+    expect(rowOf('B855SS')).toHaveTextContent('Customer asked for 400 mailers');
+    expect(rowOf('B855SS')).not.toHaveTextContent('flagged');
+  });
+
   it('shows a line saved without a unit as a bare quantity and price',()=>{
     const q=quote();
     render(<QuoteDetail initial={{...q,lines:[{...q.lines[0],unit:null}]}}/>);
@@ -70,9 +83,9 @@ describe('reading a quote',()=>{
 
   it('tags only the lines the rep matched',()=>{
     render(<QuoteDetail initial={quote()}/>);
-    expect(within(rowOf('B855SS')).getByText('Matched by rep')).toBeInTheDocument();
-    expect(within(rowOf('M1044')).queryByText('Matched by rep')).toBeNull();
-    expect(screen.getAllByText('Matched by rep')).toHaveLength(1);
+    expect(within(rowOf('B855SS')).getByText('Picked by rep')).toBeInTheDocument();
+    expect(within(rowOf('M1044')).queryByText('Picked by rep')).toBeNull();
+    expect(screen.getAllByText('Picked by rep')).toHaveLength(1);
   });
 
   it('lists the unmatched lines with their original text, qty and the stored near-misses',()=>{

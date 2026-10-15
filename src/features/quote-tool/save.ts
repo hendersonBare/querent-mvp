@@ -11,8 +11,8 @@ import {pricingUnit} from './units';
 // POST /api/quotes (create; the review dialog's Save quote). The body is validated with zod; matched
 // lines name a SKU that must exist in the catalog, which is read again here: the item's description,
 // pack and list price always come from the catalog, never from the client. A matched line's quantity and
-// unit price are in its item's pricing unit (./units.ts): the line's unit is stored as that unit, and a
-// line that names another unit is refused, so a quantity is never read in the wrong unit. Unmatched lines keep the
+// unit price are in its item's pricing unit (./units.ts): the line must name that unit (a line that names
+// another unit, or none, is refused), so a quantity is never read in the wrong unit. Unmatched lines keep the
 // customer's text, the quantity (if any) and a snapshot of the near-misses the rep saw. The quote and its
 // lines are saved atomically (createQuote); one quote_create activity row records the counts.
 // matchedBy ('auto' | 'rep') is taken as the dialog sends it: every signed-in user is a trusted rep of one
@@ -28,6 +28,8 @@ const originalText=z.string().trim().min(1,'Each line needs its original text.')
 // Quantities, prices and text lengths use the quotes module's shared limits (src/features/quotes/limits.ts).
 const quantity=quantitySchema;
 const unit=z.string().trim().max(40).nullish();
+/** The customer's quantity as written ("10 pallets"), kept when the dialog converted or flagged it. */
+const customerQuantity=z.string().trim().max(100,'A customer quantity can be up to 100 characters.').nullish();
 const sku=z.string().trim().min(1,'Each matched line needs an item.').max(64);
 
 const matchedLine=z.object({
@@ -38,6 +40,7 @@ const matchedLine=z.object({
   quantity,
   unit,
   quantityUnclear:z.boolean().optional(),
+  customerQuantity,
   unitPrice:unitPriceSchema,
   matchScore:z.number().finite().min(0).max(1).nullish(),
 });
@@ -48,6 +51,7 @@ const unmatchedLine=z.object({
   quantity:quantity.nullable(),
   unit,
   quantityUnclear:z.boolean().optional(),
+  customerQuantity,
   nearMisses:z.array(z.object({sku,score:z.number().finite().min(0).max(1).nullable()})).max(10).optional(),
 });
 
@@ -84,18 +88,18 @@ function toLines(lines:SaveBody['lines'],catalog:Map<string,CatalogItem>):QuoteL
     if(!line.unmatched){
       const item=catalog.get(line.sku);
       if(!item)return `Line ${i+1}: item ${line.sku} is not in the catalog.`;
-      const pricing=pricingUnit(item.pack,item.caseQty);
-      if(pricing&&line.unit&&!sameUnit(line.unit,pricing.unit))return `Line ${i+1}: the quantity must be in ${pricing.unit}, the unit item ${item.sku} is priced per.`;
+      const pricing=pricingUnit(item.pack,item.caseQty,item);
+      if(pricing&&(!line.unit||!sameUnit(line.unit,pricing.unit)))return `Line ${i+1}: the quantity must be in ${pricing.unit}, the unit item ${item.sku} is priced per.`;
       out.push({
         originalText:line.originalText,unmatched:false,sku:item.sku,matchedBy:line.matchedBy,
         description:item.description,pack:packLabel(item),listPrice:item.listPrice,
-        quantity:line.quantity,unit:pricing?.unit??line.unit??null,quantityUnclear:line.quantityUnclear??false,unitPrice:line.unitPrice,
+        quantity:line.quantity,unit:pricing?.unit??line.unit??null,quantityUnclear:line.quantityUnclear??false,customerQuantity:line.customerQuantity||null,unitPrice:line.unitPrice,
         matchScore:line.matchScore??null,nearMisses:[],
       });
     }else{
       out.push({
         originalText:line.originalText,unmatched:true,sku:null,matchedBy:null,description:null,pack:null,listPrice:null,
-        quantity:line.quantity,unit:line.unit??null,quantityUnclear:line.quantityUnclear??line.quantity===null,unitPrice:null,matchScore:null,
+        quantity:line.quantity,unit:line.unit??null,quantityUnclear:line.quantityUnclear??line.quantity===null,customerQuantity:line.customerQuantity||null,unitPrice:null,matchScore:null,
         nearMisses:(line.nearMisses??[]).flatMap(n=>{const item=catalog.get(n.sku);return item?[nearMissOf(item,n.score)]:[];}),
       });
     }

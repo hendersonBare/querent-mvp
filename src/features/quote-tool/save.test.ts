@@ -34,7 +34,7 @@ const post=(body:unknown,headers:Record<string,string>={})=>new NextRequest(`${O
   body:typeof body==='string'?body:JSON.stringify(body),
 });
 
-const matched=(over:Record<string,unknown>={})=>({unmatched:false,sku:'12108-BDL',matchedBy:'auto',originalText:'S-4128 12x10x8 boxes 10 bdl',quantity:250,unit:'each',quantityUnclear:false,unitPrice:0.79,matchScore:1,...over});
+const matched=(over:Record<string,unknown>={})=>({unmatched:false,sku:'12108-BDL',matchedBy:'auto',originalText:'S-4128 12x10x8 boxes 10 bdl',quantity:250,unit:'each',quantityUnclear:false,customerQuantity:'10 bundles',unitPrice:0.79,matchScore:1,...over});
 const unmatched=(over:Record<string,unknown>={})=>({unmatched:true,originalText:'Foam peanuts 14 cu ft 2 bags',quantity:2,unit:'bag',quantityUnclear:false,nearMisses:[{sku:'PB3669',score:0.41}],...over});
 const body=(over:Partial<SaveQuoteRequest>&Record<string,unknown>={})=>({customerName:'Acme Supply',reference:'PO 1182',matchStrictness:'strict',lines:[matched(),unmatched()],...over});
 
@@ -63,9 +63,9 @@ describe('POST /api/quotes (create)',()=>{
       customerName:'Acme Supply',reference:'PO 1182',matchStrictness:'strict',
       lines:[
         {originalText:'S-4128 12x10x8 boxes 10 bdl',unmatched:false,sku:'12108-BDL',matchedBy:'auto',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',
-          pack:'Bundle of 25',listPrice:0.84,quantity:250,unit:'each',quantityUnclear:false,unitPrice:0.79,matchScore:1,nearMisses:[]},
+          pack:'Bundle of 25',listPrice:0.84,quantity:250,unit:'each',quantityUnclear:false,customerQuantity:'10 bundles',unitPrice:0.79,matchScore:1,nearMisses:[]},
         {originalText:'Foam peanuts 14 cu ft 2 bags',unmatched:true,sku:null,matchedBy:null,description:null,pack:null,listPrice:null,
-          quantity:2,unit:'bag',quantityUnclear:false,unitPrice:null,matchScore:null,
+          quantity:2,unit:'bag',quantityUnclear:false,customerQuantity:null,unitPrice:null,matchScore:null,
           nearMisses:[{sku:'PB3669',description:'Reclosable Poly Bags 30x30" 2 Mil',pack:'Case of 250',listPrice:89,score:0.41}]},
       ],
     });
@@ -96,9 +96,16 @@ describe('POST /api/quotes (create)',()=>{
   });
 
   it('stores a matched line\'s unit as its item\'s pricing unit from the catalog, and an unmatched line\'s as the customer wrote it',async()=>{
-    const response=await POST(post(body({lines:[matched({unit:undefined}),matched({sku:'PB3669',quantity:2,unit:'case'}),matched({sku:'SF188CAST',quantity:3,unit:'Cases'}),unmatched()] as never})),ctx);
+    const response=await POST(post(body({lines:[matched(),matched({sku:'PB3669',quantity:2,unit:'case'}),matched({sku:'SF188CAST',quantity:3,unit:'Cases'}),unmatched()] as never})),ctx);
     expect(response.status).toBe(201);
     expect(saved().lines.map(l=>[l.sku,l.quantity,l.unit])).toEqual([['12108-BDL',250,'each'],['PB3669',2,'case'],['SF188CAST',3,'case'],[null,2,'bag']]);
+  });
+
+  it.each([['missing',{unit:undefined}],['null',{unit:null}],['blank',{unit:' '}]])('refuses a matched line whose unit is %s (400): the unit must name the item\'s pricing unit',async(_,over)=>{
+    const response=await POST(post(body({lines:[matched(over)] as never})),ctx);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('Line 1: the quantity must be in each, the unit item 12108-BDL is priced per.');
+    expect(repo.createQuote).not.toHaveBeenCalled();
   });
 
   it('refuses a matched line whose quantity is in another unit than the item\'s pricing unit (400), so a quantity is never read in the wrong unit',async()=>{
@@ -123,6 +130,7 @@ describe('POST /api/quotes (create)',()=>{
     ['a customer name over 200 characters',{customerName:'x'.repeat(201)}],
     ['an unknown strictness',{matchStrictness:'loose'}],
     ['a matched line without a SKU',{lines:[matched({sku:''})]}],
+    ['a customer quantity over 100 characters',{lines:[matched({customerQuantity:'x'.repeat(101)})]}],
   ])('answers 400 for %s',async(_,over)=>{
     const response=await POST(post(body(over as never)),ctx);
     expect(response.status).toBe(400);

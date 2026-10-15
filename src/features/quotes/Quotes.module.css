@@ -197,7 +197,7 @@
 .primaryButton {
   border: 0;
   background: var(--q-accent);
-  color: #fff;
+  color: var(--q-white);
 }
 .primaryButton:hover:not(:disabled) {
   background: var(--q-accent-hover);
@@ -308,6 +308,17 @@
   color: var(--q-text-muted);
   font-size: var(--q-text-secondary);
   line-height: 1.4;
+}
+/* A quantity flagged at review: muted, with the note colour so it is not missed. */
+.qtyFlag {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 1px 8px;
+  border-radius: var(--q-radius-pill);
+  background: var(--q-note);
+  color: var(--q-note-text);
+  font-size: var(--q-text-label);
+  font-weight: 600;
 }
 .sku {
   color: var(--q-text-code);

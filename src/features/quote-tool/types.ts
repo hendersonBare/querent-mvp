@@ -123,6 +123,8 @@ export interface SaveMatchedLine {
   quantity:number;
   unit?:string|null;
   quantityUnclear?:boolean;
+  /** The customer's quantity as written ("10 bundles", "10 pallets") when it was converted or flagged. */
+  customerQuantity?:string|null;
   unitPrice:number;
   matchScore?:number|null;
 }
@@ -134,6 +136,7 @@ export interface SaveUnmatchedLine {
   quantity:number|null;
   unit?:string|null;
   quantityUnclear?:boolean;
+  customerQuantity?:string|null;
   nearMisses?:{sku:string;score:number|null}[];
 }
 

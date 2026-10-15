@@ -138,7 +138,7 @@
   border: 0;
   border-radius: var(--q-radius-button);
   background: var(--q-accent);
-  color: #fff;
+  color: var(--q-white);
   font-size: var(--q-text-control) !important;
   font-weight: 700;
   white-space: nowrap;

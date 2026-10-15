@@ -13,7 +13,7 @@ import s from './Quotes.module.css';
 
 // A saved quote (docs/boxt/plan.md B6, product rule 6): the header (customer, reference, who created it
 // and when); the matched lines (item with the customer's original text under it, SKU, qty, unit price,
-// line total, and "Matched by rep" when the rep picked the item); the unmatched lines with their
+// line total, and "Picked by rep" when the rep picked the item); the unmatched lines with their
 // original text, qty and the closest items stored with them and their similarity (read-only); the
 // total. Each line's qty and unit price read in its unit ("250 each", "$0.95 per each"): a matched
 // line's unit is its item's pricing unit, saved with it (src/features/quote-tool/units.ts).
@@ -209,6 +209,7 @@ function MatchedRow({line,edit,errors,onChange,onRemove}:{line:QuoteLine;edit:Li
         {line.matchedBy==='rep'&&<span className={s.repTag}>{QUOTE_COPY.matchedByRep}</span>}
       </div>
       <div className={s.original}>{line.originalText}</div>
+      {quantityNote(line)&&<div className={line.quantityUnclear?s.qtyFlag:s.original}>{quantityNote(line)}</div>}
     </td>
     <td className={s.sku}>{sku}</td>
     <td className={s.num}>
@@ -224,6 +225,12 @@ function MatchedRow({line,edit,errors,onChange,onRemove}:{line:QuoteLine;edit:Li
     <td className={`${s.num} ${s.money}`}>{total===null?<None>{QUOTE_COPY.notPriced}</None>:formatMoney(total)}</td>
     {edit&&<td className={s.removeCol}><RemoveButton label={`${QUOTE_COPY.remove} ${sku}`} onClick={onRemove}/></td>}
   </tr>;
+}
+
+/** What the customer asked for when the line's quantity was flagged or converted from it; null when it was used as it stood. */
+function quantityNote(line:QuoteLine):string|null{
+  if(line.quantityUnclear)return line.customerQuantity?`${QUOTE_COPY.quantityFlagged}: customer wrote ${line.customerQuantity}`:QUOTE_COPY.quantityFlagged;
+  return line.customerQuantity?`Customer asked for ${line.customerQuantity}`:null;
 }
 
 function NumberInput({label,value,error,errorId,prefix,suffix,onChange}:{label:string;value:string;error?:string;errorId:string;prefix?:string;suffix?:string|null;onChange:(value:string)=>void}){

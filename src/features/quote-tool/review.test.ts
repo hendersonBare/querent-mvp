@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {
-  blockersMessage,editQuantity,formatMoney,lineHint,quantityAside,quantityFlag,reasonHint,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,withItem,
+  blockersMessage,editQuantity,quantityChecks,quantityChecksMessage,formatMoney,lineHint,quantityAside,quantityFlag,reasonHint,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,withItem,
   type ReviewLine,
 } from './review';
 import {sampleRun} from './test-fixtures';
@@ -110,7 +110,7 @@ describe('the review state',()=>{
     expect(toSaveRequest(lines,{customerName:' Acme ',reference:'',level:'strict'})).toEqual({
       customerName:'Acme',reference:'',matchStrictness:'strict',
       lines:[
-        {unmatched:false,sku:'12108-BDL',matchedBy:'auto',originalText:'S-4128 12 x 10 x 8" Corrugated Boxes 10 bundles',quantity:250,unit:'each',quantityUnclear:false,unitPrice:0.79,matchScore:1},
+        {unmatched:false,sku:'12108-BDL',matchedBy:'auto',originalText:'S-4128 12 x 10 x 8" Corrugated Boxes 10 bundles',quantity:250,unit:'each',quantityUnclear:false,customerQuantity:'10 bundles',unitPrice:0.79,matchScore:1},
         {unmatched:true,originalText:'Reclosable bags 30x30 3 mil 4 cases',quantity:4,unit:'case',quantityUnclear:false,nearMisses:[{sku:'PB3669',score:0.56},{sku:'PB3670',score:0.42}]},
         {unmatched:true,originalText:'Foam peanuts 14 cu ft 2 bags',quantity:2,unit:'bag',quantityUnclear:false,nearMisses:[]},
       ],
@@ -121,7 +121,21 @@ describe('the review state',()=>{
     const run=sampleRun();
     run.lines[0]={...run.lines[0],quantity:10,unit:'pallet'};
     const lines=initialReview(run).map((l,i)=>i===0?{...l,price:'1'}:i===1?{...l,status:'removed' as const}:l);
-    expect(toSaveRequest(lines,{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:10,unit:'each',quantityUnclear:true});
+    expect(toSaveRequest(lines,{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:10,unit:'each',quantityUnclear:true,customerQuantity:'10 pallets'});
+  });
+
+  it('counts the matched lines whose quantity still needs a check (not the ones without a quantity: Save already asks for those)',()=>{
+    const run=sampleRun();
+    run.lines[0]={...run.lines[0],quantity:10,unit:'pallet'};
+    let lines=initialReview(run);
+    expect(quantityChecks(lines)).toBe(1);
+    expect(quantityChecksMessage(1)).toBe('1 line has a quantity to check.');
+    expect(quantityChecksMessage(2)).toBe('2 lines have a quantity to check.');
+    expect(quantityChecksMessage(0)).toBeNull();
+    lines=lines.map((l,i)=>i===0?editQuantity(l,'5000'):l);
+    expect(quantityChecks(lines)).toBe(0);
+    lines=lines.map((l,i)=>i===1?editQuantity(l,'3'):l);
+    expect(quantityChecks(lines.map((l,i)=>i===1?{...l,quantityUnclear:true,quantityChecked:false}:l))).toBe(1);
   });
 });
 

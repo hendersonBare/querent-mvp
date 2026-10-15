@@ -17,10 +17,10 @@ let rep:Db,rep2:Db,repId:string;
 
 const matched=(over:Partial<QuoteLineInput>={}):QuoteLineInput=>({
   sku:'M1044',description:'White Corrugated Mailers 10x4x4"',pack:'Each',listPrice:0.84,quantity:3,unit:'each',
-  quantityUnclear:false,unitPrice:0.845,matchedBy:'auto',originalText:'3 white mailers 10 x 4 x 4',unmatched:false,matchScore:0.91,nearMisses:[],...over,
+  quantityUnclear:false,customerQuantity:null,unitPrice:0.845,matchedBy:'auto',originalText:'3 white mailers 10 x 4 x 4',unmatched:false,matchScore:0.91,nearMisses:[],...over,
 });
 const unmatched=(over:Partial<QuoteLineInput>={}):QuoteLineInput=>({
-  sku:null,description:null,pack:null,listPrice:null,quantity:5,unit:'roll',quantityUnclear:true,unitPrice:null,matchedBy:null,
+  sku:null,description:null,pack:null,listPrice:null,quantity:5,unit:'roll',quantityUnclear:true,customerQuantity:null,unitPrice:null,matchedBy:null,
   originalText:'5 rolls of the blue tape we had last time',unmatched:true,matchScore:0.41,
   nearMisses:[{sku:'T902',description:'Packing tape',pack:'Case of 36',listPrice:2.1,score:0.41},{sku:'T903',description:'Packing tape 3"',pack:null,listPrice:null,score:0.38}],...over,
 });
@@ -51,7 +51,7 @@ describe('quotes',()=>{
   let id:string;
 
   it('createQuote saves a quote and its lines in one call, in order, with the org\'s strictness',async()=>{
-    const result=await createQuote(rep,{customerName:'Test customer',reference:`${TAG} one`,lines:[matched(),matched({sku:'M962',description:'White Literature Mailers',quantity:10,unitPrice:1.2,matchedBy:'rep',originalText:'10 lit mailers'}),unmatched()]});
+    const result=await createQuote(rep,{customerName:'Test customer',reference:`${TAG} one`,lines:[matched(),matched({sku:'M962',description:'White Literature Mailers',quantity:10,unitPrice:1.2,matchedBy:'rep',originalText:'10 lit mailers',quantityUnclear:true,customerQuantity:'10 pallets'}),unmatched()]});
     expect(result).toMatchObject({ok:true});
     if(!result.ok)return;
     id=result.id;
@@ -60,6 +60,8 @@ describe('quotes',()=>{
     expect(quote!.lines.map(l=>[l.position,l.sku,l.matchedBy,l.unmatched])).toEqual([[1,'M1044','auto',false],[2,'M962','rep',false],[3,null,null,true]]);
     expect(quote!.lines[0]).toMatchObject({quantity:3,unitPrice:0.845,listPrice:0.84,unit:'each',quantityUnclear:false,matchScore:0.91,originalText:'3 white mailers 10 x 4 x 4',nearMisses:[]});
     expect(quote!.lines[2]).toMatchObject({quantity:5,unitPrice:null,quantityUnclear:true,originalText:'5 rolls of the blue tape we had last time',nearMisses:unmatched().nearMisses});
+    // The customer's quantity as written is kept with a converted or flagged line (B10).
+    expect(quote!.lines.map(l=>l.customerQuantity)).toEqual([null,'10 pallets',null]);
   });
 
   it('listQuotes shows the summary: line count, unmatched count, and the total of matched priced lines (each rounded to cents)',async()=>{

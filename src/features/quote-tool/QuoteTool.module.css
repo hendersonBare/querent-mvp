@@ -74,7 +74,7 @@
   border: 0;
   border-radius: var(--q-radius-button);
   background: var(--q-accent);
-  color: #fff;
+  color: var(--q-white);
   font-size: var(--q-text-control);
   font-weight: 700;
   cursor: pointer;
@@ -168,7 +168,7 @@
   transition: width 0.3s ease-out;
 }
 .reading {
-  background-image: linear-gradient(90deg, var(--q-accent) 0%, #5fb47f 50%, var(--q-accent) 100%);
+  background-image: linear-gradient(90deg, var(--q-accent) 0%, var(--q-accent-light) 50%, var(--q-accent) 100%);
   background-size: 200% 100%;
   animation: reading 1.4s linear infinite;
 }

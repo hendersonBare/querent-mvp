@@ -1,22 +1,38 @@
-import {readFileSync} from 'node:fs';
-import {join} from 'node:path';
+import {readdirSync,readFileSync} from 'node:fs';
+import {join,relative} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
-// The dialogs (the review dialog and the delete dialog) use the Querent palette from src/app/tokens.css:
-// the accent green for Save quote, Swap, focused inputs, Use this item and tags, never a colour of their own.
+// Every stylesheet under src/ uses the Querent palette from src/app/tokens.css (the only file that names
+// colours): the accent green for Save quote, Swap, focused inputs, Use this item and tags, never a
+// colour of its own. Keywords (white, transparent, currentColor, inherit) are fine.
 
 const ROOT=join(__dirname,'../../..');
-const FILES=['src/components/ui/Dialog.module.css','src/features/quote-tool/QuoteReviewDialog.module.css'];
-const withoutComments=(css:string)=>css.replace(/\/\*[\s\S]*?\*\//g,'');
+const SRC=join(ROOT,'src');
+const TOKENS='src/app/tokens.css';
 
-describe('the dialogs\' palette',()=>{
-  it.each(FILES)('%s names no colour of its own (only var(--q-*) tokens, white and transparent)',file=>{
-    const css=withoutComments(readFileSync(join(ROOT,file),'utf8'));
-    expect(css.match(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/gi)??[]).toEqual([]);
+function stylesheets(dir:string):string[]{
+  return readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()
+    ?stylesheets(join(dir,entry.name))
+    :entry.name.endsWith('.css')?[relative(ROOT,join(dir,entry.name)).split('\\').join('/')]:[]);
+}
+const withoutComments=(css:string)=>css.replace(/\/\*[\s\S]*?\*\//g,'');
+const colours=(css:string)=>withoutComments(css).match(/#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi)??[];
+
+describe('the palette',()=>{
+  const files=stylesheets(SRC).filter(file=>file!==TOKENS);
+
+  it('finds the stylesheets (the CSS modules and globals.css)',()=>{
+    expect(files).toEqual(expect.arrayContaining(['src/components/ui/Dialog.module.css','src/features/quote-tool/QuoteReviewDialog.module.css','src/features/quote-tool/QuoteTool.module.css','src/app/globals.css']));
+    expect(files.length).toBeGreaterThan(10);
   });
 
-  it('takes the accent from the Querent accent token',()=>{
-    const css=readFileSync(join(ROOT,FILES[0]),'utf8');
+  it('names no colour outside the token file (only var(--q-*) tokens and keywords)',()=>{
+    const found=files.flatMap(file=>colours(readFileSync(join(ROOT,file),'utf8')).map(colour=>`${file}: ${colour}`));
+    expect(found).toEqual([]);
+  });
+
+  it('takes the dialogs\' accent from the Querent accent token',()=>{
+    const css=readFileSync(join(ROOT,'src/components/ui/Dialog.module.css'),'utf8');
     expect(css).toMatch(/--dlg-accent:\s*var\(--q-accent\);/);
     expect(css).toMatch(/--dlg-focus:\s*var\(--q-accent\);/);
   });

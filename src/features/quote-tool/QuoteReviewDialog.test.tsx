@@ -78,6 +78,19 @@ describe('QuoteReviewDialog',()=>{
     expect(line).toHaveTextContent('Customer wrote: 10 pallets');
   });
 
+  it('says under Save how many lines have a quantity to check, without blocking Save',()=>{
+    const run=sampleRun();
+    run.lines[0]={...run.lines[0],rawText:'12x10x8 boxes 10 pallets',quantity:10,unit:'pallet'};
+    render(<QuoteReviewDialog run={run} onClose={()=>{}} onSaved={()=>{}} save={async()=>({id:'x'})} search={async()=>[]}/>);
+    type(screen.getByLabelText('Unit price for 12108-BDL'),'1');
+    type(screen.getByLabelText('Unit price for SF188CAST'),'24.5');
+    type(screen.getByLabelText('Quantity for SF188CAST'),'3');
+    expect(saveButton()).toBeEnabled();
+    expect(screen.getByText('1 line has a quantity to check.')).toBeInTheDocument();
+    type(screen.getByLabelText('Quantity for 12108-BDL'),'12');
+    expect(screen.queryByText(/quantity to check/)).toBeNull();
+  });
+
   it('flags an unclear quantity with "Check quantity"',()=>{
     setup();
     const line=within(matchedSection()).getByTestId('line-1');
@@ -168,6 +181,8 @@ describe('QuoteReviewDialog',()=>{
     fireEvent.click(within(within(line).getAllByTestId('near-miss')[1]).getByRole('button',{name:'Use this item'}));
     const promoted=within(matchedSection()).getByTestId('line-2');
     expect(promoted).toHaveTextContent('PB3670');
+    // The same words as the quote's page.
+    expect(within(promoted).getByText('Picked by rep')).toBeInTheDocument();
     expect(within(promoted).getByLabelText('Unit price for PB3670')).toHaveValue('');
     expect(within(promoted).getByLabelText('Quantity for PB3670')).toHaveValue('4');
     expect(within(promoted).getByTestId('qty-unit')).toHaveTextContent(/^cases$/);
@@ -177,7 +192,7 @@ describe('QuoteReviewDialog',()=>{
     type(within(promoted).getByLabelText('Unit price for PB3670'),'99');
     fireEvent.click(saveButton());
     await waitFor(()=>expect(save).toHaveBeenCalled());
-    expect(save.mock.calls[0][0].lines[2]).toEqual({unmatched:false,sku:'PB3670',matchedBy:'rep',originalText:'Reclosable bags 30x30 3 mil 4 cases',quantity:4,unit:'case',quantityUnclear:false,unitPrice:99,matchScore:0.42});
+    expect(save.mock.calls[0][0].lines[2]).toEqual({unmatched:false,sku:'PB3670',matchedBy:'rep',originalText:'Reclosable bags 30x30 3 mil 4 cases',quantity:4,unit:'case',quantityUnclear:false,customerQuantity:null,unitPrice:99,matchScore:0.42});
   });
 
   it('Swap offers the line\'s other candidates and a catalog search; choosing one makes it the rep\'s pick',async()=>{
