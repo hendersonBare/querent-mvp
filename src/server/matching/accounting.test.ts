@@ -381,3 +381,10 @@ describe('fix round 1: no shared state between calls, and bounded work per line'
     expect(performance.now()-t).toBeLessThan(1500);
   });
 });
+
+describe('fix round 1: a micron value is a second mil unless it converts within the tolerance',()=>{
+  it('"2 Mil 51 micron" states two thicknesses; "2 Mil 50.8 micron" one',()=>{
+    expect(blockers('Reclosable Poly Bags 4" x 6" 2 Mil 51 micron').join(' ')).toMatch(/two mil values/);
+    expect(blockers('Reclosable Poly Bags 4" x 6" 2 Mil 50.8 micron')).toEqual([]);
+  });
+});

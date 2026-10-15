@@ -1,4 +1,4 @@
-import {BURST_TO_ECT,DEFINING_CHOICE,PRODUCT_NOUNS,familyOf,parseItemSpec,parseSpec,productGroup,sameSize,type ChoiceKey,type DimOrder,type ItemSpec,type PackagingItem,type Size,type Spec} from './packaging';
+import {BURST_TO_ECT,DEFINING_CHOICE,PRODUCT_NOUNS,UNIT_TOLERANCE,familyOf,materialOfWord,parseItemSpec,parseSpec,productGroup,sameSize,type ChoiceKey,type DimOrder,type ItemSpec,type PackagingItem,type Size,type Spec} from './packaging';
 
 // Packaging-aware scoring (BOXT task B3). Matching is by description only: a SKU typed in the line is
 // just text, so a customer's own SKU can never match a BOXT SKU by coincidence. Pure; the catalog is
@@ -72,12 +72,24 @@ export {PRODUCT_NOUNS};
 export const KEYWORD_WORDS:ReadonlySet<string>=new Set(['shipping','packing','cardboard','plastic','poly','polypropylene','polyethylene','paperboard',
   'corrugated','industrial','carton','sealing','corner','list','wrapping','barcode']);
 /**
- * The only stand-ins for a product noun in an item's description (Strict): bubble or foam "wrap" is
- * sold as "Bubble Rolls"/"Foam Rolls", stretch "film" as "Stretch Wrap", pallet top "sheets" as
- * "Top Sheeting", and an RSC is a corrugated box. Nothing else: a carton is not a box, an envelope is
- * not a mailer, a pouch is not a bag.
+ * The only line words that stand for an item's product noun besides the noun itself (Strict): bubble
+ * or foam "wrap" is sold as "Bubble Rolls"/"Foam Rolls", stretch "film" as "Stretch Wrap", pallet top
+ * "sheets" as "Top Sheeting", an RSC is a corrugated box, tissue paper is sold as "Tissue Paper
+ * Sheets", and a strap is strapping. Nothing else: a carton is not a box, an envelope is not a mailer,
+ * a pouch is not a bag, a gaylord is not its lid.
  */
-export const NOUN_SYNONYMS:Readonly<Record<string,readonly string[]>>={wrap:['roll'],film:['wrap'],sheet:['sheeting'],rsc:['box']};
+export const NOUN_SYNONYMS:Readonly<Record<string,readonly string[]>>={roll:['wrap'],wrap:['film'],sheeting:['sheet'],box:['rsc'],sheet:['tissue'],strapping:['strap']};
+/**
+ * Item-side total accounting (Strict): every word of an item's description must be accounted for by
+ * the line (or it is unstated: 0.75, and a blocker), except a material the line leaves unsaid and
+ * these words, which every catalog item of their kind carries, so they never tell two items apart
+ * (src/eval/eval.test.ts checks that against the catalog): "Cased" (all edge protectors),
+ * "Perforated" (all bubble and foam rolls), "Central Folded" (all top sheeting), "Loose Fill" (all
+ * peanuts), "Document" (all envelopes), "Hand" (all tape dispensers).
+ */
+export const NON_DEFINING_WORDS:ReadonlySet<string>=new Set(['cased','perforated','central','folded','loose','fill','document','hand']);
+/** Line words that account for an item's description word besides the word itself: corner protectors are edge protectors. */
+export const ITEM_WORD_SYNONYMS:Readonly<Record<string,readonly string[]>>={edge:['corner']};
 
 /** Whether a line may be matched at Strict (total accounting), and if not, why: what the rep sees. */
 export interface Eligibility {strictEligible:boolean;blockers:string[]}
@@ -203,8 +215,9 @@ function fit(line:Spec,item:ScoredSpec){
     const has=item[key];
     const label=(v:string|number)=>unit==='#'?`#${v}`:`${typeof v==='number'?Number(v.toFixed(2)):v}${unit}`;
     for(const said of line.values[key] as (string|number)[]){
-      // Mil may come from microns, so it compares within half a percent.
-      const same=typeof said==='number'&&typeof has==='number'?Math.abs(said-has)<=0.005*Math.max(said,has):has===said;
+      // Exact, except a mil converted from microns, which compares within UNIT_TOLERANCE.
+      const tolerance=key==='mil'&&line.values.milFromMicron.some(m=>Math.abs(m-(said as number))<1e-12)?UNIT_TOLERANCE:0;
+      const same=typeof said==='number'&&typeof has==='number'?Math.abs(said-has)<=Math.max(1e-9,tolerance*Math.max(said,has)):has===said;
       add(A,has===null?0:same?1:-1,has===null?`${key}: ${label(said)}`:`${key}: ${label(said)} vs ${label(has)}`);
     }
   }
@@ -267,10 +280,20 @@ function fit(line:Spec,item:ScoredSpec){
   const named=line.words.filter(w=>PRODUCT_NOUNS.has(w));
   const typeConfirmed=named.some(w=>item.wordSet.has(w));
   const offNoun=named.length>0&&!typeConfirmed;
-  // Strict: the product noun must be in the item's description; keywords are a family's, not the item's.
+  // Strict: the line must name what the item is (its head noun, or a documented stand-in), and account
+  // for every other word of the item's description: "Gaylord 48x40" is not the Gaylord Lid, "White
+  // Paper" not White Flat Paper Mailers, "Expandable Foam Bags" not the Extra Thick (Bulk Pack) ones.
+  const says=(noun:string)=>line.words.includes(noun)||(NOUN_SYNONYMS[noun]??[]).some(w=>line.words.includes(w));
   if(!named.length)blockers.push('the line names no product (box, bag, mailer, tape, ...)');
-  else if(!named.some(w=>item.descSet.has(w)||(NOUN_SYNONYMS[w]??[]).some(x=>item.descSet.has(x))))
-    blockers.push(`product: the item's description does not say "${named.join('" or "')}"`);
+  if(!item.head)blockers.push(`product: the item's description names no product noun (${item.name})`);
+  else if(!says(item.head))unstated.push(`product "${item.head}" (the item is "${item.name}"${named.length?`; the line names "${named.join('", "')}"`:''})`);
+  for(const word of item.descWords){
+    if(word===item.head||NON_DEFINING_WORDS.has(word)||says(word))continue;
+    const material=materialOfWord(word);
+    if(material&&(!line.materials.length||line.materials.includes(material)))continue;
+    if((ITEM_WORD_SYNONYMS[word]??[]).some(w=>line.words.includes(w)))continue;
+    unstated.push(`word: ${word}`);
+  }
   for(const word of line.words){
     if(!PRODUCT_NOUNS.has(word)&&!item.descSet.has(word)&&item.wordSet.has(word)&&!KEYWORD_WORDS.has(word))blockers.push(`only the product family's keywords say "${word}", not the item's description`);
   }
@@ -288,14 +311,19 @@ function fit(line:Spec,item:ScoredSpec){
 const NOT_A_CANDIDATE:Eligibility={strictEligible:false,blockers:['nothing in the line fits this item']};
 
 type ScoredSpec=ItemSpec&{wordSet:ReadonlySet<string>;descSet:ReadonlySet<string>;group:string};
-const ITEMS=new WeakMap<object,ScoredSpec>();
-/** A catalog row taken apart once (per row object), with its word sets and product group. */
+const ITEMS=new WeakMap<ItemSpec,ScoredSpec>();
+/**
+ * A catalog row taken apart once, with its word sets and product group. Keyed on the parsed row,
+ * which parseItemSpec caches per row object and parses again when the row's fields change, so a row
+ * edited in place is never scored stale. Nothing about a line is cached: every call returns fresh
+ * candidates.
+ */
 function itemOf(item:PackagingItem){
-  let parsed=ITEMS.get(item);
+  const spec=parseItemSpec(item);
+  let parsed=ITEMS.get(spec);
   if(!parsed){
-    const spec=parseItemSpec(item);
     parsed={...spec,wordSet:new Set(spec.words),descSet:new Set(spec.descWords),group:productGroup(item)};
-    ITEMS.set(item,parsed);
+    ITEMS.set(spec,parsed);
   }
   return parsed;
 }
@@ -306,21 +334,6 @@ function itemOf(item:PackagingItem){
  * before its pallet-pricing twin).
  */
 export function scorePackaging<T extends PackagingItem>(description:string,catalog:readonly T[]):Candidate<T>[]{
-  // The result depends only on the line and the catalog (not on the level): cached per catalog array.
-  let cache=SCORED.get(catalog);
-  if(!cache)SCORED.set(catalog,cache=new Map());
-  const hit=cache.get(description) as Candidate<T>[]|undefined;
-  if(hit)return hit.slice();
-  const result=score(description,catalog);
-  if(cache.size>=SCORED_LIMIT)cache.delete(cache.keys().next().value!);
-  cache.set(description,result);
-  return result.slice();
-}
-/** Scored lines per catalog array, at most SCORED_LIMIT each (oldest dropped first). */
-const SCORED=new WeakMap<object,Map<string,Candidate<unknown>[]>>();
-const SCORED_LIMIT=2000;
-
-function score<T extends PackagingItem>(description:string,catalog:readonly T[]):Candidate<T>[]{
   const line=parseSpec(description);
   const sameDims=(tuple:Size[]|null)=>!!line.dims&&!!tuple&&tuple.length===line.dims.length&&tuple.every((d,i)=>sameSize(line.dims![i],d));
   const scored:(Candidate<T>&{index:number;distance:number})[]=[];

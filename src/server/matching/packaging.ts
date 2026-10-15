@@ -57,7 +57,9 @@ export interface Spec {
   /** A strapping core ("8x8\" Core" is "8x8"). */
   core:string|null;
   /** Every value the line states for each scalar field, in order (the fields above keep the first). */
-  values:{ect:number[];burst:number[];mil:number[];gauge:number[];number:string[];core:string[]};
+  values:{ect:number[];burst:number[];mil:number[];gauge:number[];number:string[];core:string[];
+    /** The mil values converted from microns: only these compare within UNIT_TOLERANCE. */
+    milFromMicron:number[]};
   /** Every value stated per exclusive choice (choices keeps the first). */
   choiceValues:Partial<Record<ChoiceKey,string[]>>;
   /** Every pack count stated (pack keeps the first). */
@@ -79,6 +81,8 @@ export interface ItemSpec extends Spec {
   name:string;
   /** The words of the description alone (no keywords): the product noun must be one of them at Strict. */
   descWords:string[];
+  /** The item's head product noun ("lid" for "Gaylord Lid"), which a line must name at Strict; null when the name has none. */
+  head:string|null;
   /** The catalog's order for the item's sizes: L x W x H (boxes, pallets), W x L (bags, mailers, rolls, sheets, labels), or null (unknown). */
   dimOrder:DimOrder;
   /** The colours the description states; `colors` adds the implied ones (kraft for plain corrugated). */
@@ -311,6 +315,11 @@ const MATERIALS:[string,RegExp][]=[
   ['tyvek',/\btyvek\b/],
 ];
 
+/** The material a single word names ("cardboard" is corrugated, "plastic" poly), or undefined. */
+export function materialOfWord(word:string){
+  return MATERIALS.find(([,re])=>re.test(word))?.[0];
+}
+
 function takeAll(text:string,table:[string,RegExp][]){
   const found:string[]=[];
   for(const [value,re] of table){
@@ -354,7 +363,7 @@ const SIZE=new RegExp(String.raw`${LABEL_BEFORE}${NUM}(?![\d\/])${UNIT}${LABEL_A
 /** A label's place in the catalog's order: length, width, then height or depth. */
 const LABEL_RANK:Record<string,number>={l:0,length:0,long:0,w:1,width:1,wide:1,h:2,height:2,high:2,tall:2,d:2,depth:2,deep:2};
 /** Lengths, in inches; weights in pounds. A size compares only with one of the same family. */
-const TO_BASE:Record<string,[string,number]>={in:['length',1],ft:['length',12],yd:['length',36],mm:['length',1/25.4],cm:['length',1/2.54],m:['length',39.3701],
+const TO_BASE:Record<string,[string,number]>={in:['length',1],ft:['length',12],yd:['length',36],mm:['length',1/25.4],cm:['length',1/2.54],m:['length',1000/25.4],
   lb:['weight',1],oz:['weight',1/16],cuft:['volume',1],gal:['volume',0.133681]};
 export const familyOf=(unit:string|null)=>unit?TO_BASE[unit]?.[0]??unit:null;
 
@@ -375,7 +384,11 @@ function toNumber(raw:string){
  */
 function takeSizes(text:string){
   const found:(Size&{start:number;end:number;rank?:number})[]=[];
+  const blockers:string[]=[];
   for(const m of text.matchAll(SIZE)){
+    // Only a proper fraction is a number ("1/2", "8 1/2", "8-1/2"); "16/2" or "1/0" is not read.
+    const fraction=/(\d+)\/(\d+)$/.exec(m[2]);
+    if(fraction&&(Number(fraction[2])===0||Number(fraction[1])>=Number(fraction[2]))){blockers.push(`an improper fraction: ${m[2]}`);continue;}
     const value=toNumber(m[2]);
     if(!Number.isFinite(value))continue;
     const unit=m[3]?UNIT_OF[m[3].replace(/\.$/,'')]??null:null;
@@ -388,7 +401,6 @@ function takeSizes(text:string){
   for(let i=0;i<found.length;i++){
     if(i>0&&joined(i-1))groups.at(-1)!.push(found[i]);else groups.push([found[i]]);
   }
-  const blockers:string[]=[];
   const ranksOf=new Map<(typeof found),(number|null)[]|null>();
   for(const group of groups){
     let carry:string|null=null;
@@ -428,21 +440,28 @@ function takeSizes(text:string){
   };
 }
 
-/** How close two sizes in different units must be after conversion: 914 mm is 36", 457 m is 1500'. */
-const UNIT_TOLERANCE=0.005;
 /**
- * Two sizes are the same when equal after converting to a shared unit family (within
- * UNIT_TOLERANCE). Without a unit on either side they compare by number alone, which only tuple
- * members do (the scorer never compares a stray or a unitless measure this way).
+ * How close two sizes in different units must be after conversion. A metric line rounds a standard
+ * imperial size to a whole millimetre or metre: 914 mm is 36" (0.04%), 203 mm is 8" (0.1%), 274 m is
+ * 900' (0.12%). 0.2% admits those and nothing a supplier would sell as a different size. Sizes in one
+ * unit (or with none) never get a tolerance: 12.05" is not 12", 6630' is not 6600'.
+ */
+export const UNIT_TOLERANCE=0.002;
+/** Equal as numbers: fractions and decimals are exact here (8 1/2 is 8.5, 5/8 is 0.625); 1e-9 absorbs float noise only. */
+const EXACT=1e-9;
+/**
+ * Two sizes are the same when equal: exactly in one unit (or unitless, which only tuple members are;
+ * the scorer never compares a stray or a unitless measure this way), or within UNIT_TOLERANCE after
+ * converting between units of one family (mm and inches, yards and feet).
  */
 export function sameSize(a:Size,b:Size){
-  if(a.unit&&b.unit){
+  if(a.unit&&b.unit&&a.unit!==b.unit){
     const [fa,ka]=TO_BASE[a.unit]??[a.unit,1],[fb,kb]=TO_BASE[b.unit]??[b.unit,1];
     if(fa!==fb)return false;
     const x=a.value*ka,y=b.value*kb;
-    return Math.abs(x-y)<=Math.max(1e-6,UNIT_TOLERANCE*Math.max(x,y));
+    return Math.abs(x-y)<=Math.max(EXACT,UNIT_TOLERANCE*Math.max(x,y));
   }
-  return Math.abs(a.value-b.value)<1e-6;
+  return Math.abs(a.value-b.value)<EXACT;
 }
 
 // ---- Words ------------------------------------------------------------------------------------------
@@ -495,7 +514,8 @@ export const PRODUCT_NOUNS:ReadonlySet<string>=new Set(['box','carton','mailer',
 function readLeftover(text:string){
   const blockers:string[]=[];
   // "with" before a product ("tape with dispenser", "boxes with lids") adds a second item.
-  for(const m of text.matchAll(/\bwith\s+(?:(?:an?|the)\s+)?([a-z]+)/g))if(PRODUCT_NOUNS.has(stem(m[1])))blockers.push(`the line says "with ${m[1]}": a second product`);
+  let withProduct=false;
+  for(const m of text.matchAll(/\bwith\s+(?:(?:an?|the)\s+)?([a-z]+)/g))if(PRODUCT_NOUNS.has(stem(m[1]))){blockers.push(`the line says "with ${m[1]}": a second product`);withProduct=true;}
   for(const c of new Set([...text].filter(c=>!/[a-z0-9]/.test(c)&&!SEPARATOR.test(c))))blockers.push(`"${c}" in the line`);
   for(const raw of text.split(/[^a-z0-9]+/)){
     if(!raw||FILLER.has(raw))continue;
@@ -505,7 +525,10 @@ function readLeftover(text:string){
     else if(UNIT_WORDS.has(raw)||UNIT_WORDS.has(word))blockers.push(`a unit with no number: "${raw}"`);
     else if(raw.length===1)blockers.push(`a letter nothing reads: "${raw}"`);
   }
-  return {words:wordsOf(text),blockers:[...new Set(blockers)]};
+  // "with" before a product is not filler: it is a word no item confirms, at every level.
+  const words=wordsOf(text);
+  if(withProduct&&!words.includes('with'))words.push('with');
+  return {words,blockers:[...new Set(blockers)]};
 }
 
 // ---- Negation ---------------------------------------------------------------------------------------
@@ -562,13 +585,35 @@ export interface ParseOptions {
   item?:boolean;
 }
 
+/** A line longer than this is not read at all (a blocker, and no candidates): no quote line is this long. */
+export const MAX_LINE_LENGTH=500;
+/** A run of more digits than this is no size, count or rating: a blocker, removed before any other rule runs. */
+export const MAX_DIGITS=12;
+
+/** What a line that can't be read says: nothing, with why. */
+function unreadSpec(blockers:string[]):Spec{
+  return {dims:null,dimRanks:null,otherDims:[],altDims:null,measures:[],strays:[],ect:null,burst:null,mil:null,gauge:null,number:null,core:null,
+    values:{ect:[],burst:[],mil:[],gauge:[],number:[],core:[],milFromMicron:[]},colors:[],materials:[],choices:{},choiceValues:{},features:[],
+    pack:{},packValues:{outer:[],roll:[]},negated:{choices:{},features:[],colors:[],words:[]},words:[],blockers};
+}
+
 /** Takes a line (or a catalog description) apart. */
 export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
+  // Bounded work: a line over MAX_LINE_LENGTH is not read, and over-long digit runs go before any regex runs.
+  if(raw.length>MAX_LINE_LENGTH)return unreadSpec([`the line is too long to read (over ${MAX_LINE_LENGTH} characters)`]);
+  const blockers:string[]=[];
+  const longDigits=new RegExp(String.raw`\d{${MAX_DIGITS+1},}`,'g');
+  if(longDigits.test(raw)){
+    blockers.push(`a number too long to read (over ${MAX_DIGITS} digits)`);
+    raw=raw.replace(longDigits,' ');
+  }
   let text=prepare(raw).replace(TIER,' ');
   if(item)text=text.replace(BUNDLE_WEIGHT,' ');
   const said=text;
-  const blockers:string[]=[];
   if(RANGES.some(re=>re.test(said)))blockers.push('a range');
+  for(const m of said.matchAll(/(?<![\d.\/])(\d+)\s*\/\s*(\d+)(?![\d.\/])/g)){
+    if(Number(m[2])===0||Number(m[1])>=Number(m[2]))blockers.push(`an improper fraction: ${m[1]}/${m[2]}`);
+  }
   const negations=takeNegations(text);text=negations.text;
   const packed=takePack(text);text=packed.text;
   const ect=takeValues(text,ECT,Number);text=ect.text;
@@ -581,7 +626,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   const micron=takeValues(text,MICRON,raw=>Number(raw)/25.4);text=micron.text;
   const mil=takeValues(text,MIL,Number);text=mil.text;
   const mils=[...mil.values];
-  for(const m of micron.values)if(!mils.some(x=>Math.abs(x-m)<=0.005*Math.max(x,m)))mils.push(m);
+  for(const m of micron.values)if(!mils.some(x=>Math.abs(x-m)<=UNIT_TOLERANCE*Math.max(x,m)))mils.push(m);
   const legends:number[][]=[];
   text=text.replace(LEGEND,(_m:string,...labels:(string|undefined)[])=>{
     legends.push(labels.slice(0,3).filter((l):l is string=>!!l).map(l=>LABEL_RANK[l]));
@@ -640,14 +685,21 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   return {
     dims:sizes.dims,dimRanks:sizes.dimRanks,otherDims:sizes.otherDims,altDims:sizes.altDims,measures,strays,
     ect:ect.value,burst:bursts[0]??null,mil:mils[0]??null,gauge:gauge.value,number:number.value,core:cores[0]??null,
-    values:{ect:ect.values,burst:bursts,mil:mils,gauge:gauge.values,number:number.values,core:cores},
+    values:{ect:ect.values,burst:bursts,mil:mils,gauge:gauge.values,number:number.values,core:cores,milFromMicron:micron.values},
     colors:colors.found,materials,choices:choices.choices,choiceValues:choices.values,features:features.found,
     pack:packed.pack,packValues:packed.values,negated:negations.negated,
     words:leftover.words,blockers:[...new Set(blockers)],
   };
 }
 
-const PARSED=new WeakMap<object,ItemSpec>();
+/** Parsed rows, per row object, with the fields they were parsed from: a row edited in place is parsed again. */
+const PARSED=new WeakMap<object,{signature:string;spec:ItemSpec}>();
+const signatureOf=(item:PackagingItem)=>JSON.stringify([item.description,item.keywords??null,item.pack??null,item.caseQty??null,item.category??null]);
+/** The item's head product noun: the last product noun of its product name ("Gaylord Lid" is a lid, "Hand Tape Dispensers" dispensers). */
+function headOf(name:string){
+  const nouns=name.split(/[^a-z0-9]+/).map(stem).filter(w=>PRODUCT_NOUNS.has(w));
+  return nouns.at(-1)??null;
+}
 /**
  * Catalog categories whose unitless numbers are inches: strapping widths ("Poly Strapping, Hand
  * Length, 0.5 600 lbs") and edge protector thickness ("2x2x48\" .160"). Elsewhere a unitless catalog
@@ -680,8 +732,9 @@ function dimOrderOf(item:PackagingItem,name:string):DimOrder{
  * implied: kraft for plain corrugated, or the one colour its keywords name ("clear poly bags").
  */
 export function parseItemSpec(item:PackagingItem):ItemSpec{
+  const signature=signatureOf(item);
   const cached=PARSED.get(item);
-  if(cached)return cached;
+  if(cached?.signature===signature)return cached.spec;
   const spec=parseSpec(item.description,{item:true});
   const keywordColors=takeAll(takeAll(prepare(item.keywords??''),FEATURES).text,COLORS).found;
   const implied=spec.colors.length?[]:spec.materials.includes('corrugated')?['kraft']:keywordColors.length===1?keywordColors:[];
@@ -696,9 +749,12 @@ export function parseItemSpec(item:PackagingItem):ItemSpec{
     words:[...new Set([...spec.words,...keywordWords])],
     descWords:spec.words,
     dimOrder:dimOrderOf(item,name),
+    head:headOf(name),
     name,
   };
-  PARSED.set(item,parsed);
+  // A mailer listed wider than long (Thermal Mailers 22x18", Glamour 13.75x11") may not be W x L: unknown.
+  if(parsed.dimOrder==='wl'&&item.category==='mailers'&&parsed.dims?.length===2&&parsed.dims[0].value>parsed.dims[1].value)parsed.dimOrder=null;
+  PARSED.set(item,{signature,spec:parsed});
   return parsed;
 }
 

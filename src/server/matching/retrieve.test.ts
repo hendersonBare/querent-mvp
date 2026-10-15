@@ -254,7 +254,8 @@ describe('round 3 classes',()=>{
   });
   it('never clears a line that names no product type, and says why',()=>{
     const r=retrieve('12 x 10 x 8"',CATALOG,STRICT);
-    expect(r.top?.score).toBe(1);
+    // B3b: a bare size fits the box, but doesn't name what the item is (its product noun).
+    expect(r.top?.score).toBe(UNCONFIRMED);
     expect(r.namesProduct).toBe(false);
     expect(r.clears).toBe(false);
     expect(decide(r,{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'no_product_type'});

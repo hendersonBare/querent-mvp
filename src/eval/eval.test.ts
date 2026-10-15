@@ -3,6 +3,8 @@ import {STRICTNESS_LEVELS,type StrictnessLevel} from '@/features/settings/strict
 import {CASES,NO_MATCH_WHYS,withoutSupplierSku} from './cases';
 import {HELDOUT_BARE_SIZES} from './heldout';
 import {decide} from '@/server/matching/decide';
+import {parseItemSpec} from '@/server/matching/packaging';
+import {NON_DEFINING_WORDS} from '@/server/matching/score-packaging';
 import {retrieve} from '@/server/matching/retrieve';
 import {matchConfig} from '@/features/settings/strictness';
 import {CATALOG,JUDGES,RECORDED_BY,RECORDING,judgeCandidates,judgeVerdict,retrieveAt,runCase,runEval} from './run';
@@ -64,6 +66,22 @@ describe('the evaluation set',()=>{
     for(const [id,verdict] of Object.entries(RECORDING)){
       if(verdict.sku!==null)expect(skus.has(verdict.sku),id).toBe(true);
       expect(verdict.reason.length,id).toBeGreaterThan(5);
+    }
+  });
+});
+
+describe('the catalog facts the scorer relies on',()=>{
+  it('never lets a non-defining description word tell two catalog items apart (each is on every item of its kind)',()=>{
+    const specs=CATALOG.map(row=>parseItemSpec(row));
+    for(const word of NON_DEFINING_WORDS){
+      const withWord=specs.filter(s=>s.descWords.includes(word));
+      expect(withWord.length,word).toBeGreaterThanOrEqual(2);
+      // A line that says everything else an item with the word says must not also describe an item
+      // without it: no item of the same product (head noun) without the word has description words all
+      // within another's (minus the word).
+      const clash=specs.filter(other=>!other.descWords.includes(word)&&other.descWords.length&&
+        withWord.some(s=>other.head===s.head&&other.descWords.every(w=>w!==word&&s.descWords.includes(w))));
+      expect([...new Set(clash.map(s=>s.name))],word).toEqual([]);
     }
   });
 });
