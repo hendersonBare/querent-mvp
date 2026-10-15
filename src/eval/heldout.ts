@@ -787,6 +787,21 @@ export const HELDOUT_CASES:readonly EvalCase[]=[
   heldNoMatch("h6n276","Yellow Hand Strapping 1/2\" 500 lb","wrong_spec","Round 6 verifier probe (must not match at Strict)."),
   heldNoMatch("h6n277","Strapping, Hand Length, 1/2\" 600 lb, Black","wrong_spec","Round 6 verifier probe (must not match at Strict)."),
   heldNoMatch("h6n278","Gaylord 48 x 40 x 48\"","wrong_spec","Round 6 verifier probe (must not match at Strict)."),
+  // ---- Final verification (round 7): "Thick" after a size tuple is a word the item must confirm ----
+  heldNoMatch("h7n01","Expandable Foam Bags 18 x 24\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n02","Corrugated Boxes 12 x 10 x 8\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n03","Heavy Duty Boxes 24 x 18 x 18\" Thick BC Flute","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n04","Bubble Pouches 4 x 6\" Thick Flush Cut","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n05","Silver Glamour Bubble Mailers 7 x 6.75\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n06","#5 Kraft Bubble Mailers 10.5 x 16\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n07","Poly Bubble Mailers #5 10.5 x 16\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n08","#7 Flat Poly Mailers 19 x 24\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n09","White Flat Paper Mailers 9 x 11.5\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n10","Corrugated Sheets 48 x 48\" Thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n11","Reclosable Poly Bags 4 x 6\" Thick 2 Mil","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n12","Expandable Foam Bags 18 x 24 thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n13","Expandable Foam Bags 18\" x 24\" thick","wrong_spec","Round 7: \"thick\" after the size is not filler; the item doesn't say it."),
+  heldNoMatch("h7n14","Expandable Foam Bags 18 x 24\" Thin","wrong_spec","Round 7: \"thin\" after the size is a word the item doesn't say."),
 ];
 
 /** Round 2's bare sizes: no product named, so never a match at any level. */

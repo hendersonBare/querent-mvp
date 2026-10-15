@@ -1,4 +1,4 @@
-import {describe,expect,it} from 'vitest';
+import {beforeAll,describe,expect,it} from 'vitest';
 import {STRICTNESS_LEVELS,type StrictnessLevel} from '@/features/settings/strictness';
 import {CASES,NO_MATCH_WHYS,withoutSupplierSku} from './cases';
 import {HELDOUT_BARE_SIZES} from './heldout';
@@ -18,6 +18,16 @@ const atOrStricterThan=(level:StrictnessLevel)=>STRICTNESS_LEVELS.slice(0,STRICT
 const skus=new Set(CATALOG.map(row=>row.sku));
 const mustMatch=CASES.filter(c=>c.expect!=='no_match');
 const mustNot=CASES.filter(c=>c.expect==='no_match');
+
+// Score every line once, before any test: retrieveAt() memoizes per line and level, so the tests below
+// only read results. With 1,000+ lines this takes a few seconds, which as part of one test sat at
+// vitest's default 5 s timeout and made the gate flaky; here it has an explicit generous timeout.
+beforeAll(()=>{
+  for(const level of STRICTNESS_LEVELS){
+    for(const c of CASES)retrieveAt(c.description,level);
+    for(const line of HELDOUT_BARE_SIZES)retrieveAt(line,level);
+  }
+},120_000);
 
 describe('the evaluation set',()=>{
   it('has at least 40 lines: 12 or more must-match, 25 or more must-not-match, every reason covered',()=>{

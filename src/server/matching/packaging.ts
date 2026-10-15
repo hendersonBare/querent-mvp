@@ -431,6 +431,15 @@ function takeSizes(text:string){
       blockers.push(labelled<group.length?'a size with labels on only some of its numbers':'a size with one label used twice');
     }else ranksOf.set(group,null);
   }
+  // ".160" thick": "thick" right after a single size in a length unit names that size's dimension and
+  // says nothing more. After a tuple ("18 x 24" Thick") or a number that is no length ("40 lb thick",
+  // "2 mil thick") it is a word the item must confirm. (Long, wide, high, deep and tall are labels,
+  // read by SIZE: on a tuple member or a single size they make a blocker, never filler.)
+  for(const group of groups){
+    if(group.length!==1||!group[0].unit||familyOf(group[0].unit)!=='length'||group[0].rank!==undefined)continue;
+    const after=/^\s*thick\b/.exec(text.slice(group[0].end));
+    if(after)group[0].end+=after[0].length;
+  }
   const strip=({unit,value,label,rank}:Size):Size=>({unit,value,label:unit?`${label} ${unit}`:label,...(rank!==undefined?{rank}:{})});
   const tuples=groups.filter(g=>g.length>1);
   const tuple=tuples[0]??null;
@@ -492,7 +501,7 @@ export function sameSize(a:Size,b:Size):boolean{
  * confirm what they say about the line:
  *   - FILLER, the only words that say nothing about the item: "an", "the", "of", "with", polite and
  *     order words (please, our, we, need, qty, quantity), "size"/"sz"/"thickness" (the numbers carry
- *     the meaning; "thick" right after a size too), and the other supplier's own name ("uline",
+ *     the meaning; "thick" right after a single length, read by takeSizes), and the other supplier's own name ("uline",
  *     "brand"). "a" is NOT filler: it is a grade, a style or a flute letter as often as an article.
  *   - JOINING words relate the item to something else or join two things ("for", "to", "fit",
  *     "item", "style", "or", "and", "approx", "each", "inside", "assorted", "per", ...): a blocker;
@@ -511,8 +520,6 @@ const UNIT_WORDS=new Set(`x inch ft feet foot yd yds yard mm cm meter lb lbs pou
 const NUMBER_WORDS=new Set('half quarter third dozen pair one two three four five six seven eight nine ten eleven twelve twenty fifty hundred thousand'.split(' '));
 /** What may separate tokens without meaning anything: space, comma, full stop, semicolon, colon, brackets, quotes, ! ?, a hyphen or dash, a bullet. (A dash between numbers is a range: RANGE.) */
 const SEPARATOR=/[\s,.;:()'"!?\-–—•]/;
-/** ".160" thick": "thick" right after a size says nothing more. (Long, wide, high, deep and tall there are L/W/H labels.) Elsewhere ("long boxes") they count. */
-const SIZE_ADJECTIVE=/(\d(?:"|''|'|\s*(?:in|inch|inches|ft|feet|foot|mm|cm)\b\.?)?)\s*thick\b/g;
 
 /** The words of a text: every token but FILLER and bare numbers, stemmed, once each. */
 function wordsOf(text:string){
@@ -672,7 +679,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   if(kraft&&!materials.length&&!BOX_LINE.test(said))materials.push('paper');
   const grade=PAPER_GRADES.find(([,re])=>re.test(text))?.[0]??(kraft&&materials.includes('paper')?'kraft':undefined);
   if(grade){choices.choices.paper=grade;choices.values.paper=[grade];}
-  const sizes=takeSizes(text.replace(SIZE_ADJECTIVE,'$1 '));
+  const sizes=takeSizes(text);
   blockers.push(...sizes.blockers);
   // A legend labels the tuple's members in order; with each label once, put them in L, W, H/D order.
   if(legends.length>1)blockers.push('two size legends');
