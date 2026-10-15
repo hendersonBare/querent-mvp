@@ -71,6 +71,6 @@ describe('QuotesTable',()=>{
 
   it('never prints an em dash',()=>{
     const {container}=render(<QuotesTable quotes={rows}/>);
-    expect(container.textContent).not.toContain('—');
+    expect(container.textContent).not.toContain('\u2014');
   });
 });

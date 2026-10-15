@@ -227,5 +227,5 @@ describe('deleting',()=>{
 
 it('never prints an em dash',()=>{
   const {container}=render(<QuoteDetail initial={quote()}/>);
-  expect(container.textContent).not.toContain('—');
+  expect(container.textContent).not.toContain('\u2014');
 });
