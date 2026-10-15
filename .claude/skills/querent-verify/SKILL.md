@@ -29,6 +29,12 @@ You need the task ID, its section in `docs/plans/plan.md`, the branch, the workt
      - the red floor warning sits above the price field
      - the Customer PDF never shows cost or margin
      - nothing sends while send-blockers exist
+5a. **Lane U tasks (U0 to U11) replace step 5** with the frame gate in `plan.md` ("Rules for every lane U task", "Frame proof"):
+   - Run the app (production build) and, for every frame the task maps, open the page at **1920x1080** as the right persona (manager `supplier`, rep `mara`, customer `customer`, visitor no cookie), drive it into the frame's state (click the same control), and run `npm run frames -- compare <id> <url> --cookie=querent-persona=<persona>`, preferably through the task's `e2e/frames-*.spec.ts` so it is repeatable.
+   - Widths are ignored by default (viewport differs). Also assert the rail is 216px and that the extra width goes only to fluid regions; fixed widths in a frame (for example editor columns) must match with `--width`.
+   - Record per frame: **PASS** (zero unexplained differences and no missing elements) or each measured difference with the frame value and the app value. Explained differences are only: placeholder data per Appendix G of `docs/design/new-ui-implementation-prompt.md`, the taller viewport, the "FEATURE FLAG: HIDDEN" markers, or a numbered decision. Any unexplained difference is a FAIL.
+   - Screenshots are not evidence. Do not check 390px widths (decision 43: no phone layouts). The old mockup and `docs/design/README.md` differences do not apply to screens a frame covers.
+   - Check copy is literal (no em-dashes, no added text, icons or buttons) and that nothing without a frame was built without being listed under "No frame" in `docs/plans/status.md`.
 6. **Scope check.** Did the diff do what the task asked and nothing surprising? Is any SQL outside `src/server/repository/` (migrations aside)? Does customer-facing code touch cost or margin? Is deferred work marked `TODO(R-n)` with a registry ID? Is anything cut from the task or the decision log without being flagged? Does it build anything the decision log says is out of scope?
 
 ## Verdict

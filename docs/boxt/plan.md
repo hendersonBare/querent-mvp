@@ -99,7 +99,7 @@ interface JudgeCandidate {sku:string;description:string;pack?:string|null;catego
 type JudgeVerdict = {sku:string|null;reason:string};   // null = none; anything not in the list becomes null
 interface Judge {judge(line:{description:string;rawText:string},candidates:JudgeCandidate[]):Promise<JudgeVerdict>}
 ```
-Both use tool use with a JSON schema and are validated with zod; a malformed judge answer is `null`
+Both use tool use with a JSON schema (`tool_choice: auto` with `disable_parallel_tool_use`, because the default thinking model rejects a forced tool choice; a reply without the tool call fails closed) and are validated with zod; a malformed judge answer is `null`
 (No match); a malformed parse is a clear user-facing error. `QUERENT_SCRIPTED=1` (or no key) selects the
 scripted parser (deterministic line splitter; PDFs by fixture hash) and the scripted judge (recorded
 verdicts in `src/server/llm/fixtures/judge.json`, else the first candidate). Judging runs with bounded
@@ -126,11 +126,11 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | ID | Task | Blocked by | Status |
 |---|---|---|---|
-| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | in progress (`boxt/task/B0-strip-to-shell`) |
-| B1 | Supabase schema, RLS, seed, repository | B0 | pending |
+| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | merged |
+| B1 | Supabase schema, RLS, seed, repository | B0 | in progress (`boxt/task/B1-supabase-schema`) |
 | B2 | Auth (login, reset, proxy, guards) | B1 | pending |
 | B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
-| B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | in progress (`boxt/task/B4-llm-parser-judge`) |
+| B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
 | B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
 | B6 | Quotes list and detail | B1, B2 | pending |
 | B7 | Settings (match strictness) | B1, B2, B3 | pending |
@@ -219,6 +219,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| B4 | `6509674` | PASS | typecheck 0; `npm test` 21 files / 244 tests offline; build 0; only `client.ts` names a model or reads the key; probes: case/space-variant SKU → null, empty candidates → no call, 201 rows refused, 4 MB+1 PDF refused, `judgeAll` ≤ 2 in flight with concurrency 2, timeouts abort. Follow-ups for B5: bound the parse time to fit the route's `maxDuration`; consider `strict` tools after an SDK upgrade. |
+| B0 | `90a07a5` | PASS | typecheck 0; `npm test` 13 files / 147 tests; build routes only `/`, `/quote-tool`, `/quotes`, `/settings`; acceptance grep empty; curl: `/` 307 → `/quote-tool`, old routes 404; planted skip/key violations fail the guards; matching/llm untouched. Notes: Dialog.module.css kept for B5; `catalog.test.ts` excluded until B3; sign-out endpoint pending B2. |
 
 ## Open assumptions
 - "The rep can edit … and delete their quotes": every signed-in user can edit or delete any quote (one

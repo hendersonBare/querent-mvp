@@ -1,0 +1,10 @@
+{
+  "file": "test/fixtures/sample-list.pdf",
+  "note": "Hand-written: what the live parser should return for this PDF.",
+  "rows": [
+    {"rawText": "S-4128   12 x 10 x 8\" Corrugated Boxes, 32 ECT     10 bundles     $1.10", "description": "12 x 10 x 8\" Corrugated Boxes, 32 ECT", "quantity": 10, "unit": "bundle", "suppliersSku": "S-4128", "quantityUnclear": false},
+    {"rawText": "S-1734   Cast Stretch Wrap 18\" x 1500' 80 Gauge     4 rolls     $24.00", "description": "Cast Stretch Wrap 18\" x 1500' 80 Gauge", "quantity": 4, "unit": "roll", "suppliersSku": "S-1734", "quantityUnclear": false},
+    {"rawText": "S-5467   Reclosable Poly Bags 30 x 30\" 2 Mil     2 cases     $89.00", "description": "Reclosable Poly Bags 30 x 30\" 2 Mil", "quantity": 2, "unit": "case", "suppliersSku": "S-5467", "quantityUnclear": false},
+    {"rawText": "H-1180   Kraft Packing Paper Roll 36\"     as needed", "description": "Kraft Packing Paper Roll 36\"", "quantity": null, "unit": null, "suppliersSku": "H-1180", "quantityUnclear": true}
+  ]
+}
