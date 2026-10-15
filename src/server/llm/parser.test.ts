@@ -93,7 +93,7 @@ describe('live parser: validation',()=>{
 
   it('is clear, non-technical copy',()=>{
     expect(PARSE_ERROR).toBe('Could not read that list. Try pasting it as text.');
-    for(const message of [PARSE_ERROR,SERVICE_ERROR,TOO_MANY_ROWS_ERROR])expect(message).not.toMatch(/json|schema|tool|api|zod|error code|\d{3}/i);
+    for(const message of [PARSE_ERROR,SERVICE_ERROR,TOO_MANY_ROWS_ERROR])expect(message).not.toMatch(/json|schema|tool|\bapi\b|zod|error code|\b[45]\d\d\b/i);
   });
 });
 

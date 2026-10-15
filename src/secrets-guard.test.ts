@@ -11,8 +11,9 @@ import {describe,expect,it,vi} from 'vitest';
 const ROOT=resolve(__dirname,'..');
 const KEY_NAMES=/\b(ANTHROPIC_API_KEY|OILPRICEAPI_KEY)\b/;
 // The modules that read a key (or hand it to the SDK). The fuel price client is C3's (spec §4.3); the
-// pop-up suggestion picker is E1's (spec §10).
-const KEY_READERS=['src/server/chat/mode.ts','src/server/chat/live.ts','src/server/upsells-writer/claude.ts','src/server/customer/suggestion-picker.ts','src/server/freight/fuel-price.ts'];
+// pop-up suggestion picker is E1's (spec §10). The BOXT quote tool's parser and judge read it in
+// src/server/llm/client.ts only (docs/boxt/plan.md, "LLM contract").
+const KEY_READERS=['src/server/llm/client.ts','src/server/chat/mode.ts','src/server/chat/live.ts','src/server/upsells-writer/claude.ts','src/server/customer/suggestion-picker.ts','src/server/freight/fuel-price.ts'];
 
 function walk(dir:string):string[]{
   return readdirSync(dir).flatMap(name=>{const path=join(dir,name);return statSync(path).isDirectory()?walk(path):[path];});

@@ -1,0 +1,16 @@
+{
+  "12x10x8\" corrugated boxes, 32 ect": {"sku": "12108-BDL", "reason": "Same box: 12x10x8\", 32 ECT single wall; the bundle and pallet tiers are one product, so the first is picked."},
+  "12x10x8\" corrugated boxes": {"sku": "12108-BDL", "reason": "Same box, same dimensions in the same order; bundle pricing listed first."},
+  "12x10x8\" corrugated boxes, 32 ect, pallet": {"sku": "12108-PLT", "reason": "Same box; the line asks for pallet quantities."},
+  "12x8x10\" corrugated boxes, 32 ect": {"sku": null, "reason": "The candidates are 12x10x8; the line asks for 12x8x10, a different box."},
+  "12x10x8\" corrugated boxes, 44 ect double wall": {"sku": null, "reason": "The candidates are 32 ECT single wall; the line asks for 44 ECT double wall."},
+  "cast stretch wrap 18\"x1500' 80 gauge": {"sku": "SF188CAST", "reason": "Same cast hand wrap, 18\"x1500', 80 gauge."},
+  "cast stretch wrap 18\"x1500' 90 gauge": {"sku": null, "reason": "No candidate is 90 gauge."},
+  "blown stretch wrap, machine length, 20\"x5000' 90 gauge": {"sku": "MSF2090B", "reason": "Same machine-length blown wrap, 20\"x5000', 90 gauge."},
+  "reclosable poly bags 30x30\" 2 mil": {"sku": "PB3669", "reason": "Same reclosable bag, 30x30\", 2 mil."},
+  "reclosable poly bags 30x30\" 4 mil": {"sku": null, "reason": "The candidates are 2 mil; the line asks for 4 mil."},
+  "reclosable poly bags 30x30\" 2 mil, 500/case": {"sku": null, "reason": "The candidates come 250 to a case; the line asks for 500 per case."},
+  "white corrugated mailers 10x4x4\"": {"sku": "M1044", "reason": "Same white corrugated mailer, 10x4x4\"."},
+  "kraft corrugated mailers 10x4x4\"": {"sku": null, "reason": "The candidates are white; the line asks for kraft."},
+  "anti-static bubble bags 4x5.5\"": {"sku": null, "reason": "No candidate is an anti-static bubble bag."}
+}
