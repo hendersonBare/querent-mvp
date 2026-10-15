@@ -140,8 +140,58 @@ function positionOf(rank:number,order:DimOrder,count:number){
 }
 const sameTuple=(a:Size[],b:Size[]|null)=>!!b&&a.length===b.length&&a.every((d,i)=>sameSize(d,b[i]));
 
+/**
+ * What the line's own words say about the material besides naming it (MATERIAL_IMPLIED_BY): an ECT,
+ * a burst rating, a flute or a wall is a rating or construction of corrugated board only; a thickness
+ * in mil, gauge or microns is a plastic film's (src/eval/eval.test.ts checks both against the catalog:
+ * no item with them states another material).
+ */
+export const MATERIAL_IMPLIED_BY={corrugated:'an ECT, burst rating, flute or wall',poly:'a thickness in mil, gauge or microns'} as const;
+function impliedMaterials(line:Spec){
+  const materials=[...line.materials];
+  if(line.values.ect.length||line.values.burst.length||line.choiceValues.flute||line.choiceValues.wall)materials.push('corrugated');
+  if(line.values.mil.length||line.values.gauge.length)materials.push('poly');
+  return materials;
+}
+
+/**
+ * Defaults are implied only when no variant says otherwise (final fix round). The variants of an item
+ * are the catalog items of the same product (head noun and description words) and the same size. Where
+ * one of them states a different choice, colour or ECT (a double wall gaylord of the same size, a white
+ * box of the same size, a coloured mailer of the same size), the item's own value is no longer a
+ * default the line may leave unsaid: it must be stated, and an item that doesn't state its own value
+ * (a "Colored Bubble Mailer" with no colour named) can't be confirmed at all.
+ */
+function variantDefaults(line:Spec,item:ScoredSpec,variants:readonly ScoredSpec[],already:ReadonlySet<string>){
+  const out:string[]=[];
+  // Only the variants the line still allows: one it contradicts (a blown wrap for a "cast" line, a 4 mil
+  // bag for a "2 mil" line, a white box for a "kraft" line) doesn't make the item's default ambiguous.
+  const allows=(v:ScoredSpec)=>
+    (Object.entries(line.choiceValues) as [ChoiceKey,string[]][]).every(([key,values])=>v.choices[key]===undefined||values.includes(v.choices[key]!))&&
+    line.colors.every(c=>!v.colors.length||v.colors.includes(c))&&
+    line.values.mil.every(m=>v.mil===null||Math.abs(v.mil-m)<1e-9)&&line.values.gauge.every(g=>v.gauge===null||v.gauge===g)&&
+    line.values.ect.every(e=>v.ect===null||v.ect===e)&&line.features.every(f=>v.features.includes(f));
+  const others=variants.filter(v=>v!==item&&v.group!==item.group&&allows(v));
+  if(!others.length)return out;
+  const keys=new Set(others.flatMap(v=>Object.keys(v.choices) as ChoiceKey[]).concat(Object.keys(item.choices) as ChoiceKey[]));
+  for(const key of keys){
+    if(!others.some(v=>v.choices[key]!==item.choices[key]))continue;
+    const value=item.choices[key];
+    if(value===undefined)out.push(`${key}: not stated on this item, and its variants differ`);
+    else if(line.choices[key]===undefined&&!already.has(`${key}: ${value}`))out.push(`${key}: ${value} (a variant of this item is ${others.map(v=>v.choices[key]??'unstated').filter(x=>x!==value).join('/')})`);
+  }
+  const colorsOf=(v:ScoredSpec)=>[...v.colors].sort().join('/');
+  if(others.some(v=>colorsOf(v)!==colorsOf(item))){
+    if(!item.colors.length)out.push('color: not stated on this item, and its variants differ');
+    else if(!line.colors.length&&!already.has(`color: ${item.statedColors.join('/')}`))out.push(`color: ${item.colors.join('/')} (a variant of this item is another colour)`);
+  }
+  if(item.ect!==null&&others.some(v=>v.ect!==item.ect)&&!line.values.ect.length&&!line.values.burst.length&&!already.has(`strength: ${item.ect} ECT`))
+    out.push(`strength: ${item.ect} ECT (a variant of this item is ${others.map(v=>v.ect===null?'unstated':`${v.ect} ECT`).filter(x=>x!==`${item.ect} ECT`).join('/')})`);
+  return out;
+}
+
 /** How well an item fits a line, before rounding. */
-function fit(line:Spec,item:ScoredSpec){
+function fit(line:Spec,item:ScoredSpec,variants:readonly ScoredSpec[]=[]){
   let total=0,got=0,distance=0,identity=false;
   const conflicts:string[]=[],unstated:string[]=[],unexplained:string[]=[],blockers:string[]=[];
   /** fit 1: the item confirms it; -1: the item contradicts it (label: why); 0: the item doesn't account for it (label: what). */
@@ -234,8 +284,10 @@ function fit(line:Spec,item:ScoredSpec){
     add(A,item.colors.includes(color)?1:item.colors.length?-1:0,item.colors.length?`color: ${color} vs ${item.colors.join('/')}`:`color: ${color}`);
   }
   if(!line.colors.length&&item.statedColors.length)unstated.push(`color: ${item.statedColors.join('/')}`);
+  // The item's material, stated or implied by its own specs (a 48-ECT double wall sheet is corrugated).
+  const itemMaterials=impliedMaterials(item);
   for(const material of line.materials){
-    add(A,item.materials.includes(material)?1:item.materials.length?-1:0,item.materials.length?`material: ${material} vs ${item.materials.join('/')}`:`material: ${material}`);
+    add(A,itemMaterials.includes(material)?1:itemMaterials.length?-1:0,itemMaterials.length?`material: ${material} vs ${itemMaterials.join('/')}`:`material: ${material}`);
   }
   for(const [key,values] of Object.entries(line.choiceValues) as [ChoiceKey,string[]][]){
     const has=item.choices[key];
@@ -286,13 +338,15 @@ function fit(line:Spec,item:ScoredSpec){
     }
   }
 
+  // A line noun that stands for the item's head noun ("Foam Wrap" for Foam Rolls) is confirmed by it.
+  const standsIn=(word:string)=>!!item.head&&(NOUN_SYNONYMS[item.head]??[]).includes(word);
   for(const word of line.words){
-    const has=item.wordSet.has(word);
+    const has=item.wordSet.has(word)||standsIn(word);
     add(PACKAGING_WEIGHTS.word,has?1:0,`word: ${word}`);
     identity||=has;
   }
   const named=line.words.filter(w=>PRODUCT_NOUNS.has(w));
-  const typeConfirmed=named.some(w=>item.wordSet.has(w));
+  const typeConfirmed=named.some(w=>item.wordSet.has(w)||standsIn(w));
   const offNoun=named.length>0&&!typeConfirmed;
   // Item-side accounting of the item's specs (fix round 2): what the item states, the line must state.
   // Its full size; every size, weight or volume of its own (a .160" thickness, 40 lb paper, 600 lb
@@ -305,9 +359,12 @@ function fit(line:Spec,item:ScoredSpec){
     if(has!==null&&!(line.values[key] as unknown[]).length)unstated.push(`${key}: ${unit==='#'?`#${has}`:`${has}${unit}`}`);
   }
   if(item.ect!==null&&item.ect!==32&&!line.values.ect.length&&!line.values.burst.length)unstated.push(`strength: ${item.ect} ECT`);
-  // A mailer's or a sheet's material is what kind it is (kraft or poly bubble, paper or poly flat, corrugated sheets).
-  if((item.head==='mailer'||item.head==='sheet')&&item.materials.length&&!item.materials.some(m=>line.materials.includes(m)))
-    unstated.push(`material: ${item.materials.join('/')}`);
+  // The material the item's description states is what kind it is (foam rolls, poly strapping, kraft or
+  // poly bubble mailers, corrugated boxes): the line must state it, or say something only that
+  // material has (MATERIAL_IMPLIED_BY).
+  const lineMaterials=impliedMaterials(line);
+  if(item.materials.length&&!item.materials.some(m=>lineMaterials.includes(m)))unstated.push(`material: ${item.materials.join('/')}`);
+  unstated.push(...variantDefaults(line,item,variants,new Set(unstated)));
   // Strict: the line must name what the item is (its head noun, or a documented stand-in), and account
   // for every other word of the item's description: "Gaylord 48x40" is not the Gaylord Lid, "White
   // Paper" not White Flat Paper Mailers, "Expandable Foam Bags" not the Extra Thick (Bulk Pack) ones.
@@ -317,10 +374,10 @@ function fit(line:Spec,item:ScoredSpec){
   else if(!says(item.head))unstated.push(`product "${item.head}" (the item is "${item.name}"${named.length?`; the line names "${named.join('", "')}"`:''})`);
   for(const word of item.descWords){
     if(word===item.head||NON_DEFINING_WORDS.has(word)||says(word))continue;
-    const material=materialOfWord(word);
-    // A material word is accounted for when the line says it or leaves the material unsaid (a mailer's
-    // or a sheet's unsaid material is charged once, above). A different material is a contradiction.
-    if(material&&(line.materials.includes(material)||!line.materials.length))continue;
+    // A material word is charged once, above, as the item's material.
+    if(materialOfWord(word))continue;
+    // "Colors" (Cast Stretch Wrap, Machine Length, Colors ..., Blue) is said by the colour the line states.
+    if(word==='color'&&line.colors.length)continue;
     if((ITEM_WORD_SYNONYMS[word]??[]).some(w=>line.words.includes(w)))continue;
     unstated.push(`word: ${word}`);
   }
@@ -342,6 +399,12 @@ const NOT_A_CANDIDATE:Eligibility={strictEligible:false,blockers:['nothing in th
 
 type ScoredSpec=ItemSpec&{wordSet:ReadonlySet<string>;descSet:ReadonlySet<string>;group:string};
 const ITEMS=new WeakMap<ItemSpec,ScoredSpec>();
+/** The product and size an item is a variant of: head noun, description words (without NON_DEFINING_WORDS), features, dims and measures. */
+function variantKey(spec:ScoredSpec){
+  return JSON.stringify([spec.head,spec.descWords.filter(w=>!NON_DEFINING_WORDS.has(w)).sort(),[...spec.features].sort(),
+    spec.dims?.map(d=>[d.unit,d.value])??null,spec.measures.filter(m=>m.unit).map(m=>[m.unit,m.value]).sort()]);
+}
+
 /**
  * A catalog row taken apart once, with its word sets and product group. Keyed on the parsed row,
  * which parseItemSpec caches per row object and parses again when the row's fields change, so a row
@@ -367,12 +430,22 @@ export function scorePackaging<T extends PackagingItem>(description:string,catal
   const line=parseSpec(description);
   const sameDims=(tuple:Size[]|null)=>!!line.dims&&!!tuple&&tuple.length===line.dims.length&&tuple.every((d,i)=>sameSize(line.dims![i],d));
   const scored:(Candidate<T>&{index:number;distance:number})[]=[];
+  // Variants: items of one product (head noun and description words) and one size. Built per call from
+  // the catalog given, so an edited catalog is never read stale.
+  const specs=catalog.map(itemOf);
+  const variants=new Map<string,ScoredSpec[]>();
+  for(const spec of specs){
+    const key=variantKey(spec);
+    let list=variants.get(key);
+    if(!list)variants.set(key,list=[]);
+    list.push(spec);
+  }
   catalog.forEach((item,index)=>{
-    const spec=itemOf(item);
+    const spec=specs[index];
     // fit() scores 0 unless a word, a feature or the size fits; skip the rest cheaply (same result).
     // (A labelled tuple may be reordered for the item, so it is never skipped on size.)
     if(!line.words.some(w=>spec.wordSet.has(w))&&!line.features.some(f=>spec.features.includes(f))&&!line.dimRanks&&!sameDims(spec.dims)&&!sameDims(spec.altDims))return;
-    const {score,conflicts,unstated,unexplained,typeConfirmed,distance,eligibility}=fit(line,spec);
+    const {score,conflicts,unstated,unexplained,typeConfirmed,distance,eligibility}=fit(line,spec,variants.get(variantKey(spec))??[]);
     const rounded=hundredths(score)/100;
     if(rounded>0)scored.push({item,score:rounded,group:spec.group,conflicts,unstated,unexplained,typeConfirmed,eligibility,index,distance});
   });

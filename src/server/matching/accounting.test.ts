@@ -546,6 +546,7 @@ describe('final round: a default is implied only when no variant of the item sta
 describe('final round: recall fixes',()=>{
   it('reads a product name past a number in it ("Heavyweight 48-ECT Double Wall Sheets")',()=>{
     expect(strict4('Heavyweight 48 ECT Double Wall Corrugated Sheets 48 x 40"')).toBe('SP4048DW');
+    expect(strict4('Heavyweight 48 ECT Double Wall Sheets 48 x 40"')).toBe('SP4048DW');
   });
   it('accounts for a family word "Colors" with the colour the line states',()=>{
     expect(strict4('Blue Cast Stretch Wrap Machine Length 20" x 6000\' 80 Gauge')).toBe('MSF2080BLUE');

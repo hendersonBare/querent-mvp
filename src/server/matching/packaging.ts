@@ -107,7 +107,7 @@ function prepare(text:string){
     .replace(/(\d(?:mm|cm|yds?|ft|in|m)?|['"])\s*x\s*(?=[\d.])/g,'$1 x ')
     .replace(/\bcu(?:bic)?\.?\s*(?:feet|foot|ft)\.?/g,'cuft')
     // "4 x 6 x 2 mil": an "x" before a film thickness joins it to the size; a thickness is never a dimension.
-    .replace(/\bx\s*(?=\d*\.?\d+\s*-?\s*(?:mils?|gauge|gage|ga|microns?)\b)/g,' ')
+    .replace(/\bx\s*(?=(?:\d+[\s-]\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*-?\s*(?:mils?|gauge|gage|ga|microns?)\b)/g,' ')
     .replace(/\s+/g,' ').trim();
 }
 
@@ -127,11 +127,11 @@ const OUTER=String.raw`(?:cases?|cs|cartons?|ctns?|bundles?|bdls?|bndls?|boxe?s?
 const ROLL=String.raw`(?:rolls?|rls?)\b`;
 const PACK_RULES:{re:RegExp;unit:(m:RegExpExecArray)=>'outer'|'roll';count:(m:RegExpExecArray)=>string;contents?:(m:RegExpExecArray)=>string|undefined}[]=[
   // "25/bundle", "1,000/cs", "500 bags per case", "500 labels/roll"
-  {re:new RegExp(String.raw`(?<![\w.,])${COUNT}${CONTENTS}\s*(?:\/|\bper\b|\ba\b)\s*(${OUTER}|${ROLL})`,'g'),unit:m=>/^r/.test(m[3])?'roll':'outer',count:m=>m[1],contents:m=>m[2]},
+  {re:new RegExp(String.raw`(?<![\w.,\/])${COUNT}${CONTENTS}\s*(?:\/|\bper\b|\ba\b)\s*(${OUTER}|${ROLL})`,'g'),unit:m=>/^r/.test(m[3])?'roll':'outer',count:m=>m[1],contents:m=>m[2]},
   // "case of 500", "bundle of 25", "roll of 250"
   {re:new RegExp(String.raw`\b(${OUTER}|${ROLL})\s*(?:of|qty\.?:?)\s*${COUNT}\b`,'g'),unit:m=>/^r/.test(m[1])?'roll':'outer',count:m=>m[2]},
   // "1000 ct", "500 count", "10 pk", "10-pack", "500 pcs"
-  {re:new RegExp(String.raw`(?<![\w.,])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?|pkgs?|pcs|pieces)\b`,'g'),unit:()=>'outer',count:m=>m[1]},
+  {re:new RegExp(String.raw`(?<![\w.,\/])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?|pkgs?|pcs|pieces)\b`,'g'),unit:()=>'outer',count:m=>m[1]},
 ];
 const toCount=(raw:string)=>Number(raw.replace(/,/g,''));
 
@@ -181,19 +181,24 @@ export function packLabel<T extends Pick<PackagingItem,'pack'|'caseQty'>>(item:T
 
 // ---- Strength, film and size numbers ---------------------------------------------------------------
 
-const ECT=/\b(\d{2})\s*-?\s*ect\b|\bect\s*-?\s*(\d{2})\b/g;
-const BURST=/\b(\d{3})\s*(?:#|lbs?\.?)\s*-?\s*(?:test|burst)\b|\b(?:mullen|burst)(?:\s*test)?\s*:?\s*(\d{3})\b/g;
+/**
+ * A number before a unit, read whole: a decimal, a proper fraction or a mixed number (1.5, 1/2, 1-1/2,
+ * 1 1/2). It never starts inside another number, so "1/2 mil" is half a mil, not 2 mil.
+ */
+const UNIT_NUMBER=String.raw`(?<![\w.\/-])(\d+[\s-]\d+\/\d+|\d+\/\d+|\d*\.\d+|\d+)`;
+const ECT=/(?<![\d.\/])\b(\d{2})\s*-?\s*ect\b|\bect\s*-?\s*(\d{2})\b(?![.\/]\d)/g;
+const BURST=/(?<![\d.\/])\b(\d{3})\s*(?:#|lbs?\.?)\s*-?\s*(?:test|burst)\b|\b(?:mullen|burst)(?:\s*test)?\s*:?\s*(\d{3})\b/g;
 /** A bare "200#": a burst rating on a box line, a weight anywhere else ("50# kraft paper"). */
-const BARE_POUNDS=/\b(\d{2,4})\s*#(?!\s*\d)(\s*-?\s*test\b)?/g;
+const BARE_POUNDS=/(?<![\d.\/])\b(\d{2,4})\s*#(?!\s*\d)(\s*-?\s*test\b)?/g;
 /** A strapping core: "8x8\" Core", "9 x 8 core". */
 const CORE=/\b(\d+)\s*x\s*(\d+)\s*(?:"|''|in\b\.?|inch(?:es)?\b)?\s*core\b/g;
 const BOX_LINE=/\b(?:box(?:es)?|cartons?|corrugated|cardboard|gaylords?|rsc)\b/;
-const MIL=/(?<![\w.])(\d*\.?\d+)\s*-?\s*mils?\b/g;
+const MIL=new RegExp(String.raw`${UNIT_NUMBER}\s*-?\s*mils?\b`,'g');
 /** Film thickness in microns, read as mil (1 mil = 25.4 µm). */
-const MICRON=/(?<![\w.])(\d*\.?\d+)\s*-?\s*(?:microns?|µm|μm|um|mic)(?![\w])/g;
+const MICRON=new RegExp(String.raw`${UNIT_NUMBER}\s*-?\s*(?:microns?|µm|μm|um|mic)(?![\w])`,'g');
 /** A legend after a tuple, "(L x W x H)" or "W x L x D": the members' labels, in order. */
 const LEGEND=/\(?\b([lwhd])\s*x\s*([lwhd])(?:\s*x\s*([lwhd]))?\b\)?/g;
-const GAUGE=/\b(\d+)\s*-?\s*(?:gauge|gage|ga)\b/g;
+const GAUGE=new RegExp(String.raw`${UNIT_NUMBER}\s*-?\s*(?:gauge|gage|ga)\b`,'g');
 const NUMBER=/(?<![\w#])#\s*(\d+[a-z]?)\b/g;
 
 /** The first capture group that matched, of a replace() callback's arguments. */
@@ -206,6 +211,7 @@ function takeValues<V extends number|string>(text:string,re:RegExp,read:(raw:str
     const raw=firstGroup(args);
     if(raw!==undefined){
       const v=read(raw);
+      if(typeof v==='number'&&!Number.isFinite(v))return ' ';
       if(!values.some(x=>typeof x==='number'&&typeof v==='number'?Math.abs(x-v)<1e-9:x===v))values.push(v);
     }
     return ' ';
@@ -640,8 +646,8 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
     if(BOX_LINE.test(said)&&Number(n)>=100){if(!bursts.includes(Number(n)))bursts.push(Number(n));return ' ';}
     return ` ${n} lb ${test??''}`;
   });
-  const micron=takeValues(text,MICRON,raw=>Number(raw)/25.4);text=micron.text;
-  const mil=takeValues(text,MIL,Number);text=mil.text;
+  const micron=takeValues(text,MICRON,raw=>toNumber(raw)/25.4);text=micron.text;
+  const mil=takeValues(text,MIL,toNumber);text=mil.text;
   const mils=[...mil.values];
   for(const m of micron.values)if(!mils.some(x=>Math.abs(x-m)<=UNIT_TOLERANCE*Math.max(x,m)))mils.push(m);
   const legends:number[][]=[];
@@ -651,7 +657,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   });
   const cores:string[]=[];
   text=text.replace(CORE,(_m:string,a:string,b:string)=>{if(!cores.includes(`${a}x${b}`))cores.push(`${a}x${b}`);return ' ';});
-  const gauge=takeValues(text,GAUGE,Number);text=gauge.text;
+  const gauge=takeValues(text,GAUGE,toNumber);text=gauge.text;
   const number=takeValues(text,NUMBER,String);text=number.text;
   const choices=takeChoices(text);text=choices.text;
   if((choices.choices.flute==='bc'||choices.choices.flute==='eb')&&!choices.choices.wall){
@@ -756,7 +762,8 @@ export function parseItemSpec(item:PackagingItem):ItemSpec{
   const keywordColors=takeAll(takeAll(prepare(item.keywords??''),FEATURES).text,COLORS).found;
   const implied=spec.colors.length?[]:spec.materials.includes('corrugated')?['kraft']:keywordColors.length===1?keywordColors:[];
   const keywordWords=wordsOf(prepare(item.keywords??''));
-  const name=item.description.split(',')[0].replace(/^#\s*\S+\s+/,'').replace(/\s+[\d.].*$/,'').trim().toLowerCase();
+  // The product name: the description's first part without its # and its numbers ("Heavyweight 48-ECT Double Wall Sheets 48x40"" is "heavyweight double wall sheets").
+  const name=item.description.split(',')[0].replace(/^#\s*\S+\s+/,'').replace(/\S*\d\S*/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
   const unit=UNITLESS_INCH_CATEGORIES.has(item.category??'')?'in':null;
   const parsed:ItemSpec={
     ...spec,

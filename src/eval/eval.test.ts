@@ -86,6 +86,18 @@ describe('the catalog facts the scorer relies on',()=>{
   });
 });
 
+describe('the catalog facts the material implications rely on',()=>{
+  it('no item with an ECT, burst rating, flute or wall states a material other than corrugated; none with a mil or gauge one other than poly',()=>{
+    const specs=CATALOG.map(row=>({row,spec:parseItemSpec(row)}));
+    const board=specs.filter(({spec})=>spec.ect!==null||spec.burst!==null||spec.choices.flute||spec.choices.wall);
+    const film=specs.filter(({spec})=>spec.mil!==null||spec.gauge!==null);
+    expect(board.length).toBeGreaterThan(100);
+    expect(film.length).toBeGreaterThan(100);
+    expect(board.filter(({spec})=>spec.materials.some(m=>m!=='corrugated')).map(({row})=>row.sku)).toEqual([]);
+    expect(film.filter(({spec})=>spec.materials.some(m=>m!=='poly')).map(({row})=>row.sku)).toEqual([]);
+  });
+});
+
 describe('no false positives',()=>{
   it.each(JUDGES)('no must-not-match line matches at Strict with the %s judge',judge=>{
     const matched=mustNot.map(c=>runCase(c,'strict',judge)).filter(r=>r.outcome==='matched');
