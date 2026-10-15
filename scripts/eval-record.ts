@@ -17,7 +17,7 @@ const FILE=resolve(__dirname,'../src/eval/judge-recording.json');
 
 async function main(){
   if(llmMode(process.env)!=='live'){
-    console.error('eval:record needs the live judge: set ANTHROPIC_API_KEY (and unset QUERENT_SCRIPTED). src/eval/judge-recording.json was not changed.');
+    console.error('eval:record needs the live judge: set the Anthropic key in the environment and unset QUERENT_SCRIPTED (see src/eval/README.md). src/eval/judge-recording.json was not changed.');
     process.exit(1);
   }
   const lines=CASES.map(c=>({c,candidates:judgeCandidates(retrieve(c.description,CATALOG,matchConfig(DEFAULT_LEVEL)))}));
