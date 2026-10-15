@@ -164,17 +164,33 @@ test('RLS: the anon key with no session reads and writes nothing in any table, v
       expect(body?.code,what).toBe('42501');
     }
   };
+  /** Refused outright: 401/403 with permission denied (42501). */
+  const denied=async(response:Response,what:string)=>{
+    const body=await response.json().catch(()=>null);
+    expect([401,403],what).toContain(response.status);
+    expect(body?.code,what).toBe('42501');
+    expect(String(body?.message),what).toMatch(/permission denied/i);
+  };
+  // One real column per table, so the UPDATE names something it would change.
+  const columns=await adminQuery("select table_name as name, min(column_name) as col from information_schema.columns where table_schema='public' and column_name<>'id' group by table_name");
+  const columnOf=new Map(columns.map(c=>[c.name as string,c.col as string]));
+  const tables=relations.filter(r=>r.type==='BASE TABLE');
+  expect(tables.length).toBeGreaterThanOrEqual(5);
   for(const {name,type} of relations){
     await nothing(await fetch(`${url}/rest/v1/${name}?select=*&limit=5`,{headers}),`select ${name}`);
     if(type==='BASE TABLE'){
-      const insert=await fetch(`${url}/rest/v1/${name}`,{method:'POST',headers,body:JSON.stringify({})});
-      expect(insert.ok,`insert ${name}`).toBe(false);
+      await denied(await fetch(`${url}/rest/v1/${name}`,{method:'POST',headers,body:JSON.stringify({})}),`insert ${name}`);
+      const column=columnOf.get(name as string);
+      expect(column,`a column of ${name}`).toBeTruthy();
+      const update=await fetch(`${url}/rest/v1/${name}?id=not.is.null`,{method:'PATCH',headers:{...headers,prefer:'return=representation'},body:JSON.stringify({[column!]:null})});
+      await nothing(update,`update ${name}`);
       const remove=await fetch(`${url}/rest/v1/${name}?id=not.is.null`,{method:'DELETE',headers:{...headers,prefer:'return=representation'}});
       await nothing(remove,`delete ${name}`);
     }
   }
 
   const functions=await adminQuery("select p.proname as name, coalesce(p.proargnames,'{}') as args from pg_proc p where p.pronamespace='public'::regnamespace and p.prorettype<>'trigger'::regtype");
+  expect(functions.length).toBeGreaterThan(0);
   for(const {name,args} of functions){
     const body=Object.fromEntries((args as string[]).map(arg=>[arg,null]));
     const response=await fetch(`${url}/rest/v1/rpc/${name}`,{method:'POST',headers,body:JSON.stringify(body)});

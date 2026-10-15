@@ -12,6 +12,9 @@ const QUOTE_URL=/\/quotes\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 const list=(page:Page)=>page.getByLabel(/Paste the customer.s list/);
 const review=(page:Page)=>page.getByRole('dialog',{name:'Review quote'});
 const price=(dialog:Locator,sku:string)=>dialog.getByLabel(`Unit price for ${sku}`);
+const qty=(dialog:Locator,sku:string)=>dialog.getByLabel(`Quantity for ${sku}`);
+/** A line in the review dialog, by the SKU of its item. */
+const reviewLine=(dialog:Locator,sku:string)=>dialog.getByRole('listitem').filter({has:dialog.page().getByLabel(`Unit price for ${sku}`)});
 const saveButton=(dialog:Locator)=>dialog.getByRole('button',{name:'Save quote'});
 /** A saved quote's matched line, by SKU. */
 const itemRow=(page:Page,sku:string)=>page.getByRole('table',{name:'Items'}).getByRole('row').filter({hasText:sku});
@@ -37,14 +40,30 @@ test('paste, match, review, price and save: the quote opens with its lines and t
   await expect(price(dialog,'12108-BDL')).toHaveValue('');
   await expect(price(dialog,'PB3669')).toHaveValue('');
 
+  // One unit per line: the box is priced per box (web list $1.09/each) and sold in bundles of 25, so the
+  // customer's 10 bundles become 250 each, said so under the quantity; the bags stay 2 cases.
+  const box=reviewLine(dialog,'12108-BDL');
+  await expect(qty(dialog,'12108-BDL')).toHaveValue('250');
+  await expect(box.getByTestId('qty-unit')).toHaveText('each');
+  await expect(box.getByTestId('price-unit')).toHaveText('per each');
+  await expect(box).toContainText('Customer asked for 10 bundles = 250 each');
+  await expect(box).toContainText('Web list: $1.09/each');
+  const bags=reviewLine(dialog,'PB3669');
+  await expect(qty(dialog,'PB3669')).toHaveValue('2');
+  await expect(bags.getByTestId('qty-unit')).toHaveText('cases');
+  await expect(bags.getByTestId('price-unit')).toHaveText('per case');
+  await expect(bags).toContainText('Web list: $222.26/case');
+
   // Save stays disabled until every matched line has a price, and says why.
   await expect(saveButton(dialog)).toBeDisabled();
   await dialog.getByLabel('Customer name').fill('E2E Paste Co');
   await dialog.getByLabel('Reference').fill('PO-1001');
   await price(dialog,'12108-BDL').fill('1.25');
+  await expect(box).toContainText('$312.50'); // 250 each x $1.25 per each
   await expect(saveButton(dialog)).toBeDisabled();
   await price(dialog,'PB3669').fill('90');
-  await expect(dialog.getByTestId('quote-total')).toHaveText('$192.50');
+  await expect(dialog.getByTestId('quote-total')).toHaveText('$492.50');
+  await shot(page,'03-review-dialog');
   await expect(saveButton(dialog)).toBeEnabled();
   await saveButton(dialog).click();
 
@@ -52,18 +71,18 @@ test('paste, match, review, price and save: the quote opens with its lines and t
   await expect(page.getByRole('heading',{level:1,name:'E2E Paste Co'})).toBeVisible();
   await expect(page.getByText('PO-1001')).toBeVisible();
   await expect(page.locator('dl')).toContainText(REP); // Created by
-  await expect(itemRow(page,'12108-BDL')).toContainText('$1.25');
-  await expect(itemRow(page,'12108-BDL')).toContainText('$12.50');
+  const cells=async(sku:string)=>(await itemRow(page,sku).getByRole('cell').allInnerTexts()).map(t=>t.replace(/\s+/g,' ').trim());
+  expect((await cells('12108-BDL')).slice(2)).toEqual(['250 each','$1.25 per each','$312.50']);
   await expect(itemRow(page,'12108-BDL')).toContainText(LINES.box);
-  await expect(itemRow(page,'PB3669')).toContainText('$90.00');
-  await expect(itemRow(page,'PB3669')).toContainText('$180.00');
-  await expect(page.getByTestId('quote-total')).toHaveText('$192.50');
+  expect((await cells('PB3669')).slice(2)).toEqual(['2 cases','$90.00 per case','$180.00']);
+  await expect(page.getByTestId('quote-total')).toHaveText('$492.50');
 
-  // The API agrees: two auto-matched lines, quantities from the list.
+  // The API agrees: two auto-matched lines, quantities in each item's pricing unit, the unit saved with them.
   const id=new URL(page.url()).pathname.split('/').pop();
   const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
-  expect(quote.lines.map((l:{sku:string;quantity:number;unitPrice:number;matchedBy:string;unmatched:boolean})=>[l.sku,l.quantity,l.unitPrice,l.matchedBy,l.unmatched]))
-    .toEqual([['12108-BDL',10,1.25,'auto',false],['PB3669',2,90,'auto',false]]);
+  expect(quote.lines.map((l:{sku:string;quantity:number;unit:string;unitPrice:number;matchedBy:string;unmatched:boolean})=>[l.sku,l.quantity,l.unit,l.unitPrice,l.matchedBy,l.unmatched]))
+    .toEqual([['12108-BDL',250,'each',1.25,'auto',false],['PB3669',2,'case',90,'auto',false]]);
+  expect(quote.total).toBe(492.5);
 });
 
 test('a PDF upload is read, matched and saved with its unmatched lines flagged',async({page})=>{
@@ -78,18 +97,21 @@ test('a PDF upload is read, matched and saved with its unmatched lines flagged',
   await dialog.getByLabel('Customer name').fill('E2E PDF Co');
   await price(dialog,'12108-BDL').fill('1.10');
   await price(dialog,'PB3669').fill('89');
-  await expect(dialog.getByTestId('quote-total')).toHaveText('$189.00');
+  // 10 bundles = 250 each x $1.10, plus 2 cases x $89.
+  await expect(dialog.getByTestId('quote-total')).toHaveText('$453.00');
   await saveButton(dialog).click();
 
   await expect(page).toHaveURL(QUOTE_URL);
   await expect(page.getByRole('heading',{level:1,name:'E2E PDF Co'})).toBeVisible();
-  await expect(itemRow(page,'12108-BDL')).toContainText('$11.00');
+  await expect(itemRow(page,'12108-BDL')).toContainText('$275.00');
   await expect(itemRow(page,'PB3669')).toContainText('$178.00');
-  await expect(page.getByTestId('quote-total')).toHaveText('$189.00');
+  await expect(page.getByTestId('quote-total')).toHaveText('$453.00');
   const unmatched=page.getByRole('region',{name:/Unmatched lines/});
   await expect(unmatched).toContainText('Kraft Packing Paper Roll 36"');
   await expect(unmatched).toContainText('Cast Stretch Wrap 18" x 1500\' 80 Gauge');
-  await expect(unmatched.getByRole('table',{name:/Near-misses/}).first()).toBeVisible();
+  await expect(unmatched.getByRole('table',{name:/Closest items/}).first()).toBeVisible();
+  await expect(unmatched.getByRole('table',{name:/Closest items/}).first()).toContainText('100%');
+  await expect(unmatched).toContainText('Qty 4 rolls');
   await shot(page,'08-quote-detail-unmatched');
 });
 
@@ -107,7 +129,11 @@ test('an unmatched line: open its closest items, use one, price it and save it a
   expect(await misses.count()).toBeGreaterThanOrEqual(3);
   await dialog.getByLabel('Customer name').fill('E2E Near-miss Co');
   await price(dialog,'12108-BDL').fill('1.25');
-  await shot(page,'03-review-dialog');
+  await shot(page,'03b-review-dialog-closest-items');
+
+  // Closest items show a neutral similarity, never "100% match".
+  await expect(misses.first()).toContainText(/Similarity \d+%/);
+  await expect(line).not.toContainText('% match');
 
   await misses.filter({hasText:'SF188CAST'}).getByRole('button',{name:'Use this item'}).click();
   await expect(dialog.getByText('2 matched, 0 could not be matched.')).toBeVisible();
@@ -115,19 +141,29 @@ test('an unmatched line: open its closest items, use one, price it and save it a
   // The promoted line's price is focused and empty; Save waits for it.
   await expect(price(dialog,'SF188CAST')).toBeFocused();
   await expect(saveButton(dialog)).toBeDisabled();
-  await price(dialog,'SF188CAST').fill('24');
-  await expect(dialog.getByTestId('quote-total')).toHaveText('$108.50');
+  // The wrap is priced per case of 4; "4 rolls" cannot be converted exactly, so it stays 4 and is flagged.
+  const wrap=reviewLine(dialog,'SF188CAST');
+  await expect(qty(dialog,'SF188CAST')).toHaveValue('4');
+  await expect(wrap).toContainText('Check quantity (customer wrote: 4 rolls)');
+  await qty(dialog,'SF188CAST').fill('1');
+  await expect(wrap).toContainText('Customer wrote: 4 rolls');
+  await expect(wrap.getByTestId('qty-unit')).toHaveText('case');
+  await price(dialog,'SF188CAST').fill('80');
+  // 250 each x $1.25 + 1 case x $80.
+  await expect(dialog.getByTestId('quote-total')).toHaveText('$392.50');
   await saveButton(dialog).click();
 
   await expect(page).toHaveURL(QUOTE_URL);
   await expect(itemRow(page,'SF188CAST')).toContainText('Matched by rep');
   await expect(itemRow(page,'SF188CAST')).toContainText(LINES.wrap);
-  await expect(itemRow(page,'SF188CAST')).toContainText('$96.00');
+  await expect(itemRow(page,'SF188CAST')).toContainText('$80.00');
+  await expect(itemRow(page,'SF188CAST')).toContainText('1 case');
   await expect(itemRow(page,'12108-BDL')).not.toContainText('Matched by rep');
-  await expect(page.getByTestId('quote-total')).toHaveText('$108.50');
+  await expect(page.getByTestId('quote-total')).toHaveText('$392.50');
   const id=new URL(page.url()).pathname.split('/').pop();
   const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
-  expect(quote.lines.map((l:{sku:string;matchedBy:string})=>[l.sku,l.matchedBy])).toEqual([['12108-BDL','auto'],['SF188CAST','rep']]);
+  expect(quote.lines.map((l:{sku:string;matchedBy:string;quantity:number;unit:string;quantityUnclear:boolean})=>[l.sku,l.matchedBy,l.quantity,l.unit,l.quantityUnclear]))
+    .toEqual([['12108-BDL','auto',250,'each',false],['SF188CAST','rep',1,'case',true]]);
 });
 
 test('a list over 200 lines is refused before anything is sent, here and by the API',async({page})=>{

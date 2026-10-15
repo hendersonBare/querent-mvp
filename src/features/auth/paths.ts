@@ -20,9 +20,15 @@ export const PUBLIC_PAGES:ReadonlySet<string>=new Set([LOGIN_PATH,RESET_PATH,CON
  */
 export const PUBLIC_APIS:ReadonlySet<string>=new Set(['/api/auth/login','/api/auth/reset','/api/auth/signout']);
 
-/** Build output, image optimisation and files served from public/ at the root (images, favicon, robots.txt). */
-const STATIC=[/^\/_next\/static\//,/^\/_next\/image$/,/^\/[\w.-]+\.(?:png|jpe?g|gif|svg|ico|webp|avif|txt)$/];
-export const isStaticAsset=(pathname:string)=>STATIC.some(pattern=>pattern.test(pathname));
+/**
+ * The files served from public/ (and the favicon), each by its exact path: the same list as the proxy
+ * matcher in src/proxy.ts (a path is not a public file because it ends in an image extension). A new
+ * file in public/ goes in both (session-proxy.test.ts checks every one is open).
+ */
+export const PUBLIC_FILES:ReadonlySet<string>=new Set(['/favicon.ico','/querent-logo.png']);
+/** Build output, image optimisation and the named public files. */
+const STATIC=[/^\/_next\/static\//,/^\/_next\/image$/];
+export const isStaticAsset=(pathname:string)=>PUBLIC_FILES.has(pathname)||STATIC.some(pattern=>pattern.test(pathname));
 
 const isApi=(pathname:string)=>pathname==='/api'||pathname.startsWith('/api/');
 /** /quotes/ and /quotes are one route; matching is exact otherwise (Next routes are case-sensitive). */

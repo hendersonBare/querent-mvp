@@ -100,8 +100,11 @@ describe('the quote tool against the local stack',()=>{
   it('saves the reviewed quote with the catalog\'s item details, its unmatched lines and near-misses, and logs quote_create',async()=>{
     const [box,,other]=run.lines;
     const unmatchedLine=run.lines.find(l=>l.outcome==='no_match')!;
+    // The dialog's line: the customer's 10 bundles of a box sold each in bundles of 25 = 250 each.
+    const reviewed=initialReview({...run,lines:[box]})[0];
+    expect([box.quantity,box.unit,reviewed.quantity,reviewed.unit]).toEqual([10,'bundle','250','each']);
     const lines:SaveLine[]=[
-      {unmatched:false,sku:box.item!.sku,matchedBy:'auto',originalText:box.rawText,quantity:10,unit:box.unit,unitPrice:0.79,matchScore:box.score,
+      {unmatched:false,sku:box.item!.sku,matchedBy:'auto',originalText:box.rawText,quantity:250,unit:reviewed.unit,unitPrice:0.79,matchScore:box.score,
         ...{description:'client says gold box',listPrice:0.01} as object} as SaveLine,
       {unmatched:true,originalText:unmatchedLine.rawText,quantity:unmatchedLine.quantity,unit:unmatchedLine.unit,quantityUnclear:unmatchedLine.quantityUnclear,
         nearMisses:unmatchedLine.nearMisses.map(n=>({sku:n.sku,score:n.score}))},
@@ -115,11 +118,12 @@ describe('the quote tool against the local stack',()=>{
     expect(quote).toMatchObject({customerName:'Test:db customer',reference:'B5 db test',matchStrictness:run.level,createdBy:await userId()});
     const [catalogRow]=await getCatalogItems(db,[box.item!.sku]);
     expect(quote.lines[0]).toMatchObject({position:1,sku:'12108-BDL',description:catalogRow.description,listPrice:catalogRow.listPrice,
-      quantity:10,unitPrice:0.79,matchedBy:'auto',unmatched:false,originalText:box.rawText});
+      quantity:250,unit:'each',unitPrice:0.79,matchedBy:'auto',unmatched:false,originalText:box.rawText});
     expect(quote.lines[1]).toMatchObject({position:2,sku:null,matchedBy:null,unmatched:true,originalText:unmatchedLine.rawText});
     expect(quote.lines[1].nearMisses.map(n=>n.sku)).toEqual(unmatchedLine.nearMisses.map(n=>n.sku));
     // The saved total (quote_summaries: round(qty × price, 2) per line) is the total the dialog showed.
-    expect(Math.round(quote.total*100)).toBe(totalCents(initialReview({...run,lines:[box]}).map(l=>({...l,price:'0.79',quantity:'10'}))));
+    expect(Math.round(quote.total*100)).toBe(totalCents([{...reviewed,price:'0.79'}]));
+    expect(quote.total).toBe(197.5);
     expect(await lastActivity('quote_create')).toEqual({lines:2,matched:1,unmatched:1,autoMatched:1,repMatched:0,level:run.level});
   });
 
