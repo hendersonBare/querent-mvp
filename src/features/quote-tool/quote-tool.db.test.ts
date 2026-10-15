@@ -7,6 +7,7 @@ import {POST as login} from '@/app/api/auth/login/route';
 import {POST as match} from '@/app/api/quote-tool/match/route';
 import {GET as search} from '@/app/api/catalog/search/route';
 import {POST as createQuote} from '@/app/api/quotes/route';
+import {initialReview,totalCents} from './review';
 import type {MatchRun,MatchStreamEvent,SaveLine,ScoredItem} from './types';
 
 // The quote tool's APIs against the local Supabase stack (npm run test:db), signed in through the login
@@ -113,6 +114,9 @@ describe('the quote tool against the local stack',()=>{
     expect(rows[0]).toMatchObject({position:1,sku:'12108-BDL',description:catalogRow.description,list_price:catalogRow.list_price,quantity:'10.000',unit_price:'0.7900',matched_by:'auto',unmatched:false,original_text:box.rawText});
     expect(rows[1]).toMatchObject({position:2,sku:null,matched_by:null,unmatched:true,original_text:unmatchedLine.rawText});
     expect(rows[1].near_misses.map((n:{sku:string})=>n.sku)).toEqual(unmatchedLine.nearMisses.map(n=>n.sku));
+    // The saved total (quote_summaries: round(qty × price, 2) per line) is the total the dialog showed.
+    const [summary]=await adminQuery('select total from public.quote_summaries where id=$1',[id]);
+    expect(Number(summary.total)*100).toBe(totalCents(initialReview({...run,lines:[box]}).map(l=>({...l,price:'0.79',quantity:'10'}))));
     expect(await lastActivity('quote_create')).toEqual({lines:2,matched:1,unmatched:1,autoMatched:1,repMatched:0,level:run.level});
   });
 

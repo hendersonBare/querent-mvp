@@ -3,6 +3,7 @@ import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent
 import {createPortal} from 'react-dom';
 import d from '@/components/ui/Dialog.module.css';
 import {trapTab} from '@/components/ui/focus';
+import {PRICE_HINT,QUANTITY_HINT} from './limits';
 import {saveQuote as defaultSave,searchCatalog as defaultSearch} from './client';
 import {
   blockersMessage,formatMoney,initialReview,listPriceLabel,parsePrice,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
@@ -239,6 +240,7 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
   const item=line.item!;
   const cents=reviewLineCents(line);
   const badPrice=line.price.trim()!==''&&parsePrice(line.price)===null;
+  const badQuantity=line.quantity.trim()!==''&&parseQuantity(line.quantity)===null;
   const label=listPriceLabel(item);
   return <li className={s.line} data-testid={`line-${line.key}`}>
     <div className={d.item}>
@@ -253,8 +255,8 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
     </div>
     <div className={s.cell}>
       <input className={d.input} value={line.quantity} inputMode="decimal" autoComplete="off" aria-label={`Quantity for ${item.sku}`}
-        aria-invalid={line.quantity.trim()!==''&&parseQuantity(line.quantity)===null} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
-      {flagQuantity
+        aria-invalid={badQuantity} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
+      {badQuantity?<span className={d.fieldError}>{QUANTITY_HINT}</span>:flagQuantity
         ?<span className={s.flag}>Check quantity</span>
         :line.unit&&<span className={s.unit}>{line.unit}</span>}
     </div>
@@ -264,7 +266,7 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
         <input className={`${d.input} ${s.priceInput}`} value={line.price} inputMode="decimal" autoComplete="off" aria-label={`Unit price for ${item.sku}`}
           aria-invalid={badPrice} disabled={saving} onChange={e=>onPrice(e.target.value)}/>
       </span>
-      {badPrice&&<span className={d.fieldError}>0 or more, up to 4 decimals</span>}
+      {badPrice&&<span className={d.fieldError}>{PRICE_HINT}</span>}
     </div>
     <div className={s.lineTotal}>{cents===null?<span className={s.muted}>No price</span>:formatMoney(cents)}</div>
     <div className={s.lineActions}>

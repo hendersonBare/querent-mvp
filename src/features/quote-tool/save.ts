@@ -5,6 +5,7 @@ import type {ApiSession} from '@/features/auth/server';
 import {packLabel} from '@/server/matching';
 import {createQuote,getCatalogItems,logActivity} from '@/server/repository';
 import {MATCH_STRICTNESS_LEVELS,type CatalogItem,type NearMiss,type QuoteLineInput} from '@/server/repository/types';
+import {MAX_QUANTITY,MAX_UNIT_PRICE,PRICE_DECIMALS,QUANTITY_DECIMALS} from './limits';
 import {MAX_LIST_LINES} from './types';
 
 // POST /api/quotes (create; the review dialog's Save quote). The body is validated with zod; matched
@@ -25,7 +26,7 @@ const decimals=(places:number)=>(n:number)=>{
 };
 
 const originalText=z.string().trim().min(1,'Each line needs its original text.').max(2000,'A line\'s original text can be up to 2000 characters.');
-const quantity=z.number().finite().positive('Quantities must be greater than 0.').max(1e9).refine(decimals(3),'Quantities can have up to 3 decimal places.');
+const quantity=z.number().finite().positive('Quantities must be greater than 0.').max(MAX_QUANTITY).refine(decimals(QUANTITY_DECIMALS),`Quantities can have up to ${QUANTITY_DECIMALS} decimal places.`);
 const unit=z.string().trim().max(40).nullish();
 const sku=z.string().trim().min(1,'Each matched line needs an item.').max(64);
 
@@ -37,7 +38,7 @@ const matchedLine=z.object({
   quantity,
   unit,
   quantityUnclear:z.boolean().optional(),
-  unitPrice:z.number().finite().min(0,'Prices cannot be negative.').max(1e7).refine(decimals(4),'Prices can have up to 4 decimal places.'),
+  unitPrice:z.number().finite().min(0,'Prices cannot be negative.').max(MAX_UNIT_PRICE).refine(decimals(PRICE_DECIMALS),`Prices can have up to ${PRICE_DECIMALS} decimal places.`),
   matchScore:z.number().finite().min(0).max(1).nullish(),
 });
 

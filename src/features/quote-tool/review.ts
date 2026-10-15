@@ -1,4 +1,5 @@
 import type {StrictnessLevel} from '@/features/settings/strictness';
+import {MAX_QUANTITY,MAX_UNIT_PRICE,PRICE_DECIMALS,QUANTITY_DECIMALS} from './limits';
 import type {MatchRun,ResultItem,SaveLine,SaveQuoteRequest,ScoredItem} from './types';
 
 // The review dialog's state and rules, kept out of the component so they can be tested without a DOM:
@@ -39,13 +40,13 @@ export function initialReview(run:MatchRun):ReviewLine[]{
   });
 }
 
-const PRICE=/^(?:\d+(?:\.\d{0,4})?|\.\d{1,4})$/;
-const QUANTITY=/^(?:\d+(?:\.\d{0,3})?|\.\d{1,3})$/;
+const PRICE=new RegExp(`^(?:\\d+(?:\\.\\d{0,${PRICE_DECIMALS}})?|\\.\\d{1,${PRICE_DECIMALS}})$`);
+const QUANTITY=new RegExp(`^(?:\\d+(?:\\.\\d{0,${QUANTITY_DECIMALS}})?|\\.\\d{1,${QUANTITY_DECIMALS}})$`);
 
 /** A unit price as typed ("$1,250.50" is 1250.5): at least 0, up to 4 decimals; else null. */
 export function parsePrice(input:string):number|null{
   const text=input.trim().replace(/^\$\s*/,'').replace(/,/g,'');
-  return PRICE.test(text)?Number(text):null;
+  return PRICE.test(text)&&Number(text)<=MAX_UNIT_PRICE?Number(text):null;
 }
 
 /** A quantity as typed: more than 0, up to 3 decimals; else null. */
@@ -53,7 +54,7 @@ export function parseQuantity(input:string):number|null{
   const text=input.trim().replace(/,/g,'');
   if(!QUANTITY.test(text))return null;
   const value=Number(text);
-  return value>0?value:null;
+  return value>0&&value<=MAX_QUANTITY?value:null;
 }
 
 /** quantity × unit price in cents, rounded half up (the database's round(…, 2) for positive amounts). */
