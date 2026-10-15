@@ -373,6 +373,126 @@
     "n46-poly-bags-plain": {
       "sku": null,
       "reason": "The line does not say reclosable; plain poly bags are flat open-top, and the listed 4x6 2 mil bags are reclosable."
+    },
+    "n47-hd-box-12x10x8": {
+      "sku": null,
+      "reason": "The 12x10x8 listed is a standard single wall box, not heavy duty."
+    },
+    "n48-hd-box-32ect": {
+      "sku": null,
+      "reason": "The 12x10x8 listed is a standard box; nothing says heavy duty."
+    },
+    "n49-insulated-box": {
+      "sku": null,
+      "reason": "None of the listed boxes is insulated."
+    },
+    "n50-insulated-mailer": {
+      "sku": null,
+      "reason": "The kraft #2 bubble mailer listed is not insulated."
+    },
+    "n51-antistatic-bubble": {
+      "sku": null,
+      "reason": "The listed bubble roll is not anti-static."
+    },
+    "n52-antistatic-bags": {
+      "sku": null,
+      "reason": "The listed reclosable bags are not anti-static."
+    },
+    "n53-hd-bags": {
+      "sku": null,
+      "reason": "Nothing listed says heavy duty."
+    },
+    "n54-hd-poly-mailer": {
+      "sku": null,
+      "reason": "The #4 flat poly mailer listed is not described as heavy duty."
+    },
+    "n55-printed-box": {
+      "sku": null,
+      "reason": "The listed 12x10x8 is a plain box, not printed."
+    },
+    "n56-telescoping": {
+      "sku": null,
+      "reason": "The listed 12x10x8 is a regular slotted box, not telescoping."
+    },
+    "n57-used-box": {
+      "sku": null,
+      "reason": "The listed boxes are not used boxes."
+    },
+    "n58-waterproof-box": {
+      "sku": null,
+      "reason": "Nothing listed is waterproof."
+    },
+    "n59-octagon-gaylord": {
+      "sku": null,
+      "reason": "The listed gaylord is not an octagon."
+    },
+    "n60-pallets-new": {
+      "sku": null,
+      "reason": "The heat treated pallet listed is recycled, not new."
+    },
+    "n61-pallets-new-wood": {
+      "sku": null,
+      "reason": "The heat treated pallet listed is recycled, not new."
+    },
+    "n62-white-mailer-self-seal": {
+      "sku": null,
+      "reason": "Neither #2 mailer listed is described as white self-seal."
+    },
+    "n63-tamper-evident": {
+      "sku": null,
+      "reason": "The listed kraft mailer is not tamper-evident."
+    },
+    "n64-biodegradable": {
+      "sku": null,
+      "reason": "Nothing listed is biodegradable."
+    },
+    "n65-compostable": {
+      "sku": null,
+      "reason": "Nothing listed is compostable."
+    },
+    "n66-recycled-content": {
+      "sku": null,
+      "reason": "The listed roll does not state recycled content."
+    },
+    "n67-fda-bags": {
+      "sku": null,
+      "reason": "The listed bags do not state FDA approval."
+    },
+    "n68-food-grade": {
+      "sku": null,
+      "reason": "The listed bags are not described as food grade."
+    },
+    "n69-conductive": {
+      "sku": null,
+      "reason": "None of the listed bags is conductive."
+    },
+    "n70-vci": {
+      "sku": null,
+      "reason": "None of the listed bags is VCI."
+    },
+    "n71-un-rated": {
+      "sku": null,
+      "reason": "The listed 12x10x8 is not UN rated."
+    },
+    "n72-hazmat-box": {
+      "sku": null,
+      "reason": "The listed 12x12x12 is not a hazmat box."
+    },
+    "n73-custom-printed": {
+      "sku": null,
+      "reason": "The listed mailer is plain, not custom printed."
+    },
+    "n74-wax-coated": {
+      "sku": null,
+      "reason": "The listed 12x10x8 is not wax coated."
+    },
+    "n75-moisture-resistant": {
+      "sku": null,
+      "reason": "The listed kraft roll is not described as moisture resistant."
+    },
+    "n76-economy-box": {
+      "sku": null,
+      "reason": "The listed box is not described as economy grade."
     }
   }
 }

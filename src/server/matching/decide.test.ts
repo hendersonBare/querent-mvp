@@ -7,7 +7,7 @@ import type {Candidate,Retrieval} from './retrieve';
 // product group. Never on the judge alone, never on the scorer alone.
 
 type Row={sku:string;description:string};
-const candidate=(sku:string,score:number,group=sku):Candidate<Row>=>({item:{sku,description:sku},score,group,conflicts:[],unstated:[]});
+const candidate=(sku:string,score:number,group=sku):Candidate<Row>=>({item:{sku,description:sku},score,group,conflicts:[],unstated:[],unexplained:[]});
 const RULE={minScore:0.9,minLead:0.2};
 
 function retrieval(candidates:Candidate<Row>[],{lead,clears}:{lead:number;clears:boolean}):Retrieval<Row>{

@@ -36,6 +36,9 @@ describe('parseSpec: dimensions are a positional tuple',()=>{
     expect(measures('Poly strapping 1/2" 600 lb')).toEqual([['in',0.5],['lb',600]]);
     expect(measures('Loose fill peanuts 14 cubic feet')).toEqual([['cuft',14]]);
     expect(parseSpec('Edge protectors 2 x 2 x 48", .160" thick').words).toEqual(['edge','protector']);
+    expect(parseSpec('Strapping 1/2" wide 600 lb, 9000\' long').words).toEqual(['strapping']);
+    expect(parseSpec('Long corrugated boxes 12 x 10 x 8"').words).toContain('long');
+    expect(parseSpec('Tall boxes 6 x 6 x 12"').words).toContain('tall');
   });
 
   it('has no tuple when the line gives no size',()=>{
@@ -92,6 +95,8 @@ describe('parseSpec: colour, material, closure and kind',()=>{
     expect(parseSpec('plastic bags').materials).toEqual(['poly']);
     expect(parseSpec('Kraft bubble mailers').materials).toEqual(['paper']);
     expect(parseSpec('kraft corrugated boxes').materials).toEqual(['corrugated']);
+    expect(parseSpec('12x10x8 RSC 32ECT kraft').materials).toEqual([]);
+    expect(parseSpec('Kraft folding cartons 4 x 4 x 4"').materials).toEqual([]);
     expect(parseSpec('cardboard boxes').materials).toEqual(['corrugated']);
     expect(parseSpec('foam rolls').materials).toEqual(['foam']);
   });
@@ -107,6 +112,10 @@ describe('parseSpec: colour, material, closure and kind',()=>{
     expect(parseSpec('direct thermal labels').choices.print).toBe('direct thermal');
     expect(parseSpec('thermal transfer labels').choices.print).toBe('thermal transfer');
     expect(parseSpec('cast stretch film').choices.film).toBe('cast');
+    expect(parseSpec('New Heat Treated Pallets').choices.condition).toBe('new');
+    expect(parseSpec('Used Pallets').choices.condition).toBe('used');
+    expect(parseSpec('Reconditioned pallets').choices.condition).toBe('used');
+    expect(parseSpec('#1 Recycled Heat Treated Pallet').choices.condition).toBe('recycled');
     expect(parseSpec('machine stretch film').choices.length).toBe('machine');
     expect(parseSpec('Black Poly Strapping Hand 1/2" 600 lb').choices.length).toBe('hand');
     expect(parseSpec('stretch film, machine grade').choices.length).toBe('machine');

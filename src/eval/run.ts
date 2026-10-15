@@ -91,7 +91,16 @@ export interface Metrics {
   noMatchRate:number;
 }
 
+const RUNS=new Map<string,ReturnType<typeof evaluate>>();
+/** Every case at one level with one judge (memoized for the default case set: the run is deterministic). */
 export function runEval(level:StrictnessLevel,judge:JudgeKind,cases:readonly EvalCase[]=CASES){
+  if(cases!==CASES)return evaluate(level,judge,cases);
+  const key=`${level}/${judge}`;
+  if(!RUNS.has(key))RUNS.set(key,evaluate(level,judge,cases));
+  return RUNS.get(key)!;
+}
+
+function evaluate(level:StrictnessLevel,judge:JudgeKind,cases:readonly EvalCase[]){
   const results=cases.map(c=>runCase(c,level,judge));
   const matched=results.filter(r=>r.outcome==='matched');
   const mustMatch=cases.filter(c=>c.expect!=='no_match').map(c=>c.id);

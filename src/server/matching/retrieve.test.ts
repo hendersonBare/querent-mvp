@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {CONFLICT,UNSTATED,hundredths,scorePackaging} from './score-packaging';
+import {CONFLICT,UNCONFIRMED,hundredths,scorePackaging} from './score-packaging';
 import {retrieve} from './retrieve';
 
 // Real BOXT rows with the near-duplicates that make wrong matches easy: permuted and near box sizes,
@@ -102,12 +102,12 @@ describe('scorePackaging: what the line says',()=>{
 
   it('scales down an item whose defining kind the line does not state (reclosable, heavy duty, a stated colour)',()=>{
     // "Poly bags" may be flat open-top bags; the reclosable bag is unconfirmed, not contradicted.
-    expect(score('Poly bags 4 x 6" 2 mil 1000/case','PB3565')).toBe(UNSTATED);
+    expect(score('Poly bags 4 x 6" 2 mil 1000/case','PB3565')).toBe(UNCONFIRMED);
     // The heavy duty box is double wall and heavy duty: two unstated features.
     expect(score('12 x 12 x 12" corrugated boxes','HD1212DW-BDL')).toBeLessThan(score('12 x 12 x 12" corrugated boxes','121212-BDL'));
     // A plain line prefers the plain box over the white one.
     expect(best('10 x 8 x 6" corrugated boxes')).toBe('1086-BDL');
-    expect(score('10 x 8 x 6" corrugated boxes','1086W-BDL')).toBe(UNSTATED);
+    expect(score('10 x 8 x 6" corrugated boxes','1086W-BDL')).toBe(UNCONFIRMED);
   });
 
   it('reads a roll written thickness first (1/2" x 12" x 250\') against one written "1/2" Bubble 12"x250\'"',()=>{
@@ -140,10 +140,47 @@ describe('scorePackaging: what the line says',()=>{
     }
   });
 
+  it('treats an item with no size at all as contradicting a line that names one',()=>{
+    const catalog=[...CATALOG,{sku:'MBCOMBO2',description:'#2 Moving Box Combo Pack',pack:'Case',caseQty:1,keywords:'combo packs moving boxes packing kits wardrobe boxes'}];
+    const r=scorePackaging('Corrugated boxes 6 x 6 x 12"',catalog);
+    expect(r.find(c=>c.item.sku==='MBCOMBO2')?.score??0).toBeLessThanOrEqual(CONFLICT);
+    expect(r[0].item.description).toMatch(/^Corrugated Boxes/);
+  });
+
   it('keeps an item that contradicts only the size as a scored near-miss, nearest size first',()=>{
     const r=scorePackaging('12 x 10 x 7" corrugated boxes 32 ECT',CATALOG);
     expect(r.length).toBeGreaterThan(0);
     expect(r.slice(0,3).map(c=>c.item.sku)).toEqual(['12108-BDL','12108-PLT','12106-BDL']);
+  });
+
+  it('charges every qualifier the line asks for and the item does not account for, whatever the word',()=>{
+    // Recognised features and words the scorer has never seen cost the same: the item must explain them.
+    for(const line of ['Heavy Duty Corrugated Boxes 12 x 10 x 8" 32 ECT','Insulated Corrugated Boxes 12 x 10 x 8"','Printed Corrugated Boxes 12 x 10 x 8" 32 ECT',
+      'Telescoping Boxes 12 x 10 x 8" 32 ECT','Waterproof Corrugated Boxes 12 x 10 x 8"','Corrugated Boxes 12x10x8 Used','Corrugated Boxes 12x10x8 frobnicated'])
+      expect(score(line,'12108-BDL'),line).toBeLessThanOrEqual(UNCONFIRMED);
+    expect(score('Anti-Static Reclosable Bags 4 x 6" 2 Mil','PB3565')).toBeLessThanOrEqual(UNCONFIRMED);
+    expect(score('Insulated Bubble Mailers #2 8 1/2 x 12" Kraft','B855SS')).toBeLessThanOrEqual(UNCONFIRMED);
+    expect(score('Self-seal kraft bubble mailers #2 8 1/2 x 12"','B855SS')).toBeLessThanOrEqual(UNCONFIRMED);
+    // Two unexplained qualifiers cost twice.
+    expect(score('Heavy duty printed corrugated boxes 12 x 10 x 8"','12108-BDL')).toBeLessThanOrEqual(UNCONFIRMED**2);
+  });
+
+  it('lists what the item does not account for',()=>{
+    const [box]=scorePackaging('Telescoping corrugated boxes 12 x 10 x 8" heavy duty',CATALOG).filter(c=>c.item.sku==='12108-BDL');
+    expect(box.unexplained).toEqual(['feature: heavy duty','word: telescoping']);
+  });
+
+  it('reads the condition: new, used and recycled contradict each other, and a used or recycled item must be asked for',()=>{
+    const pallets=[
+      {sku:'CPW4840RH',description:'#1 Recycled Heat Treated Pallet, 48x40"',pack:'Each',caseQty:1,keywords:'48x40 pallets export pallets heat treated pallets wood pallets'},
+      {sku:'CPW4840R2',description:'#2 Used Pallets, 48x40"',pack:'Each',caseQty:1,keywords:'48x40 pallets economy pallets recycled pallets wood pallets'},
+    ];
+    const s=(line:string)=>Object.fromEntries(scorePackaging(line,pallets).map(c=>[c.item.sku,c.score]));
+    expect(s('Heat Treated Pallets 48 x 40" New').CPW4840RH??0).toBeLessThanOrEqual(CONFLICT);
+    expect(s('New Heat Treated Wood Pallets 48 x 40"').CPW4840RH??0).toBeLessThanOrEqual(CONFLICT);
+    expect(s('Heat Treated Pallets 48 x 40"').CPW4840RH).toBeLessThanOrEqual(UNCONFIRMED);
+    expect(s('Recycled Heat Treated Pallets 48 x 40"').CPW4840RH).toBe(1);
+    expect(s('Used Pallets 48 x 40"').CPW4840R2).toBe(1);
   });
 
   it('charges each contradiction by the CONFLICT factor on top of its lost weight',()=>{

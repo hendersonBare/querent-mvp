@@ -28,6 +28,14 @@ if(markdown){
   const missed=strict.results.filter(r=>CASES.find(c=>c.id===r.id)!.expect!=='no_match'&&r.outcome!=='matched');
   console.log(`\nMust-match lines Strict leaves for the rep (recorded judge): ${missed.length}`);
   for(const r of missed)console.log(`  ${r.id}: ${r.reason} (top ${r.topSku} ${r.topScore}, lead ${r.lead})`);
+  // Strict's margin: how far the must-not-match lines are from clearing it on each axis.
+  const falses=CASES.filter(c=>c.expect==='no_match').map(c=>strict.results.find(r=>r.id===c.id)!);
+  const {minScore,minLead}=strict.rule;
+  const scoreSide=falses.filter(r=>r.lead>=minLead).sort((a,b)=>b.topScore-a.topScore)[0];
+  const leadSide=falses.filter(r=>r.topScore>=minScore).sort((a,b)=>b.lead-a.lead)[0];
+  console.log(`\nStrict margin (minScore ${minScore}, minLead ${minLead}), on the scorer alone:`);
+  console.log(scoreSide?`  best must-not-match top score with a passing lead: ${scoreSide.topScore} (${scoreSide.id}), ${(minScore-scoreSide.topScore).toFixed(2)} below minScore`:'  no must-not-match line has a passing lead');
+  console.log(leadSide?`  best must-not-match lead with a passing score: ${leadSide.lead} (${leadSide.id}), ${(minLead-leadSide.lead).toFixed(2)} below minLead`:'  no must-not-match line has a passing score');
   const closest=CASES.filter(c=>c.expect==='no_match').map(c=>strict.results.find(r=>r.id===c.id)!).sort((a,b)=>b.topScore-a.topScore).slice(0,8);
   console.log('\nMust-not-match lines closest to matching (top score, lead):');
   for(const r of closest)console.log(`  ${r.id}: ${r.topSku??'-'} ${r.topScore}, lead ${r.lead}`);
