@@ -9,6 +9,7 @@ export const COPY={
   resetSent:'If an account exists for that email, we sent a link to reset the password.',
   linkExpired:'That reset link has expired or was already used. Enter your email to get a new one.',
   passwordTooShort:`Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+  passwordTooLong:'Use at most 72 characters.',
   passwordMismatch:'The passwords do not match.',
   passwordSame:'Choose a password different from your current one.',
   passwordFailed:'The password could not be changed. Try again.',

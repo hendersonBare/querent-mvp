@@ -13,7 +13,7 @@ const MAX_PASSWORD_BYTES=72;
 type Problem='short'|'long'|'mismatch'|'same'|'failed';
 const MESSAGES:Record<Problem,string>={
   short:COPY.passwordTooShort,
-  long:'Use at most 72 characters.',
+  long:COPY.passwordTooLong,
   mismatch:COPY.passwordMismatch,
   same:COPY.passwordSame,
   failed:COPY.passwordFailed,

@@ -34,7 +34,7 @@ export type RouteDecision='allow'|'redirect-login'|'unauthorized'|'redirect-app'
  * What the proxy does with a request for `pathname`:
  *   - static assets and public pages/APIs: allow (a signed-in user asking for /login: redirect-app);
  *   - anything else needs a session: allow with one; without, pages redirect-login and /api/* is
- *     unauthorized (401 JSON). Unknown paths (/signup included: there is none) count as pages.
+ *     unauthorized (401 JSON). Unknown paths (an account-creation page included: there is none) count as pages.
  */
 export function routeDecision(pathname:string,hasUser:boolean):RouteDecision{
   if(isStaticAsset(pathname))return 'allow';
