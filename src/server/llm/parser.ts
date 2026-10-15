@@ -74,13 +74,13 @@ export interface LiveParserOptions {client?:MessagesClient;model?:string;timeout
 
 export function createLiveParser({client,model,timeoutMs=PARSE_TIMEOUT_MS}:LiveParserOptions={}):Parser{
   return {
-    async parse(input){
+    async parse(input,options){
       if(input.kind==='text'&&!input.text.trim())return {ok:true,rows:[]};
       if(input.kind==='pdf'&&input.data.byteLength>MAX_PDF_BYTES)return {ok:false,error:PDF_TOO_LARGE_ERROR};
       if(input.kind==='pdf'&&input.data.byteLength===0)return {ok:false,error:PARSE_ERROR};
       let message:Anthropic.Message;
       try{
-        message=await (client??anthropicClient()).messages.create(buildParseRequest(input,model??defaultModel()),{timeout:timeoutMs});
+        message=await (client??anthropicClient()).messages.create(buildParseRequest(input,model??defaultModel()),{timeout:timeoutMs,signal:options?.signal});
       }catch(error){
         // A 400 means the API could not take this input (e.g. an unreadable or encrypted PDF).
         return {ok:false,error:error instanceof Anthropic.BadRequestError?PARSE_ERROR:SERVICE_ERROR};
