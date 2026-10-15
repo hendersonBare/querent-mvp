@@ -114,12 +114,14 @@ const BUNDLE_WEIGHT=/\d+(?:\.\d+)?\s*lbs?\.?\s*\/\s*bundle\b/g;
 
 const COUNT=String.raw`(\d{1,3}(?:,\d{3})+|\d+)`;
 /** What a case holds, between the count and the slash: "500 bags/case", "36 rolls/case". */
-const CONTENTS=String.raw`(?:\s*(?:pcs?|pieces?|ct|count|ea|each|bags?|mailers?|labels?|sheets?|boxes|rolls?|rls?|units?|envelopes?|pouches?|cartons?|pads?))?`;
+const CONTENTS=String.raw`(?:\s*(pcs?|pieces?|ct|count|ea|each|bags?|mailers?|labels?|sheets?|boxes|rolls?|rls?|units?|envelopes?|pouches?|cartons?|pads?))?`;
+/** What a pack phrase may count without naming the product: pieces, units, rolls. Anything else it names ("500 labels/case") must be the line's own product. */
+const GENERIC_CONTENTS=new Set(['pc','pcs','piece','ct','count','ea','each','unit','roll','rl']);
 const OUTER=String.raw`(?:cases?|cs|cartons?|ctns?|bundles?|bdls?|bndls?|boxe?s?|bx|packs?|pks?|pkgs?|packages?|sleeves?)\b`;
 const ROLL=String.raw`(?:rolls?|rls?)\b`;
-const PACK_RULES:{re:RegExp;unit:(m:RegExpExecArray)=>'outer'|'roll';count:(m:RegExpExecArray)=>string}[]=[
+const PACK_RULES:{re:RegExp;unit:(m:RegExpExecArray)=>'outer'|'roll';count:(m:RegExpExecArray)=>string;contents?:(m:RegExpExecArray)=>string|undefined}[]=[
   // "25/bundle", "1,000/cs", "500 bags per case", "500 labels/roll"
-  {re:new RegExp(String.raw`(?<![\w.,])${COUNT}${CONTENTS}\s*(?:\/|\bper\b|\ba\b)\s*(${OUTER}|${ROLL})`,'g'),unit:m=>/^r/.test(m[2])?'roll':'outer',count:m=>m[1]},
+  {re:new RegExp(String.raw`(?<![\w.,])${COUNT}${CONTENTS}\s*(?:\/|\bper\b|\ba\b)\s*(${OUTER}|${ROLL})`,'g'),unit:m=>/^r/.test(m[3])?'roll':'outer',count:m=>m[1],contents:m=>m[2]},
   // "case of 500", "bundle of 25", "roll of 250"
   {re:new RegExp(String.raw`\b(${OUTER}|${ROLL})\s*(?:of|qty\.?:?)\s*${COUNT}\b`,'g'),unit:m=>/^r/.test(m[1])?'roll':'outer',count:m=>m[2]},
   // "1000 ct", "500 count", "10 pk", "10-pack", "500 pcs"
@@ -131,17 +133,21 @@ const toCount=(raw:string)=>Number(raw.replace(/,/g,''));
 function takePack(text:string){
   const pack:Pack={};
   const values:{outer:number[];roll:number[]}={outer:[],roll:[]};
-  for(const {re,unit,count} of PACK_RULES){
+  /** The nouns pack phrases counted ("labels" in "500 labels/roll"), stemmed. */
+  const contents:string[]=[];
+  for(const {re,unit,count,contents:what} of PACK_RULES){
     text=text.replace(re,(...args)=>{
       const m=args.slice(0,-2) as unknown as RegExpExecArray;
       const key=unit(m);
       const n=toCount(count(m));
+      const noun=what?.(m);
+      if(noun&&!GENERIC_CONTENTS.has(stem(noun)))contents.push(stem(noun));
       pack[key]??=n;
       if(!values[key].includes(n))values[key].push(n);
       return ' ';
     });
   }
-  return {pack,values,text};
+  return {pack,values,contents,text};
 }
 
 /**
@@ -462,8 +468,8 @@ const JOINING=new Set(`a and or nor to for fit fits fitting item style approx ap
 const UNIT_WORDS=new Set(`x inch ft feet foot yd yds yard mm cm meter lb lbs pound oz ozs mil ga gauge gage ect test burst mullen
   micron um cuft cu gal gallon ct cts count pk pks pkg pc pcs piece ea case cs bundle bdl ctn`.split(/\s+/));
 const NUMBER_WORDS=new Set('half quarter third dozen pair one two three four five six seven eight nine ten eleven twelve twenty fifty hundred thousand'.split(' '));
-/** What may separate tokens without meaning anything: space, comma, full stop, semicolon, colon, brackets, quotes, ! ? and a hyphen. */
-const SEPARATOR=/[\s,.;:()'"!?-]/;
+/** What may separate tokens without meaning anything: space, comma, full stop, semicolon, colon, brackets, quotes, ! ?, a hyphen or dash, a bullet. (A dash between numbers is a range: RANGE.) */
+const SEPARATOR=/[\s,.;:()'"!?\-–—•]/;
 /** ".160" thick": "thick" right after a size says nothing more. (Long, wide, high, deep and tall there are L/W/H labels.) Elsewhere ("long boxes") they count. */
 const SIZE_ADJECTIVE=/(\d(?:"|''|'|\s*(?:in|inch|inches|ft|feet|foot|mm|cm)\b\.?)?)\s*thick\b/g;
 
@@ -478,9 +484,16 @@ function wordsOf(text:string){
   return words;
 }
 
+/** The product nouns a line can name. */
+export const PRODUCT_NOUNS:ReadonlySet<string>=new Set(['box','carton','mailer','bag','pouch','envelope','tape','label','wrap','film','roll','sheet','pad','tubing','cover',
+  'strapping','strap','dispenser','protector','pallet','peanut','sheeting','gaylord','lid','cutter','knife','liner','tube','paper','tissue','newsprint',
+  'pillow','cushion','bin','sleeve','container','crate','tote','racking','rsc','gun','board','tray','jar','bottle','can','drum','pail','glove','tag']);
+
 /** The leftover of a line: its words (to be confirmed by the item) and what in it blocks Strict. */
 function readLeftover(text:string){
   const blockers:string[]=[];
+  // "with" before a product ("tape with dispenser", "boxes with lids") adds a second item.
+  for(const m of text.matchAll(/\bwith\s+(?:(?:an?|the)\s+)?([a-z]+)/g))if(PRODUCT_NOUNS.has(stem(m[1])))blockers.push(`the line says "with ${m[1]}": a second product`);
   for(const c of new Set([...text].filter(c=>!/[a-z0-9]/.test(c)&&!SEPARATOR.test(c))))blockers.push(`"${c}" in the line`);
   for(const raw of text.split(/[^a-z0-9]+/)){
     if(!raw||FILLER.has(raw))continue;
@@ -534,8 +547,13 @@ function takeNegations(text:string){
 
 /** Burst (Mullen) ratings and the ECT they are sold as equivalent to. */
 export const BURST_TO_ECT:Readonly<Record<number,number>>={200:32,275:44,350:55};
-/** Two numbers apart from a dash ("4-6", "12" - 14"): a range. Mixed numbers (8-1/2) and three-part chains (12-10-8, read as a tuple) are not. */
-const RANGE=/(?<![\d.\/])\d+(?:\.\d+)?\s*(?:"|''|')?\s*[-–—]\s*\d+(?:\.\d+)?(?![\d.]*\/)/;
+/**
+ * A range: two numbers joined by a dash with no space ("4-6", "40-50 lb"), or with the same unit on
+ * both sides ("12" - 14""). Mixed numbers (8-1/2) and three-part chains (12-10-8, read as a tuple)
+ * are not; a spaced dash between different things ("8" – 32 ECT") is a separator.
+ */
+const RANGES=[/(?<![\d.\/])\d+(?:\.\d+)?(?:"|''|')?[-–—]\d+(?:\.\d+)?(?![\d.]*\/)/,
+  /\d(?:\.\d+)?\s*("|''|'|in\b|mm\b|cm\b|ft\b|yds?\b|lbs?\b|mil\b)\s*[-–—]\s*\d+(?:\.\d+)?\s*\1/];
 
 export interface ParseOptions {
   /** A catalog description: its "50 lb./Bundle" is the bundle's weight, not the paper's, and is dropped. */
@@ -548,7 +566,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   if(item)text=text.replace(BUNDLE_WEIGHT,' ');
   const said=text;
   const blockers:string[]=[];
-  if(RANGE.test(said))blockers.push('a range');
+  if(RANGES.some(re=>re.test(said)))blockers.push('a range');
   const negations=takeNegations(text);text=negations.text;
   const packed=takePack(text);text=packed.text;
   const ect=takeValues(text,ECT,Number);text=ect.text;
@@ -600,6 +618,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   for(const stray of strays)blockers.push(`a number nothing reads: "${stray.label}"`);
   const leftover=readLeftover(sizes.text);
   blockers.push(...leftover.blockers);
+  for(const noun of packed.contents)if(!leftover.words.includes(noun))blockers.push(`a pack of "${noun}" on a line that names no ${noun}`);
 
   // One value per field.
   const two=(field:string,values:readonly (string|number)[])=>{if(values.length>1)blockers.push(`two ${field} values: ${values.join(' and ')}`);};

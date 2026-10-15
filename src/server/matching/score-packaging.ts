@@ -1,4 +1,4 @@
-import {BURST_TO_ECT,DEFINING_CHOICE,familyOf,parseItemSpec,parseSpec,productGroup,sameSize,type ChoiceKey,type DimOrder,type ItemSpec,type PackagingItem,type Size,type Spec} from './packaging';
+import {BURST_TO_ECT,DEFINING_CHOICE,PRODUCT_NOUNS,familyOf,parseItemSpec,parseSpec,productGroup,sameSize,type ChoiceKey,type DimOrder,type ItemSpec,type PackagingItem,type Size,type Spec} from './packaging';
 
 // Packaging-aware scoring (BOXT task B3). Matching is by description only: a SKU typed in the line is
 // just text, so a customer's own SKU can never match a BOXT SKU by coincidence. Pure; the catalog is
@@ -60,10 +60,17 @@ export const UNCONFIRMED=0.75;
 /** The factor for an item whose words don't include the product noun the line names. */
 const OFF_NOUN=0.6;
 
-/** The product nouns a line can name. */
-export const PRODUCT_NOUNS:ReadonlySet<string>=new Set(['box','carton','mailer','bag','pouch','envelope','tape','label','wrap','film','roll','sheet','pad','tubing','cover',
-  'strapping','strap','dispenser','protector','pallet','peanut','sheeting','gaylord','lid','cutter','knife','liner','tube','paper','tissue','newsprint',
-  'pillow','cushion','bin','sleeve','container','crate','tote','racking','rsc','gun','board','tray','jar','bottle','can','drum','pail','glove','tag']);
+export {PRODUCT_NOUNS};
+/**
+ * The only words a product family's keywords may confirm at Strict when the item's description
+ * doesn't say them: plain synonyms and uses that say nothing about the item's spec (shipping,
+ * packing, cardboard, plastic, carton sealing, packing list, corner protectors, ...), and product
+ * nouns (a line must still name one the description says). Keywords also hold the family's claims
+ * (eco, premium, reinforced, recyclable, custom, security, economy, export, ...), which Strict never
+ * takes as confirmed. Balanced and Lenient take every keyword.
+ */
+export const KEYWORD_WORDS:ReadonlySet<string>=new Set(['shipping','packing','cardboard','plastic','poly','polypropylene','polyethylene','paperboard',
+  'corrugated','industrial','carton','sealing','corner','list','wrapping','barcode']);
 /**
  * The only stand-ins for a product noun in an item's description (Strict): bubble or foam "wrap" is
  * sold as "Bubble Rolls"/"Foam Rolls", stretch "film" as "Stretch Wrap", pallet top "sheets" as
@@ -264,6 +271,9 @@ function fit(line:Spec,item:ScoredSpec){
   if(!named.length)blockers.push('the line names no product (box, bag, mailer, tape, ...)');
   else if(!named.some(w=>item.descSet.has(w)||(NOUN_SYNONYMS[w]??[]).some(x=>item.descSet.has(x))))
     blockers.push(`product: the item's description does not say "${named.join('" or "')}"`);
+  for(const word of line.words){
+    if(!PRODUCT_NOUNS.has(word)&&!item.descSet.has(word)&&item.wordSet.has(word)&&!KEYWORD_WORDS.has(word))blockers.push(`only the product family's keywords say "${word}", not the item's description`);
+  }
 
   const allConflicts=offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts;
   // A pack quantity, mil or colour alone says nothing about what the item is: a word, a feature or the size must fit.

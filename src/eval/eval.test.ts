@@ -1,9 +1,11 @@
 import {describe,expect,it} from 'vitest';
 import {STRICTNESS_LEVELS,type StrictnessLevel} from '@/features/settings/strictness';
 import {CASES,NO_MATCH_WHYS,withoutSupplierSku} from './cases';
+import {HELDOUT_BARE_SIZES} from './heldout';
+import {decide} from '@/server/matching/decide';
 import {retrieve} from '@/server/matching/retrieve';
 import {matchConfig} from '@/features/settings/strictness';
-import {CATALOG,JUDGES,RECORDED_BY,RECORDING,judgeCandidates,judgeVerdict,runCase,runEval} from './run';
+import {CATALOG,JUDGES,RECORDED_BY,RECORDING,judgeCandidates,judgeVerdict,retrieveAt,runCase,runEval} from './run';
 
 // The false-positive gate (BOXT task B3, product rule 1: prefer false negatives over false
 // positives). Every hand-written line runs through the real scorer (retrieve), the judge and
@@ -75,6 +77,24 @@ describe('no false positives',()=>{
   it.each(JUDGES)('no must-not-match line matches at its declared level (or any stricter one) with the %s judge',judge=>{
     const matched=mustNot.flatMap(c=>atOrStricterThan(c.level!).map(level=>runCase(c,level,judge))).filter(r=>r.outcome==='matched');
     expect(matched.map(r=>`${r.id} @ ${r.level} -> ${r.sku}`)).toEqual([]);
+  });
+
+  it('no held-out bare size (round 2\'s 710) matches at any level, even with a judge that always agrees',()=>{
+    expect(HELDOUT_BARE_SIZES.length).toBe(710);
+    for(const level of STRICTNESS_LEVELS){
+      const matched=HELDOUT_BARE_SIZES.filter(line=>{const r=retrieveAt(line,level);return decide(r,{sku:r.top?.item.sku??null}).outcome==='matched';});
+      expect(matched,level).toEqual([]);
+    }
+  });
+
+  it('holds every held-out and B3b must-not-match line at Strict, and says why (total accounting or score/lead)',()=>{
+    const lines=mustNot.filter(c=>c.tags?.length);
+    expect(lines.length).toBeGreaterThanOrEqual(150);
+    for(const c of lines){
+      const r=retrieveAt(c.description,'strict');
+      expect(r.clears,c.id).toBe(false);
+      if(r.top&&!r.eligibility.strictEligible)expect(r.eligibility.blockers.length,c.id).toBeGreaterThan(0);
+    }
   });
 
   it.each(JUDGES)('no must-match line gets a wrong item at Strict with the %s judge',judge=>{
