@@ -271,3 +271,113 @@ describe('total accounting: a thickness joined to the size with "x"',()=>{
     expect(strictMatch('Reclosable Bags 4x6x2')).toBeNull();
   });
 });
+
+// ---- B3b fix round 1 (verifier findings) --------------------------------------------------------
+const ITEMS2=[
+  {sku:'GAYLORDLID-BDL',description:'Gaylord Lid 48x40", bundle pricing',pack:'Each',caseQty:10,category:'boxes',keywords:'bulk containers gaylord boxes gaylord containers pallet boxes wholesale gaylords'},
+  {sku:'GAYLORD-BDL',description:'Single Wall Gaylord 48x40x36", bundle pricing',pack:'Each',caseQty:1,category:'boxes',keywords:'bulk containers gaylord boxes gaylord containers pallet boxes wholesale gaylords'},
+  {sku:'RM4SS',description:'White Flat Paper Mailers 12.75x15"',pack:'Case',caseQty:1,category:'mailers',keywords:'eco mailers flat mailers paper mailers rigid mailers'},
+  {sku:'B705',description:'Padded Paper Mailers 10.5x15.25"',pack:'Case',caseQty:1,category:'mailers',keywords:'eco mailers padded mailers paper mailers recyclable mailers'},
+  {sku:'TDSS2',description:'Seal Safe Hand Tape Dispensers 2"',pack:'Each',caseQty:1,category:'tape',keywords:'carton sealer hand tape dispenser packing tape gun tape dispenser tape gun'},
+  {sku:'IQRT40',description:'Expandable Foam Bags, 18x24"',pack:'Case of 36',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'IQRT40B',description:'Expandable Foam Bags (Bulk Pack), 18x24"',pack:'Case of 112',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'IQRT60',description:'Expandable Foam Bags Extra Thick, 18x24"',pack:'Case of 36',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'IQRT60B',description:'Extra Thick (Bulk Pack) Expandable Foam Bags, 18x24"',pack:'Case of 112',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'EP2248160BX',description:'Edge Protectors, Cased, 2x2x48" .160',pack:'Case of 80',caseQty:1,category:'storage',keywords:'corner protectors edge protectors pallet corner protectors pallet protectors'},
+  {sku:'INM1822',description:'Thermal Mailers 22x18"',pack:'Case of 100',caseQty:1,category:'mailers',keywords:'cold chain mailers insulated mailers temperature mailers thermal bubble mailers thermal mailers'},
+  {sku:'PS3227',description:'Black Poly Strapping, Machine Length, 0.5"x6600\' 500 lbs Black 9x8" Core',pack:'Coil',caseQty:1,category:'tape',keywords:'machine strapping poly strapping'},
+  ...CATALOG,
+];
+const eligibleTop=(line:string)=>{const t=scorePackaging(line,ITEMS2)[0];return t?{sku:t.item.sku,score:t.score,eligible:t.eligibility.strictEligible,blockers:t.eligibility.blockers}:null;};
+const strict2=(line:string)=>{const r=retrieve(line,ITEMS2,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+
+describe('fix round 1: the item\'s own product noun and description words must be accounted for',()=>{
+  it.each(['Gaylord Boxes 48 x 40','Gaylord 48x40"','Gaylords 48x40"','Gaylord 48x40" bundle of 10','White Paper 12.75" x 15"','Padded Paper 10.5 x 15.25"',
+    'Seal Safe Hand Tape, 2 inch','Pallet Protectors 2x2x48"'])('"%s" does not name what the item is: never Strict',line=>{
+    expect(strict2(line)).toBeNull();
+    const t=eligibleTop(line);
+    if(t)expect(t.eligible).toBe(false);
+  });
+
+  it('names the head noun the item is (a lid, mailers, a dispenser)',()=>{
+    expect(eligibleTop('Gaylord 48x40"')!.blockers.join(' ')).toMatch(/"lid"/);
+    expect(eligibleTop('White Paper 12.75" x 15"')!.blockers.join(' ')).toMatch(/"mailer"/);
+    expect(eligibleTop('Seal Safe Hand Tape, 2 inch')!.blockers.join(' ')).toMatch(/"dispenser"/);
+  });
+
+  it('charges a description word the line leaves out ("Extra Thick", "Bulk Pack"), so the plain item leads',()=>{
+    const scored=Object.fromEntries(scorePackaging('Expandable Foam Bags 18 x 24"',ITEMS2).map(c=>[c.item.sku,c.score]));
+    expect(scored.IQRT40).toBe(1);
+    expect(scored.IQRT40B).toBeLessThan(1);
+    expect(scored.IQRT60B).toBeLessThan(scored.IQRT40B);
+    expect(strict2('Expandable Foam Bags 18 x 24"')).toBe('IQRT40');
+    expect(strict2('Expandable Foam Bags Extra Thick (Bulk Pack) 18 x 24"')).toBe('IQRT60B');
+  });
+
+  it('keeps lines that name the item in other words: a material left unsaid, corner protectors, the head by its stand-in',()=>{
+    expect(strict2('Edge Protectors 2 x 2 x 48" .160"')).toBe('EP2248160BX');
+    expect(strict2('Corner Protectors 2" x 2" x 48" .160"')).toBe('EP2248160BX');
+    expect(strict2('Single Wall Gaylord Box 48 x 40 x 36"')).toBe('GAYLORD-BDL');
+    expect(strict2('Gaylord Lid 48 x 40"')).toBe('GAYLORDLID-BDL');
+    expect(strict2('Bubble Wrap 1/2" x 12" x 250\' Perforated')).toBe('BW12S12P');
+  });
+
+  it('a labelled size on a mailer listed wider than long is not placed (the order is unknown)',()=>{
+    expect(eligibleTop('Thermal Mailers 18" L x 22" W')!.eligible).toBe(false);
+  });
+});
+
+describe('fix round 1: sizes in one unit compare exactly; only a conversion has a tolerance',()=>{
+  it.each(['Corrugated Boxes 12.05 x 10 x 8"','Corrugated Boxes 12 x 10.04 x 8"','Reclosable Poly Bags 4 x 6.03" 2 mil'])('"%s" is not the item',line=>{
+    expect(strict2(line)).toBeNull();
+    expect(scorePackaging(line,ITEMS2).every(c=>c.score<=0.5)).toBe(true);
+  });
+  it('0.5" x 6630\' strapping is not the 6600\' coil',()=>{
+    expect(strict2('Poly Strapping, Machine Length, 0.5" x 6630\' 500 lbs Black 9x8" Core')).toBeNull();
+  });
+  it('a metric size that is a standard imperial size, to the nearest whole unit, still matches (within 0.2%)',()=>{
+    expect(strict2('Corrugated Boxes 305 x 254 x 203 mm')).toBe('12108-BDL');
+    expect(strict2('Corrugated Boxes 12x10x8.0"')).toBe('12108-BDL');
+    expect(strict2('Corrugated Boxes 12 1/2 x 10 x 8"')).toBeNull();
+  });
+  it('2 mil is 50.8 micron, not 51',()=>{
+    expect(scorePackaging('Reclosable Poly Bags 4 x 6" 50.8 micron',ITEMS2)[0].item.sku).toBe('PB3565');
+    expect(strict2('Reclosable Poly Bags 4 x 6" 51 micron')).toBeNull();
+  });
+});
+
+describe('fix round 1: only proper fractions are numbers',()=>{
+  it.each(['Corrugated Boxes 12x10x16/2"','Corrugated Boxes 12x10x8/1"','Corrugated Boxes 12x10x8 1/0"','Reclosable Bags 4 x 6" 4/2 Mil'])('"%s" is blocked',line=>{
+    expect(blockers(line).join(' ')).toMatch(/fraction/);
+    expect(strict2(line)).toBeNull();
+  });
+  it('mixed numbers still read',()=>{
+    expect(parseSpec('Mailers 8 1/2 x 12"').dims?.map(d=>d.value)).toEqual([8.5,12]);
+    expect(parseSpec('Mailers 8-1/2 x 12"').dims?.map(d=>d.value)).toEqual([8.5,12]);
+  });
+});
+
+describe('fix round 1: no shared state between calls, and bounded work per line',()=>{
+  it('returns fresh candidates: mutating one result never changes the next',()=>{
+    const a=scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',CATALOG);
+    a[0].score=0;a[0].eligibility.blockers.push('tampered');a.length=0;
+    const b=scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',CATALOG);
+    expect(b[0].score).toBe(1);
+    expect(b[0].eligibility.blockers).toEqual([]);
+  });
+  it('re-reads a catalog row edited in place',()=>{
+    const rows=[{...CATALOG[0]}];
+    expect(scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',rows)[0].score).toBe(1);
+    rows[0].description='Corrugated Boxes 12x10x6", 32 ECT single wall, bundle pricing';
+    expect(scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',rows)[0]?.score??0).toBeLessThanOrEqual(0.5);
+  });
+  it('blocks a line over 500 characters or a number over 12 digits, quickly',()=>{
+    const long=`Corrugated Boxes 12 x 10 x 8" ${'kraft '.repeat(100)}`;
+    expect(blockers(long).join(' ')).toMatch(/too long/);
+    expect(blockers(`Corrugated Boxes ${'1'.repeat(20)} x 10 x 8"`).join(' ')).toMatch(/too long/);
+    const t=performance.now();
+    for(const line of ['1'.repeat(20000)+' boxes','2 '.repeat(5000)+'boxes','12x'.repeat(3000)+'8 boxes','1/'.repeat(5000)+'2 boxes','1'+',000'.repeat(3000)+' boxes',
+      '1'.repeat(499)+' boxes','12x'.repeat(160)+'8 boxes','1 x '.repeat(120)+'boxes','no '.repeat(160)+'boxes'])retrieve(line,CATALOG,STRICT);
+    expect(performance.now()-t).toBeLessThan(1500);
+  });
+});
