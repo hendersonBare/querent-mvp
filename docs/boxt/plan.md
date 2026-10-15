@@ -121,11 +121,11 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | ID | Task | Blocked by | Status |
 |---|---|---|---|
-| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | pending |
+| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | in progress (`boxt/task/B0-strip-to-shell`) |
 | B1 | Supabase schema, RLS, seed, repository | B0 | pending |
 | B2 | Auth (login, reset, proxy, guards) | B1 | pending |
-| B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | pending |
-| B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | pending |
+| B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
+| B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | in progress (`boxt/task/B4-llm-parser-judge`) |
 | B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
 | B6 | Quotes list and detail | B1, B2 | pending |
 | B7 | Settings (match strictness) | B1, B2, B3 | pending |
