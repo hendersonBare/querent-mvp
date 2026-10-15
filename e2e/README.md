@@ -8,7 +8,7 @@ server** against the **local Supabase stack** with the **scripted parser and jud
 |---|---|
 | `access.spec.ts` | Without a session: every page (read from `src/app/**/page.tsx`) redirects to `/login?next=…`, every route handler and method (read from `src/app/**/route.ts`) answers 401, the auth APIs answer as public endpoints; no sign-up page, link or Supabase sign-up; RLS: the anon key reads nothing and cannot insert (42501), update or delete in any public table, view or function. |
 | `auth.spec.ts` | Sign-in (one message for every failure), `next`, sign-out, password reset through Mailpit. |
-| `quote-tool.spec.ts` | Paste → match → review → price → save, one pricing unit per line (10 bundles of a box sold each = 250 each, its total and the saved unit); PDF upload (`test/fixtures/sample-list.pdf`); an unmatched line's closest item (similarity) → "Use this item" → saved as picked by the rep, its unconvertible quantity flagged; Save disabled until priced; the 200-line cap. |
+| `quote-tool.spec.ts` | Paste → match → review → price → save, one pricing unit per line (10 bundles of a box sold each = 250 each, its total and the saved unit); PDF upload (`test/fixtures/sample-list.pdf`); an unmatched line's closest item (similarity) → "Use this item" → saved as picked by the rep, its 4 rolls converted to 1 case (rolls are the wrap's own noun); Save disabled until priced; the 200-line cap. |
 | `quotes.spec.ts` | Edit customer, reference, quantity and price (units shown, total follows, change persists); delete with confirm (gone, 404); the example quote (tagged, creator "Example", no Edit or Delete, API 409). |
 | `settings.spec.ts` | Match strictness: change, persists, new runs use it, back to Strict. |
 

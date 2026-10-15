@@ -111,7 +111,7 @@ function judgeCandidates(retrieval:Retrieval<CatalogItem>):JudgeCandidate[]{
 }
 
 export function toResultItem(item:CatalogItem):ResultItem{
-  const pricing=pricingUnit(item.pack,item.caseQty);
+  const pricing=pricingUnit(item.pack,item.caseQty,item);
   return {sku:item.sku,description:item.description,pack:packLabel(item),category:item.category,listPrice:item.listPrice,listPriceUnit:pricing?.unit??null,pricing};
 }
 const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toResultItem(c.item),score:c.score});

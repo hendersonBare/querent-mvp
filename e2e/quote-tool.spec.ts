@@ -141,14 +141,14 @@ test('an unmatched line: open its closest items, use one, price it and save it a
   // The promoted line's price is focused and empty; Save waits for it.
   await expect(price(dialog,'SF188CAST')).toBeFocused();
   await expect(saveButton(dialog)).toBeDisabled();
-  // The wrap is priced per case of 4; "4 rolls" cannot be converted exactly, so it stays 4 and is flagged.
+  // The wrap is priced per case of 4 rolls, so the customer's 4 rolls (its own product noun) are 1 case, said so.
   const wrap=reviewLine(dialog,'SF188CAST');
-  await expect(qty(dialog,'SF188CAST')).toHaveValue('4');
-  await expect(wrap).toContainText('Check quantity (customer wrote: 4 rolls)');
-  await shot(page,'03c-review-dialog-check-quantity');
-  await qty(dialog,'SF188CAST').fill('1');
-  await expect(wrap).toContainText('Customer wrote: 4 rolls');
+  await expect(qty(dialog,'SF188CAST')).toHaveValue('1');
   await expect(wrap.getByTestId('qty-unit')).toHaveText('case');
+  await expect(wrap.getByTestId('price-unit')).toHaveText('per case');
+  await expect(wrap).toContainText('Customer asked for 4 rolls = 1 case');
+  await expect(wrap).not.toContainText('Check quantity');
+  await shot(page,'03c-review-dialog-rolls-to-case');
   await price(dialog,'SF188CAST').fill('80');
   // 250 each x $1.25 + 1 case x $80.
   await expect(dialog.getByTestId('quote-total')).toHaveText('$392.50');
@@ -164,7 +164,7 @@ test('an unmatched line: open its closest items, use one, price it and save it a
   const id=new URL(page.url()).pathname.split('/').pop();
   const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
   expect(quote.lines.map((l:{sku:string;matchedBy:string;quantity:number;unit:string;quantityUnclear:boolean})=>[l.sku,l.matchedBy,l.quantity,l.unit,l.quantityUnclear]))
-    .toEqual([['12108-BDL','auto',250,'each',false],['SF188CAST','rep',1,'case',true]]);
+    .toEqual([['12108-BDL','auto',250,'each',false],['SF188CAST','rep',1,'case',false]]);
 });
 
 test('a list over 200 lines is refused before anything is sent, here and by the API',async({page})=>{

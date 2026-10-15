@@ -183,6 +183,16 @@ describe('withItem (Swap and "Use this item")',()=>{
     expect(withItem(pieces,ROLLS,'rep')).toMatchObject({unit:'roll',quantity:'2',quantityNote:{kind:'converted',text:'Customer asked for 500 each = 2 rolls'}});
   });
 
+  it('counts the item\'s own product noun as pieces: 4 rolls of stretch wrap priced per case of 4 is 1 case',()=>{
+    const wrapLine={...initialReview(sampleRun())[3],customerQuantity:4,customerUnit:'roll',quantity:'4',unit:'roll'};
+    const wrap:ScoredItem={sku:'SF188CAST',description:'Cast Stretch Wrap, Hand Length, 18"x1500\' 80 Gauge',pack:'Case of 4',category:'stretch-wrap',listPrice:81.08,listPriceUnit:'case',
+      pricing:pricingUnit('Case of 4',1,{description:'Cast Stretch Wrap, Hand Length, 18"x1500\' 80 Gauge',category:'stretch-wrap'}),score:1};
+    const promoted=withItem(wrapLine,wrap,'rep');
+    expect(promoted).toMatchObject({quantity:'1',unit:'case',quantityNote:{kind:'converted',text:'Customer asked for 4 rolls = 1 case'}});
+    expect(quantityFlag(promoted)).toBeNull();
+    expect(quantityAside(promoted)).toBe('Customer asked for 4 rolls = 1 case');
+  });
+
   it('keeps the quantity blank when the customer gave none',()=>{
     const wrap=initialReview(sampleRun())[1];
     expect(withItem(wrap,BAGS,'rep')).toMatchObject({quantity:'',unit:'case',quantityNote:null});

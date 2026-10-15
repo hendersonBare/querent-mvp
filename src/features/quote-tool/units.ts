@@ -15,6 +15,14 @@ import {quantityProblem} from '@/features/quotes/limits';
 //   "Roll" / "Roll of N"  per roll (of N pieces: labels)                            -> roll
 //   "Coil"                per coil (strapping)                                      -> coil
 // Any other pack is per its first word ("Pack of 12" -> pack, 12 pieces).
+//
+// A piece of an item also goes by its product noun ("500 boxes", "4 rolls", "2,000 bags"): the customer's
+// unit counts as pieces when it is one of the item's own nouns (productNouns). The nouns come from a
+// small fixed list, singular or plural, case-insensitive; each group is one noun:
+//   box (box, carton)  bag (bag, pouch)  mailer (mailer, envelope)  roll  sheet  label  coil
+// An item's nouns: the first listed noun in its description, then its category's noun (boxes, bags,
+// mailers, labels), then for stretch wrap and tape (not tape dispensers), which the catalog sells by the
+// roll without saying so, roll. Any other word ("pallets", "skids") is not a piece and is flagged.
 
 export interface PricingUnit {
   /** What the list price is per, singular and lowercase: "each", "case", "roll", "coil". */
@@ -23,19 +31,54 @@ export interface PricingUnit {
   contains:number|null;
   /** For an item priced each but sold in bundles: the bundle size (caseQty > 1), else null. */
   bundleOf:number|null;
+  /** What one piece is called (productNouns: "box", "roll"); empty when the item was not given. */
+  nouns:string[];
 }
 
-/** The pricing unit of a catalog item from its pack and caseQty; null when the pack is missing. */
-export function pricingUnit(pack:string|null|undefined,caseQty:number|null|undefined):PricingUnit|null{
+/**
+ * The pricing unit of a catalog item from its pack and caseQty (and, when given, its description and
+ * category for the piece nouns); null when the pack is missing.
+ */
+export function pricingUnit(pack:string|null|undefined,caseQty:number|null|undefined,item?:{description?:string|null;category?:string|null}):PricingUnit|null{
   const match=/^\s*([a-z]+)(?:\s+of\s+([\d,]+))?/i.exec(pack??'');
   if(!match)return null;
   const unit=match[1].toLowerCase();
+  const nouns=item?productNouns(item.description??'',item.category??null):[];
   if(unit==='each'){
     const bundle=caseQty!=null&&Number.isInteger(caseQty)&&caseQty>1?caseQty:null;
-    return {unit:'each',contains:1,bundleOf:bundle};
+    return {unit:'each',contains:1,bundleOf:bundle,nouns};
   }
   const stated=match[2]?Number(match[2].replace(/,/g,'')):null;
-  return {unit,contains:stated!==null&&Number.isInteger(stated)&&stated>0?stated:null,bundleOf:null};
+  return {unit,contains:stated!==null&&Number.isInteger(stated)&&stated>0?stated:null,bundleOf:null,nouns};
+}
+
+/** The piece nouns, singular -> its group (see the list at the top). */
+const NOUNS:Readonly<Record<string,string>>={
+  box:'box',carton:'box',bag:'bag',pouch:'bag',mailer:'mailer',envelope:'mailer',roll:'roll',sheet:'sheet',label:'label',coil:'coil',
+};
+const CATEGORY_NOUNS:Readonly<Record<string,string>>={boxes:'box',bags:'bag',mailers:'mailer',labels:'label'};
+const ROLL_GOODS=/\bstretch\s+(?:wrap|film)\b|\btape\b(?!\s+dispensers?\b)/i;
+
+/** A written noun ("Boxes", "pouches", "envelope") as its singular and group, or null when it is not a piece noun. */
+function pieceNoun(written:string|null|undefined):{singular:string;group:string}|null{
+  const word=(written??'').trim().toLowerCase().replace(/\.$/,'');
+  for(const singular of [word,word.replace(/(x|ch|sh)es$/,'$1'),word.replace(/s$/,'')])
+    if(Object.hasOwn(NOUNS,singular))return {singular,group:NOUNS[singular]};
+  return null;
+}
+
+/** What one piece of an item is called: the description's product noun, its category's, and roll for roll goods (see the list at the top). */
+export function productNouns(description:string,category:string|null):string[]{
+  const nouns:string[]=[];
+  const add=(group:string|undefined)=>{if(group&&!nouns.includes(group))nouns.push(group);};
+  for(const word of description.toLowerCase().match(/[a-z]+/g)??[]){
+    const noun=pieceNoun(word);
+    if(noun){add(noun.group);break;}
+  }
+  const key=category?.toLowerCase()??'';
+  if(Object.hasOwn(CATEGORY_NOUNS,key))add(CATEGORY_NOUNS[key]);
+  if(nouns.length===0&&ROLL_GOODS.test(description))add('roll');
+  return nouns;
 }
 
 export type CustomerUnit='each'|'bundle'|'case'|'roll'|'coil';
@@ -83,17 +126,23 @@ const clean=(n:number)=>Math.round(n*1000)/1000;
 /**
  * The customer's quantity in the item's pricing unit. Exact conversions only:
  *   - the same unit (cases of an item priced per case, each of an item priced each): the same number;
+ *     the item's own product noun counts as each ("500 boxes" of a box priced each: 500);
  *   - bundles of an item priced each and sold in bundles of N: quantity x N each;
- *   - pieces (each, ea, pcs) of an item priced per case (or roll) of N: quantity / N, when that is whole.
+ *   - pieces (each, ea, pcs, or the item's own noun: "4 rolls", "2,000 bags") of an item priced per
+ *     case (or roll) of N: quantity / N, when that is whole.
  * Anything else (an unknown or missing unit, an item without a pricing unit, pieces that do not divide)
  * keeps the customer's number with a "check" note. Never changes a number without a note.
  */
 export function convertQuantity(quantity:number|null,unit:string|null,pricing:PricingUnit|null):ConvertedQuantity{
   if(quantity===null)return {quantity:null,note:null};
-  const said=customerUnit(unit);
-  const wrote=unit?amount(quantity,said==='each'?'each':said??unit.trim()):`${NUMBER.format(quantity)}, no unit`;
+  let said=customerUnit(unit);
+  const noun=pieceNoun(unit);
+  const wrote=unit?amount(quantity,said==='each'?'each':noun?.singular??said??unit.trim().toLowerCase()):`${NUMBER.format(quantity)}, no unit`;
   const check:ConvertedQuantity={quantity,note:{kind:'check',wrote,text:`Check quantity (customer wrote: ${wrote})`}};
-  if(!pricing||!said)return check;
+  if(!pricing)return check;
+  // The item's own product noun is a piece: "500 boxes" of a box, "4 rolls" of stretch wrap.
+  if(said!==pricing.unit&&noun&&pricing.nouns.includes(noun.group))said='each';
+  if(!said)return check;
   if(said===pricing.unit)return {quantity,note:null};
 
   let converted:number|null=null;
