@@ -555,3 +555,24 @@ describe('final round: recall fixes',()=>{
     expect(strict4('Foam Wrap 1/4" 24" x 250\', Perforated')).toBe('FW14S24P');
   });
 });
+
+// ---- B3b final verification: "thick" is filler only right after a single thickness -------------
+describe('final verification: "thick" after a size tuple is a word the item must confirm',()=>{
+  it.each(['Expandable Foam Bags 18 x 24" Thick','Expandable Foam Bags 18 x 24 thick','Expandable Foam Bags 18" x 24" thick','Corrugated Boxes 12 x 10 x 8" Thick',
+    'Reclosable Poly Bags 4 x 6" Thick 2 Mil','Bubble Pouches 4 x 6" Thick Flush Cut'])('"%s" keeps "thick"',line=>{
+    expect(parseSpec(line).words).toContain('thick');
+  });
+  it('the plain foam bag is not "18 x 24" Thick" at Strict',()=>{
+    expect(strict4('Expandable Foam Bags 18 x 24" Thick')).toBeNull();
+    expect(strict4('Corrugated Boxes 12 x 10 x 8" Thick')).toBeNull();
+  });
+  it('".160" thick" after a single thickness is still read as that thickness, with nothing left',()=>{
+    expect(parseSpec('Edge Protectors 2 x 2 x 48", .160" thick').words).toEqual(['edge','protector']);
+    expect(parseSpec('Edge Protectors 2 x 2 x 48", .160" thick').blockers).toEqual([]);
+    expect(parseSpec('Edge Protectors 2 x 2 x 48", .160" thick').measures.map(m=>m.value)).toEqual([0.16]);
+  });
+  it('"thick" after a number that is no length (a weight, a mil) is a word',()=>{
+    expect(parseSpec('Kraft Paper Roll 36" x 900\' 40 lb thick').words).toContain('thick');
+    expect(parseSpec('Reclosable Poly Bags 4 x 6" 2 mil thick').words).toContain('thick');
+  });
+});
