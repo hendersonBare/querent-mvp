@@ -134,7 +134,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
 | B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | in progress (`boxt/task/B5-quote-tool`, B3 branch merged in for its API) |
 | B6 | Quotes list and detail | B1, B2 | merged |
-| B7 | Settings (match strictness) | B1, B2, B3 | pending |
+| B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
 | B8 | E2E, access control, CI | B5, B6, B7 | pending |
 | B9 | DEPLOY.md, OPERATIONS.md, README | B8 | pending |
 
