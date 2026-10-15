@@ -1,7 +1,8 @@
 /* The quote creation tool's input, in the app's tokens (src/app/tokens.css): one white card holding the
    list (or the chosen PDF), then the progress and the error line under it. */
+/* The page's width is the shell's (PageFrame, --q-content-max), as on every page. */
 .tool {
-  max-width: 920px;
+  min-width: 0;
 }
 .card {
   padding: 18px 20px 16px;

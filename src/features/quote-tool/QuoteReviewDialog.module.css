@@ -85,7 +85,7 @@
 /* A matched line: item, qty, unit price, line total, actions; the Swap picker spans the row below. */
 .line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px 132px 92px 128px;
+  grid-template-columns: minmax(0, 1fr) 132px 178px 92px 128px;
   align-items: start;
   gap: 8px 16px;
   padding: 14px 0;
@@ -145,8 +145,7 @@
   padding-left: 22px;
 }
 .flag {
-  justify-self: end;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
   background: var(--dlg-warn-bg);
   color: var(--dlg-warn-text);
@@ -154,10 +153,38 @@
   font-weight: 600;
   white-space: nowrap;
 }
+/* An input with its unit after it: "250 [each]", "$ 1.25 [per each]". */
+.withUnit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.withUnit > .money {
+  flex: 1;
+  min-width: 0;
+}
+.qtyInput {
+  flex: 1;
+  min-width: 0;
+}
 .unit {
+  flex: none;
   color: var(--dlg-muted);
-  font-size: 12px;
-  text-align: right;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+/* Under the qty and price: the conversion note or the "Check quantity" flag, across those columns. */
+.qtyNotes {
+  grid-column: 2 / 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: -2px;
+}
+.aside {
+  color: var(--dlg-muted);
+  font-size: 12.5px;
 }
 .lineTotal {
   padding-top: 9px;
@@ -334,7 +361,7 @@
 }
 .miss {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px auto;
+  grid-template-columns: minmax(0, 1fr) 128px auto;
   align-items: center;
   gap: 8px 16px;
   padding: 11px 0;
@@ -343,11 +370,31 @@
 .miss:last-child {
   border-bottom: 0;
 }
-.score {
+/* A closest item's similarity: neutral words and a small grey bar, never a claim that it matches. */
+.similarity {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+.similarityText {
   color: var(--dlg-muted);
-  font-size: 13px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  white-space: nowrap;
+}
+.similarityBar {
+  display: block;
+  width: 72px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dlg-line);
+}
+.similarityBar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dlg-muted);
 }
 
 /* Footer: the total on the left, Cancel / Save quote on the right with the reason Save is disabled under them. */
@@ -399,7 +446,7 @@
   background: var(--dlg-bad);
 }
 .danger:hover:not(:disabled) {
-  background: #8a3628;
+  background: var(--dlg-bad-dark);
 }
 
 @media (max-width: 760px) {
@@ -407,7 +454,10 @@
     grid-template-columns: 1fr;
   }
   .line {
-    grid-template-columns: minmax(0, 1fr) 92px 120px;
+    grid-template-columns: minmax(0, 1fr) 132px 178px;
+  }
+  .qtyNotes {
+    grid-column: 1 / -1;
   }
   .lineHead {
     display: none;

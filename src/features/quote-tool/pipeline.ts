@@ -5,7 +5,8 @@ import {decide,packLabel,retrieve,type MatchRule,type Retrieval} from '@/server/
 import type {Candidate} from '@/server/matching/retrieve';
 import type {CatalogItem} from '@/server/repository/types';
 import {nullSkuMap,type SupplierSkuMap} from './sku-map';
-import {listPriceUnit,type LineEligibility,type LineReason,type MatchCounts,type ProgressEvent,type ResultItem,type ResultLine,type ScoredItem} from './types';
+import {pricingUnit} from './units';
+import {type LineEligibility,type LineReason,type MatchCounts,type ProgressEvent,type ResultItem,type ResultLine,type ScoredItem} from './types';
 
 // The quote tool's pipeline (docs/boxt/plan.md product rule 3), as pure orchestration: everything it
 // talks to is passed in, so tests run it with a fake parser, judge and catalog.
@@ -109,9 +110,10 @@ function judgeCandidates(retrieval:Retrieval<CatalogItem>):JudgeCandidate[]{
   return retrieval.candidates.map(({item})=>({sku:item.sku,description:item.description,pack:packLabel(item),category:item.category}));
 }
 
-export const toResultItem=(item:CatalogItem):ResultItem=>({
-  sku:item.sku,description:item.description,pack:packLabel(item),category:item.category,listPrice:item.listPrice,listPriceUnit:listPriceUnit(item.pack),
-});
+export function toResultItem(item:CatalogItem):ResultItem{
+  const pricing=pricingUnit(item.pack,item.caseQty);
+  return {sku:item.sku,description:item.description,pack:packLabel(item),category:item.category,listPrice:item.listPrice,listPriceUnit:pricing?.unit??null,pricing};
+}
 const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toResultItem(c.item),score:c.score});
 
 function resultLine(index:number,row:ParsedRow,retrieval:Retrieval<CatalogItem>,verdict:JudgeVerdict|undefined):ResultLine{

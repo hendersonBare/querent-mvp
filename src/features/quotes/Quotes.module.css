@@ -50,7 +50,7 @@
   align-items: center;
   padding: 2px 9px;
   border-radius: var(--q-radius-pill);
-  background: rgba(20, 128, 60, 0.1);
+  background: var(--q-accent-tint);
   color: var(--q-accent);
   font-size: var(--q-text-label);
   font-weight: 700;
@@ -106,6 +106,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  max-width: var(--q-content-max);
   background: transparent;
 }
 .detail input,
@@ -344,7 +345,13 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
-  max-width: 150px;
+  max-width: 220px;
+}
+/* An input with its unit after it ("each", "per case"). */
+.inputRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .inputWrap {
   position: relative;
@@ -360,7 +367,7 @@
   pointer-events: none;
 }
 .numberInput {
-  width: 110px;
+  width: 96px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -474,8 +481,8 @@
   border-top: 1px solid var(--q-row-divider-soft);
 }
 .score {
-  font-family: var(--q-font-mono);
   color: var(--q-text-2);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- The delete dialog (inside Dialog.module.css's .backdrop, whose palette it reads) ---- */
@@ -502,5 +509,5 @@
   line-height: 1.3;
 }
 .dangerButton:hover:not(:disabled) {
-  background: #a82216;
+  background: var(--q-red-hover);
 }

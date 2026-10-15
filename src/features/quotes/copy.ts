@@ -18,8 +18,11 @@ export const QUOTE_COPY={
   // List
   empty:'No quotes yet. Create one with the',
   emptyLink:'Quote creation tool',
-  none:'None',
+  /** An empty customer, reference or creator. */
+  none:'Not set',
   example:'Example',
+  /** Who created the example quote (the seed has no user). */
+  exampleCreator:'Example',
 
   // Detail
   backToQuotes:'Quotes',
@@ -28,7 +31,8 @@ export const QUOTE_COPY={
   matchedByRep:'Matched by rep',
   unmatchedTitle:'Unmatched lines',
   unmatchedLabel:'Unmatched - original text',
-  nearMissesTitle:'Near-misses',
+  nearMissesTitle:'Closest items',
+  similarity:'Similarity',
   notPriced:'Not priced',
   notSet:'Not set',
   total:'Total',

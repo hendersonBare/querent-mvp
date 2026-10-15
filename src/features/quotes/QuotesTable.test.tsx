@@ -5,7 +5,7 @@ import {EXAMPLE_ID,QUOTE_ID,summary} from './test-fixtures';
 
 // The /quotes list (docs/boxt/plan.md B6): newest first as the repository returns them, with Customer,
 // Reference, Lines, Total, Created by and Created; the example quote carries an "Example" tag; an empty
-// customer or reference reads "None"; each row opens /quotes/[id]; one plain line when there are none.
+// customer or reference reads "Not set"; the example's creator reads "Example"; each row opens /quotes/[id]; one plain line when there are none.
 
 vi.mock('next/link',()=>({default:({href,children,...rest}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;children?:ReactNode})=><a href={href} {...rest}>{children}</a>}));
 
@@ -40,20 +40,22 @@ describe('QuotesTable',()=>{
     expect(cells[5]).toMatch(/Oct 15, 2026, \d{1,2}:\d{2} (AM|PM)/);
   });
 
-  it('shows "None" for an empty customer or reference',()=>{
+  it('shows "Not set" for an empty customer or reference, and "Example" as the example quote\'s creator',()=>{
     render(<QuotesTable quotes={rows}/>);
     const cells=within(bodyRows()[1]).getAllByRole('cell');
-    expect(cells[0].textContent).toBe('None');
-    expect(cells[1].textContent).toBe('None');
+    expect(cells[0].textContent).toBe('Not set');
+    expect(cells[1].textContent).toBe('Not set');
+    expect(within(bodyRows()[2]).getAllByRole('cell')[4].textContent).toBe('Example');
+    expect(screen.queryByText('None')).toBeNull();
     expect(cells[3].textContent).toBe('$0.00');
   });
 
   it('marks the example quote with an Example tag, and only it',()=>{
     render(<QuotesTable quotes={rows}/>);
     const [first,,example]=bodyRows();
-    expect(within(example).getByText('Example')).toBeInTheDocument();
+    expect(within(within(example).getAllByRole('cell')[0]).getByText('Example')).toBeInTheDocument();
     expect(within(first).queryByText('Example')).toBeNull();
-    expect(screen.getAllByText('Example')).toHaveLength(1);
+    expect(within(bodyRows()[1]).queryByText('Example')).toBeNull();
   });
 
   it('links each row to its quote',()=>{

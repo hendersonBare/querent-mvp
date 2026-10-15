@@ -3,7 +3,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {DEFAULT_LEVEL,LEVELS,STRICTNESS_LEVELS,type StrictnessLevel} from './strictness';
 
 // The Match strictness card on /settings (docs/boxt/plan.md B7): the three levels from LEVELS as a radio
-// group with their one-line descriptions, the default marked "Default" and "Recommended", the saved
+// group with their one-line descriptions, the default marked "Default (recommended)", the saved
 // level selected, Save disabled until the choice changes, PUT /api/settings on Save, and one plain line
 // for the result.
 
@@ -35,14 +35,14 @@ describe('MatchStrictnessForm',()=>{
     }
   });
 
-  it('marks the default level, and only it, "Default" and "Recommended"',()=>{
+  it('marks the default level, and only it, with one "Default (recommended)" badge',()=>{
     render(<MatchStrictnessForm initial="lenient"/>);
     expect(DEFAULT_LEVEL).toBe('strict');
-    expect(screen.getAllByText('Default')).toHaveLength(1);
-    expect(screen.getAllByText('Recommended')).toHaveLength(1);
-    const option=screen.getByText('Default').closest('label');
+    expect(screen.getAllByText('Default (recommended)')).toHaveLength(1);
+    expect(screen.queryByText('Default')).toBeNull();
+    expect(screen.queryByText('Recommended')).toBeNull();
+    const option=screen.getByText('Default (recommended)').closest('label');
     expect(option).toContainElement(radio(DEFAULT_LEVEL));
-    expect(option).toContainElement(screen.getByText('Recommended'));
   });
 
   it('shows the saved level selected',()=>{

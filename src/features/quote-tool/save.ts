@@ -6,10 +6,13 @@ import {packLabel} from '@/server/matching';
 import {createQuote,getCatalogItems,logActivity} from '@/server/repository';
 import {MATCH_STRICTNESS_LEVELS,type CatalogItem,type NearMiss,type QuoteLineInput} from '@/server/repository/types';
 import {QUOTE_LIMITS,quantitySchema,quoteTextSchema,unitPriceSchema} from '@/features/quotes/limits';
+import {pricingUnit} from './units';
 
 // POST /api/quotes (create; the review dialog's Save quote). The body is validated with zod; matched
 // lines name a SKU that must exist in the catalog, which is read again here: the item's description,
-// pack and list price always come from the catalog, never from the client. Unmatched lines keep the
+// pack and list price always come from the catalog, never from the client. A matched line's quantity and
+// unit price are in its item's pricing unit (./units.ts): the line's unit is stored as that unit, and a
+// line that names another unit is refused, so a quantity is never read in the wrong unit. Unmatched lines keep the
 // customer's text, the quantity (if any) and a snapshot of the near-misses the rep saw. The quote and its
 // lines are saved atomically (createQuote); one quote_create activity row records the counts.
 // matchedBy ('auto' | 'rep') is taken as the dialog sends it: every signed-in user is a trusted rep of one
@@ -66,6 +69,12 @@ function firstIssue(error:z.ZodError):string{
   return `${line}${message}`;
 }
 
+/** "Cases" and "case" name one unit. */
+const sameUnit=(a:string,b:string)=>{
+  const norm=(u:string)=>u.trim().toLowerCase().replace(/(x|ch|sh)es$/,'$1').replace(/(?<=[a-z]{2})s$/,'');
+  return norm(a)===norm(b);
+};
+
 const nearMissOf=(item:CatalogItem,score:number|null):NearMiss=>({sku:item.sku,description:item.description,pack:packLabel(item),listPrice:item.listPrice,score});
 
 /** The lines as the repository saves them, or the 400 message for a SKU that is not in the catalog. */
@@ -75,10 +84,12 @@ function toLines(lines:SaveBody['lines'],catalog:Map<string,CatalogItem>):QuoteL
     if(!line.unmatched){
       const item=catalog.get(line.sku);
       if(!item)return `Line ${i+1}: item ${line.sku} is not in the catalog.`;
+      const pricing=pricingUnit(item.pack,item.caseQty);
+      if(pricing&&line.unit&&!sameUnit(line.unit,pricing.unit))return `Line ${i+1}: the quantity must be in ${pricing.unit}, the unit item ${item.sku} is priced per.`;
       out.push({
         originalText:line.originalText,unmatched:false,sku:item.sku,matchedBy:line.matchedBy,
         description:item.description,pack:packLabel(item),listPrice:item.listPrice,
-        quantity:line.quantity,unit:line.unit??null,quantityUnclear:line.quantityUnclear??false,unitPrice:line.unitPrice,
+        quantity:line.quantity,unit:pricing?.unit??line.unit??null,quantityUnclear:line.quantityUnclear??false,unitPrice:line.unitPrice,
         matchScore:line.matchScore??null,nearMisses:[],
       });
     }else{

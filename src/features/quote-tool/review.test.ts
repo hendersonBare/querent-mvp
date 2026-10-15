@@ -1,9 +1,11 @@
 import {describe,expect,it} from 'vitest';
 import {
-  blockersMessage,formatMoney,lineHint,reasonHint,unitLabel,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,editQuantity,formatMoney,lineHint,quantityAside,quantityFlag,reasonHint,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,withItem,
   type ReviewLine,
 } from './review';
 import {sampleRun} from './test-fixtures';
+import type {ScoredItem} from './types';
+import {pricingUnit} from './units';
 
 // The review dialog's state rules, without the DOM: prices and quantities as typed, line totals in
 // cents, why Save is blocked, and the body Save posts.
@@ -67,23 +69,16 @@ describe('lineHint',()=>{
   });
 });
 
-describe('unitLabel',()=>{
-  it('reads the unit with its quantity',()=>{
-    expect(unitLabel(4,'roll')).toBe('rolls');
-    expect(unitLabel(1,'case')).toBe('case');
-    expect(unitLabel(2,'box')).toBe('boxes');
-    expect(unitLabel(3,'each')).toBe('each');
-    expect(unitLabel(null,'bundle')).toBe('bundles');
-    expect(unitLabel(2,null)).toBeNull();
-  });
-});
-
 describe('the review state',()=>{
-  it('starts with matched lines unpriced and quantities as parsed (blank when unclear)',()=>{
+  it('starts with matched lines unpriced, quantities in each item\'s pricing unit (blank when unclear), unmatched lines as the customer wrote them',()=>{
     const lines=initialReview(sampleRun());
-    expect(lines.map(l=>[l.status,l.price,l.quantity,l.matchedBy])).toEqual([
-      ['matched','','10','auto'],['matched','','','auto'],['unmatched','','4',null],['unmatched','','2',null],
+    expect(lines.map(l=>[l.status,l.price,l.quantity,l.unit,l.matchedBy])).toEqual([
+      ['matched','','250','each','auto'],['matched','','','case','auto'],['unmatched','','4','case',null],['unmatched','','2','bag',null],
     ]);
+    // The customer's own quantity and unit stay on the line, for Swap and "Use this item".
+    expect(lines.map(l=>[l.customerQuantity,l.customerUnit])).toEqual([[10,'bundle'],[null,null],[4,'case'],[2,'bag']]);
+    expect(lines[0].quantityNote).toEqual({kind:'converted',wrote:'10 bundles',text:'Customer asked for 10 bundles = 250 each'});
+    expect(lines.slice(1).map(l=>l.quantityNote)).toEqual([null,null,null]);
   });
 
   it('blocks Save until every matched line has a price and a quantity, and says why',()=>{
@@ -105,8 +100,9 @@ describe('the review state',()=>{
 
   it('totals the priced matched lines only',()=>{
     const lines:ReviewLine[]=initialReview(sampleRun()).map((l,i)=>i===0?{...l,price:'0.79'}:i===1?{...l,price:'24.5',quantity:'3'}:l);
-    expect(totalCents(lines)).toBe(790+7350);
-    expect(totalCents(lines.map((l,i)=>i===1?{...l,status:'removed' as const}:l))).toBe(790);
+    // 250 each x $0.79 per each, and 3 cases x $24.50 per case.
+    expect(totalCents(lines)).toBe(19750+7350);
+    expect(totalCents(lines.map((l,i)=>i===1?{...l,status:'removed' as const}:l))).toBe(19750);
   });
 
   it('builds the save body: matched lines by SKU with who matched them, unmatched lines with near-miss SKUs and scores, removed lines left out',()=>{
@@ -114,10 +110,81 @@ describe('the review state',()=>{
     expect(toSaveRequest(lines,{customerName:' Acme ',reference:'',level:'strict'})).toEqual({
       customerName:'Acme',reference:'',matchStrictness:'strict',
       lines:[
-        {unmatched:false,sku:'12108-BDL',matchedBy:'auto',originalText:'S-4128 12 x 10 x 8" Corrugated Boxes 10 bundles',quantity:10,unit:'bundle',quantityUnclear:false,unitPrice:0.79,matchScore:1},
+        {unmatched:false,sku:'12108-BDL',matchedBy:'auto',originalText:'S-4128 12 x 10 x 8" Corrugated Boxes 10 bundles',quantity:250,unit:'each',quantityUnclear:false,unitPrice:0.79,matchScore:1},
         {unmatched:true,originalText:'Reclosable bags 30x30 3 mil 4 cases',quantity:4,unit:'case',quantityUnclear:false,nearMisses:[{sku:'PB3669',score:0.56},{sku:'PB3670',score:0.42}]},
         {unmatched:true,originalText:'Foam peanuts 14 cu ft 2 bags',quantity:2,unit:'bag',quantityUnclear:false,nearMisses:[]},
       ],
     });
+  });
+
+  it('saves a matched line whose quantity could not be converted as unclear, in the pricing unit',()=>{
+    const run=sampleRun();
+    run.lines[0]={...run.lines[0],quantity:10,unit:'pallet'};
+    const lines=initialReview(run).map((l,i)=>i===0?{...l,price:'1'}:i===1?{...l,status:'removed' as const}:l);
+    expect(toSaveRequest(lines,{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:10,unit:'each',quantityUnclear:true});
+  });
+});
+
+const PLT:ScoredItem={sku:'12108-PLT',description:'12x10x8" Corrugated Boxes, 32 ECT, pallet pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.71,listPriceUnit:'each',pricing:pricingUnit('Each',25),score:0.9};
+const BAGS:ScoredItem={sku:'PB3669',description:'Reclosable Poly Bags 30x30" 2 Mil',pack:'Case of 250',category:'Poly Bags',listPrice:89,listPriceUnit:'case',pricing:pricingUnit('Case of 250',1),score:0.56};
+const ROLLS:ScoredItem={sku:'R1',description:'Labels 4x6',pack:'Roll of 250',category:'Labels',listPrice:12,listPriceUnit:'roll',pricing:pricingUnit('Roll of 250',1),score:0.5};
+
+describe('the quantity on a line',()=>{
+  it('flags an unconvertible unit with what the customer wrote until the rep edits the quantity, then keeps it as an aside',()=>{
+    const run=sampleRun();
+    run.lines[0]={...run.lines[0],quantity:10,unit:'pallet'};
+    let line=initialReview(run)[0];
+    expect(line.quantity).toBe('10');
+    expect(quantityFlag(line)).toBe('Check quantity (customer wrote: 10 pallets)');
+    expect(quantityAside(line)).toBeNull();
+    line=editQuantity(line,'2500');
+    expect(line.quantity).toBe('2500');
+    expect(quantityFlag(line)).toBeNull();
+    expect(quantityAside(line)).toBe('Customer wrote: 10 pallets');
+  });
+
+  it('shows the conversion note as an aside, not a flag, and keeps it after an edit',()=>{
+    let line=initialReview(sampleRun())[0];
+    expect(quantityFlag(line)).toBeNull();
+    expect(quantityAside(line)).toBe('Customer asked for 10 bundles = 250 each');
+    line=editQuantity(line,'275');
+    expect(quantityAside(line)).toBe('Customer asked for 10 bundles = 250 each');
+  });
+
+  it('flags a missing or unclear quantity with "Check quantity" until the rep enters one',()=>{
+    let line=initialReview(sampleRun())[1];
+    expect(quantityFlag(line)).toBe('Check quantity');
+    line=editQuantity(line,'3');
+    expect(quantityFlag(line)).toBeNull();
+    line=editQuantity(line,'');
+    expect(quantityFlag(line)).toBe('Check quantity');
+  });
+});
+
+describe('withItem (Swap and "Use this item")',()=>{
+  it('re-derives the unit from the new item and re-runs the conversion from the customer\'s quantity',()=>{
+    const lines=initialReview(sampleRun());
+    // An unmatched line of 4 cases promoted to a bag priced per case: still 4 cases.
+    const promoted=withItem(lines[2],BAGS,'rep');
+    expect(promoted).toMatchObject({status:'matched',restoreTo:'matched',item:{sku:'PB3669'},matchedBy:'rep',score:0.56,quantity:'4',unit:'case',quantityNote:null,price:''});
+    // The box line swapped for a box priced each in bundles: 10 bundles = 250 each again, even after an edit.
+    const swapped=withItem(editQuantity({...lines[0],price:'0.8'},'300'),PLT,'rep');
+    expect(swapped).toMatchObject({item:{sku:'12108-PLT'},quantity:'250',unit:'each',quantityChecked:false,price:'0.8'});
+    expect(swapped.quantityNote?.text).toBe('Customer asked for 10 bundles = 250 each');
+  });
+
+  it('clears the price when the new item is priced per another unit, and converts or flags the quantity for it',()=>{
+    const box=initialReview(sampleRun())[0];
+    const bags=withItem({...box,price:'0.8'},BAGS,'rep');
+    expect(bags).toMatchObject({unit:'case',quantity:'10',price:''});
+    expect(quantityFlag(bags)).toBe('Check quantity (customer wrote: 10 bundles)');
+
+    const pieces={...initialReview(sampleRun())[3],customerQuantity:500,customerUnit:'each',quantity:'500'};
+    expect(withItem(pieces,ROLLS,'rep')).toMatchObject({unit:'roll',quantity:'2',quantityNote:{kind:'converted',text:'Customer asked for 500 each = 2 rolls'}});
+  });
+
+  it('keeps the quantity blank when the customer gave none',()=>{
+    const wrap=initialReview(sampleRun())[1];
+    expect(withItem(wrap,BAGS,'rep')).toMatchObject({quantity:'',unit:'case',quantityNote:null});
   });
 });

@@ -6,7 +6,7 @@ import s from './Settings.module.css';
 
 // The Match strictness card on /settings (docs/boxt/plan.md B7, product rule 1): the levels from
 // ./strictness.ts as a radio group, each with its one-line description, the default one marked
-// "Default" and "Recommended"; what strictness does and who it applies to; Save, disabled until the
+// with one "Default (recommended)" badge; what strictness does and who it applies to; Save, disabled until the
 // choice differs from the saved level, which sends PUT /api/settings. The result is one plain line:
 // role=status when saved, role=alert when not.
 
@@ -68,10 +68,7 @@ export function MatchStrictnessForm({initial}:{initial:StrictnessLevel}){
           <span className={s.optionText}>
             <span className={s.optionHead}>
               <span className={s.optionLabel}>{label}</span>
-              {isDefault&&<>
-                <span className={s.tagNeutral}>{SETTINGS_COPY.defaultTag}</span>
-                <span className={s.tag}>{SETTINGS_COPY.recommendedTag}</span>
-              </>}
+              {isDefault&&<span className={s.tag}>{SETTINGS_COPY.defaultTag}</span>}
             </span>
             <span id={descriptionId} className={s.optionDescription}>{description}</span>
           </span>

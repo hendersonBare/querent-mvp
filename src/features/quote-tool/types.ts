@@ -3,6 +3,7 @@
 
 import type {StrictnessLevel} from '@/features/settings/strictness';
 import type {NoMatchReason} from '@/server/matching/decide';
+import type {PricingUnit} from './units';
 
 /** A catalog item as the review dialog shows it. `pack` is the pack label ("Bundle of 25", "Case of 500"). */
 export interface ResultItem {
@@ -12,14 +13,13 @@ export interface ResultItem {
   category:string|null;
   /** The public web list price: a reference label only, never a quote price. */
   listPrice:number|null;
-  /** What the list price is per ("each", "case", "roll", "coil"), from the catalog's pack; null when unknown. */
+  /** What the list price is per ("each", "case", "roll", "coil"): the pricing unit's name; null when unknown. */
   listPriceUnit:string|null;
-}
-
-/** What a catalog pack's list price is per: "Each" → each, "Case of 500" → case, "Roll" → roll. */
-export function listPriceUnit(pack:string|null|undefined):string|null{
-  const word=/^\s*([a-z]+)/i.exec(pack??'')?.[1]?.toLowerCase();
-  return word??null;
+  /**
+   * The item's pricing unit (./units.ts): a matched line's quantity and unit price are both in it, so
+   * the line total and the list price label agree. null when the catalog gives no pack.
+   */
+  pricing:PricingUnit|null;
 }
 
 /** A catalog item with its scorer score (0 to 1): a Swap candidate, a near-miss or a search hit. */
@@ -110,7 +110,11 @@ export const countListLines=(text:string)=>text.split(/\r?\n|\r/).filter(line=>l
 
 // ---- Saving (POST /api/quotes) --------------------------------------------------------------------------
 
-/** A matched line as the dialog sends it. The item's description, pack and list price come from the catalog on the server. */
+/**
+ * A matched line as the dialog sends it. The item's description, pack and list price come from the
+ * catalog on the server. `quantity` and `unitPrice` are in the item's pricing unit; `unit` names it
+ * (the server stores the catalog's pricing unit and refuses a different one).
+ */
 export interface SaveMatchedLine {
   unmatched:false;
   sku:string;

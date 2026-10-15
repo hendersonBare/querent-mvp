@@ -3,6 +3,7 @@ import {describe,expect,it,vi} from 'vitest';
 import {QuoteReviewDialog} from './QuoteReviewDialog';
 import {sampleRun} from './test-fixtures';
 import type {SaveQuoteRequest,ScoredItem} from './types';
+import {pricingUnit} from './units';
 
 // The review dialog (docs/boxt/plan.md B5): matched lines with the customer's text, item, SKU, pack,
 // the web list price as a label, qty and an empty price; unmatched lines with near-misses and "Use this
@@ -46,8 +47,35 @@ describe('QuoteReviewDialog',()=>{
     const price=within(line).getByLabelText('Unit price for 12108-BDL');
     expect(price).toHaveValue('');
     expect(price).toHaveAttribute('inputmode','decimal');
-    expect(within(line).getByLabelText('Quantity for 12108-BDL')).toHaveValue('10');
+    expect(within(line).getByLabelText('Quantity for 12108-BDL')).toHaveValue('250');
     expect(line).not.toHaveTextContent('Check quantity');
+  });
+
+  it('puts quantity and unit price in the item\'s pricing unit, with the customer\'s bundles converted and said so',()=>{
+    setup();
+    const box=within(matchedSection()).getByTestId('line-0');
+    expect(within(box).getByTestId('qty-unit')).toHaveTextContent(/^each$/);
+    expect(within(box).getByTestId('price-unit')).toHaveTextContent(/^per each$/);
+    expect(box).toHaveTextContent('Customer asked for 10 bundles = 250 each');
+    expect(box).toHaveTextContent('Web list: $0.84/each');
+    const wrap=within(matchedSection()).getByTestId('line-1');
+    expect(within(wrap).getByTestId('price-unit')).toHaveTextContent(/^per case$/);
+    type(within(wrap).getByLabelText('Quantity for SF188CAST'),'3');
+    expect(within(wrap).getByTestId('qty-unit')).toHaveTextContent(/^cases$/);
+    type(within(wrap).getByLabelText('Quantity for SF188CAST'),'1');
+    expect(within(wrap).getByTestId('qty-unit')).toHaveTextContent(/^case$/);
+  });
+
+  it('keeps a quantity it cannot convert exactly, flags it with what the customer wrote, and turns the flag into a note once edited',()=>{
+    const run=sampleRun();
+    run.lines[0]={...run.lines[0],rawText:'12x10x8 boxes 10 pallets',quantity:10,unit:'pallet'};
+    render(<QuoteReviewDialog run={run} onClose={()=>{}} onSaved={()=>{}} save={async()=>({id:'x'})} search={async()=>[]}/>);
+    const line=within(matchedSection()).getByTestId('line-0');
+    expect(within(line).getByLabelText('Quantity for 12108-BDL')).toHaveValue('10');
+    expect(line).toHaveTextContent('Check quantity (customer wrote: 10 pallets)');
+    type(within(line).getByLabelText('Quantity for 12108-BDL'),'5000');
+    expect(line).not.toHaveTextContent('Check quantity');
+    expect(line).toHaveTextContent('Customer wrote: 10 pallets');
   });
 
   it('flags an unclear quantity with "Check quantity"',()=>{
@@ -88,9 +116,10 @@ describe('QuoteReviewDialog',()=>{
   it('shows line totals and the quote total in dollars',()=>{
     setup();
     priceAll();
-    expect(within(matchedSection()).getByTestId('line-0')).toHaveTextContent('$7.90');
+    // 250 each x $0.79 per each; 3 cases x $24.50 per case.
+    expect(within(matchedSection()).getByTestId('line-0')).toHaveTextContent('$197.50');
     expect(within(matchedSection()).getByTestId('line-1')).toHaveTextContent('$73.50');
-    expect(screen.getByTestId('quote-total')).toHaveTextContent('$81.40');
+    expect(screen.getByTestId('quote-total')).toHaveTextContent('$271.00');
   });
 
   it('lists unmatched lines with "Could not detect a match" and their closest items behind a toggle',()=>{
@@ -105,7 +134,8 @@ describe('QuoteReviewDialog',()=>{
     expect(misses[0]).toHaveTextContent('Reclosable Poly Bags 30x30" 2 Mil');
     expect(misses[0]).toHaveTextContent('PB3669');
     expect(misses[0]).toHaveTextContent('Case of 250');
-    expect(misses[0]).toHaveTextContent('56%');
+    expect(misses[0]).toHaveTextContent('Similarity 56%');
+    for(const miss of misses)expect(miss).not.toHaveTextContent(/% match/i);
     expect(within(unmatchedSection()).getByTestId('line-3')).toHaveTextContent('No similar items');
   });
 
@@ -140,6 +170,8 @@ describe('QuoteReviewDialog',()=>{
     expect(promoted).toHaveTextContent('PB3670');
     expect(within(promoted).getByLabelText('Unit price for PB3670')).toHaveValue('');
     expect(within(promoted).getByLabelText('Quantity for PB3670')).toHaveValue('4');
+    expect(within(promoted).getByTestId('qty-unit')).toHaveTextContent(/^cases$/);
+    expect(within(promoted).getByTestId('price-unit')).toHaveTextContent(/^per case$/);
     expect(screen.getByRole('dialog')).toHaveTextContent('3 matched, 1 could not be matched');
     priceAll();
     type(within(promoted).getByLabelText('Unit price for PB3670'),'99');
@@ -149,7 +181,7 @@ describe('QuoteReviewDialog',()=>{
   });
 
   it('Swap offers the line\'s other candidates and a catalog search; choosing one makes it the rep\'s pick',async()=>{
-    const found:ScoredItem={sku:'SF187CAST',description:'Cast Stretch Wrap 18"x1500\' 70 Gauge',pack:'Case of 4',category:'Stretch Film',listPrice:70,listPriceUnit:'case',score:0.8};
+    const found:ScoredItem={sku:'SF187CAST',description:'Cast Stretch Wrap 18"x1500\' 70 Gauge',pack:'Case of 4',category:'Stretch Film',listPrice:70,listPriceUnit:'case',pricing:pricingUnit('Case of 4',1),score:0.8};
     const search=vi.fn(async(_q:string)=>[found]);
     const {save}=setup({search});
     const line=within(matchedSection()).getByTestId('line-0');
@@ -161,6 +193,8 @@ describe('QuoteReviewDialog',()=>{
     expect(within(line).queryByRole('group',{name:'Swap item'})).toBeNull();
     expect(line).toHaveTextContent('12108-PLT');
     expect(line).toHaveTextContent('Web list: $0.71/each');
+    expect(within(line).getByLabelText('Quantity for 12108-PLT')).toHaveValue('250');
+    expect(line).toHaveTextContent('Customer asked for 10 bundles = 250 each');
 
     // Search the catalog from the second line's picker.
     const wrap=within(matchedSection()).getByTestId('line-1');
@@ -176,7 +210,22 @@ describe('QuoteReviewDialog',()=>{
     type(screen.getByLabelText('Quantity for SF187CAST'),'2');
     fireEvent.click(saveButton());
     await waitFor(()=>expect(save).toHaveBeenCalled());
-    expect(save.mock.calls[0][0].lines.slice(0,2).map(l=>!l.unmatched&&[l.sku,l.matchedBy])).toEqual([['12108-PLT','rep'],['SF187CAST','rep']]);
+    expect(save.mock.calls[0][0].lines.slice(0,2).map(l=>!l.unmatched&&[l.sku,l.matchedBy,l.quantity,l.unit])).toEqual([['12108-PLT','rep',250,'each'],['SF187CAST','rep',2,'case']]);
+  });
+
+  it('Swap to an item priced per another unit re-runs the conversion from the customer\'s quantity and clears the price',async()=>{
+    const bags:ScoredItem={sku:'PB3669',description:'Reclosable Poly Bags 30x30" 2 Mil',pack:'Case of 250',category:'Poly Bags',listPrice:89,listPriceUnit:'case',pricing:pricingUnit('Case of 250',1),score:0.3};
+    setup({search:async()=>[bags]});
+    const line=within(matchedSection()).getByTestId('line-0');
+    type(within(line).getByLabelText('Unit price for 12108-BDL'),'0.79');
+    type(within(line).getByLabelText('Quantity for 12108-BDL'),'300');
+    fireEvent.click(within(line).getByRole('button',{name:'Swap'}));
+    await act(async()=>{type(within(line).getByRole('searchbox',{name:'Search the catalog'}),'poly bags');await new Promise(r=>setTimeout(r,350));});
+    fireEvent.click(await within(line).findByRole('button',{name:/Use PB3669/}));
+    expect(within(line).getByLabelText('Quantity for PB3669')).toHaveValue('10');
+    expect(within(line).getByLabelText('Unit price for PB3669')).toHaveValue('');
+    expect(within(line).getByTestId('price-unit')).toHaveTextContent(/^per case$/);
+    expect(line).toHaveTextContent('Check quantity (customer wrote: 10 bundles)');
   });
 
   it('Remove takes a line out of the quote, with Undo until save',async()=>{

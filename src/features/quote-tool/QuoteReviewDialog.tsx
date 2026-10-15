@@ -4,18 +4,22 @@ import {createPortal} from 'react-dom';
 import d from '@/components/ui/Dialog.module.css';
 import {trapTab} from '@/components/ui/focus';
 import {saveQuote as defaultSave,searchCatalog as defaultSearch} from './client';
+import {formatSimilarity} from '@/features/quotes/format';
 import {
-  blockersMessage,formatMoney,initialReview,lineHint,priceError,quantityError,unitLabel,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,editQuantity,formatMoney,initialReview,lineHint,priceError,quantityAside,quantityError,quantityFlag,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,withItem,
   type ReviewLine,
 } from './review';
-import type {MatchRun,ResultItem,SaveQuoteRequest,ScoredItem} from './types';
+import type {MatchRun,SaveQuoteRequest,ScoredItem} from './types';
+import {perUnitLabel,unitLabel} from './units';
 import s from './QuoteReviewDialog.module.css';
 
 // The review dialog (docs/boxt/plan.md B5), in the old item pop-up's visual language (Dialog.module.css).
 // Matched lines: what the customer wrote, the item, SKU, pack, the web list price as a reference label,
 // qty (flagged when unclear), an empty unit price, the line total, Swap and Remove (with Undo until
-// save). Unmatched lines: "Could not detect a match" and the closest items behind a toggle, each with
-// "Use this item". Customer name, reference, total; Save quote stays disabled until every matched line
+// save). Qty and unit price are both in the item's pricing unit ("250 each", "$ per each"; ./units.ts),
+// with a note when the customer's quantity was converted ("Customer asked for 10 bundles = 250 each")
+// or a flag when it could not be. Unmatched lines: "Could not detect a match" and the closest items
+// behind a toggle, each with its similarity and "Use this item". Customer name, reference, total; Save quote stays disabled until every matched line
 // has a price and a quantity, and says why. Saving only saves: nothing is sent to anyone.
 
 export interface QuoteReviewDialogProps {
@@ -27,9 +31,8 @@ export interface QuoteReviewDialogProps {
   search?:(q:string)=>Promise<ScoredItem[]>;
 }
 
-const percent=(score:number)=>`${Math.round(score*100)}%`;
 const plural=(n:number,one:string,many=`${one}s`)=>`${n} ${n===1?one:many}`;
-const itemOf=({score:_,...item}:ScoredItem):ResultItem=>item;
+const QUANTITY=new Intl.NumberFormat('en-US',{maximumFractionDigits:3});
 
 export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(body),search=q=>defaultSearch(q)}:QuoteReviewDialogProps){
   const [lines,setLines]=useState<ReviewLine[]>(()=>initialReview(run));
@@ -41,7 +44,6 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
   const [error,setError]=useState('');
   const [swapKey,setSwapKey]=useState<number|null>(null);
   const [openMisses,setOpenMisses]=useState<ReadonlySet<number>>(new Set());
-  const [checkedQuantity,setCheckedQuantity]=useState<ReadonlySet<number>>(new Set());
   const dialog=useRef<HTMLDivElement>(null);
   const titleId=useId(),introId=useId(),matchedId=useId(),unmatchedId=useId();
   const [mounted,setMounted]=useState(false);
@@ -76,11 +78,12 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
     return ()=>document.removeEventListener('keydown',onDocumentKey);
   },[]);
 
-  const update=(key:number,patch:Partial<ReviewLine>)=>{
-    setLines(ls=>ls.map(l=>l.key===key?{...l,...patch}:l));
+  const change=(key:number,next:(line:ReviewLine)=>ReviewLine)=>{
+    setLines(ls=>ls.map(l=>l.key===key?next(l):l));
     setEdited(true);
     setError('');
   };
+  const update=(key:number,patch:Partial<ReviewLine>)=>change(key,l=>({...l,...patch}));
   const markEdited=()=>{setEdited(true);setError('');};
 
   function requestClose(){
@@ -118,7 +121,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
   }
 
   function promote(line:ReviewLine,choice:ScoredItem){
-    update(line.key,{status:'matched',restoreTo:'matched',item:itemOf(choice),matchedBy:'rep',score:choice.score,price:''});
+    change(line.key,l=>withItem(l,choice,'rep'));
     setFocusTarget(`price-${line.key}`);
   }
 
@@ -167,15 +170,14 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                     onClick={()=>{update(line.key,{status:line.restoreTo});setFocusTarget(`price-${line.key}`);}}>Undo</button>
                 </li>
                 :<MatchedLine key={line.key} line={line} saving={saving}
-                  flagQuantity={parseQuantity(line.quantity)===null||(line.quantityUnclear&&!checkedQuantity.has(line.key))}
                   swapping={swapKey===line.key}
-                  onQuantity={value=>{update(line.key,{quantity:value});setCheckedQuantity(set=>new Set(set).add(line.key));}}
+                  onQuantity={value=>change(line.key,l=>editQuantity(l,value))}
                   onPrice={value=>update(line.key,{price:value})}
                   onSwap={()=>setSwapKey(key=>key===line.key?null:line.key)}
                   onRemove={()=>{update(line.key,{status:'removed',restoreTo:'matched'});if(swapKey===line.key)setSwapKey(null);setFocusTarget(`undo-${line.key}`);}}
                   picker={swapKey===line.key&&<SwapPicker line={line} search={search}
                     onCancel={()=>{setSwapKey(null);setFocusTarget(`swap-${line.key}`);}}
-                    onPick={choice=>{update(line.key,{item:itemOf(choice),matchedBy:'rep',score:choice.score});setSwapKey(null);setFocusTarget(`price-${line.key}`);}}/>}
+                    onPick={choice=>{change(line.key,l=>withItem(l,choice,'rep'));setSwapKey(null);setFocusTarget(`price-${line.key}`);}}/>}
                 />)}
             </ul>}
         </section>
@@ -198,7 +200,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                         <span className={s.nomatch}>Could not detect a match</span>
                         {line.reason&&lineHint(line.reason,line.blockers)&&<span className={s.hint}>{lineHint(line.reason,line.blockers)}</span>}
                       </div>
-                      <span className={s.uqty}>{quantity===null?'No quantity':`Qty ${line.quantity}${line.unit?` ${unitLabel(quantity,line.unit)}`:''}`}</span>
+                      <span className={s.uqty}>{quantity===null?'No quantity':`Qty ${QUANTITY.format(quantity)}${line.unit?` ${unitLabel(quantity,line.unit)}`:''}`}</span>
                       {line.nearMisses.length>0
                         ?<button type="button" className={s.toggle} aria-expanded={open} disabled={saving}
                           onClick={()=>setOpenMisses(set=>{const next=new Set(set);if(next.has(line.key))next.delete(line.key);else next.add(line.key);return next;})}>
@@ -216,7 +218,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                             {listPriceLabel(miss)&&<span className={d.pack}>{listPriceLabel(miss)}</span>}
                           </span>
                         </div>
-                        <span className={s.score} title="How closely the item's description fits the line">{percent(miss.score)} match</span>
+                        <Similarity score={miss.score}/>
                         <button type="button" className={d.add} disabled={saving} onClick={()=>promote(line,miss)}>Use this item</button>
                       </li>)}
                     </ul>}
@@ -254,17 +256,30 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
   </div>,document.body);
 }
 
+/** How closely an item's description fits the line: a neutral label and bar, never a claim that it matches. */
+function Similarity({score}:{score:number}){
+  const value=formatSimilarity(score)??'0%';
+  return <span className={s.similarity} title="How closely the item's description fits the line">
+    <span className={s.similarityText}>Similarity {value}</span>
+    <span className={s.similarityBar} aria-hidden="true"><span style={{width:value}}/></span>
+  </span>;
+}
+
 interface MatchedLineProps {
-  line:ReviewLine;saving:boolean;flagQuantity:boolean;swapping:boolean;picker:ReactNode;
+  line:ReviewLine;saving:boolean;swapping:boolean;picker:ReactNode;
   onQuantity:(value:string)=>void;onPrice:(value:string)=>void;onSwap:()=>void;onRemove:()=>void;
 }
 
-function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPrice,onSwap,onRemove}:MatchedLineProps){
+function MatchedLine({line,saving,swapping,picker,onQuantity,onPrice,onSwap,onRemove}:MatchedLineProps){
   const item=line.item!;
   const cents=reviewLineCents(line);
   const badPrice=priceError(line.price);
   const badQuantity=quantityError(line.quantity);
   const label=listPriceLabel(item);
+  const flag=badQuantity?null:quantityFlag(line);
+  const aside=quantityAside(line);
+  const qtyUnit=unitLabel(parseQuantity(line.quantity),line.unit);
+  const priceUnit=perUnitLabel(line.unit);
   return <li className={s.line} data-testid={`line-${line.key}`}>
     <div className={d.item}>
       <span className={s.wrote}>Customer wrote: {line.rawText}</span>
@@ -277,17 +292,21 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
       </span>
     </div>
     <div className={s.cell}>
-      <input className={d.input} value={line.quantity} inputMode="decimal" autoComplete="off" aria-label={`Quantity for ${item.sku}`}
-        aria-invalid={badQuantity!==null} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
-      {badQuantity?<span className={d.fieldError}>{badQuantity}</span>:flagQuantity
-        ?<span className={s.flag}>Check quantity</span>
-        :line.unit&&<span className={s.unit}>{unitLabel(parseQuantity(line.quantity),line.unit)}</span>}
+      <span className={s.withUnit}>
+        <input className={`${d.input} ${s.qtyInput}`} value={line.quantity} inputMode="decimal" autoComplete="off" aria-label={`Quantity for ${item.sku}`}
+          aria-invalid={badQuantity!==null} disabled={saving} onChange={e=>onQuantity(e.target.value)}/>
+        {qtyUnit&&<span className={s.unit} data-testid="qty-unit">{qtyUnit}</span>}
+      </span>
+      {badQuantity&&<span className={d.fieldError}>{badQuantity}</span>}
     </div>
     <div className={s.cell}>
-      <span className={s.money}>
-        <span className={s.dollar} aria-hidden="true">$</span>
-        <input className={`${d.input} ${s.priceInput}`} value={line.price} inputMode="decimal" autoComplete="off" aria-label={`Unit price for ${item.sku}`} data-focus={`price-${line.key}`}
-          aria-invalid={badPrice!==null} disabled={saving} onChange={e=>onPrice(e.target.value)}/>
+      <span className={s.withUnit}>
+        <span className={s.money}>
+          <span className={s.dollar} aria-hidden="true">$</span>
+          <input className={`${d.input} ${s.priceInput}`} value={line.price} inputMode="decimal" autoComplete="off" aria-label={`Unit price for ${item.sku}`} data-focus={`price-${line.key}`}
+            aria-invalid={badPrice!==null} disabled={saving} onChange={e=>onPrice(e.target.value)}/>
+        </span>
+        {priceUnit&&<span className={s.unit} data-testid="price-unit">{priceUnit}</span>}
       </span>
       {badPrice&&<span className={d.fieldError}>{badPrice}</span>}
     </div>
@@ -296,6 +315,10 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
       <button type="button" className={s.link} aria-expanded={swapping} disabled={saving} data-focus={`swap-${line.key}`} onClick={onSwap}>Swap</button>
       <button type="button" className={`${s.link} ${s.linkDanger}`} disabled={saving} onClick={onRemove}>Remove</button>
     </div>
+    {(flag||aside)&&<div className={s.qtyNotes}>
+      {flag&&<span className={s.flag}>{flag}</span>}
+      {aside&&<span className={s.aside}>{aside}</span>}
+    </div>}
     {picker}
   </li>;
 }
@@ -326,7 +349,7 @@ function SwapPicker({line,search,onPick,onCancel}:{line:ReviewLine;search:(q:str
       <span className={d.id}>
         <span className={d.sku}>{choice.sku}</span>
         {choice.pack&&<span className={d.pack}>{choice.pack}</span>}
-        <span className={d.pack}>{percent(choice.score)} match</span>
+        <span className={d.pack}>Similarity {formatSimilarity(choice.score)}</span>
       </span>
     </div>
     <button type="button" className={d.add} aria-label={`Use ${choice.sku}, ${choice.description}`} onClick={()=>onPick(choice)}>Use</button>

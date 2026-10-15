@@ -6,7 +6,6 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 760px;
 }
 .page button {
   box-sizing: border-box;
@@ -98,8 +97,7 @@
   font-size: var(--q-text-secondary);
   line-height: 1.45;
 }
-.tag,
-.tagNeutral {
+.tag {
   display: inline-flex;
   align-items: center;
   padding: 1px 8px;
@@ -108,14 +106,8 @@
   font-weight: 700;
   line-height: 18px;
   white-space: nowrap;
-}
-.tag {
-  background: rgba(20, 128, 60, 0.1);
+  background: var(--q-accent-tint);
   color: var(--q-accent);
-}
-.tagNeutral {
-  background: var(--q-count-bg);
-  color: var(--q-text-2);
 }
 
 .footer {
