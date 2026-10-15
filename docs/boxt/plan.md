@@ -127,8 +127,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | ID | Task | Blocked by | Status |
 |---|---|---|---|
 | B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | merged |
-| B1 | Supabase schema, RLS, seed, repository | B0 | in progress (`boxt/task/B1-supabase-schema`) |
-| B2 | Auth (login, reset, proxy, guards) | B1 | pending |
+| B1 | Supabase schema, RLS, seed, repository | B0 | merged |
+| B2 | Auth (login, reset, proxy, guards) | B1 | in progress (`boxt/task/B2-auth`) |
 | B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
 | B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
@@ -219,6 +219,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| B1 | `d2ee06f` | PASS | typecheck 0; `npm test` 25 files / 276; build 0; stack restarted from checkout; `db:reset` 1,555 rows + example + 2 dev users; `test:db` 32 pass; psql: RLS on all 5 tables, policies `authenticated` only, anon has no table/view/sequence/function privilege, view `security_invoker`; anon REST → 42501; signup → 422 `signup_disabled`; example quote refused for authenticated and service_role; bad line in `create_quote`/`update_quote` writes nothing; seed idempotent; planted boundary violations caught. Notes: metadata keys must come from a fixed list in app code; one misleading RPC error wording. |
 | B4 | `6509674` | PASS | typecheck 0; `npm test` 21 files / 244 tests offline; build 0; only `client.ts` names a model or reads the key; probes: case/space-variant SKU → null, empty candidates → no call, 201 rows refused, 4 MB+1 PDF refused, `judgeAll` ≤ 2 in flight with concurrency 2, timeouts abort. Follow-ups for B5: bound the parse time to fit the route's `maxDuration`; consider `strict` tools after an SDK upgrade. |
 | B0 | `90a07a5` | PASS | typecheck 0; `npm test` 13 files / 147 tests; build routes only `/`, `/quote-tool`, `/quotes`, `/settings`; acceptance grep empty; curl: `/` 307 → `/quote-tool`, old routes 404; planted skip/key violations fail the guards; matching/llm untouched. Notes: Dialog.module.css kept for B5; `catalog.test.ts` excluded until B3; sign-out endpoint pending B2. |
 
