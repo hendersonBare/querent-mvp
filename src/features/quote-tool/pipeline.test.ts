@@ -2,7 +2,7 @@
 import {describe,expect,it,vi} from 'vitest';
 import {JUDGE_ERROR} from '@/server/llm/verdicts';
 import type {ParseOptions} from '@/server/llm/types';
-import {PARSE_TIMEOUT_ERROR,NO_ROWS_ERROR,runPipeline,type PipelineOptions} from './pipeline';
+import {PARSE_TIMEOUT_ERROR,NO_ROWS_ERROR,eligibilityOf,runPipeline,type PipelineOptions} from './pipeline';
 import type {ProgressEvent} from './types';
 import {CATALOG,CLEAR_BAGS,CLEAR_BOX,CLEAR_WRAP,NOTHING,STRICT,TIE,WRONG_BOX,fakeJudge,fakeParser,row} from './test-fixtures';
 
@@ -171,6 +171,22 @@ describe('runPipeline',()=>{
     expect(matched).toBeGreaterThan(0);
     expect(matched).toBeLessThan(12);
     expect(result.lines.filter(l=>l.outcome==='no_match').every(l=>l.reason==='judge_error')).toBe(true);
+  });
+
+  it('passes the matcher\'s reason through, whatever it is (a line naming no product type)',async()=>{
+    const result=await runPipeline(TEXT,options({parser:fakeParser([row('12x10x8')])}));
+    if(!result.ok)throw new Error(result.error);
+    expect(result.lines[0].outcome).toBe('no_match');
+    expect(result.lines[0].reason).toBe('no_product_type');
+  });
+
+  it('reads the retrieval\'s Strict eligibility and blockers when the matcher gives them, and ignores anything malformed',()=>{
+    expect(eligibilityOf({eligibility:{strictEligible:false,blockers:['word: "for"','pack: 500/case']}})).toEqual({strictEligible:false,blockers:['word: "for"','pack: 500/case']});
+    expect(eligibilityOf({eligibility:{strictEligible:true,blockers:[]}})).toEqual({strictEligible:true,blockers:[]});
+    expect(eligibilityOf({})).toBeUndefined();
+    expect(eligibilityOf({eligibility:{strictEligible:'no',blockers:[]}})).toBeUndefined();
+    expect(eligibilityOf({eligibility:{strictEligible:false,blockers:[1,{a:1},'ok']}})).toEqual({strictEligible:false,blockers:['ok']});
+    expect(eligibilityOf({eligibility:{strictEligible:false,blockers:Array.from({length:30},(_,i)=>`b${i}`)}})!.blockers).toHaveLength(10);
   });
 
   it('asks the supplier-SKU map about a line with a supplier SKU, and still matches by description only',async()=>{

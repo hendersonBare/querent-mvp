@@ -5,7 +5,7 @@ import {decide,packLabel,retrieve,type MatchRule,type Retrieval} from '@/server/
 import type {Candidate} from '@/server/matching/retrieve';
 import type {CatalogItem} from '@/server/repository/types';
 import {nullSkuMap,type SupplierSkuMap} from './sku-map';
-import {listPriceUnit,type LineReason,type MatchCounts,type ProgressEvent,type ResultItem,type ResultLine,type ScoredItem} from './types';
+import {listPriceUnit,type LineEligibility,type LineReason,type MatchCounts,type ProgressEvent,type ResultItem,type ResultLine,type ScoredItem} from './types';
 
 // The quote tool's pipeline (docs/boxt/plan.md product rule 3), as pure orchestration: everything it
 // talks to is passed in, so tests run it with a fake parser, judge and catalog.
@@ -116,13 +116,30 @@ const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toResultItem(c.item),
 
 function resultLine(index:number,row:ParsedRow,retrieval:Retrieval<CatalogItem>,verdict:JudgeVerdict|undefined):ResultLine{
   const decision=decide(retrieval,{sku:verdict?.sku??null});
+  const eligibility=eligibilityOf(retrieval);
   const base={
     index,rawText:row.rawText,description:row.description,quantity:row.quantity,unit:row.unit,quantityUnclear:row.quantityUnclear,
     candidates:retrieval.candidates.map(toScored),nearMisses:retrieval.nearMisses.map(toScored),
+    ...(eligibility?{eligibility}:{}),
   };
   if(decision.outcome==='matched')return {...base,outcome:'matched',reason:'matched',item:toResultItem(decision.item),score:decision.score};
   const reason:LineReason=decision.reason==='judge_none'&&verdict?.reason===JUDGE_ERROR?'judge_error':decision.reason;
   return {...base,outcome:'no_match',reason,score:retrieval.top?.score??0};
+}
+
+const MAX_BLOCKERS=10;
+
+/**
+ * The retrieval's Strict eligibility ({strictEligible, blockers}) when the matcher reports one (B3b adds
+ * it), else undefined. Read defensively: only a boolean and up to 10 strings are passed on.
+ */
+export function eligibilityOf(retrieval:unknown):LineEligibility|undefined{
+  const value=(retrieval as {eligibility?:unknown}|null)?.eligibility;
+  if(!value||typeof value!=='object')return undefined;
+  const {strictEligible,blockers}=value as {strictEligible?:unknown;blockers?:unknown};
+  if(typeof strictEligible!=='boolean')return undefined;
+  const list=Array.isArray(blockers)?blockers.filter((b):b is string=>typeof b==='string').slice(0,MAX_BLOCKERS):[];
+  return {strictEligible,blockers:list};
 }
 
 /** The parse, or 'timeout' once timeoutMs passes (the call is then aborted). */

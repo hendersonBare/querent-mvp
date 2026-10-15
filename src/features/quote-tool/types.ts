@@ -2,6 +2,7 @@
 // catalog search, save) and the browser (input page, review dialog). Client-safe: types and constants only.
 
 import type {StrictnessLevel} from '@/features/settings/strictness';
+import type {NoMatchReason} from '@/server/matching/decide';
 
 /** A catalog item as the review dialog shows it. `pack` is the pack label ("Bundle of 25", "Case of 500"). */
 export interface ResultItem {
@@ -25,12 +26,15 @@ export function listPriceUnit(pack:string|null|undefined):string|null{
 export interface ScoredItem extends ResultItem {score:number}
 
 /**
- * Why a line came out as it did. `matched`; or why it is No match: the scorer's top item is below the
- * level's minimum score (`below_threshold`) or too close to another item (`low_lead`), the judge said
- * none (`judge_none`), picked another product (`judge_disagrees`), failed or timed out (`judge_error`),
- * or nothing in the catalog scored at all (`no_candidates`).
+ * Why a line came out as it did: `matched`; `judge_error` (the judge failed or timed out: No match); or
+ * the matcher's own No-match reason (decide.ts NoMatchReason: below_threshold, low_lead, no_product_type,
+ * judge_none, …). Derived from the matcher's type, so a reason it adds flows through; the dialog shows
+ * "Could not detect a match" for every No-match reason, with a hint only for the ones it knows.
  */
-export type LineReason='matched'|'below_threshold'|'low_lead'|'judge_none'|'judge_disagrees'|'judge_error'|'no_candidates';
+export type LineReason='matched'|'judge_error'|NoMatchReason;
+
+/** Whether the line can be matched at Strict at all, and why not (the matcher's words), when the matcher reports it. */
+export interface LineEligibility {strictEligible:boolean;blockers:string[]}
 
 /** One parsed row of the customer's list and its one outcome. */
 export interface ResultLine {
@@ -53,6 +57,8 @@ export interface ResultLine {
   candidates:ScoredItem[];
   /** The best item of each product group, best first (at most 5): what a No-match line offers. */
   nearMisses:ScoredItem[];
+  /** The matcher's Strict eligibility and blockers for the line, when it reports them. */
+  eligibility?:LineEligibility;
 }
 
 export interface MatchCounts {

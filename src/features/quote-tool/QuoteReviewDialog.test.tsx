@@ -109,6 +109,19 @@ describe('QuoteReviewDialog',()=>{
     expect(within(unmatchedSection()).getByTestId('line-3')).toHaveTextContent('No similar items');
   });
 
+  it('shows "Could not detect a match" for any reason, with a short hint for known reasons only',()=>{
+    const run=sampleRun();
+    run.lines[2]={...run.lines[2],reason:'low_lead'};
+    run.lines[3]={...run.lines[3],reason:'a_reason_added_later' as never};
+    render(<QuoteReviewDialog run={run} onClose={()=>{}} onSaved={()=>{}} save={async()=>({id:'x'})} search={async()=>[]}/>);
+    const known=within(unmatchedSection()).getByTestId('line-2');
+    expect(known).toHaveTextContent('Could not detect a match');
+    expect(known).toHaveTextContent('More than one catalog item fits about as well.');
+    const unknown=within(unmatchedSection()).getByTestId('line-3');
+    expect(unknown).toHaveTextContent('Could not detect a match');
+    expect(unknown).not.toHaveTextContent('a_reason_added_later');
+  });
+
   it('"Use this item" moves the line to Matched, picked by the rep, with an empty price',async()=>{
     const {save}=setup();
     const line=within(unmatchedSection()).getByTestId('line-2');

@@ -291,6 +291,11 @@
   font-size: 12px;
   font-weight: 600;
 }
+.hint {
+  margin-top: 4px;
+  color: var(--dlg-muted);
+  font-size: 12.5px;
+}
 .uqty {
   padding-top: 18px;
   color: var(--dlg-ink);

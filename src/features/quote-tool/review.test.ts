@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {
-  blockersMessage,formatMoney,unitLabel,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,formatMoney,reasonHint,unitLabel,initialReview,lineCents,listPriceLabel,parsePrice,parseQuantity,saveBlockers,toSaveRequest,totalCents,
   type ReviewLine,
 } from './review';
 import {sampleRun} from './test-fixtures';
@@ -34,6 +34,18 @@ describe('money',()=>{
     expect(listPriceLabel({listPrice:81.08,listPriceUnit:'case'})).toBe('Web list: $81.08/case');
     expect(listPriceLabel({listPrice:5,listPriceUnit:null})).toBe('Web list: $5.00');
     expect(listPriceLabel({listPrice:null,listPriceUnit:'each'})).toBeNull();
+  });
+});
+
+describe('reasonHint',()=>{
+  it('gives a short hint for each known No-match reason, including ones the matcher adds later',()=>{
+    for(const reason of ['below_threshold','low_lead','no_product_type','not_accounted','judge_none','judge_disagrees','judge_error','no_candidates'])
+      expect(reasonHint(reason),reason).toMatch(/^[A-Z].*\.$/);
+  });
+  it('gives no hint for a matched line or a reason it does not know',()=>{
+    expect(reasonHint('matched')).toBeNull();
+    expect(reasonHint('something_new')).toBeNull();
+    expect(reasonHint('toString')).toBeNull();
   });
 });
 

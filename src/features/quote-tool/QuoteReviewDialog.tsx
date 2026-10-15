@@ -5,7 +5,7 @@ import d from '@/components/ui/Dialog.module.css';
 import {trapTab} from '@/components/ui/focus';
 import {saveQuote as defaultSave,searchCatalog as defaultSearch} from './client';
 import {
-  blockersMessage,formatMoney,initialReview,priceError,quantityError,unitLabel,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
+  blockersMessage,formatMoney,initialReview,priceError,reasonHint,quantityError,unitLabel,listPriceLabel,parseQuantity,reviewLineCents,saveBlockers,toSaveRequest,totalCents,
   type ReviewLine,
 } from './review';
 import type {MatchRun,ResultItem,SaveQuoteRequest,ScoredItem} from './types';
@@ -196,6 +196,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                         <span className={s.wroteLabel}>Customer wrote</span>
                         <span className={s.original}>{line.rawText}</span>
                         <span className={s.nomatch}>Could not detect a match</span>
+                        {line.reason&&reasonHint(line.reason)&&<span className={s.hint}>{reasonHint(line.reason)}</span>}
                       </div>
                       <span className={s.uqty}>{quantity===null?'No quantity':`Qty ${line.quantity}${line.unit?` ${unitLabel(quantity,line.unit)}`:''}`}</span>
                       {line.nearMisses.length>0

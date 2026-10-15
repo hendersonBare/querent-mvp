@@ -1,6 +1,6 @@
 import type {StrictnessLevel} from '@/features/settings/strictness';
 import {readPrice,readQuantity} from '@/features/quotes/limits';
-import type {MatchRun,ResultItem,SaveLine,SaveQuoteRequest,ScoredItem} from './types';
+import type {LineReason,MatchRun,ResultItem,SaveLine,SaveQuoteRequest,ScoredItem} from './types';
 
 // The review dialog's state and rules, kept out of the component so they can be tested without a DOM:
 // what the rep typed (prices and quantities as text), how a line totals in cents (as the database's
@@ -14,6 +14,8 @@ export interface ReviewLine {
   status:'matched'|'unmatched'|'removed';
   /** The section a removed line goes back to on Undo. */
   restoreTo:'matched'|'unmatched';
+  /** Why the pipeline did not match the line (null for a matched line). */
+  reason:LineReason|null;
   rawText:string;
   /** As typed. */
   quantity:string;
@@ -32,7 +34,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
   return run.lines.map(line=>{
     const matched=line.outcome==='matched'&&line.item!==undefined;
     return {
-      key:line.index,status:matched?'matched':'unmatched',restoreTo:matched?'matched':'unmatched',
+      key:line.index,status:matched?'matched':'unmatched',restoreTo:matched?'matched':'unmatched',reason:matched?null:line.reason,
       rawText:line.rawText,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
       price:'',item:matched?line.item!:null,matchedBy:matched?'auto':null,score:matched?line.score:null,
       candidates:line.candidates,nearMisses:line.nearMisses,
@@ -72,6 +74,25 @@ export const lineCents=(quantity:number,price:number)=>Math.round(Number((quanti
 
 const DOLLARS=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 export const formatMoney=(cents:number)=>DOLLARS.format(cents/100);
+
+/**
+ * A short hint for why a line is No match, by reason. Keys may run ahead of the matcher's type (a reason
+ * it adds later); a reason not listed gets no hint, only "Could not detect a match".
+ */
+const REASON_HINTS:Readonly<Record<string,string>>={
+  below_threshold:'No catalog item fits everything this line states.',
+  low_lead:'More than one catalog item fits about as well.',
+  no_product_type:'The line does not name a product type the catalog item confirms.',
+  not_accounted:'Part of the line is not accounted for by the closest item.',
+  judge_none:'Claude did not confirm the closest item is the same product.',
+  judge_disagrees:'Claude did not confirm the closest item is the same product.',
+  judge_error:'The check with Claude did not finish.',
+  no_candidates:'Nothing in the catalog is close.',
+};
+
+export function reasonHint(reason:string):string|null{
+  return Object.hasOwn(REASON_HINTS,reason)?REASON_HINTS[reason]:null;
+}
 
 /** A parsed unit for a quantity: "4 roll" reads "4 rolls"; "each" and 1 of anything stay as they are. */
 export function unitLabel(quantity:number|null,unit:string|null):string|null{
