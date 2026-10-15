@@ -253,11 +253,11 @@ Defaults that matter here ([rate limits](https://supabase.com/docs/guides/auth/r
 |---|---|
 | Emails sent by Auth (all kinds) | 2 an hour with the built-in sender; 30 an hour once custom SMTP is on (adjustable) |
 | Password-reset request | 1 per user per 60 seconds |
-| Sign-in and sign-up requests | 30 per 5 minutes per IP address |
+| Requests that send email or check a code (`recover`, `otp`, `magiclink`, `signup`, `verify`) | 30 per 5 minutes per IP address |
 | Token requests (password sign-in, session refresh) | 150 per 5 minutes per IP address |
 
 Note: the app signs users in from its server, so Supabase sees Vercel's addresses rather than each rep's.
-At BOXT's size the per-IP limits are far away; raise the sign-in limit if many reps ever sign in at once.
+At BOXT's size the per-IP limits are far away; raise the token limit if many reps ever sign in at once.
 
 ## 4. Create the first users
 
@@ -481,7 +481,7 @@ build of the quote tool branch at its verified commit (`e128e3b`, port 3191) for
 | Check | Command (local equivalent of the go-live check) | Result |
 |---|---|---|
 | Sign-up refused | `POST /auth/v1/signup` with the anon key, and again with the publishable key | `422 signup_disabled` both times |
-| Row-level security | `GET /rest/v1/<table>?select=*` for all 6 tables and the view, anon and publishable key; `POST /rest/v1/rpc/create_quote` with the publishable key | `401 42501 permission denied` for each |
+| Row-level security | `GET /rest/v1/<name>?select=*` for the 5 tables and the view with the anon key; `quotes` and `POST /rest/v1/rpc/create_quote` with the publishable key | `401 42501 permission denied` for each |
 | `/signup` | signed out / signed in | `307 /login?next=%2Fsignup` / `404` |
 | Pages signed out | `/`, `/quote-tool`, `/quotes`, `/settings`, `/quotes/<id>` | `307 /login?next=...` each |
 | APIs signed out | `/api/quotes`, `/api/settings`, `/api/catalog/search`, `POST /api/quote-tool/match` | `401 {"error":"Sign in to continue."}` each |
