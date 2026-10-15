@@ -106,6 +106,22 @@ describe('POST /api/quote-tool/match',()=>{
     expect(catalog.getCatalog).not.toHaveBeenCalled();
   });
 
+  it('accepts a PDF by its %PDF- bytes when the browser sends a generic type or none, and refuses other types',async()=>{
+    for(const type of ['application/octet-stream','']){
+      const response=await POST(post(fileForm(SAMPLE_PDF,type)),ctx);
+      expect(response.status,type||'(empty)').toBe(200);
+      const last=(await events(response)).at(-1)!;
+      expect(last.type==='result'&&last.run.counts.rows).toBe(4);
+    }
+    for(const type of ['text/plain','image/png','application/x-pdf-ish']){
+      const response=await POST(post(fileForm(SAMPLE_PDF,type)),ctx);
+      expect(response.status,type).toBe(400);
+      expect((await response.json()).error).toMatch(/PDF/);
+    }
+    const notPdf=await POST(post(fileForm(new TextEncoder().encode('PK\u0003\u0004 zip'),'application/octet-stream','list.pdf')),ctx);
+    expect(notPdf.status).toBe(400);
+  });
+
   it('answers 413 for a PDF over 4 MB',async()=>{
     const big=new Uint8Array(4*1024*1024+1);big.set(new TextEncoder().encode('%PDF-1.4\n'));
     const response=await POST(post(fileForm(big)),ctx);

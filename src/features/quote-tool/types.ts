@@ -89,6 +89,16 @@ export const MAX_LIST_CHARS=60_000;
 /** Bytes a PDF may have. */
 export const MAX_PDF_BYTES=4*1024*1024;
 
+/**
+ * File types a PDF may arrive with: its own, or the generic ones some browsers and mail clients give a
+ * PDF (then its first bytes decide). Any other type is refused, whatever the bytes.
+ */
+export const PDF_UPLOAD_TYPES:readonly string[]=['application/pdf','application/octet-stream',''];
+const PDF_MAGIC=[0x25,0x50,0x44,0x46,0x2d]; // "%PDF-"
+
+/** true when `bytes` starts like a PDF ("%PDF-"). */
+export const hasPdfMagic=(bytes:Uint8Array)=>PDF_MAGIC.every((byte,i)=>bytes[i]===byte);
+
 /** The non-empty lines of a pasted list. */
 export const countListLines=(text:string)=>text.split(/\r?\n|\r/).filter(line=>line.trim()!=='').length;
 

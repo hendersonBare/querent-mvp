@@ -6,7 +6,7 @@ import {getCatalog} from '@/server/catalog';
 import {getJudge,getParser,type ParseInput} from '@/server/llm';
 import {getOrgSettings,logActivity} from '@/server/repository';
 import {runPipeline,type PipelineResult} from './pipeline';
-import {MAX_LIST_CHARS,MAX_LIST_LINES,MAX_PDF_BYTES,countListLines,type MatchStreamEvent} from './types';
+import {MAX_LIST_CHARS,MAX_LIST_LINES,MAX_PDF_BYTES,PDF_UPLOAD_TYPES,countListLines,hasPdfMagic,type MatchStreamEvent} from './types';
 
 // POST /api/quote-tool/match (docs/boxt/plan.md "API"): takes a pasted list (multipart field `text`) or
 // a PDF (field `file`), checks the caps, reads the organization's match strictness and the catalog, runs
@@ -33,7 +33,6 @@ export const RUN_ERROR='Something went wrong while matching. Try again.';
 
 /** Room for the multipart framing around a 4 MB PDF. */
 const MAX_BODY_BYTES=MAX_PDF_BYTES+256*1024;
-const PDF_MAGIC=[0x25,0x50,0x44,0x46,0x2d]; // %PDF-
 
 const NO_STORE={'cache-control':'no-store'};
 const fail=(status:number,error:string)=>Response.json({error},{status,headers:NO_STORE});
@@ -53,9 +52,10 @@ async function readInput(request:NextRequest):Promise<Input|Response>{
   if(file instanceof Blob&&file.size>0){
     if(hasText)return fail(400,BOTH_INPUTS_ERROR);
     if(file.size>MAX_PDF_BYTES)return fail(413,PDF_TOO_LARGE);
-    if(file.type!=='application/pdf')return fail(400,NOT_PDF_ERROR);
+    // application/pdf, or a generic type (octet-stream, none) that some browsers give a PDF; the bytes decide.
+    if(!PDF_UPLOAD_TYPES.includes(file.type.toLowerCase()))return fail(400,NOT_PDF_ERROR);
     const data=new Uint8Array(await file.arrayBuffer());
-    if(!PDF_MAGIC.every((byte,i)=>data[i]===byte))return fail(400,NOT_PDF_ERROR);
+    if(!hasPdfMagic(data))return fail(400,NOT_PDF_ERROR);
     return {kind:'pdf',input:{kind:'pdf',data}};
   }
   if(!hasText)return fail(400,EMPTY_INPUT_ERROR);

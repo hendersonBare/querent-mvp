@@ -24,7 +24,8 @@ const textarea=()=>screen.getByLabelText('Paste the customer\'s list, one item p
 const find=()=>screen.getByRole('button',{name:'Find matches'});
 const pdfInput=()=>screen.getByLabelText('Upload PDF') as HTMLInputElement;
 const pick=(file:File)=>fireEvent.change(pdfInput(),{target:{files:[file]}});
-const pdf=(bytes=10,name='po.pdf')=>new File([new Uint8Array(bytes)],name,{type:'application/pdf'});
+const PDF_MAGIC=[0x25,0x50,0x44,0x46,0x2d];
+const pdf=(bytes=10,name='po.pdf',type='application/pdf')=>{const data=new Uint8Array(Math.max(bytes,5));data.set(PDF_MAGIC);return new File([data],name,{type});};
 
 beforeEach(()=>router.push.mockReset());
 
@@ -46,20 +47,33 @@ describe('QuoteTool',()=>{
     expect(find()).toBeDisabled();
   });
 
-  it('takes a PDF instead of the pasted list, and only a PDF up to 4 MB',()=>{
+  it('takes a PDF instead of the pasted list, and only a PDF up to 4 MB',async()=>{
     setup();
     expect(pdfInput()).toHaveAttribute('accept','application/pdf,.pdf');
     pick(new File(['hello'],'list.txt',{type:'text/plain'}));
-    expect(screen.getByRole('alert')).toHaveTextContent('Only PDF files can be uploaded.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only PDF files can be uploaded.');
     pick(pdf(4*1024*1024+1,'huge.pdf'));
-    expect(screen.getByRole('alert')).toHaveTextContent('That PDF is larger than 4 MB.');
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('That PDF is larger than 4 MB.'));
     pick(pdf(10,'po-1182.pdf'));
+    expect(await screen.findByText('po-1182.pdf')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText('po-1182.pdf')).toBeInTheDocument();
     expect(screen.queryByLabelText('Paste the customer\'s list, one item per line')).toBeNull();
     expect(find()).toBeEnabled();
     fireEvent.click(screen.getByRole('button',{name:'Remove PDF'}));
     expect(textarea()).toBeInTheDocument();
+  });
+
+  it('checks the first bytes before upload: a ".pdf" that is not a PDF is refused, a PDF with a generic type is taken',async()=>{
+    setup();
+    pick(new File([new TextEncoder().encode('<html>not a pdf</html>')],'fake.pdf',{type:'application/pdf'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only PDF files can be uploaded.');
+    expect(screen.queryByText('fake.pdf')).toBeNull();
+    pick(pdf(10,'scan.pdf','application/octet-stream'));
+    expect(await screen.findByText('scan.pdf')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Remove PDF'}));
+    pick(pdf(10,'untyped.pdf',''));
+    expect(await screen.findByText('untyped.pdf')).toBeInTheDocument();
   });
 
   it('sends the pasted list as `text`, or the PDF as `file`',async()=>{

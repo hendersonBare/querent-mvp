@@ -12,6 +12,9 @@ import {QUOTE_LIMITS,quantitySchema,quoteTextSchema,unitPriceSchema} from '@/fea
 // pack and list price always come from the catalog, never from the client. Unmatched lines keep the
 // customer's text, the quantity (if any) and a snapshot of the near-misses the rep saw. The quote and its
 // lines are saved atomically (createQuote); one quote_create activity row records the counts.
+// matchedBy ('auto' | 'rep') is taken as the dialog sends it: every signed-in user is a trusted rep of one
+// company (docs/boxt/plan.md "Open assumptions"), so it is an audit hint of who picked the item, not a
+// security control.
 // Answers 201 {id}, 400 {error} for invalid input, 401 without a session.
 
 const MAX_BODY_BYTES=1024*1024;

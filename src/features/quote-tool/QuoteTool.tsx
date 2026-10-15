@@ -3,7 +3,7 @@ import {useEffect,useId,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {requestMatch,saveQuote,searchCatalog,type MatchOutcome} from './client';
 import {QuoteReviewDialog} from './QuoteReviewDialog';
-import {MAX_LIST_CHARS,MAX_LIST_LINES,MAX_PDF_BYTES,countListLines,type MatchRun,type ProgressEvent,type SaveQuoteRequest,type ScoredItem} from './types';
+import {MAX_LIST_CHARS,MAX_LIST_LINES,MAX_PDF_BYTES,PDF_UPLOAD_TYPES,countListLines,hasPdfMagic,type MatchRun,type ProgressEvent,type SaveQuoteRequest,type ScoredItem} from './types';
 import s from './QuoteTool.module.css';
 
 // The quote creation tool's input (docs/boxt/plan.md B5): the customer's list pasted (one item per line,
@@ -35,6 +35,18 @@ export function progressPercent({stage,done,total}:ProgressEvent):number{
   return Math.round(from+span*part);
 }
 
+/** The first `n` bytes of a file (Blob.arrayBuffer where there is one, else FileReader). */
+function readHead(file:Blob,n:number):Promise<Uint8Array>{
+  const head=file.slice(0,n);
+  if(typeof head.arrayBuffer==='function')return head.arrayBuffer().then(buffer=>new Uint8Array(buffer));
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror=()=>reject(reader.error);
+    reader.readAsArrayBuffer(head);
+  });
+}
+
 const kb=(bytes:number)=>bytes<1024*1024?`${Math.max(1,Math.round(bytes/1024))} KB`:`${(bytes/1024/1024).toFixed(1)} MB`;
 
 export function QuoteTool({match,save=body=>saveQuote(body),search=q=>searchCatalog(q)}:QuoteToolProps){
@@ -59,13 +71,22 @@ export function QuoteTool({match,save=body=>saveQuote(body),search=q=>searchCata
   const error=fileError||capError||runError;
   const canRun=!running&&!capError&&(file!==null||lines>0);
 
-  function choose(chosen:File|undefined){
+  /** Takes a chosen file when it is a PDF up to 4 MB, checked as the server checks it: the type, then the first bytes. */
+  async function choose(chosen:File|undefined){
     setRunError('');
     if(!chosen)return;
-    if(chosen.type!=='application/pdf'){setFileError(NOT_PDF_MESSAGE);return;}
-    if(chosen.size>MAX_PDF_BYTES){setFileError(PDF_TOO_LARGE_MESSAGE);return;}
+    if(!PDF_UPLOAD_TYPES.includes(chosen.type.toLowerCase())){refuse(NOT_PDF_MESSAGE);return;}
+    if(chosen.size>MAX_PDF_BYTES){refuse(PDF_TOO_LARGE_MESSAGE);return;}
+    let head:Uint8Array;
+    try{head=await readHead(chosen,5);}catch{refuse(NOT_PDF_MESSAGE);return;}
+    if(!hasPdfMagic(head)){refuse(NOT_PDF_MESSAGE);return;}
     setFileError('');
     setFile(chosen);
+  }
+
+  function refuse(message:string){
+    setFileError(message);
+    if(fileInput.current)fileInput.current.value='';
   }
 
   function clearFile(){
@@ -94,7 +115,7 @@ export function QuoteTool({match,save=body=>saveQuote(body),search=q=>searchCata
           :<label className={s.label} htmlFor={listId}>Paste the customer&apos;s list, one item per line</label>}
         <label className={`${s.upload}${running?` ${s.disabled}`:''}`}>
           <input ref={fileInput} type="file" className={s.srOnly} accept="application/pdf,.pdf" aria-label="Upload PDF" disabled={running}
-            onChange={e=>choose(e.target.files?.[0])}/>
+            onChange={e=>void choose(e.target.files?.[0])}/>
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <span aria-hidden="true">Upload PDF</span>
         </label>
