@@ -128,7 +128,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 |---|---|---|---|
 | B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | merged |
 | B1 | Supabase schema, RLS, seed, repository | B0 | merged |
-| B2 | Auth (login, reset, proxy, guards) | B1 | in progress (`boxt/task/B2-auth`) |
+| B2 | Auth (login, reset, proxy, guards) | B1 | merged |
 | B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | in progress (`boxt/task/B3-packaging-matching-eval`) |
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
 | B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
@@ -219,9 +219,16 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| B2 | `0ff8c5c` | PASS | typecheck 0; `npm test` 30 files / 367; build 0 (with env); `test:db` 43; curl: every page → 307 `/login?next=`, every API → 401, cross-origin POST → 403, no open redirect (20+ attack `next` values), identical errors for unknown vs wrong password; reset end to end via Mailpit (link reuse → expired); Supabase signup → 422; `getUser()` everywhere, every page re-checks. Follow-ups: F1 build fails without Supabase env (call `connection()` first); F2 proxy matcher skips paths ending `.png` etc. (handlers still check); F3 stack-level magic link for existing users (document; app cannot complete it); F4 password change needs no old password (Supabase default). |
 | B1 | `d2ee06f` | PASS | typecheck 0; `npm test` 25 files / 276; build 0; stack restarted from checkout; `db:reset` 1,555 rows + example + 2 dev users; `test:db` 32 pass; psql: RLS on all 5 tables, policies `authenticated` only, anon has no table/view/sequence/function privilege, view `security_invoker`; anon REST → 42501; signup → 422 `signup_disabled`; example quote refused for authenticated and service_role; bad line in `create_quote`/`update_quote` writes nothing; seed idempotent; planted boundary violations caught. Notes: metadata keys must come from a fixed list in app code; one misleading RPC error wording. |
 | B4 | `6509674` | PASS | typecheck 0; `npm test` 21 files / 244 tests offline; build 0; only `client.ts` names a model or reads the key; probes: case/space-variant SKU → null, empty candidates → no call, 201 rows refused, 4 MB+1 PDF refused, `judgeAll` ≤ 2 in flight with concurrency 2, timeouts abort. Follow-ups for B5: bound the parse time to fit the route's `maxDuration`; consider `strict` tools after an SDK upgrade. |
 | B0 | `90a07a5` | PASS | typecheck 0; `npm test` 13 files / 147 tests; build routes only `/`, `/quote-tool`, `/quotes`, `/settings`; acceptance grep empty; curl: `/` 307 → `/quote-tool`, old routes 404; planted skip/key violations fail the guards; matching/llm untouched. Notes: Dialog.module.css kept for B5; `catalog.test.ts` excluded until B3; sign-out endpoint pending B2. |
+
+## Follow-ups
+- F1 (B2): `createSupabaseServerClient` reads env before `cookies()`, so `next build` fails without Supabase env. Fix in B8 (call `connection()`/`cookies()` first; CI also sets env).
+- F2 (B2): `src/proxy.ts` matcher excludes any path ending in an image extension, including `/api/...png`. Fix in B8 (exclude only `/_next/*` and real public files).
+- F3 (B2): the hosted Auth server can still send a magic link to an existing user via its own API; the app has no way to complete it. Document in DEPLOY/OPERATIONS (B9).
+- F4 (B2): `secure_password_change` off; document as a follow-up with MFA (B9).
 
 ## Open assumptions
 - "The rep can edit … and delete their quotes": every signed-in user can edit or delete any quote (one
