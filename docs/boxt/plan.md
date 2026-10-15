@@ -135,8 +135,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | in progress (`boxt/task/B5-quote-tool`, B3 branch merged in for its API) |
 | B6 | Quotes list and detail | B1, B2 | merged |
 | B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
-| B8 | E2E, access control, CI | B5, B6, B7 | pending |
-| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | pending |
+| B8 | E2E, access control, CI | B5, B6, B7 | in progress (`boxt/task/B8-e2e-ci`, staged on B5 + B7) |
+| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | in progress (`boxt/task/B9-docs`, drafted early; final check after B8) |
 
 ### B0: Strip to the shell; new stack scaffolding
 - Delete the SQLite data layer (`src/server/db`, `better-sqlite3`), every feature, route, component, test,
