@@ -136,6 +136,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B6 | Quotes list and detail | B1, B2 | merged |
 | B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
 | B8 | E2E, access control, CI | B5, B6, B7 | in progress (`boxt/task/B8-e2e-ci`, staged on B5 + B7) |
+| B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 (staged on the B8 head) | in progress (`boxt/task/B10-price-unit-polish`) |
 | B9 | DEPLOY.md, OPERATIONS.md, README | B8 | in progress (`boxt/task/B9-docs`, drafted early; final check after B8) |
 
 ### B0: Strip to the shell; new stack scaffolding
@@ -213,6 +214,11 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 - `.github/workflows/ci.yml`: install, typecheck, unit tests, build, start local Supabase, db:reset,
   test:db, Playwright.
 
+### B10: Price-unit correctness and UI polish
+- One pricing unit per line: quantity and unit price are both in the item's list-price unit (each, case, roll, coil...), labelled next to both inputs ("each", "per each") and matching the "Web list: $x/each" label; the customer's stated unit is converted when the pack makes it exact (10 bundles of 25 → 250 each, shown as "Customer asked for 10 bundles = 250 each") and otherwise flagged "Check quantity". Same unit shown on the Quotes detail page.
+- Querent green accent everywhere (no teal); near-miss scores labelled consistently in the dialog and on the detail page, without implying a match on unmatched lines; plural units; "Not set" instead of "None"; the example quote's creator shown as "Example"; one Settings badge; consistent page widths.
+- B8 test findings: strengthen `e2e/quotes.spec.ts:43`, non-empty function list and anon UPDATE/42501 checks in `e2e/access.spec.ts`, remove `isStaticAsset`'s top-level file allowance (only the matcher's explicit public files), scan `*.setup.ts` in the skip guard, edit customer/reference in the spec.
+
 ### B9: Docs
 - `docs/boxt/DEPLOY.md`, `docs/boxt/OPERATIONS.md`, README section; verified against a local stack.
 
@@ -220,6 +226,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| B3b | `c0f7271` | FAIL (B3b round 2) | Gates pass; memory flat; long inputs bounded; exact same-unit sizes; fractions; recall 37/37 new lines. 24 Strict FP from one class: defining choices the line leaves unsaid (hand/machine strapping, cast/blown film) and a missing size are not charged against the item, so Strict rested on the lead; 0.2% tolerance applied yd↔ft. Fix: item-side accounting of choices and full size at Strict. |
+| B8 | `5392334` | PASS (merge after B3b) | typecheck 0; `npm test` 52 / 867; build with and without Supabase env; F1 runtime without env fails closed (307/401/500); `test:db` 60; Playwright 19/19 twice; probes: unguarded route caught by `guards.test.ts`, proxy-public unguarded route caught by the access spec, `test.skip` caught; RLS spec enumerates 5 tables, 1 view, 2 RPCs at run time. Findings go to B10: weak assertion `quotes.spec.ts:43`, function loop without non-empty check, `isStaticAsset` still allows top-level `/<name>.png` without session, setup files not scanned by the skip guard, edit spec lacks customer/reference; visual issues incl. a **price unit mismatch** (qty in bundles, price per bundle, web list per each). |
 | B3b | `612506c` | FAIL (B3b round 1) | Gates pass; eval 430 lines Strict 0 FP; held-out 36 → 0. New attacks: 14 Strict FP in 3 classes: item head noun never required (Gaylord → Gaylord Lid, Paper → Paper Mailers, Hand Tape → Tape Dispensers); 0.5% tolerance on same-unit sizes (12.05x10x8 → 12x10x8); improper fractions (16/2 → 8). Cache ~1 MB/line (OOM at ~2,000 lines) and shared mutable objects; slow on 5,000+ digit numbers. Recall 35/39 on new lines. Unicode, units, labels, joining words, second values, glued tokens, keyword claims all held. |
 | B7 | `0039b85` | PASS (scope B7; merge waits for B3b) | typecheck 0; `npm test` 43 / 657; build 0; `test:db` 55; 307/401 unauthenticated, cross-origin PUT 403, 10 bad bodies 400; UI change persists and is shared across users; activity `{from,to}` enums only; no strictness numbers duplicated. Notes: level descriptions are long (B3b owns them); pipeline must read the level per run (B5 does). |
 | B5 | `d871e4a` | PASS (scope B5; merge waits for B3b) | typecheck 0; `npm test` 40 / 523; build 0; `test:db` 48; judge only on clearing lines and never alone (`decide`); one outcome per row; save re-reads catalog (forged description/list price ignored); caps before streaming (201 lines → 413, 4 MB+1 → 413, fake PDF → 400); stream ends with exactly one result/error; UI walkthrough (matched/unmatched, near-miss Use this item → rep, Save gating with reason, DB rows correct). Follow-up round: focus after Use, octet-stream PDFs, shared limits module. |
