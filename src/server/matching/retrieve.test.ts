@@ -9,24 +9,24 @@ import {decide} from './decide';
 const BOX_KW='bulk boxes cardboard boxes corrugated boxes rsc boxes shipping boxes wholesale boxes';
 const BAG_KW='clear poly bags plastic bags poly bags reclosable bags resealable bags zip lock bags';
 const CATALOG=[
-  {sku:'12108-BDL',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,keywords:BOX_KW},
-  {sku:'12108-PLT',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, pallet pricing',pack:'Each',caseQty:25,keywords:BOX_KW},
-  {sku:'12106-BDL',description:'Corrugated Boxes 12x10x6", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,keywords:BOX_KW},
-  {sku:'1288-BDL',description:'Corrugated Boxes 12x8x8", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,keywords:BOX_KW},
-  {sku:'1086-BDL',description:'Corrugated Boxes 10x8x6", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,keywords:BOX_KW},
-  {sku:'1086W-BDL',description:'White Corrugated Boxes 10x8x6", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,keywords:'bulk boxes premium boxes white boxes white corrugated white shipping boxes'},
-  {sku:'M1294',description:'White Corrugated Mailers 12.25x9.25x4"',pack:'Each',caseQty:50,keywords:'cardboard mailers corrugated mailers shipping mailers tuck-front mailers wholesale mailers'},
-  {sku:'HD1212DW-BDL',description:'Heavy Duty Boxes 12x12x12", bundle pricing, BC Flute',pack:'Each',caseQty:25,keywords:'bulk boxes double wall boxes heavy duty boxes reinforced boxes strong shipping boxes'},
-  {sku:'121212-BDL',description:'Corrugated Boxes 12x12x12", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,keywords:BOX_KW},
-  {sku:'PB3565',description:'Reclosable Poly Bags, 4x6" 2 MIL',pack:'Case of 1,000',caseQty:1,keywords:BAG_KW},
-  {sku:'PB3710',description:'Reclosable Poly Bags, 4x6" 4 MIL',pack:'Case of 1,000',caseQty:1,keywords:BAG_KW},
-  {sku:'PB3600',description:'Reclosable Poly Bags, 6x4" 2 MIL',pack:'Case of 1,000',caseQty:1,keywords:BAG_KW},
-  {sku:'PMR040615',description:'Suffocation Warning Bags, 4x6" 1.5 MIL',pack:'Case of 1,000',caseQty:1,keywords:'poly bags resealable bags safety bags suffocation bags suffocation warning bags warning bags'},
-  {sku:'B855SS',description:'#2 Kraft Bubble Mailers 8.5x12"',pack:'Case of 100',caseQty:1,keywords:'brown bubble mailers kraft bubble mailers natural bubble mailers paper bubble mailers'},
-  {sku:'B833',description:'#2 Poly Bubble Mailers 8.5x12"',pack:'Case of 100',caseQty:1,keywords:'bubble mailers e-commerce mailers padded mailers poly bubble mailers shipping mailers'},
-  {sku:'T902700',description:'Clear Hot Melt Tape, Hand Length, 2"x110yd 1.9 MIL',pack:'Case of 36',caseQty:1,keywords:'carton sealing tape hand packing tape hot melt tape industrial tape packing tape shipping tape'},
-  {sku:'T902900',description:'Clear Hot Melt Tape, Hand Length, 2"x110yd 2.5 MIL',pack:'Case of 36',caseQty:1,keywords:'carton sealing tape hand packing tape hot melt tape industrial tape packing tape shipping tape'},
-  {sku:'T902400',description:'Clear Acrylic Tape, Hand Length, 2"x110yd 2.0 MIL',pack:'Case of 36',caseQty:1,keywords:'acrylic tape carton sealing tape clear packing tape clear tape packing tape'},
+  {sku:'12108-BDL',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:BOX_KW},
+  {sku:'12108-PLT',description:'Corrugated Boxes 12x10x8", 32 ECT single wall, pallet pricing',pack:'Each',caseQty:25,category:'boxes',keywords:BOX_KW},
+  {sku:'12106-BDL',description:'Corrugated Boxes 12x10x6", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:BOX_KW},
+  {sku:'1288-BDL',description:'Corrugated Boxes 12x8x8", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:BOX_KW},
+  {sku:'1086-BDL',description:'Corrugated Boxes 10x8x6", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:BOX_KW},
+  {sku:'1086W-BDL',description:'White Corrugated Boxes 10x8x6", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:'bulk boxes premium boxes white boxes white corrugated white shipping boxes'},
+  {sku:'M1294',description:'White Corrugated Mailers 12.25x9.25x4"',pack:'Each',caseQty:50,category:'boxes',keywords:'cardboard mailers corrugated mailers shipping mailers tuck-front mailers wholesale mailers'},
+  {sku:'HD1212DW-BDL',description:'Heavy Duty Boxes 12x12x12", bundle pricing, BC Flute',pack:'Each',caseQty:25,category:'boxes',keywords:'bulk boxes double wall boxes heavy duty boxes reinforced boxes strong shipping boxes'},
+  {sku:'121212-BDL',description:'Corrugated Boxes 12x12x12", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:BOX_KW},
+  {sku:'PB3565',description:'Reclosable Poly Bags, 4x6" 2 MIL',pack:'Case of 1,000',caseQty:1,category:'bags',keywords:BAG_KW},
+  {sku:'PB3710',description:'Reclosable Poly Bags, 4x6" 4 MIL',pack:'Case of 1,000',caseQty:1,category:'bags',keywords:BAG_KW},
+  {sku:'PB3600',description:'Reclosable Poly Bags, 6x4" 2 MIL',pack:'Case of 1,000',caseQty:1,category:'bags',keywords:BAG_KW},
+  {sku:'PMR040615',description:'Suffocation Warning Bags, 4x6" 1.5 MIL',pack:'Case of 1,000',caseQty:1,category:'bags',keywords:'poly bags resealable bags safety bags suffocation bags suffocation warning bags warning bags'},
+  {sku:'B855SS',description:'#2 Kraft Bubble Mailers 8.5x12"',pack:'Case of 100',caseQty:1,category:'mailers',keywords:'brown bubble mailers kraft bubble mailers natural bubble mailers paper bubble mailers'},
+  {sku:'B833',description:'#2 Poly Bubble Mailers 8.5x12"',pack:'Case of 100',caseQty:1,category:'mailers',keywords:'bubble mailers e-commerce mailers padded mailers poly bubble mailers shipping mailers'},
+  {sku:'T902700',description:'Clear Hot Melt Tape, Hand Length, 2"x110yd 1.9 MIL',pack:'Case of 36',caseQty:1,category:'tape',keywords:'carton sealing tape hand packing tape hot melt tape industrial tape packing tape shipping tape'},
+  {sku:'T902900',description:'Clear Hot Melt Tape, Hand Length, 2"x110yd 2.5 MIL',pack:'Case of 36',caseQty:1,category:'tape',keywords:'carton sealing tape hand packing tape hot melt tape industrial tape packing tape shipping tape'},
+  {sku:'T902400',description:'Clear Acrylic Tape, Hand Length, 2"x110yd 2.0 MIL',pack:'Case of 36',caseQty:1,category:'tape',keywords:'acrylic tape carton sealing tape clear packing tape clear tape packing tape'},
 ];
 
 const scores=(line:string)=>Object.fromEntries(scorePackaging(line,CATALOG).map(c=>[c.item.sku,c.score]));
@@ -235,9 +235,9 @@ describe('round 3 classes',()=>{
     expect(score('Kraft Mailers #2 8 1/2 x 12" No Bubble','B855SS')).toBeLessThanOrEqual(CONFLICT);
     expect(score('Poly Mailers #2 8 1/2 x 12" No Bubble','B833')).toBeLessThanOrEqual(CONFLICT);
   });
-  it('does not take an item\'s silence on a choice or colour as keeping a negation',()=>{
+  it('does not take an item\'s silence as keeping a negation: the catalog never states what an item lacks (B3b)',()=>{
     expect(score('Kraft Bubble Mailers #2 8 1/2 x 12" without self seal','B855SS')).toBeLessThanOrEqual(UNCONFIRMED);
-    expect(score('Corrugated Boxes 12 x 10 x 8" Not Printed','12108-BDL')).toBe(1);
+    expect(score('Corrugated Boxes 12 x 10 x 8" Not Printed','12108-BDL')).toBe(UNCONFIRMED);
   });
   it('compares microns with mil after conversion, never as a stray number',()=>{
     expect(score('Reclosable Bags 4 x 6" 50.8 micron','PB3565')).toBe(1);
@@ -280,7 +280,7 @@ describe('retrieve',()=>{
     expect(r.lead).toBe(Math.round((1-r.candidates.find(c=>c.group!==r.top!.group)!.score)*100)/100);
     expect(r.lead).toBeGreaterThan(0.2);
     expect(r.clears).toBe(true);
-    expect(r.rule).toEqual(STRICT);
+    expect(r.rule).toEqual({...STRICT,requireTotalAccounting:false});
   });
 
   it('does not clear when two product groups tie',()=>{

@@ -3,9 +3,9 @@
 
 const FRACTIONS:Record<string,string>={'½':'1/2','¼':'1/4','¾':'3/4','⅛':'1/8','⅜':'3/8','⅝':'5/8','⅞':'7/8','⅓':'1/3','⅔':'2/3'};
 
-/** Lower case, unicode fractions spelled out (keeping mixed numbers together), curly quotes and × made plain, "a x b" spaced. */
+/** Lower case, full-width forms (＂, ｘ, １２) made ASCII, unicode fractions spelled out (keeping mixed numbers together), curly quotes and × made plain, "a x b" spaced. */
 export function normalize(text:string){
-  return text.toLowerCase()
+  return text.replace(/[！-～]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).toLowerCase()
     .replace(/[⁄∕]/g,'/')
     .replace(/(\d)\s*([½¼¾⅛⅜⅝⅞⅓⅔])/g,(_,d:string,f:string)=>`${d}-${FRACTIONS[f]}`)
     .replace(/[½¼¾⅛⅜⅝⅞⅓⅔]/g,f=>FRACTIONS[f])

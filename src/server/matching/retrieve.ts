@@ -1,13 +1,22 @@
-import type {PackagingItem} from './packaging';
-import {hundredths,scorePackaging,type Candidate} from './score-packaging';
+import {parseSpec,type PackagingItem} from './packaging';
+import {hundredths,scorePackaging,type Candidate,type Eligibility} from './score-packaging';
 
 // Retrieve (BOXT pipeline step 2): the candidates for one parsed line, and whether the scorer alone
 // clears the threshold. The judge then sees `candidates`; decide() (decide.ts) makes the call.
 
-export type {Candidate} from './score-packaging';
+export type {Candidate,Eligibility} from './score-packaging';
 
 /** The strictness level's rule (src/features/settings/strictness.ts). */
-export interface MatchRule {minScore:number;minLead:number}
+export interface MatchRule {
+  minScore:number;
+  minLead:number;
+  /**
+   * Total accounting (Strict): the top candidate must be Strict-eligible, i.e. every token of the
+   * line is read by one recognised field and the item confirms each (see score-packaging.ts).
+   * Absent or false: the score and lead alone decide (Balanced, Lenient).
+   */
+  requireTotalAccounting?:boolean;
+}
 export interface RetrieveOptions extends MatchRule {candidateLimit?:number;nearMissLimit?:number}
 
 export interface Retrieval<T> {
@@ -18,7 +27,12 @@ export interface Retrieval<T> {
   lead:number;
   /** The line names a product type (boxes, bags, mailers, ...) that the top candidate confirms. */
   namesProduct:boolean;
-  /** namesProduct, top.score >= minScore and lead >= minLead (compared in hundredths). */
+  /**
+   * Whether the line is Strict-eligible against the top candidate, and if not, why (for the rep:
+   * "Could not detect a match: the line says "or""). With no candidate, the line's own blockers.
+   */
+  eligibility:Eligibility;
+  /** namesProduct, top.score >= minScore and lead >= minLead (compared in hundredths), and, when the rule requires total accounting, eligibility.strictEligible. */
   clears:boolean;
   /** The best of each product group, at most nearMissLimit (default 5): what a No-match line offers the rep. */
   nearMisses:Candidate<T>[];
@@ -26,16 +40,20 @@ export interface Retrieval<T> {
   rule:MatchRule;
 }
 
-export function retrieve<T extends PackagingItem>(description:string,catalog:readonly T[],{minScore,minLead,candidateLimit=8,nearMissLimit=5}:RetrieveOptions):Retrieval<T>{
-  const rule={minScore,minLead};
+export function retrieve<T extends PackagingItem>(description:string,catalog:readonly T[],{minScore,minLead,requireTotalAccounting=false,candidateLimit=8,nearMissLimit=5}:RetrieveOptions):Retrieval<T>{
+  const rule={minScore,minLead,requireTotalAccounting};
   const scored=scorePackaging(description,catalog);
   const top=scored[0]??null;
-  if(!top)return {candidates:[],top:null,lead:0,namesProduct:false,clears:false,nearMisses:[],rule};
+  if(!top){
+    const eligibility={strictEligible:false,blockers:[...parseSpec(description).blockers,'no catalog item fits the line']};
+    return {candidates:[],top:null,lead:0,namesProduct:false,eligibility,clears:false,nearMisses:[],rule};
+  }
   const rival=scored.find(c=>c.group!==top.group);
   const lead=(hundredths(top.score)-hundredths(rival?.score??0))/100;
   // A bare size ("19x24") or bare numbers can fit an item perfectly by coincidence: never a match.
   const namesProduct=top.typeConfirmed;
-  const clears=namesProduct&&hundredths(top.score)>=hundredths(minScore)&&hundredths(lead)>=hundredths(minLead);
+  const {eligibility}=top;
+  const clears=namesProduct&&(!requireTotalAccounting||eligibility.strictEligible)&&hundredths(top.score)>=hundredths(minScore)&&hundredths(lead)>=hundredths(minLead);
   const nearMisses:Candidate<T>[]=[];
   const seen=new Set<string>();
   for(const c of scored){
@@ -44,5 +62,5 @@ export function retrieve<T extends PackagingItem>(description:string,catalog:rea
     seen.add(c.group);
     nearMisses.push(c);
   }
-  return {candidates:scored.slice(0,Math.max(1,Math.floor(candidateLimit))),top,lead,namesProduct,clears,nearMisses,rule};
+  return {candidates:scored.slice(0,Math.max(1,Math.floor(candidateLimit))),top,lead,namesProduct,eligibility,clears,nearMisses,rule};
 }
