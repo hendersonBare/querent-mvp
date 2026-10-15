@@ -33,6 +33,6 @@ describe('/settings',()=>{
     expect(screen.getAllByRole('radiogroup')).toHaveLength(1);
     expect(screen.getAllByRole('button').map(b=>b.textContent)).toEqual(['Save']);
     expect(container.querySelectorAll('a')).toHaveLength(0);
-    expect(container.textContent).not.toContain('—');
+    expect(container.textContent).not.toContain('\u2014');
   });
 });

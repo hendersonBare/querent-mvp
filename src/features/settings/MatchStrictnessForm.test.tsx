@@ -21,7 +21,7 @@ const {MatchStrictnessForm}=await import('./MatchStrictnessForm');
 const group=()=>screen.getByRole('radiogroup',{name:'Match strictness'});
 const radio=(level:StrictnessLevel)=>screen.getByRole('radio',{name:new RegExp(`^${LEVELS[level].label}\\b`)});
 const save=()=>screen.getByRole('button',{name:'Save'});
-const EM_DASH='—';
+const EM_DASH='\u2014';
 
 describe('MatchStrictnessForm',()=>{
   it('offers the three levels from LEVELS in order, each with its label and description',()=>{
