@@ -1,0 +1,226 @@
+# BOXT Quote Creation Tool: plan and status
+
+Branch `boxt/quote-tool` (off `main`). One PR to `main` at the end; nobody merges it but the owner.
+This file is the single source of truth for this branch's tasks, their dependencies and their status.
+The build prompt that started it is summarized in "Product rules" below; where this file and older
+docs (`docs/plans/*`, `docs/design/*`) disagree, this file wins on this branch.
+
+## Process
+
+- The orchestrator (main session) claims a task by creating its worktree and sub-branch from the latest
+  `boxt/quote-tool`: `git worktree add ../wt/<id> -b boxt/task/<id>-<slug> origin/boxt/quote-tool`, and
+  records it as `in progress` below. At most 3 implementers run at once, only on tasks whose
+  dependencies are `merged`.
+- Implementers (`.claude/agents/implementer.md`, adapted by the orchestrator's prompt) work **test-first**
+  in their worktree, commit and push their sub-branch often, and report back. They do not open PRs and do
+  not merge.
+- A task merges into `boxt/quote-tool` (`git merge --no-ff`) only when, on the sub-branch head,
+  `npm run typecheck`, `npm test` and `npm run build` pass **and** the `verifier` agent recorded PASS in
+  "Verification log" below with evidence. Otherwise a fix round runs on the same sub-branch (max 3).
+- Never leave work only on disk: push the sub-branch and update the status table.
+
+## Product rules (from the build prompt; they win over everything else on this branch)
+
+1. **Prefer false negatives over false positives.** When unsure, the line is "No match" and the rep decides.
+2. Left rail: **Quote creation tool**, **Quotes**, **Settings**. Nothing else is reachable.
+3. Pipeline per submission (≤ 200 lines, PDF ≤ 4 MB): **Parse** (Claude, tool use, PDFs as document
+   blocks) → **Retrieve** (pure scorer, description only, top ~8) → **Judge** (Claude, may only pick from
+   the candidate list or say none; validated server-side) → **Decide** (Matched only if the scorer clears
+   the threshold and lead AND the judge agrees; never on the judge alone) → **Near-misses** (top 3 to 5 for
+   No-match lines; "Use this item" promotes one, `matched_by='rep'`).
+4. No follow-up questions to anyone. Every parsed line gets exactly one outcome.
+5. Prices are never imported or prefilled. The catalog's public list price is only a reference label.
+6. A BOXT quote is: customer name, reference, lines (item, qty, unit price, matched_by, original text,
+   unmatched flag, near-miss snapshot), total. No statuses, revisions, expiry, notes, PDFs, margins, email.
+7. Supabase Auth, email + password, no sign-up anywhere. Every page and API needs a session (proxy.ts and
+   again in each handler). RLS on every table, authenticated only.
+8. Confidential data: no analytics or trackers; never log quote contents, customer text or PDFs. The only
+   external data flow is the Anthropic API (parse and judge).
+
+## Architecture and contracts (every task follows these)
+
+### Layout
+| Path | What |
+|---|---|
+| `src/proxy.ts` | Session refresh + gate: pages without a session → 307 `/login?next=…`; `/api/*` → 401 JSON. Public: `/login`, `/reset-password`, `/auth/confirm`, `/update-password`, static assets. |
+| `src/features/auth/` | Supabase SSR clients (`server.ts`, `browser.ts`), `requireUser()` (pages: redirect) and `requireApiUser()` (APIs: 401), login, reset, update-password, sign-out. |
+| `src/features/quote-tool/` | Input (paste/upload), match orchestration (`pipeline.ts`), `QuoteReviewDialog`, save. |
+| `src/features/quotes/` | Quotes list and detail (view, edit qty/price, delete). |
+| `src/features/settings/` | `strictness.ts` (the single config module: level → `{minScore,minLead}`), Settings page. |
+| `src/features/shell/` | The rail (Quote creation tool, Quotes, Settings, "BOXT Packaging", Sign out) and page frame. |
+| `src/server/matching/` | Pure scorer. No BOXT, database, Supabase or LLM imports. Catalog and config are arguments. |
+| `src/server/llm/` | `client.ts` (the only place reading `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`; the one default model constant), `parser.ts`, `judge.ts`, interfaces in `types.ts`, scripted implementations and `fixtures/`. |
+| `src/server/repository/` | The only place Supabase queries (`.from(`, `.rpc(`) and SQL live. Every function takes the request's user-scoped Supabase client as its first argument. |
+| `src/server/catalog.ts` | Loads the catalog through the repository and caches it in memory (TTL 10 min). |
+| `supabase/` | `config.toml` (local stack; sign-ups off), `migrations/*.sql`, `templates/recovery.html`. |
+| `scripts/` | `db-reset.ts` (local only), `seed-boxt.ts` (`db:seed:boxt`, any `DATABASE_URL`), `fetch-boxt-catalog.ts`, `supabase-env.ts`. Only scripts may read `SUPABASE_SERVICE_ROLE_KEY`. |
+| `data/boxt-catalog.json` | 1,555 public-site rows from `origin/boxt-demo` (prices there are web list prices, reference only). |
+
+### Environment variables
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (app), `SUPABASE_SERVICE_ROLE_KEY` (scripts only),
+`DATABASE_URL` (seed/migrations), `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `QUERENT_SCRIPTED` (`1` = fixture
+LLMs, never the network; also the behaviour when no key is set), `PORT`. Removed: `DATABASE_PATH`,
+`OILPRICEAPI_KEY`, `FEATURE_*`, `QUERENT_SEED_DATE`, `QUERENT_E2E_RESET`.
+
+### Database (Supabase Postgres, `supabase/migrations/`)
+- `catalog_items(id, sku unique, description, category, pack, case_qty, list_price, keywords, source, external_id, synced_at, search tsvector, created_at, updated_at)`; authenticated may select only.
+- `quotes(id uuid, customer_name, reference, is_example, match_strictness, created_by default auth.uid(), created_by_email default jwt email, created_at, updated_at)`.
+- `quote_lines(id uuid, quote_id → quotes on delete cascade, position, sku, description, pack, list_price, quantity, unit, quantity_unclear, unit_price, matched_by ('auto'|'rep'|null), original_text, unmatched, match_score, near_misses jsonb, created_at, updated_at)`.
+- `quote_summaries` view (`security_invoker`): line count, unmatched count, total = Σ round(qty × unit_price, 2).
+- `org_settings(id=1, match_strictness 'strict'|'balanced'|'lenient' default 'strict', updated_at, updated_by)`.
+- `activity_log(id, user_id default auth.uid(), action, metadata jsonb, created_at)`; actions: `login`, `logout`, `match_run`, `quote_create`, `quote_update`, `quote_delete`, `settings_change`. Metadata holds counts, scores and thresholds, never customer text.
+- RLS on every table; policies `to authenticated` only; `anon` has no grants. The example quote (`is_example`) cannot be updated or deleted (policy + trigger). Quote create/update go through security-invoker RPCs so a quote and its lines save atomically.
+
+### Matching contract (`src/server/matching`)
+- `retrieve(description, catalog, {minScore, minLead, candidateLimit=8, nearMissLimit=5})` →
+  `{candidates: ScoredItem[] (best first, ≤ candidateLimit), top, lead, clears, nearMisses}`.
+  `clears` = top score ≥ minScore and lead ≥ minLead, where the lead is measured against the best
+  candidate of a **different product group** (pricing-tier variants such as "…, bundle pricing" and
+  "…, pallet pricing" of one box are one group).
+- Typed-SKU matching is **off** (description only). The seam for a future supplier-SKU → BOXT-SKU table is
+  `SupplierSkuMap` in `src/features/quote-tool/sku-map.ts` (a null implementation today).
+- Packaging-aware scoring: positional dimension tuples (12x10x8 ≠ 12x8x10), ECT/mil/gauge/lb attributes,
+  stated pack quantities ("500/case") contradict a different pack, kraft/white/colour contradictions.
+- `src/features/settings/strictness.ts`: `LEVELS = {strict, balanced, lenient}` → `{minScore, minLead}`,
+  `DEFAULT_LEVEL='strict'`, calibrated by the evaluation suite (`src/server/matching/eval/`).
+
+### LLM contract (`src/server/llm`)
+```ts
+type ParseInput = {kind:'text';text:string} | {kind:'pdf';data:Uint8Array;filename?:string};
+interface ParsedRow {rawText:string;description:string;quantity:number|null;unit:string|null;suppliersSku:string|null;quantityUnclear:boolean}
+type ParseResult = {ok:true;rows:ParsedRow[]} | {ok:false;error:string};
+interface Parser {parse(input:ParseInput):Promise<ParseResult>}
+interface JudgeCandidate {sku:string;description:string;pack?:string|null;category?:string|null}
+type JudgeVerdict = {sku:string|null;reason:string};   // null = none; anything not in the list becomes null
+interface Judge {judge(line:{description:string;rawText:string},candidates:JudgeCandidate[]):Promise<JudgeVerdict>}
+```
+Both use tool use with a JSON schema and are validated with zod; a malformed judge answer is `null`
+(No match); a malformed parse is a clear user-facing error. `QUERENT_SCRIPTED=1` (or no key) selects the
+scripted parser (deterministic line splitter; PDFs by fixture hash) and the scripted judge (recorded
+verdicts in `src/server/llm/fixtures/judge.json`, else the first candidate). Judging runs with bounded
+concurrency (4), a per-call timeout, and a failed call degrades that line to No match.
+
+### API
+| Route | |
+|---|---|
+| `POST /api/quote-tool/match` | multipart (`text` or `file`); streams NDJSON: `{type:'progress',stage,done,total}` … `{type:'result',run}` or `{type:'error',message}`. Writes one `match_run` activity row. |
+| `GET /api/catalog/search?q=` | For "swap item" in the review dialog (top 10 by score). |
+| `GET/POST /api/quotes`, `GET/PATCH/DELETE /api/quotes/[id]` | List, create, read, edit qty/price/customer/reference, delete (example refused). |
+| `GET/PUT /api/settings` | Match strictness. |
+| `POST /api/auth/login`, `POST /api/auth/signout`, `POST /api/auth/reset`, `POST /api/auth/update-password` | Auth (login/reset/update are the only public APIs). |
+
+### Tests
+- `npm test` (Vitest): unit and component tests, no network, no database.
+- `npm run test:db` (Vitest, `vitest.db.config.ts`): repository, RLS (anon key sees nothing) and auth
+  checks against the local Supabase stack (`npm run db:start && npm run db:reset`).
+- `npm run test:eval`: the false-positive evaluation suite (also part of `npm test`: a must-not-match
+  line that matches fails the build).
+- Playwright (`e2e/`): fixture LLM mode, local Supabase, production server.
+
+## Tasks
+
+| ID | Task | Blocked by | Status |
+|---|---|---|---|
+| B0 | Strip to the shell; new stack scaffolding | none (must not touch `src/server/matching/`, `src/server/llm/`) | pending |
+| B1 | Supabase schema, RLS, seed, repository | B0 | pending |
+| B2 | Auth (login, reset, proxy, guards) | B1 | pending |
+| B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | pending |
+| B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | pending |
+| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | pending |
+| B6 | Quotes list and detail | B1, B2 | pending |
+| B7 | Settings (match strictness) | B1, B2, B3 | pending |
+| B8 | E2E, access control, CI | B5, B6, B7 | pending |
+| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | pending |
+
+### B0: Strip to the shell; new stack scaffolding
+- Delete the SQLite data layer (`src/server/db`, `better-sqlite3`), every feature, route, component, test,
+  e2e spec and script not needed by this product: customer site and chat, `/demo`, `/test/ui`, visitor box,
+  Customers, Orders, Stock, Analytics, Teams, quote lifecycle/revisions/expiry/notes/activity/upsells/PDF/
+  pricing engine/floors/freight, persona cookie (`querent-persona`, R-4), `/api/test/*`, frames tooling.
+- Keep: design tokens and fonts, the UI primitives still used, the rail look (rebuilt as
+  `src/features/shell/` with exactly Quote creation tool / Quotes / Settings and "BOXT Packaging"),
+  `src/server/matching/` and its tests, guard tests adapted (secrets guard, env example, disabled-test guard).
+- Placeholder pages `/quote-tool`, `/quotes`, `/settings`; `/` redirects to `/quote-tool`.
+- Add deps `@supabase/supabase-js`, `@supabase/ssr`, `pg`, dev `supabase` (CLI) and `@types/pg`; remove unused
+  deps. `.env.example` and its test move to the variable list above.
+- Bring `data/boxt-catalog.json` and `scripts/fetch-boxt-catalog.ts` from `origin/boxt-demo` (nothing else).
+- Acceptance: typecheck, tests and build green; only the three rail items exist; `git grep` finds no
+  `better-sqlite3`, `querent-persona`, `OILPRICEAPI`, `FEATURE_`, `DATABASE_PATH` outside docs.
+
+### B1: Supabase schema, RLS, seed, repository
+- `supabase/config.toml` (sign-ups off, site URL `http://127.0.0.1:3000`, redirect URLs, recovery template),
+  migrations per "Database" above, `scripts/seed-boxt.ts` (`npm run db:seed:boxt`, idempotent upsert of the
+  catalog and the example quote into `DATABASE_URL`), `scripts/db-reset.ts` (`npm run db:reset`: local
+  stack only: `supabase db reset`, seed, local dev users), `npm run db:start|db:stop|db:env`.
+- Repository modules (catalog, quotes, settings, activity) + `src/server/catalog.ts` cache.
+- Boundary test adapted: Supabase queries and SQL only in `src/server/repository/`, migrations and scripts;
+  service-role key only in `scripts/`.
+- `npm run test:db`: repository round-trips; RLS: anon key reads nothing from every table; example quote
+  cannot be deleted/updated; activity rows carry no customer text.
+
+### B2: Auth
+- `@supabase/ssr` server/browser clients, `src/proxy.ts`, `requireUser`/`requireApiUser`, `/login`,
+  `/reset-password`, `/auth/confirm` (both `token_hash`+`type` via `verifyOtp` and `code` via
+  `exchangeCodeForSession`), `/update-password`, sign-out in the rail. Logs `login`/`logout` activity.
+- No sign-up route, link or call; no OTP/magic-link sign-in.
+- Tests: unit (proxy decisions for every route class), `test:db` (signUp refused by the local stack),
+  Playwright later in B8.
+
+### B3: Packaging-aware matching, strictness levels, evaluation suite
+- Extend the pure scorer per "Matching contract"; keep existing tests passing or update them where the
+  Herrick behaviour no longer applies (state why in the commit).
+- `src/server/matching/eval/`: ≥ 30 hand-written Uline-style lines (`cases.ts`) grouped `must-match`
+  (expected BOXT SKU) and `must-not-match` (near-identical wrong sizes, wrong materials, wrong pack
+  quantities, items BOXT does not carry), run against the real catalog through the real scorer plus the
+  judge fixture. Fails if any must-not-match line matches at the configured level. `npm run eval:report`
+  prints precision and no-match rate per level; calibrate `LEVELS` with it (Strict = 0 false positives,
+  also with an always-agreeing judge).
+
+### B4: LLM parser and judge with fixtures
+- Per "LLM contract". Uses the `claude-api` skill. PDFs as `document` blocks (base64), processed in memory.
+- Scripted parser/judge; zod validation; fail closed; bounded concurrency helper with timeout.
+- Tests: schema validation, out-of-list SKU dropped, malformed → null, scripted fixtures, concurrency.
+
+### B5: Quote creation tool
+- `pipeline.ts` (parse → retrieve → judge → decide, progress callback), `/api/quote-tool/match` stream,
+  `/api/catalog/search`, `/api/quotes` POST, the `/quote-tool` page (textarea, PDF upload, 200-line cap,
+  4 MB cap, progress) and `QuoteReviewDialog` (ItemPopup's visual language).
+- Review dialog: matched lines (customer's original text, description, SKU, pack, qty editable and flagged
+  if unclear, empty price input, "Web list: $0.84/each" label, line total, Swap, Remove); unmatched lines
+  ("Could not detect a match", expandable near-misses with "Use this item"); customer name, reference,
+  total; Save disabled until every matched line has a price and quantity. Saves unmatched lines flagged.
+
+### B6: Quotes list and detail
+- `/quotes`: customer, reference, lines, total, created by, created at; example quote marked. `/quotes/[id]`:
+  lines (item, SKU, qty, unit price, line total), unmatched lines with original text, total; edit qty/price,
+  customer, reference; delete with confirm (not on the example).
+
+### B7: Settings
+- `/settings`: Match strictness (Strict / Balanced / Lenient, default Strict) with a short description of each,
+  saved to `org_settings`, `settings_change` activity; "Other settings coming soon."
+
+### B8: E2E, access control, CI
+- Playwright: login; reset-password request (email lands in Mailpit, link sets a new password); paste →
+  match → review → price → save; PDF upload (fixture PDF); unmatched → near-miss → Use this item; edit and
+  delete a quote; example quote not deletable. Access control: every page and API rejects unauthenticated
+  requests; `/signup` does not exist; RLS anon test. Screenshots for the final report.
+- `.github/workflows/ci.yml`: install, typecheck, unit tests, build, start local Supabase, db:reset,
+  test:db, Playwright.
+
+### B9: Docs
+- `docs/boxt/DEPLOY.md`, `docs/boxt/OPERATIONS.md`, README section; verified against a local stack.
+
+## Verification log
+
+| Task | Sub-branch head | Verdict | Evidence |
+|---|---|---|---|
+
+## Open assumptions
+- "The rep can edit … and delete their quotes": every signed-in user can edit or delete any quote (one
+  company, all users equal); only the example quote is protected.
+- The example quote is read-only as well as non-deletable, so it stays a clean example.
+- The judge is only called for lines whose scorer result clears the threshold (a line that does not clear is
+  No match whatever the judge says), which saves API calls without changing any outcome.
+- No real judge recording is possible in the build session (no API key); the judge fixture is hand-written
+  to mimic a conservative judge, and `npm run eval:record` re-records it with a real key. Strict is also
+  required to give zero false positives with an always-agreeing judge, so it does not rely on the fixture.

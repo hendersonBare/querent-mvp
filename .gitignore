@@ -1,6 +1,6 @@
 node_modules/
 .next/
-data/
+data/*.sqlite*
 .env
 *.tsbuildinfo
 playwright-report/

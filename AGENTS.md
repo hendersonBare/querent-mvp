@@ -10,6 +10,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Querent v3: Query to Quote
 
+**On branch `boxt/quote-tool` (BOXT Quote Creation Tool) the plan, contracts and status live in `docs/boxt/plan.md`, which wins over `docs/plans/` for this branch.**
+
 Work on this repo is planned and tracked in `docs/plans/`. Those files are the single source of truth:
 - `docs/plans/plan.md`: the tasks, their dependencies, and the claim rule. `docs/plans/status.md`: what is in flight, merged, or blocked.
 - `docs/plans/spec.md`: the spec. `docs/plans/decision-log.md`: final decisions; it wins over everything else.
