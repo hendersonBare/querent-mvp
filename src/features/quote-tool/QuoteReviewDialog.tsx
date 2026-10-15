@@ -280,7 +280,7 @@ function MatchedLine({line,saving,swapping,picker,onQuantity,onPrice,onSwap,onRe
   const aside=quantityAside(line);
   const qtyUnit=unitLabel(parseQuantity(line.quantity),line.unit);
   const priceUnit=perUnitLabel(line.unit);
-  return <li className={s.line} data-testid={`line-${line.key}`}>
+  return <li className={`${s.line} ${flag||aside?s.withNotes:''}`} data-testid={`line-${line.key}`}>
     <div className={d.item}>
       <span className={s.wrote}>Customer wrote: {line.rawText}</span>
       <span className={d.desc}>{item.description}</span>

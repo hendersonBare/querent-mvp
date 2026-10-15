@@ -173,7 +173,11 @@
   font-size: 12.5px;
   white-space: nowrap;
 }
-/* Under the qty and price: the conversion note or the "Check quantity" flag, across those columns. */
+/* Under the qty and price: the conversion note or the "Check quantity" flag, across those columns, right
+   under the inputs (the item spans both rows). */
+.withNotes > :first-child {
+  grid-row: span 2;
+}
 .qtyNotes {
   grid-column: 2 / 5;
   display: flex;
@@ -458,6 +462,9 @@
   }
   .qtyNotes {
     grid-column: 1 / -1;
+  }
+  .withNotes > :first-child {
+    grid-row: auto;
   }
   .lineHead {
     display: none;
