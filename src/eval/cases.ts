@@ -1,4 +1,5 @@
 import type {StrictnessLevel} from '@/features/settings/strictness';
+import {HELDOUT_CASES} from './heldout';
 
 // The matching evaluation set (BOXT task B3): hand-written customer lines in the style of another
 // supplier's catalog (Uline-style wording: size first, inch marks, "200 lb test", "25/bundle"),
@@ -13,8 +14,9 @@ import type {StrictnessLevel} from '@/features/settings/strictness';
 // parser removes them, and `description` is what reaches the matcher. Wrong items are the costly
 // error, so the suite fails the build if any must-not-match line matches (src/eval/eval.test.ts).
 
-export type NoMatchWhy='wrong_size'|'wrong_material'|'wrong_pack'|'wrong_spec'|'not_carried'|'no_product_type';
-export const NO_MATCH_WHYS:readonly NoMatchWhy[]=['wrong_size','wrong_material','wrong_pack','wrong_spec','not_carried','no_product_type'];
+/** `ambiguous`: the line names two items, two values of one attribute, a range, or a size relation ("for a 12x10x8 item"). */
+export type NoMatchWhy='wrong_size'|'wrong_material'|'wrong_pack'|'wrong_spec'|'not_carried'|'no_product_type'|'ambiguous';
+export const NO_MATCH_WHYS:readonly NoMatchWhy[]=['wrong_size','wrong_material','wrong_pack','wrong_spec','not_carried','no_product_type','ambiguous'];
 
 export interface EvalCase {
   id:string;
@@ -28,6 +30,8 @@ export interface EvalCase {
   /** Must-not-match only: the loosest level at which it must still not match. */
   level?:StrictnessLevel;
   note:string;
+  /** `heldout`: a verifier's probe line the matcher was not tuned on (heldout.ts); `b3b`: written to attack the total-accounting rules. */
+  tags?:readonly string[];
 }
 
 /** The parser's job, as far as this suite needs it: drop a leading supplier SKU ("S-4128", "S-12458"). */
@@ -36,7 +40,7 @@ export const withoutSupplierSku=(line:string)=>line.replace(/^\s*[A-Z]{1,3}-\d{2
 const match=(id:string,original:string,sku:string,note:string):EvalCase=>({id,original,description:withoutSupplierSku(original),expect:{sku},note});
 const noMatch=(id:string,original:string,why:NoMatchWhy,level:StrictnessLevel,note:string):EvalCase=>({id,original,description:withoutSupplierSku(original),expect:'no_match',why,level,note});
 
-export const CASES:readonly EvalCase[]=[
+const HANDWRITTEN:readonly EvalCase[]=[
   // ---- Must match ---------------------------------------------------------------------------------
   match('m01-box-12x10x8','S-4128 12 x 10 x 8" Corrugated Boxes 200 lb test 25/bundle','12108-BDL','200 lb test is sold as the 32 ECT equivalent; 25 per bundle as BOXT bundles it.'),
   match('m02-box-12x10x6','S-4125 12 x 10 x 6" Corrugated Boxes 200# 25/bdl','12106-BDL','Bare "200#" on a box line is the burst rating.'),
@@ -240,3 +244,5 @@ export const CASES:readonly EvalCase[]=[
   noMatch('b07-bare-4x6-mil','S-9007 4x6 2 mil 1000/case','no_product_type','lenient','Size, mil and case count, but no product.'),
   noMatch('b08-bare-number-size','S-9008 #2 8 1/2 x 12"','no_product_type','lenient','A mailer number and size, but no product.'),
 ];
+
+export const CASES:readonly EvalCase[]=[...HANDWRITTEN,...HELDOUT_CASES];
