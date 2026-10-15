@@ -45,6 +45,8 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
   const dialog=useRef<HTMLDivElement>(null);
   const titleId=useId(),introId=useId(),matchedId=useId(),unmatchedId=useId();
   const [mounted,setMounted]=useState(false);
+  /** The control to focus after the next render, by its data-focus name ("price-3", "undo-3", "swap-3"): an action that unmounts the control it was started from moves focus there instead of losing it to the page. */
+  const [focusTarget,setFocusTarget]=useState<string|null>(null);
 
   useEffect(()=>{
     setMounted(true);
@@ -54,6 +56,25 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
     return ()=>{document.body.style.overflow=overflow;previous?.focus?.();};
   },[]);
   useEffect(()=>{if(mounted)dialog.current?.focus();},[mounted]);
+  useEffect(()=>{
+    if(!focusTarget)return;
+    dialog.current?.querySelector<HTMLElement>(`[data-focus="${focusTarget}"]`)?.focus();
+    setFocusTarget(null);
+  },[focusTarget,lines,swapKey]);
+
+  // Escape works even if focus somehow left the dialog (to the page body): it is still the open modal.
+  const escape=useRef<()=>void>(()=>{});
+  escape.current=()=>{if(confirming)setConfirming(false);else requestClose();};
+  useEffect(()=>{
+    const onDocumentKey=(event:KeyboardEvent)=>{
+      if(event.key!=='Escape'||event.defaultPrevented)return;
+      if(dialog.current&&event.target instanceof Node&&dialog.current.contains(event.target))return;
+      escape.current();
+      dialog.current?.focus();
+    };
+    document.addEventListener('keydown',onDocumentKey);
+    return ()=>document.removeEventListener('keydown',onDocumentKey);
+  },[]);
 
   const update=(key:number,patch:Partial<ReviewLine>)=>{
     setLines(ls=>ls.map(l=>l.key===key?{...l,...patch}:l));
@@ -70,7 +91,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
   function onKeyDown(event:ReactKeyboardEvent<HTMLDivElement>){
     if(event.key==='Escape'){
       event.stopPropagation();
-      if(confirming)setConfirming(false);else requestClose();
+      escape.current();
       return;
     }
     trapTab(event);
@@ -98,6 +119,7 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
 
   function promote(line:ReviewLine,choice:ScoredItem){
     update(line.key,{status:'matched',restoreTo:'matched',item:itemOf(choice),matchedBy:'rep',score:choice.score,price:''});
+    setFocusTarget(`price-${line.key}`);
   }
 
   if(!mounted)return null;
@@ -141,7 +163,8 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
               {inMatchedSection.map(line=>line.status==='removed'
                 ?<li key={line.key} className={s.removed} data-testid={`line-${line.key}`}>
                   <span>Removed: {line.item?.description} <span className={d.sku}>{line.item?.sku}</span></span>
-                  <button type="button" className={s.link} disabled={saving} onClick={()=>update(line.key,{status:line.restoreTo})}>Undo</button>
+                  <button type="button" className={s.link} disabled={saving} data-focus={`undo-${line.key}`}
+                    onClick={()=>{update(line.key,{status:line.restoreTo});setFocusTarget(`price-${line.key}`);}}>Undo</button>
                 </li>
                 :<MatchedLine key={line.key} line={line} saving={saving}
                   flagQuantity={parseQuantity(line.quantity)===null||(line.quantityUnclear&&!checkedQuantity.has(line.key))}
@@ -149,10 +172,10 @@ export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(bo
                   onQuantity={value=>{update(line.key,{quantity:value});setCheckedQuantity(set=>new Set(set).add(line.key));}}
                   onPrice={value=>update(line.key,{price:value})}
                   onSwap={()=>setSwapKey(key=>key===line.key?null:line.key)}
-                  onRemove={()=>{update(line.key,{status:'removed',restoreTo:'matched'});if(swapKey===line.key)setSwapKey(null);}}
+                  onRemove={()=>{update(line.key,{status:'removed',restoreTo:'matched'});if(swapKey===line.key)setSwapKey(null);setFocusTarget(`undo-${line.key}`);}}
                   picker={swapKey===line.key&&<SwapPicker line={line} search={search}
-                    onCancel={()=>setSwapKey(null)}
-                    onPick={choice=>{update(line.key,{item:itemOf(choice),matchedBy:'rep',score:choice.score});setSwapKey(null);}}/>}
+                    onCancel={()=>{setSwapKey(null);setFocusTarget(`swap-${line.key}`);}}
+                    onPick={choice=>{update(line.key,{item:itemOf(choice),matchedBy:'rep',score:choice.score});setSwapKey(null);setFocusTarget(`price-${line.key}`);}}/>}
                 />)}
             </ul>}
         </section>
@@ -262,14 +285,14 @@ function MatchedLine({line,saving,flagQuantity,swapping,picker,onQuantity,onPric
     <div className={s.cell}>
       <span className={s.money}>
         <span className={s.dollar} aria-hidden="true">$</span>
-        <input className={`${d.input} ${s.priceInput}`} value={line.price} inputMode="decimal" autoComplete="off" aria-label={`Unit price for ${item.sku}`}
+        <input className={`${d.input} ${s.priceInput}`} value={line.price} inputMode="decimal" autoComplete="off" aria-label={`Unit price for ${item.sku}`} data-focus={`price-${line.key}`}
           aria-invalid={badPrice!==null} disabled={saving} onChange={e=>onPrice(e.target.value)}/>
       </span>
       {badPrice&&<span className={d.fieldError}>{badPrice}</span>}
     </div>
     <div className={s.lineTotal}>{cents===null?<span className={s.muted}>No price</span>:formatMoney(cents)}</div>
     <div className={s.lineActions}>
-      <button type="button" className={s.link} aria-expanded={swapping} disabled={saving} onClick={onSwap}>Swap</button>
+      <button type="button" className={s.link} aria-expanded={swapping} disabled={saving} data-focus={`swap-${line.key}`} onClick={onSwap}>Swap</button>
       <button type="button" className={`${s.link} ${s.linkDanger}`} disabled={saving} onClick={onRemove}>Remove</button>
     </div>
     {picker}

@@ -227,6 +227,49 @@ describe('QuoteReviewDialog',()=>{
     expect(document.activeElement).not.toBe(last);
   });
 
+  it('after "Use" in the Swap picker, focus moves to that line\'s price, and Escape still asks before discarding',()=>{
+    const {onClose,dialog}=setup();
+    fireEvent.click(within(within(matchedSection()).getByTestId('line-0')).getByRole('button',{name:'Swap'}));
+    fireEvent.click(screen.getByRole('button',{name:/Use 12108-PLT/}));
+    expect(document.activeElement).toBe(screen.getByLabelText('Unit price for 12108-PLT'));
+    fireEvent.keyDown(document.activeElement!,{key:'Escape'});
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog).toHaveTextContent('Discard this review?');
+  });
+
+  it('after "Use this item", focus moves to the promoted line\'s price, and Escape still asks before discarding',()=>{
+    const {onClose,dialog}=setup();
+    const line=within(unmatchedSection()).getByTestId('line-2');
+    fireEvent.click(within(line).getByRole('button',{name:'Show 2 closest items'}));
+    fireEvent.click(within(within(line).getAllByTestId('near-miss')[0]).getByRole('button',{name:'Use this item'}));
+    expect(document.activeElement).toBe(screen.getByLabelText('Unit price for PB3669'));
+    fireEvent.keyDown(document.activeElement!,{key:'Escape'});
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog).toHaveTextContent('Discard this review?');
+  });
+
+  it('keeps focus in the dialog through Remove, Undo and closing the Swap picker',()=>{
+    setup();
+    fireEvent.click(within(within(matchedSection()).getByTestId('line-0')).getByRole('button',{name:'Remove'}));
+    expect(document.activeElement).toBe(screen.getByRole('button',{name:'Undo'}));
+    fireEvent.click(screen.getByRole('button',{name:'Undo'}));
+    expect(document.activeElement).toBe(screen.getByLabelText('Unit price for 12108-BDL'));
+    const swap=within(within(matchedSection()).getByTestId('line-0')).getByRole('button',{name:'Swap'});
+    fireEvent.click(swap);
+    fireEvent.keyDown(screen.getByRole('searchbox',{name:'Search the catalog'}),{key:'Escape'});
+    expect(screen.queryByRole('group',{name:'Swap item'})).toBeNull();
+    expect(document.activeElement).toBe(swap);
+  });
+
+  it('still handles Escape when focus has left the dialog (asks first once edited)',()=>{
+    const {onClose,dialog}=setup();
+    type(screen.getByLabelText('Unit price for 12108-BDL'),'1');
+    (document.activeElement as HTMLElement|null)?.blur();
+    fireEvent.keyDown(document.body,{key:'Escape'});
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog).toHaveTextContent('Discard this review?');
+  });
+
   it('never uses an em dash in its copy',()=>{
     const {dialog}=setup();
     fireEvent.click(within(within(unmatchedSection()).getByTestId('line-2')).getByRole('button',{name:'Show 2 closest items'}));
