@@ -58,7 +58,7 @@ const strengthLabel=(s:Spec)=>s.ect!==null?`${s.ect} ECT`:`${s.burst} lb test`;
 const packLabel=(n:number,key:'outer'|'roll')=>key==='roll'?`${n}/roll`:`${n}/pack`;
 
 /** How well an item fits a line, before rounding. */
-function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
+function fit(line:Spec,item:ScoredSpec){
   let total=0,got=0,distance=0,identity=false;
   const conflicts:string[]=[],unstated:string[]=[];
   const add=(weight:number,fit:1|0|-1,conflict?:string)=>{
@@ -142,12 +142,17 @@ function fit(line:Spec,item:ItemSpec&{wordSet:ReadonlySet<string>}){
   return {score,conflicts:offNoun?[...conflicts,`noun: ${named.join('/')}`]:conflicts,unstated,distance};
 }
 
-const WORD_SETS=new WeakMap<object,ReadonlySet<string>>();
+type ScoredSpec=ItemSpec&{wordSet:ReadonlySet<string>;group:string};
+const ITEMS=new WeakMap<object,ScoredSpec>();
+/** A catalog row taken apart once (per row object), with its word set and product group. */
 function itemOf(item:PackagingItem){
-  const spec=parseItemSpec(item);
-  let words=WORD_SETS.get(item);
-  if(!words){words=new Set(spec.words);WORD_SETS.set(item,words);}
-  return {...spec,wordSet:words};
+  let parsed=ITEMS.get(item);
+  if(!parsed){
+    const spec=parseItemSpec(item);
+    parsed={...spec,wordSet:new Set(spec.words),group:productGroup(item)};
+    ITEMS.set(item,parsed);
+  }
+  return parsed;
 }
 
 /**
@@ -159,9 +164,10 @@ export function scorePackaging<T extends PackagingItem>(description:string,catal
   const line=parseSpec(description);
   const scored:(Candidate<T>&{index:number;distance:number})[]=[];
   catalog.forEach((item,index)=>{
-    const {score,conflicts,unstated,distance}=fit(line,itemOf(item));
+    const spec=itemOf(item);
+    const {score,conflicts,unstated,distance}=fit(line,spec);
     const rounded=hundredths(score)/100;
-    if(rounded>0)scored.push({item,score:rounded,group:productGroup(item),conflicts,unstated,index,distance});
+    if(rounded>0)scored.push({item,score:rounded,group:spec.group,conflicts,unstated,index,distance});
   });
   return scored.sort((a,b)=>b.score-a.score||a.distance-b.distance||a.index-b.index).map(({index:_,distance:__,...c})=>c);
 }
