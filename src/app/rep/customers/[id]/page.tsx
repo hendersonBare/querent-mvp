@@ -1,29 +1,26 @@
 import type {Metadata} from 'next';
-import {notFound,redirect} from 'next/navigation';
+import {notFound} from 'next/navigation';
 import {CustomerDetail} from '@/components/rep/customers/CustomerDetail';
-import {scopedHref} from '@/components/rep/scope';
-import {customerAccount} from '@/server/repository';
-import {customerDetail,detailTitle,pickedCustomer} from '@/server/rep/reference';
-import {signedInRepId} from '@/server/rep/session';
+import {customerAccount,supplier} from '@/server/repository';
+import {readsCustomer} from '@/server/rep/access';
+import {customerDetail,detailTitle} from '@/server/rep/reference';
+import {signedInRep} from '@/server/rep/session';
 
 type Params=Promise<{id:string}>;
-type SearchParams=Promise<Record<string,string|string[]|undefined>>;
 
 export async function generateMetadata({params}:{params:Params}):Promise<Metadata>{
   const {id}=await params;
-  return {title:await detailTitle('Customers',()=>customerAccount(id)?.name)};
+  return {title:await detailTitle('Customers',reader=>readsCustomer(reader,id)?customerAccount(id)?.name:undefined)};
 }
 
 /**
- * One customer (spec §4, task 3.8): account, terms, rep, contacts, recent orders and quotes. It
- * follows the "Viewing" picker: picking another customer opens that customer's page.
+ * One customer (plan U5; C_CU3): recent orders and quotes, account, rep and contacts. Another rep's
+ * customer is not found for a rep; the manager opens any customer (task U1).
  */
-export default async function CustomerPage({params,searchParams}:{params:Params;searchParams:SearchParams}){
-  const repId=await signedInRepId();
-  const {id}=await params;
-  const viewing=pickedCustomer(await searchParams);
-  if(viewing.customerId&&viewing.customerId!==id)redirect(scopedHref(`/rep/customers/${encodeURIComponent(viewing.customerId)}`,viewing.customerId));
-  const view=customerDetail(id);
+export default async function CustomerPage({params}:{params:Params}){
+  const reader=await signedInRep();
+  const view=customerDetail((await params).id,reader);
   if(!view)notFound();
-  return <CustomerDetail view={view} viewing={viewing} repId={repId}/>;
+  // The supplier's short name, as its people say it ("Herrick").
+  return <CustomerDetail view={view} supplierName={supplier().name.split(' ')[0]}/>;
 }

@@ -1,0 +1,353 @@
+/* The Quotes page (plan U3). Every value is the frames' own: C_QOBoard (toolbar, lanes, cards),
+   C_QOTable (table), C_QOB5 and C_QOT3 (quote preview), C_QOB6 and C_QOT4 (View note). No breakpoints
+   (decision 43): the page area is fluid and the lanes and table columns grow (decision 51). */
+
+/* The Board/Table toggle beside Filter. */
+.views {
+  display: flex;
+  background: var(--q-card);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-control);
+  padding: 3px;
+}
+.view {
+  height: 32px;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--q-text-2);
+  font-family: inherit;
+  font-size: var(--q-text-button);
+  font-weight: 600;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+.view[aria-pressed="true"] {
+  background: var(--q-accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* A refresh that failed (no frame: one plain line, decision 52). */
+.problem {
+  margin: 14px 0 0;
+  color: var(--q-red);
+  font-size: var(--q-text-secondary);
+}
+
+/* ---- Board (C_QOBoard) ---- */
+.card {
+  background: var(--q-card);
+  border-radius: var(--q-radius-control);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--q-card-border);
+  cursor: pointer;
+}
+.card:hover {
+  background: var(--q-lane);
+}
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.cardDate {
+  font-family: var(--q-font-mono);
+  font-size: 11.5px;
+  color: var(--q-text-muted);
+}
+.cardCustomer {
+  font-size: 13.5px;
+  color: var(--q-table-header-text);
+  margin-top: 4px;
+}
+.cardFigures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.cardTotal {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.cardMargin {
+  font-family: var(--q-font-mono);
+  font-size: 12px;
+  color: var(--q-text-2);
+}
+.cardFlag {
+  margin-top: 8px;
+  font-size: var(--q-text-table-head);
+  font-weight: 700;
+  color: var(--q-red);
+}
+.empty {
+  padding: 18px 8px;
+  text-align: center;
+  font-size: var(--q-text-secondary);
+  color: var(--q-text-muted);
+}
+
+/* The quote number: the frame's bold text, pressed like a button (it opens the preview). */
+.number {
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* ---- Table (C_QOTable) ---- */
+.requested {
+  color: var(--q-text-2);
+}
+.total {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.margin {
+  font-family: var(--q-font-mono);
+  font-size: 13px;
+  color: var(--q-table-header-text);
+}
+.noRows {
+  padding: 14px 20px;
+  border-top: 1px solid var(--q-row-divider-soft);
+  color: var(--q-text-2);
+}
+
+/* ---- Quote preview (C_QOB5, C_QOT3), inside the U0 Sheet ---- */
+.previewFlag {
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--q-red);
+}
+.figures {
+  display: flex;
+  justify-content: space-between;
+  margin: 16px 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--q-table-header);
+  border-bottom: 1px solid var(--q-table-header);
+}
+.figureLabel {
+  font-size: var(--q-text-label);
+  color: var(--q-text-2);
+}
+.figureValue {
+  font-size: 22px;
+  font-weight: 800;
+}
+.centre {
+  text-align: center;
+}
+.end {
+  text-align: right;
+}
+.statusLine {
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  color: var(--q-text-2);
+  margin-bottom: 6px;
+}
+.noteBox {
+  background: var(--q-note);
+  border-radius: var(--q-radius-control);
+  padding: 12px 14px;
+}
+.noteWho {
+  font-size: var(--q-text-table-head);
+  font-weight: 800;
+  color: var(--q-note-text);
+}
+.noteWords {
+  margin-top: 5px;
+  font-size: 15.5px;
+  line-height: 1.4;
+  color: var(--q-note-quote);
+}
+.previewActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+.openQuote,
+.replyButton {
+  height: 44px;
+  text-align: start;
+  margin: 0;
+  border-radius: var(--q-radius-control);
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.openQuote {
+  background: var(--q-accent);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.openQuote:hover {
+  background: var(--q-accent-hover);
+  text-decoration: none;
+}
+/* Content-box like the frame's box: 44px plus its 1px border. */
+.replyButton {
+  box-sizing: content-box;
+  padding: 0;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--q-text);
+  font-weight: 600;
+}
+.replyButton:hover {
+  background: var(--q-lane);
+}
+
+/* ---- View note (C_QOB6, C_QOT4) ---- */
+.layer {
+  display: contents;
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--q-backdrop-dialog);
+  z-index: 20;
+}
+.dialog {
+  position: fixed;
+  left: 50%;
+  top: 230px;
+  margin-left: -230px;
+  width: 460px;
+  box-sizing: border-box;
+  background: var(--q-card);
+  border-radius: 16px;
+  box-shadow: 0 28px 60px rgba(15, 35, 25, 0.4);
+  z-index: 30;
+  padding: 24px;
+  color: var(--q-text);
+  font-size: var(--q-text-body);
+}
+.dialog:focus {
+  outline: none;
+}
+.dialogHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.dialogTitle {
+  font-size: 20px;
+  font-weight: 800;
+}
+.dialogWho {
+  color: var(--q-text-2);
+  margin-top: 2px;
+}
+.close {
+  box-sizing: border-box;
+  text-align: start;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--q-radius-field);
+  background: var(--q-close);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.dialogNote {
+  background: var(--q-note);
+  border-radius: var(--q-radius-control);
+  padding: 14px 16px;
+  margin-top: 16px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--q-note-quote);
+}
+.replyLabel {
+  display: block;
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  color: var(--q-text-2);
+  margin: 16px 0 4px;
+}
+.reply {
+  display: block;
+  width: 100%;
+  height: 84px;
+  box-sizing: border-box;
+  margin: 0;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--q-text);
+  font-family: inherit;
+  font-size: var(--q-text-body);
+  letter-spacing: normal;
+  resize: none;
+}
+.reply::placeholder {
+  color: var(--q-text-muted);
+  opacity: 1;
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.dialogClose,
+.send {
+  height: 40px;
+  margin: 0;
+  border-radius: var(--q-radius-button);
+  font-family: inherit;
+  font-size: var(--q-text-body);
+  letter-spacing: normal;
+  display: flex;
+  align-items: center;
+  text-align: start;
+  cursor: pointer;
+}
+/* Content-box like the frame's box: 40px plus its 1px border. */
+.dialogClose {
+  box-sizing: content-box;
+  padding: 0 18px;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--q-text);
+  font-weight: 600;
+}
+.dialogClose:hover {
+  background: var(--q-lane);
+}
+.send {
+  box-sizing: content-box;
+  padding: 0 22px;
+  border: 0;
+  background: var(--q-accent);
+  color: #fff;
+  font-weight: 700;
+}
+.send:hover:not(:disabled) {
+  background: var(--q-accent-hover);
+}
+.send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

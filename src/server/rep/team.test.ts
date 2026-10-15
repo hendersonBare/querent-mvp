@@ -4,7 +4,7 @@ import {useSeededDatabase} from '@/server/repository/test-db';
 import {SettingsError} from './settings';
 import {agingSettings,teamSettings,updateAgingSettings,updateTeamRep} from './team';
 
-// Manager settings (v3 spec §5, §6 Settings, §8; decisions 16, 20, 21; task D1): team labels,
+// Manager settings (v3 spec §5, §6 Settings, §8; decisions 16, 20, 21; tasks D1, U7):
 // deactivation (blocked while the rep has customers; never yourself) and the aging thresholds.
 // The routes check the manager role (managerRoute); these functions check the request.
 useSeededDatabase();
@@ -21,36 +21,20 @@ function rejects(fn:()=>unknown,status:number,message?:RegExp|string,code?:strin
 }
 const row=(id:string)=>teamSettings().reps.find(r=>r.id===id)!;
 
-describe('updateTeamRep: team label',()=>{
-  it('trims the label, stores up to 40 characters, and clears it when blank or null',()=>{
-    expect(updateTeamRep('brandi','eli',{team:'  Field Sales  '}).reps.find(r=>r.id==='eli')?.team).toBe('Field Sales');
-    expect(updateTeamRep('brandi','eli',{team:'x'.repeat(40)}).reps.find(r=>r.id==='eli')?.team).toBe('x'.repeat(40));
-    expect(updateTeamRep('brandi','eli',{team:'   '}).reps.find(r=>r.id==='eli')?.team).toBeNull();
-    updateTeamRep('brandi','eli',{team:'Outside Sales'});
-    expect(updateTeamRep('brandi','eli',{team:null}).reps.find(r=>r.id==='eli')?.team).toBeNull();
-    updateTeamRep('brandi','eli',{team:'Outside Sales'});
-  });
-
-  it('refuses a label over 40 characters, a non-string, control characters or an empty request, changing nothing',()=>{
-    rejects(()=>updateTeamRep('brandi','eli',{team:'x'.repeat(41)}),400,'Keep the team label to 40 characters.');
-    rejects(()=>updateTeamRep('brandi','eli',{team:42}),400,'Enter a team label, or leave it blank.');
-    rejects(()=>updateTeamRep('brandi','eli',{team:'Field\nSales'}),400,'Enter a team label, or leave it blank.');
-    rejects(()=>updateTeamRep('brandi','eli',{}),400,'Change the team label or the active setting.');
+describe('updateTeamRep: the request',()=>{
+  it('takes the active flag only (teams are entities since U7, set on Teams and Reps), changing nothing on a bad request',()=>{
+    rejects(()=>updateTeamRep('brandi','eli',{}),400,'Change the active setting.');
+    rejects(()=>updateTeamRep('brandi','eli',{team:'Field Sales'}),400,'Change the active setting.');
     rejects(()=>updateTeamRep('brandi','eli','nope'),400);
     rejects(()=>updateTeamRep('brandi','eli',{active:'no'}),400,'Choose active or inactive.');
-    rejects(()=>updateTeamRep('brandi','nobody',{team:'X'}),404,'Rep not found.');
-    expect(row('eli').team).toBe('Outside Sales');
-  });
-
-  it('applies nothing when one field is bad (a good label with a bad active flag)',()=>{
-    rejects(()=>updateTeamRep('brandi','eli',{team:'New',active:1}),400);
-    expect(row('eli').team).toBe('Outside Sales');
+    rejects(()=>updateTeamRep('brandi','nobody',{active:true}),404,'Rep not found.');
+    expect(row('eli')).toMatchObject({team:'Outside Sales',active:true});
   });
 });
 
 describe('updateTeamRep: deactivation',()=>{
   it("refuses Mara while she has a customer (409 has_customers, in plain words), then allows it after reassigning",()=>{
-    rejects(()=>updateTeamRep('brandi','mara',{active:false}),409,'Mara Jensen still has 1 customer. Reassign it in Rep assignments before marking Mara Jensen inactive.','has_customers');
+    rejects(()=>updateTeamRep('brandi','mara',{active:false}),409,'Mara Jensen still has 1 customer. Reassign it before marking Mara Jensen inactive.','has_customers');
     expect(row('mara').active).toBe(true);
     setAssignedRep('canyon-ridge','eli');
     expect(updateTeamRep('brandi','mara',{active:false}).reps.find(r=>r.id==='mara')).toMatchObject({active:false,customer_count:0});
@@ -59,21 +43,19 @@ describe('updateTeamRep: deactivation',()=>{
     setAssignedRep('canyon-ridge','mara');
   });
 
-  it('counts customers in the message, and changes the label and the flag together when both are sent',()=>{
-    rejects(()=>updateTeamRep('mara','brandi',{active:false}),409,/^Brandi Gallegos still has 2 customers\. Reassign them/,'has_customers');
+  it('counts customers in the message; once they have another rep the flag changes, and the team stays',()=>{
+    rejects(()=>updateTeamRep('mara','brandi',{active:false}),409,/^Brandi Gallegos still has 2 customers\. Reassign them before/,'has_customers');
     // Eli's two demo customers (task F1) move to Nora first, and back after.
     for(const id of ['utah-valley-electric','weber-basin'])setAssignedRep(id,'nora');
-    const both=updateTeamRep('brandi','eli',{team:'Field',active:false}).reps.find(r=>r.id==='eli');
-    expect(both).toMatchObject({team:'Field',active:false});
-    updateTeamRep('brandi','eli',{team:'Outside Sales',active:true});
+    expect(updateTeamRep('brandi','eli',{active:false}).reps.find(r=>r.id==='eli')).toMatchObject({team:'Outside Sales',active:false});
+    updateTeamRep('brandi','eli',{active:true});
     for(const id of ['utah-valley-electric','weber-basin'])setAssignedRep(id,'eli');
   });
 
   it('never lets a manager deactivate themselves',()=>{
     rejects(()=>updateTeamRep('brandi','brandi',{active:false}),400,'You can’t mark yourself inactive.');
     expect(row('brandi').active).toBe(true);
-    // Their own label is fine.
-    expect(updateTeamRep('brandi','brandi',{team:'Inside Sales',active:true}).reps.find(r=>r.id==='brandi')).toMatchObject({team:'Inside Sales',active:true});
+    expect(updateTeamRep('brandi','brandi',{active:true}).reps.find(r=>r.id==='brandi')).toMatchObject({team:'Inside Sales',active:true});
   });
 });
 

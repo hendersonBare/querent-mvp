@@ -1,251 +1,364 @@
 import type {AnchorHTMLAttributes,ReactNode} from 'react';
-import {act,render,screen,waitFor,within} from '@testing-library/react';
+import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import type {RepQuoteList} from '@/server/rep/quotes';
-import {AGING,CHANGES,CUSTOMERS,OLD,OVERDUE,SAMPLE,WASATCH,quoteList,quoteRow} from './test-fixtures';
+import {AGING,CHANGES,MANAGER_OPTIONS,OLD,OVERDUE,SAMPLE,WASATCH,accepted,quoteList,quoteRow} from './test-fixtures';
 
-// The rep's Quotes list (task 3.2, spec §4), rendered in the portal shell like the real page.
+// The Quotes page (plan U3; frames C_QOBoard, C_QOTable and their opened states), rendered in the
+// portal shell like the real page: one toolbar (customer picker, Filter, Board/Table), the board's six
+// lanes with real counts and "Show N more", the table with its columns picker, the quote preview and
+// the View note dialog. No status strip, no Needs attention view and no bulk reassign (decision 45).
 
-const nav=vi.hoisted(()=>({pathname:'/rep/quotes',query:'',replace:vi.fn()}));
+const nav=vi.hoisted(()=>({pathname:'/rep/quotes',query:'',push:vi.fn(),replace:vi.fn()}));
 vi.mock('next/navigation',()=>({
   usePathname:()=>nav.pathname,
   useSearchParams:()=>new URLSearchParams(nav.query),
-  useRouter:()=>({replace:nav.replace,push:vi.fn(),refresh:vi.fn(),prefetch:vi.fn()}),
+  useRouter:()=>({replace:nav.replace,push:nav.push,refresh:vi.fn(),prefetch:vi.fn()}),
 }));
 vi.mock('next/link',()=>({default:({href,children,prefetch,...rest}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;prefetch?:boolean;children?:ReactNode})=>
   <a href={href} data-prefetch={String(prefetch)} {...rest}>{children}</a>}));
 
 const {RepShell}=await import('../RepShell');
-const {QuotesList,quotesApiPath}=await import('./QuotesList');
-const {REP_STATUS}=await import('./labels');
+const {QuotesList,LANE_PAGE}=await import('./QuotesList');
 
-const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales'};
+const brandi={id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',manager:true};
 let served:RepQuoteList;
-async function serve(input:RequestInfo|URL){
+async function serve(input:RequestInfo|URL,init?:RequestInit){
   const url=String(input);
-  if(url==='/api/rep/badges')return Response.json({quotes:2});
+  if(url==='/api/rep/badges')return Response.json({quotes:2,attention:0,caution:[],bell:[]});
+  if(url==='/api/rep/table-prefs'&&init?.method==='PUT')return Response.json({table_id:'x',prefs:JSON.parse(String(init.body))});
+  if(url.endsWith('/reply')&&init?.method==='POST')return Response.json({kind:'replied'},{status:201});
   if(url.startsWith('/api/rep/quotes'))return Response.json(served);
   return Response.json({detail:'Not found.'},{status:404});
 }
 const fetchMock=vi.fn(serve);
 const requested=()=>fetchMock.mock.calls.map(([url])=>String(url));
+const sent=(method:string)=>fetchMock.mock.calls.filter(([,init])=>init?.method===method).map(([url,init])=>({url:String(url),body:JSON.parse(String(init!.body))}));
 
-function renderList(initial:RepQuoteList,query=''){
+function renderList(initial:RepQuoteList,{query='',view='board' as 'board'|'table',rep=brandi as typeof brandi|Omit<typeof brandi,'manager'>}={}){
   nav.query=query;
   served=initial;
-  return render(<RepShell rep={brandi} org="Herrick Industrial Supply" customers={CUSTOMERS} initialBadges={{quotes:2,attention:0}}><QuotesList initial={initial}/></RepShell>);
+  return render(<RepShell rep={rep} org="Herrick Industrial Supply" initialBadges={{quotes:2,attention:0,caution:[],bell:[]}}>
+    <QuotesList initial={initial} query={query} view={view} prefs={{table:null,board:null}}/>
+  </RepShell>);
 }
-const table=()=>screen.getByRole('table');
-const quoteBlock=(number:string)=>within(table()).getAllByRole('rowgroup').find(g=>within(g).queryByRole('link',{name:number}))!;
+const lane=(name:string)=>screen.getByRole('group',{name});
+const lanes=()=>within(screen.getByRole('group',{name:'Board columns'})).getAllByRole('group');
+const cards=(name:string)=>within(lane(name)).queryAllByRole('article');
+const card=(number:string)=>screen.getByRole('article',{name:number});
+const table=()=>screen.getByRole('table',{name:'Quotes'});
+const bodyRows=()=>within(table()).getAllByRole('row').slice(1);
 
-beforeEach(()=>{nav.pathname='/rep/quotes';nav.query='';fetchMock.mockReset();fetchMock.mockImplementation(serve);vi.stubGlobal('fetch',fetchMock);});
+beforeEach(()=>{nav.pathname='/rep/quotes';nav.query='';nav.push.mockReset();fetchMock.mockReset();fetchMock.mockImplementation(serve);vi.stubGlobal('fetch',fetchMock);});
 afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
+describe('the toolbar',()=>{
+  it('has the customer picker, Filter and the Board/Table toggle, and nothing the frames lack',()=>{
+    renderList(quoteList({manager:MANAGER_OPTIONS}));
+    expect(screen.getByRole('heading',{level:1})).toHaveTextContent('Quotes');
+    expect(screen.getByRole('combobox',{name:'Customer, All customers'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Filter'})).toBeInTheDocument();
+    const view=screen.getByRole('group',{name:'View'});
+    expect(within(view).getAllByRole('button').map(b=>[b.textContent,b.getAttribute('aria-pressed')])).toEqual([['Board','true'],['Table','false']]);
+    // Gone (decision 45, plan U3): the status strip, Needs attention view, sort toggle, Rep/Team selects, checkboxes, bulk reassign, "Viewing" line.
+    expect(screen.queryByRole('navigation',{name:'Filter by status'})).toBeNull();
+    expect(screen.queryByRole('navigation',{name:'Sort quotes needing attention'})).toBeNull();
+    expect(screen.queryByRole('combobox',{name:'Rep'})).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByText(/Reassign/)).toBeNull();
+    expect(screen.queryByText(/^Viewing/)).toBeNull();
+  });
+
+  it('switches between Board and Table in the URL, keeping the filters',()=>{
+    renderList(quoteList({customer:WASATCH}),{query:'customer=wasatch&only=overdue'});
+    fireEvent.click(within(screen.getByRole('group',{name:'View'})).getByRole('button',{name:'Table'}));
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?view=table&customer=wasatch&only=overdue',{scroll:false});
+  });
+
+  it("picks a customer from the picker: the page's own ?customer=, never carried to another page (task U1)",()=>{
+    renderList(quoteList({manager:MANAGER_OPTIONS}),{query:'view=table',view:'table'});
+    const box=screen.getByRole('combobox',{name:'Customer, All customers'});
+    fireEvent.focus(box);
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map(o=>o.textContent)).toEqual([
+      'All customers','Canyon Ridge BuildersCRB-3318','Great Basin FabricationGBF-2207','Wasatch Mechanical ContractorsWAS-1142']);
+    fireEvent.mouseDown(screen.getByRole('option',{name:/^Wasatch/}));
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?view=table&customer=wasatch',{scroll:false});
+    expect(screen.getByRole('navigation',{name:'Rep portal'}).querySelector('a[href^="/rep/quotes"]')).toHaveAttribute('href','/rep/quotes');
+  });
+});
+
+describe('the board',()=>{
+  it('shows the six status lanes in order, each counting its quotes',()=>{
+    renderList(quoteList({scope:[OVERDUE,AGING,SAMPLE,quoteRow(),OLD]}));
+    expect(lanes().map(l=>l.getAttribute('aria-label'))).toEqual(['Draft ready','Changes requested','Sent','Accepted','Expired','Declined']);
+    expect(lanes().map(l=>l.querySelector('[data-ui=count]')!.textContent)).toEqual(['1','1','1','2','0','0']);
+    expect(cards('Accepted').map(c=>c.getAttribute('aria-label'))).toEqual(['Q-24816','Q-24793']);
+    expect(within(lane('Declined')).getByText('No quotes here')).toBeInTheDocument();
+  });
+
+  it('draws each card as C_QOBoard does: number and requested day, customer, total and margin, and one red line when something is wrong',()=>{
+    renderList(quoteList({scope:[OVERDUE,AGING,SAMPLE,quoteRow(),OLD,{...SAMPLE,id:'q-1',quote_number:'Q-1',aging:{level:'red',since:SAMPLE.requested_at,reason:'Requested 2 days ago'}}]}));
+    expect(card('Q-24817')).toHaveTextContent(/^Q-24817Sep 23Wasatch Mechanical Contractors\$1,122\.4032\.2%1 line below floor$/);
+    expect(card('Q-24789')).toHaveTextContent(/^Q-24789Sep 21Wasatch Mechanical Contractors\$360\.8028\.1%Aging$/);
+    // Overdue with a line under the floor reads "Overdue. 1 line below floor" (C_QOBoard Q-24817).
+    expect(within(card('Q-1')).getByText('Overdue. 1 line below floor')).toBeInTheDocument();
+    // A date outside this year shows its year; an accepted quote has no red line and no note.
+    expect(card('Q-24793')).toHaveTextContent(/^Q-24793Sep 28, 2025Wasatch/);
+    expect(card('Q-24816')).toHaveTextContent(/^Q-24816Sep 7Wasatch Mechanical Contractors\$782\.7528\.1%$/);
+    expect(within(card('Q-24790')).getByRole('button',{name:'View note'})).toBeInTheDocument();
+    expect(card('Q-24790')).toHaveTextContent(/^Q-24790Sep 24Wasatch Mechanical ContractorsView note\$1,210\.0030\.0%Overdue$/);
+  });
+
+  it('shows about a screen of cards per lane, then "Show N more" shows the rest and "Show less" goes back',()=>{
+    renderList(quoteList({scope:[...accepted(20),SAMPLE]}));
+    expect(LANE_PAGE).toBe(7);
+    expect(cards('Accepted')).toHaveLength(7);
+    fireEvent.click(within(lane('Accepted')).getByRole('button',{name:'Show 13 more'}));
+    expect(cards('Accepted')).toHaveLength(20);
+    fireEvent.click(within(lane('Accepted')).getByRole('button',{name:'Show less'}));
+    expect(cards('Accepted')).toHaveLength(7);
+    expect(within(lane('Draft ready')).queryByRole('button',{name:/^Show/})).toBeNull();
+  });
+
+  it("moves a lane by keyboard and saves the order as the user's own",async()=>{
+    renderList(quoteList());
+    const head=lane('Draft ready').querySelector('[aria-keyshortcuts]') as HTMLElement;
+    fireEvent.keyDown(head,{key:'ArrowRight',altKey:true});
+    expect(lanes().map(l=>l.getAttribute('aria-label')).slice(0,2)).toEqual(['Changes requested','Draft ready']);
+    await waitFor(()=>expect(sent('PUT')).toEqual([{url:'/api/rep/table-prefs',body:{table_id:'quotes-board',
+      column_order:['changes_requested','ready_for_review','sent','accepted','expired','declined'],hidden_columns:[]}}]));
+  });
+
+  it('shows only the lanes of the statuses the filter keeps',()=>{
+    renderList(quoteList({statuses:['sent','accepted']}),{query:'status=sent,accepted'});
+    expect(lanes().map(l=>l.getAttribute('aria-label'))).toEqual(['Sent','Accepted']);
+  });
+});
+
 describe('the table',()=>{
-  it('shows the columns, and each quote with its number and revision, customer, requested date, status, total and margin',()=>{
-    renderList(quoteList());
-    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Quote','Customer','Requested','Status','Total','Margin']);
-    const accepted=within(quoteBlock('Q-24816')).getAllByRole('row')[0];
-    expect(within(accepted).getByRole('rowheader')).toHaveTextContent('Q-24816rev 1');
-    expect(within(accepted).getAllByRole('cell').map(c=>c.textContent)).toEqual([
-      'Wasatch Mechanical ContractorsWAS-1142','Requested Sep 7','Accepted','$782.75','28.1% margin',
-    ]);
-    // Newest request first, as the server sends them; a date outside this year shows its year.
-    expect(within(table()).getAllByRole('rowheader').map(h=>within(h).getByRole('link').textContent)).toEqual(['Q-24818','Q-24817','Q-24816','Q-24793']);
-    expect(within(quoteBlock('Q-24793')).getByText('Sep 28, 2025')).toBeInTheDocument();
+  it("has C_QOTable's columns, each row with its quote, customer, requested day, status, total and margin",()=>{
+    renderList(quoteList({scope:[OVERDUE,AGING,SAMPLE,quoteRow(),OLD]}),{view:'table'});
+    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual([':: Quote',':: Customer',':: Requested',':: Status',':: Total',':: Margin']);
+    expect(within(bodyRows()[2]).getAllByRole('cell').map(c=>c.textContent)).toEqual(['Q-24817','Wasatch Mechanical Contractors','Sep 23','Draft ready1 line below floor','$1,122.40','32.2%']);
+    expect(within(bodyRows()[0]).getAllByRole('cell')[3]).toHaveTextContent(/^Changes requestedOverdueView note$/);
+    expect(within(bodyRows()[1]).getAllByRole('cell')[3]).toHaveTextContent(/^SentAging$/);
+    expect(within(bodyRows()[4]).getAllByRole('cell')[2]).toHaveTextContent('Sep 28, 2025');
   });
 
-  it('labels a draft total and its lines below floor; a sent total is plain',()=>{
-    renderList(quoteList());
-    const sample=quoteBlock('Q-24817');
-    expect(within(sample).getByRole('rowheader')).toHaveTextContent('Q-24817Not sentSample data');
-    expect(within(sample).getByText('Draft ready')).toBeInTheDocument();
-    const cells=within(sample).getAllByRole('cell');
-    expect(cells[3]).toHaveTextContent('$1,122.40Draft');
-    expect(cells[4]).toHaveTextContent('32.2% margin1 line below floor');
-    expect(within(quoteBlock('Q-24816')).queryByText('Draft')).not.toBeInTheDocument();
+  it('offers Rep, Valid until and Purchasing agent in the columns picker, hidden until picked (C_QOT2)',()=>{
+    renderList(quoteList({manager:MANAGER_OPTIONS}),{view:'table'});
+    fireEvent.click(screen.getByRole('button',{name:'Choose columns'}));
+    const picker=screen.getByRole('dialog',{name:'Choose columns'});
+    expect(within(picker).getAllByRole('checkbox').map(c=>[c.getAttribute('aria-label'),(c as HTMLInputElement).checked])).toEqual([
+      ['Quote',true],['Customer',true],['Requested',true],['Status',true],['Total',true],['Margin',true],['Rep',false],['Valid until',false],['Purchasing agent',false]]);
+    fireEvent.click(within(picker).getByRole('checkbox',{name:'Rep'}));
+    fireEvent.click(within(picker).getByRole('checkbox',{name:'Valid until'}));
+    fireEvent.click(within(picker).getByRole('checkbox',{name:'Purchasing agent'}));
+    expect(within(table()).getAllByRole('columnheader').map(h=>h.textContent)).toEqual([':: Quote',':: Customer',':: Requested',':: Status',':: Total',':: Margin',':: Rep',':: Valid until',':: Purchasing agent']);
+    const cells=within(bodyRows().find(r=>r.textContent!.startsWith('Q-24816'))!).getAllByRole('cell').map(c=>c.textContent);
+    expect(cells.slice(6)).toEqual(['Brandi Gallegos','Sep 21','Dana Ortiz']);
+    expect(sent('PUT').at(-1)).toMatchObject({url:'/api/rep/table-prefs',body:{table_id:'quotes'}});
   });
 
-  it('says when a draft total is before freight (call for freight)',()=>{
-    renderList(quoteList({scope:[quoteRow({...SAMPLE,freight_pending:true,below_floor_count:3})]}));
-    const cells=within(quoteBlock('Q-24817')).getAllByRole('cell');
-    expect(cells[3]).toHaveTextContent('$1,122.40Draft, before freight');
-    expect(cells[4]).toHaveTextContent('3 lines below floor');
+  it('shows 14 rows, then "Show N more quotes" and "Show fewer quotes"',()=>{
+    renderList(quoteList({scope:accepted(32)}),{view:'table'});
+    expect(bodyRows()).toHaveLength(14);
+    fireEvent.click(screen.getByRole('button',{name:'Show 18 more quotes'}));
+    expect(bodyRows()).toHaveLength(32);
+    expect(screen.getByRole('button',{name:'Show fewer quotes'})).toBeInTheDocument();
   });
 
-  it('marks unread quotes with a dot, and only those',()=>{
-    renderList(quoteList());
-    expect(within(quoteBlock('Q-24817')).getByRole('rowheader')).toHaveTextContent(/^Unread: Q-24817/);
-    expect(within(quoteBlock('Q-24816')).getByRole('rowheader')).not.toHaveTextContent('Unread');
-    expect(screen.getByText('Viewing All customers · 2 unread quotes')).toBeInTheDocument();
-  });
-
-  it("highlights changes_requested with the customer's note, who asked and when",()=>{
-    renderList(quoteList());
-    const changes=quoteBlock('Q-24818');
-    expect(changes).toHaveAttribute('data-status','changes_requested');
-    const [row,note]=within(changes).getAllByRole('row');
-    expect(within(row).getByText('Changes requested')).toBeInTheDocument();
-    expect(note).toHaveTextContent('Dana Ortiz asked for changes · Sep 25Make it 12 boxes and deliver Friday.');
-    expect(row).toHaveAccessibleDescription('Dana Ortiz asked for changes · Sep 25 Make it 12 boxes and deliver Friday.');
-    expect(quoteBlock('Q-24817')).toHaveAttribute('data-status','ready_for_review');
-    expect(within(quoteBlock('Q-24817')).getAllByRole('row')).toHaveLength(1);
-  });
-
-  it('opens a quote from its number, keeping the picked customer, without prefetching it (opening marks it read)',()=>{
-    renderList(quoteList({customer:WASATCH}),'customer=wasatch');
-    const link=within(table()).getByRole('link',{name:'Q-24817'});
-    expect(link).toHaveAttribute('href','/rep/quotes/Q-24817?customer=wasatch');
-    expect(link).toHaveAttribute('data-prefetch','false');
-    expect(screen.getByText('Viewing Wasatch Mechanical Contractors · 2 unread quotes')).toBeInTheDocument();
+  it('says so in one plain line when no quote matches',()=>{
+    renderList(quoteList({scope:[]}),{view:'table'});
+    expect(screen.getByText('No quotes here')).toBeInTheDocument();
   });
 });
 
-describe('the status filter',()=>{
-  it('counts every status and links each one, keeping the picked customer',()=>{
-    renderList(quoteList({customer:WASATCH}),'customer=wasatch');
-    const filter=screen.getByRole('navigation',{name:'Filter by status'});
-    const links=within(filter).getAllByRole('link');
-    expect(links.map(l=>l.textContent)).toEqual(['All4','Needs attention0','Draft ready1','Changes requested1','Sent0','Accepted2','Expired0','Declined0']);
-    expect(links.map(l=>l.getAttribute('href'))).toEqual([
-      '/rep/quotes?customer=wasatch','/rep/quotes?attention=1&customer=wasatch',
-      '/rep/quotes?status=ready_for_review&customer=wasatch','/rep/quotes?status=changes_requested&customer=wasatch',
-      '/rep/quotes?status=sent&customer=wasatch','/rep/quotes?status=accepted&customer=wasatch','/rep/quotes?status=expired&customer=wasatch',
-      '/rep/quotes?status=declined&customer=wasatch',
-    ]);
-    expect(within(filter).getByRole('link',{current:'page'})).toHaveTextContent('All4');
-  });
+describe('a rep',()=>{
+  const mara={id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales'};
+  const own=[{id:'canyon-ridge',name:'Canyon Ridge Builders',account_number:'CRB-3318'}];
 
-  it('shows only the filtered status, and marks it current',()=>{
-    renderList(quoteList({status:'changes_requested'}),'status=changes_requested');
-    expect(within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{current:'page'})).toHaveTextContent('Changes requested1');
-    expect(within(table()).getAllByRole('rowheader').map(h=>within(h).getByRole('link').textContent)).toEqual(['Q-24818']);
-    expect(within(table()).getByText(/^Changes requested quotes for all your customers/)).toBeInTheDocument();
-  });
-
-  it('has a Declined filter and chip (v3 spec §6, task A1)',()=>{
-    renderList(quoteList({status:'declined'}),'status=declined');
-    expect(screen.getByRole('heading',{name:'No declined quotes'})).toBeInTheDocument();
-    expect(REP_STATUS.declined).toEqual({label:'Declined',tone:'declined'});
-  });
-
-  it('says so when nothing has the filtered status, and offers every status',()=>{
-    renderList(quoteList({status:'sent'}),'status=sent');
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading',{name:'No quotes waiting on the customer'})).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Show every status'})).toHaveAttribute('href','/rep/quotes');
+  it('picks among their own customers ("All my customers"), with no Rep column or Rep filter',()=>{
+    renderList(quoteList({customers:own}),{rep:mara,view:'table'});
+    const box=screen.getByRole('combobox',{name:'Customer, All my customers'});
+    fireEvent.focus(box);
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map(o=>o.textContent)).toEqual(['All my customers','Canyon Ridge BuildersCRB-3318']);
+    expect(screen.getByText('Your 1 customer. Type to search.')).toBeInTheDocument();
+    fireEvent.blur(box);
+    fireEvent.click(screen.getByRole('button',{name:'Choose columns'}));
+    expect(within(screen.getByRole('dialog',{name:'Choose columns'})).queryByRole('checkbox',{name:'Rep'})).toBeNull();
+    fireEvent.keyDown(document,{key:'Escape'});
+    fireEvent.click(screen.getByRole('button',{name:'Filter'}));
+    const panel=screen.getByRole('dialog',{name:'Filter quotes'});
+    expect(within(panel).queryByText('Rep')).toBeNull();
+    expect(within(panel).getByRole('button',{name:'Customer: Any of my customers'})).toBeInTheDocument();
   });
 });
 
-describe('empty states',()=>{
-  it('a placeholder customer: no quotes yet, and no filter',()=>{
-    const greatBasin=CUSTOMERS[1];
-    renderList(quoteList({scope:[],customer:greatBasin}),'customer=great-basin');
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.queryByRole('navigation',{name:'Filter by status'})).not.toBeInTheDocument();
-    expect(screen.getByRole('heading',{name:'No quotes for Great Basin Fabrication yet'})).toBeInTheDocument();
-    expect(screen.getByText(/when someone at Great Basin Fabrication asks for goods in Querent chat and presses Request quote/)).toBeInTheDocument();
-    expect(screen.getByText('Viewing Great Basin Fabrication')).toBeInTheDocument();
+describe('the filter panel',()=>{
+  it("has C_QOB2's fields; Apply filters puts them in the URL",()=>{
+    renderList(quoteList({manager:MANAGER_OPTIONS}),{query:'view=table',view:'table'});
+    fireEvent.click(screen.getByRole('button',{name:'Filter'}));
+    const panel=screen.getByRole('dialog',{name:'Filter quotes'});
+    expect(within(panel).getAllByRole('checkbox').map(c=>[c.closest('label')!.textContent,(c as HTMLInputElement).checked])).toEqual([
+      ['Draft ready',true],['Changes requested',true],['Sent',true],['Accepted',true],['Expired',true],['Declined',true],['Overdue',false],['Aging',false],['Below margin floor',false]]);
+    fireEvent.click(within(panel).getByRole('button',{name:'Rep: All reps'}));
+    expect(within(panel).getAllByRole('option').map(o=>o.textContent)).toEqual(['All reps','Brandi Gallegos','Eli Porter','Mara Jensen','Nora Chen']);
+    fireEvent.mouseDown(within(panel).getByRole('option',{name:'Mara Jensen'}));
+    expect(within(panel).getByRole('button',{name:'Customer: Any customer'})).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('checkbox',{name:'Accepted'}));
+    fireEvent.click(within(panel).getByRole('checkbox',{name:'Overdue'}));
+    // Requested from: a plain box (C_QOB2) that opens a list of days, newest first.
+    fireEvent.click(within(panel).getByRole('button',{name:'Requested from: Any day'}));
+    const days=within(panel).getAllByRole('option').map(o=>o.textContent);
+    expect(days.slice(0,3)).toEqual(['Any day','Sep 25','Sep 24']);
+    fireEvent.mouseDown(within(panel).getByRole('option',{name:'Sep 1'}));
+    expect(within(panel).getByRole('button',{name:'Requested from: Sep 1'})).toHaveTextContent(/^Sep 1$/);
+    fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes?view=table&status=ready_for_review%2Cchanges_requested%2Csent%2Cexpired%2Cdeclined&rep=mara&requested_from=2026-09-01&only=overdue',{scroll:false});
   });
 
-  it("another rep's customer: says whose customer it is, and links back to all your quotes",()=>{
-    renderList(quoteList({scope:[],customer:CUSTOMERS[0],other_rep:true}),'customer=canyon-ridge');
-    expect(screen.getByRole('heading',{name:'Canyon Ridge Builders is Mara Jensen’s customer'})).toBeInTheDocument();
-    expect(screen.getByText(/shows quotes for your own customers/)).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Show all your quotes'})).toHaveAttribute('href','/rep/quotes');
+  it('draws the Requested from and to fields as C_QOB2 does: a plain box with the day as "Sep 1", no native date input',()=>{
+    renderList(quoteList(),{query:'requested_from=2026-09-01'});
+    fireEvent.click(screen.getByRole('button',{name:'Filter, 1 applied'}));
+    const panel=screen.getByRole('dialog',{name:'Filter quotes'});
+    expect(panel.querySelector('input[type=date]')).toBeNull();
+    expect(within(panel).getByRole('button',{name:'Requested from: Sep 1'})).toHaveTextContent(/^Sep 1$/);
+    // The empty field (no frame) is the box with nothing in it: no mm/dd/yyyy, no placeholder.
+    expect(within(panel).getByRole('button',{name:'Requested to: Any day'})).toHaveTextContent(/^$/);
+    // Any day empties it again.
+    fireEvent.click(within(panel).getByRole('button',{name:'Requested from: Sep 1'}));
+    fireEvent.mouseDown(within(panel).getByRole('option',{name:'Any day'}));
+    fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes',{scroll:false});
   });
 
-  it('a rep with no quotes at all',()=>{
-    renderList(quoteList({scope:[]}));
-    expect(screen.getByRole('heading',{name:'No quotes yet'})).toBeInTheDocument();
+  it('shows the count badge for applied filters; Clear all and Apply drop them',()=>{
+    renderList(quoteList(),{query:'only=overdue,aging&customer=wasatch'});
+    fireEvent.click(screen.getByRole('button',{name:'Filter, 3 applied'}));
+    const panel=screen.getByRole('dialog',{name:'Filter quotes'});
+    expect(within(panel).getByRole('checkbox',{name:'Overdue'})).toBeChecked();
+    expect(within(panel).getByRole('checkbox',{name:'Aging'})).toBeChecked();
+    expect(within(panel).getByRole('button',{name:'Customer: Wasatch Mechanical Contractors'})).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button',{name:'Clear all'}));
+    fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
+    expect(nav.push).toHaveBeenCalledWith('/rep/quotes',{scroll:false});
+  });
+});
+
+describe('the quote preview (C_QOB5, C_QOT3)',()=>{
+  it("opens from a card with the total, requested day, margin, status and the customer's note, then Open quote leads to it",()=>{
+    renderList(quoteList({scope:[OVERDUE,SAMPLE]}));
+    fireEvent.click(within(card('Q-24790')).getByRole('button',{name:'Q-24790'}));
+    const sheet=screen.getByRole('dialog',{name:'Q-24790'});
+    expect(sheet).toHaveTextContent('Wasatch Mechanical Contractors');
+    expect(within(sheet).getByText('Overdue')).toBeInTheDocument();
+    expect(within(sheet).getByText('Total').nextSibling).toHaveTextContent('$1,210.00');
+    expect(within(sheet).getByText('Requested').nextSibling).toHaveTextContent('Sep 24');
+    expect(within(sheet).getByText('Margin').nextSibling).toHaveTextContent('30.0%');
+    expect(within(sheet).getByText('Status: Changes requested')).toBeInTheDocument();
+    expect(within(sheet).getByText('"Make it 12 boxes and deliver Friday."')).toBeInTheDocument();
+    expect(within(sheet).getByText(/^Dana Ortiz, Sep 2[456]$/)).toBeInTheDocument();
+    const open=within(sheet).getByRole('link',{name:'Open quote'});
+    expect(open).toHaveAttribute('href','/rep/quotes/Q-24790');
+    expect(open).toHaveAttribute('data-prefetch','false');
+    // Reply to Dana opens the note with its reply box.
+    fireEvent.click(within(sheet).getByRole('button',{name:'Reply to Dana'}));
+    expect(screen.getByRole('dialog',{name:'Note on Q-24790'})).toBeInTheDocument();
+    expect(screen.getByRole('textbox',{name:'Reply to Dana'})).toHaveFocus();
+  });
+
+  it('opens from the keyboard: Enter on a quote number, in the board or the table',()=>{
+    renderList(quoteList({scope:[SAMPLE]}));
+    fireEvent.keyDown(within(card('Q-24817')).getByRole('button',{name:'Q-24817'}),{key:'Enter'});
+    expect(screen.getByRole('dialog',{name:'Q-24817'})).toBeInTheDocument();
+  });
+
+  it('opens from a table row; a quote without a note has no note box and no Reply',()=>{
+    renderList(quoteList({scope:[SAMPLE]}),{view:'table'});
+    fireEvent.click(within(bodyRows()[0]).getAllByRole('cell')[1]);
+    const sheet=screen.getByRole('dialog',{name:'Q-24817'});
+    expect(within(sheet).getByText('1 line below floor')).toBeInTheDocument();
+    expect(within(sheet).getByText('Status: Draft ready')).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button',{name:/^Reply/})).toBeNull();
+    fireEvent.click(within(sheet).getByRole('button',{name:'Close'}));
+    expect(screen.queryByRole('dialog',{name:'Q-24817'})).toBeNull();
+  });
+});
+
+describe("another rep's quote (decision 22: the manager reads it, read-only)",()=>{
+  const MARAS={...CHANGES,id:'q-24779',quote_number:'Q-24779',rep_id:'mara',rep_name:'Mara Jensen'};
+
+  it('has no Reply in the preview',()=>{
+    renderList(quoteList({scope:[MARAS]}));
+    fireEvent.click(within(card('Q-24779')).getByRole('button',{name:'Q-24779'}));
+    const sheet=screen.getByRole('dialog',{name:'Q-24779'});
+    expect(within(sheet).getByText('"Make it 12 boxes and deliver Friday."')).toBeInTheDocument();
+    expect(within(sheet).getByRole('link',{name:'Open quote'})).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button',{name:/^Reply/})).toBeNull();
+  });
+
+  it('shows the note with no reply box and no Send reply',()=>{
+    renderList(quoteList({scope:[MARAS]}),{view:'table'});
+    fireEvent.click(within(table()).getByRole('button',{name:'View note'}));
+    const note=screen.getByRole('dialog',{name:'Note on Q-24779'});
+    expect(note).toHaveTextContent('"Make it 12 boxes and deliver Friday."');
+    expect(within(note).queryByRole('textbox')).toBeNull();
+    expect(within(note).queryByText(/^Reply to/)).toBeNull();
+    expect(within(note).queryByRole('button',{name:'Send reply'})).toBeNull();
+    fireEvent.click(within(note).getAllByRole('button',{name:'Close'}).at(-1)!);
+    expect(screen.queryByRole('dialog',{name:'Note on Q-24779'})).toBeNull();
+  });
+});
+
+describe('View note (C_QOB6, C_QOT4)',()=>{
+  it('opens the note without opening the preview; Send reply sends it and closes; Close sends nothing',async()=>{
+    renderList(quoteList({scope:[CHANGES]}));
+    fireEvent.click(within(card('Q-24818')).getByRole('button',{name:'View note'}));
+    expect(screen.queryByRole('dialog',{name:'Q-24818'})).toBeNull();
+    const note=screen.getByRole('dialog',{name:'Note on Q-24818'});
+    expect(note).toHaveTextContent('"Make it 12 boxes and deliver Friday."');
+    expect(within(note).getByText(/^Dana Ortiz, Sep 2[456], \d{1,2}:\d{2} (AM|PM)$/)).toBeInTheDocument();
+    const reply=within(note).getByRole('textbox',{name:'Reply to Dana'});
+    expect(reply).toHaveAttribute('placeholder','Write a reply');
+    // Nothing written: Send reply sends nothing and goes back to the reply box.
+    reply.blur();
+    fireEvent.click(within(note).getByRole('button',{name:'Send reply'}));
+    expect(reply).toHaveFocus();
+    fireEvent.click(within(note).getAllByRole('button',{name:'Close'}).at(-1)!);
+    expect(screen.queryByRole('dialog',{name:'Note on Q-24818'})).toBeNull();
+    expect(sent('POST')).toEqual([]);
+
+    fireEvent.click(within(card('Q-24818')).getByRole('button',{name:'View note'}));
+    fireEvent.change(screen.getByRole('textbox',{name:'Reply to Dana'}),{target:{value:'Friday works.'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send reply'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Note on Q-24818'})).toBeNull());
+    expect(sent('POST')).toEqual([{url:'/api/rep/quotes/Q-24818/reply',body:{body:'Friday works.'}}]);
+  });
+
+  it("opens from a table row's View note too, without opening the preview",()=>{
+    renderList(quoteList({scope:[CHANGES]}),{view:'table'});
+    fireEvent.click(within(table()).getByRole('button',{name:'View note'}));
+    expect(screen.getByRole('dialog',{name:'Note on Q-24818'})).toBeInTheDocument();
+    expect(screen.queryByRole('dialog',{name:'Q-24818'})).toBeNull();
   });
 });
 
 describe('staying fresh',()=>{
-  it('builds the API path from the picked customer and status',()=>{
-    expect(quotesApiPath(null,null)).toBe('/api/rep/quotes');
-    expect(quotesApiPath('wasatch',null)).toBe('/api/rep/quotes?customer=wasatch');
-    expect(quotesApiPath('wasatch','changes_requested')).toBe('/api/rep/quotes?customer=wasatch&status=changes_requested');
-    expect(quotesApiPath(null,'sent')).toBe('/api/rep/quotes?status=sent');
-    expect(quotesApiPath(null,null,{attention:true,sort:'urgent'})).toBe('/api/rep/quotes?attention=1');
-    expect(quotesApiPath('wasatch',null,{attention:true,sort:'oldest'})).toBe('/api/rep/quotes?customer=wasatch&attention=1&sort=oldest');
-  });
-
-  it('re-reads the list for the same scope, so a quote opened elsewhere loses its dot',async()=>{
+  it('re-reads the list for the same query',async()=>{
     vi.useFakeTimers({shouldAdvanceTime:true});
-    const initial=quoteList({customer:WASATCH});
-    renderList(initial,'customer=wasatch');
-    served=quoteList({customer:WASATCH,scope:[CHANGES,{...SAMPLE,unread:false},quoteRow(),OLD]});
+    renderList(quoteList({customer:WASATCH}),{query:'customer=wasatch&only=overdue'});
+    served=quoteList({customer:WASATCH,scope:[SAMPLE]});
     await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
-    await waitFor(()=>expect(within(quoteBlock('Q-24817')).getByRole('rowheader')).not.toHaveTextContent('Unread'));
-    expect(requested()).toContain('/api/rep/quotes?customer=wasatch');
-    expect(screen.getByText('Viewing Wasatch Mechanical Contractors · 1 unread quote')).toBeInTheDocument();
+    expect(requested()).toContain('/api/rep/quotes?customer=wasatch&only=overdue');
+    await waitFor(()=>expect(screen.queryByRole('article',{name:'Q-24818'})).toBeNull());
+    expect(requested().some(u=>u.includes('scope='))).toBe(false);
   });
 
   it('keeps showing the list when a refresh fails, and says it will retry',async()=>{
-    fetchMock.mockImplementation(async(input:RequestInfo|URL)=>String(input).startsWith('/api/rep/quotes')?Response.json({detail:'boom'},{status:500}):Response.json({quotes:2}));
+    fetchMock.mockImplementation(async(input:RequestInfo|URL)=>String(input).startsWith('/api/rep/quotes')?Response.json({detail:'boom'},{status:500}):Response.json({quotes:2,attention:0,caution:[],bell:[]}));
     renderList(quoteList());
     expect(await screen.findByText('Unable to refresh quotes. Trying again in a few seconds.')).toBeInTheDocument();
-    expect(within(table()).getByRole('link',{name:'Q-24817'})).toBeInTheDocument();
-  });
-});
-
-describe('aging and the Needs attention filter (v3 spec §3, §6; task A2)',()=>{
-  const SCOPE=[OVERDUE,AGING,SAMPLE,quoteRow(),OLD];
-  const status=(number:string)=>within(quoteBlock(number)).getAllByRole('cell')[2];
-
-  it('marks amber and red rows with an icon and a word as well as colour, the reason as the tooltip',()=>{
-    renderList(quoteList({scope:SCOPE}));
-    const amber=within(status('Q-24789')).getByText('Aging').closest('[data-level]')!;
-    expect(amber).toHaveAttribute('data-level','amber');
-    expect(amber).toHaveAttribute('title','Sent 4 days ago');
-    expect(amber.querySelector('svg')).not.toBeNull();
-    expect(status('Q-24789')).toHaveTextContent('SentAging');
-    const red=within(status('Q-24790')).getByText('Overdue').closest('[data-level]')!;
-    expect(red).toHaveAttribute('data-level','red');
-    expect(red).toHaveAttribute('title','Changes requested 30 hours ago');
-    // Fine and final quotes carry no marker.
-    expect(status('Q-24817')).toHaveTextContent(/^Draft ready$/);
-    expect(status('Q-24816')).toHaveTextContent(/^Accepted$/);
-  });
-
-  it('counts the quotes needing attention in the filter, and links to it keeping the picked customer',()=>{
-    renderList(quoteList({scope:SCOPE,customer:WASATCH}),'customer=wasatch');
-    const link=within(screen.getByRole('navigation',{name:'Filter by status'})).getByRole('link',{name:/^Needs attention/});
-    expect(link).toHaveTextContent('Needs attention2');
-    expect(link).toHaveAttribute('href','/rep/quotes?attention=1&customer=wasatch');
-    expect(link).not.toHaveAttribute('aria-current');
-  });
-
-  it('shows only the amber and red quotes in the server’s order, with the sort toggle on Most urgent',()=>{
-    renderList(quoteList({scope:SCOPE,attention:true}),'attention=1');
-    const filter=screen.getByRole('navigation',{name:'Filter by status'});
-    expect(within(filter).getByRole('link',{current:'page'})).toHaveTextContent('Needs attention2');
-    expect(within(table()).getAllByRole('rowheader').map(h=>within(h).getByRole('link').textContent)).toEqual(['Q-24790','Q-24789']);
-    expect(within(table()).getByText(/^Quotes needing attention for all your customers, overdue first, then the largest totals$/)).toBeInTheDocument();
-    const sort=screen.getByRole('navigation',{name:'Sort quotes needing attention'});
-    expect(within(sort).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
-      ['Most urgent','/rep/quotes?attention=1'],['Oldest first','/rep/quotes?attention=1&sort=oldest'],
-    ]);
-    expect(within(sort).getByRole('link',{current:'page'})).toHaveTextContent('Most urgent');
-  });
-
-  it('marks Oldest first current when toggled, and polls that view',async()=>{
-    vi.useFakeTimers({shouldAdvanceTime:true});
-    renderList(quoteList({scope:SCOPE,attention:true,sort:'oldest',customer:WASATCH}),'attention=1&sort=oldest&customer=wasatch');
-    const sort=screen.getByRole('navigation',{name:'Sort quotes needing attention'});
-    expect(within(sort).getByRole('link',{current:'page'})).toHaveTextContent('Oldest first');
-    expect(within(sort).getByRole('link',{name:'Most urgent'})).toHaveAttribute('href','/rep/quotes?attention=1&customer=wasatch');
-    expect(within(table()).getByText(/oldest first$/)).toBeInTheDocument();
-    await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
-    expect(requested()).toContain('/api/rep/quotes?customer=wasatch&attention=1&sort=oldest');
-  });
-
-  it('says so when nothing needs attention',()=>{
-    renderList(quoteList({attention:true}),'attention=1');
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading',{name:'Nothing needs attention'})).toBeInTheDocument();
-    expect(screen.getByRole('link',{name:'Show every status'})).toHaveAttribute('href','/rep/quotes');
-    expect(screen.queryByRole('navigation',{name:'Sort quotes needing attention'})).not.toBeInTheDocument();
+    expect(card('Q-24817')).toBeInTheDocument();
   });
 });

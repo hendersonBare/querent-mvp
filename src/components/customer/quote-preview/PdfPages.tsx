@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {ZoomIn,ZoomOut} from 'lucide-react';
+import {SiteIcon} from '../site/icons';
 import {renderPdf,renderScale} from './render-pdf';
 
 // The customer PDF inline in the preview modal (spec §3, task 5.1): its pages drawn on canvases
@@ -48,9 +48,9 @@ export function PdfPages({url,label}:{url:string;
   return <div className="qp-pdf" role="document" aria-label={label} aria-busy={state.status==='loading'} data-state={state.status} data-zoom={zoomed?'in':'fit'}>
     {state.status==='ready'&&<div className="qp-pdf-bar">
       <span>{state.text.length===1?'1 page':`${state.text.length} pages`}</span>
-      {/* On a phone the page fits the width; zooming in makes its print readable (the desk scrolls both ways). */}
+      {/* Zooming in makes the print larger; the desk scrolls both ways. */}
       <button type="button" className="qp-zoom" aria-pressed={zoomed} onClick={()=>setZoomed(z=>!z)}>
-        {zoomed?<ZoomOut size={15} aria-hidden="true"/>:<ZoomIn size={15} aria-hidden="true"/>}{zoomed?'Fit to width':'Zoom in'}
+        <SiteIcon name={zoomed?'zoomOut':'zoomIn'} size={16}/>{zoomed?'Fit to width':'Zoom in'}
       </button>
     </div>}
     <div className="qp-sheets" ref={sheets}/>
@@ -58,7 +58,7 @@ export function PdfPages({url,label}:{url:string;
     {state.status==='loading'&&<p className="qp-pdf-note" role="status">Loading the PDF…</p>}
     {state.status==='error'&&<div className="qp-pdf-note" role="alert">
       <p>{state.message}</p>
-      <button type="button" className="ip-secondary" onClick={()=>setAttempt(n=>n+1)}>Try again</button>
+      <button type="button" className="qp-zoom" onClick={()=>setAttempt(n=>n+1)}>Try again</button>
     </div>}
   </div>;
 }

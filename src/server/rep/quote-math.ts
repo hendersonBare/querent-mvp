@@ -315,7 +315,8 @@ export interface QuoteCheck {
 
 const shortDay=(day:string)=>new Date(`${day}T00:00:00.000Z`).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
 
-function stockText(stock:LineStock){
+/** "short 5 at SLC. 20 at Ogden. 24 on order at SLC, due Sep 26": a line short at the quote branch. */
+export function stockText(stock:LineStock){
   const parts=[`short ${stock.short} at ${stock.branchCode}`];
   if(stock.others.length)parts.push(stock.others.map(o=>`${o.available} at ${o.code}`).join(', '));
   if(stock.onOrder>0)parts.push(`${stock.onOrder} on order at ${stock.branchCode}${stock.nextReceipt?`, due ${shortDay(stock.nextReceipt)}`:''}`);

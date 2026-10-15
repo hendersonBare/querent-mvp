@@ -1,6 +1,6 @@
 import type {Metadata} from 'next';
 import {SettingsSection} from '@/components/rep/SettingsSection';
-import {ALL_CUSTOMERS,SCOPE_PARAM} from '@/components/rep/scope';
+import {CUSTOMER_PARAM} from '@/components/rep/scope';
 import {ensureHeartbeat} from '@/server/heartbeat';
 import {repSettings} from '@/server/rep/settings';
 import {signedInRep} from '@/server/rep/session';
@@ -11,16 +11,16 @@ type SearchParams=Promise<Record<string,string|string[]|undefined>>;
 const single=(value:string|string[]|undefined)=>typeof value==='string'?value:null;
 
 /**
- * Settings (spec §4, task 6.1): Rep assignments, Customer access for the "Viewing" picker
- * (?customer=), My margin floors, Pricing & delivery, and Data sources (?tab=); for the manager also
- * Reps and Aging (v3 spec §6, task D1). Rendered here with
- * the signed-in rep's settings; the tabs then save through /api/rep/settings/*.
+ * Settings (spec §4, task 6.1; plans U8, U9): the manager's Customer access, Margin floors, Pricing and delivery,
+ * Aging and her own Profile (?tab=; decision 69), with the feature flags read on the server (decision 48);
+ * ?customer=<id> opens Customer access searched for that customer (Analytics' Manage customer access). A rep
+ * gets their own Margins, Profile and Notifications only. Rendered here with the signed-in rep's settings; the tabs then save through /api/rep/settings/*.
  */
 export default async function SettingsPage({searchParams}:{searchParams:SearchParams}){
   const {repId,manager}=await signedInRep();
   ensureHeartbeat();
-  const customer=single((await searchParams)[SCOPE_PARAM]);
-  const settings=repSettings(repId,{customerId:customer===ALL_CUSTOMERS?null:customer,manager});
-  // A new picker scope is a new Customer access list: remount, so no tab keeps the old scope's state.
-  return <SettingsSection key={settings.access.customer_id??ALL_CUSTOMERS} initial={settings}/>;
+  const params=await searchParams;
+  const settings=repSettings(repId,{customerId:manager?single(params[CUSTOMER_PARAM]):null,manager});
+  // A new ?customer= or ?tab= is a new tab: remount, so no tab keeps the old one's state.
+  return <SettingsSection key={`${single(params.tab)??''}:${single(params[CUSTOMER_PARAM])??''}`} initial={settings}/>;
 }

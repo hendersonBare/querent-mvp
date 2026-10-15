@@ -20,7 +20,7 @@ export interface PopupSuggestion {item_id:string;sku:string;description:string;p
 /**
  * Payload of an `item_popup` message: what the item pop-up opens with (spec §3). No prices.
  * `suggestions` are chosen once when the pop-up is created (task E1) and `suggestions_offered`
- * records how many were shown, the Team dashboard's acceptance denominator (OA-13). Both are absent
+ * records how many were shown, the Analytics leaderboard's acceptance denominator (OA-13). Both are absent
  * on pop-ups from before E1 and on a clarifying reply's cart.
  */
 export interface ItemPopupPayload {fulfillment:Fulfillment;branch_id:string;lines:CartLine[];suggestions?:PopupSuggestion[];suggestions_offered?:number}
@@ -96,6 +96,29 @@ export interface QuoteNotice extends QuoteReadyPayload {
   /** The rep's message from the send dialog: plain text, possibly empty. Render it as text, never as Markdown or HTML. */
   text:string;
 }
+
+/** The kind of the message a rep's reply to a change request posts in the customer's chat (decision 63, plan U3). */
+export const REP_REPLY_KIND='rep_reply';
+
+/**
+ * Payload of a `rep_reply` message: the quote whose change request the rep answered from the Quotes
+ * page (C_QOB6 "Send reply"), and who wrote it. The message is a notice (role `system`); its `content`
+ * is the reply as the rep typed it, plain text (render it as text, never as Markdown or HTML).
+ */
+export interface RepReplyPayload {quote_id:string;quote_number:string;rep_name:string}
+
+/** Customer-safe: one `rep_reply` message as the customer's chat shows it, rebuilt field by field. */
+export interface RepReplyNotice extends RepReplyPayload {
+  kind:typeof REP_REPLY_KIND;
+  /** The message id. */
+  id:string;conversation_id:string;created_at:string;
+  /** The rep's reply: plain text. */
+  text:string;
+}
+
+/** What the customer's chat shows among its turns: a sent quote, or a rep's reply. */
+export type ChatNotice=QuoteNotice|RepReplyNotice;
+export const isRepReply=(notice:ChatNotice):notice is RepReplyNotice=>'kind' in notice&&notice.kind===REP_REPLY_KIND;
 
 /** What a chat reply's `kind` can be. The quote flow adds more (quote_ready is a notice, not a reply). */
 export type ChatReplyKind='text'|'clarify'|'item_popup'|'quote_requested';

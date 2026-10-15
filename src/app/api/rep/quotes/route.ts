@@ -1,24 +1,21 @@
-import {AGING_PARAM,ATTENTION_PARAM,SORT_PARAM,STATUS_PARAM,isAttention} from '@/components/rep/quotes/labels';
-import {FROM_PARAM,REPS_PARAM,REP_PARAM,SCOPE_PARAM,TEAM_PARAM,TO_PARAM,isAllReps} from '@/components/rep/scope';
 import {repJson,repRoute} from '@/server/rep/http';
-import {parseAttentionSort,parseStatus,repQuoteList} from '@/server/rep/quotes';
+import {quoteListOptions,repQuoteList} from '@/server/rep/quotes';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 
 /**
- * GET /api/rep/quotes?customer=<id>&status=<status>: the signed-in rep's Quotes list (spec §4),
- * newest request first, with per-status counts. ?attention=1 is the Needs attention view (v3 spec
- * §3, §5), red then amber then quoted total, or oldest first with &sort=oldest. Every row carries
- * its aging and its rep. The Quotes page polls it. Rep-only.
+ * GET /api/rep/quotes: the Quotes list (spec §4; plan U3), newest request first, with per-status
+ * counts (the board's lanes). The Quotes page renders it and its poll re-reads it with the same query.
+ * Rep-only: it carries margin.
  *
- * ?scope=all&rep=<id>&team=<label> (v3 spec §5, task D2): the manager's All reps scope, every rep's
- * quotes filtered by rep or team label; a rep asking for it gets 403. The Team dashboard's drill-down
- * (task D3) adds &rep=a,b, &from=&to= (created in [from, to)) and &aging=ok|amber|red.
+ * The filter panel (C_QOB2): ?status=<status> or a list (?status=sent,accepted), ?customer=<id> (the
+ * page's own filter; a customer the rep can't read is ignored), ?requested_from=&requested_to=
+ * (YYYY-MM-DD, UTC days) and ?only=overdue,aging,below_floor. The counts cover every filter but the
+ * status ones. ?attention=1 is the old Needs attention view (red then amber then quoted total, or
+ * oldest first with &sort=oldest), kept for links (v3 spec §3, task A2).
+ *
+ * Scope is role based (Appendix B; decisions 20, 22; task U1): a rep's own quotes, or every rep's for
+ * the manager; the old ?scope=all is ignored. The manager also filters by &rep=<id>&team=<label>; the
+ * Analytics drill-down (tasks D3 and U6) adds &rep=a,b, &from=&to= (created in [from, to)) and &aging=ok|amber|red.
  */
-export const GET=repRoute(async(repId,request,_context,session)=>{
-  const params=request.nextUrl.searchParams;
-  const allReps=isAllReps(params.get(REPS_PARAM));
-  if(allReps&&!session.manager)return repJson({detail:'Manager access required.'},403);
-  return repJson(await repQuoteList(repId,{customerId:params.get(SCOPE_PARAM),status:parseStatus(params.get(STATUS_PARAM)),
-    attention:isAttention(params.get(ATTENTION_PARAM)),sort:parseAttentionSort(params.get(SORT_PARAM)),
-    manager:session.manager,allReps:allReps?{rep:params.get(REP_PARAM),team:params.get(TEAM_PARAM),from:params.get(FROM_PARAM),to:params.get(TO_PARAM),aging:params.get(AGING_PARAM)}:null}));
-});
+export const GET=repRoute(async(repId,request,_context,session)=>
+  repJson(await repQuoteList(repId,{...quoteListOptions(request.nextUrl.searchParams),manager:session.manager})));

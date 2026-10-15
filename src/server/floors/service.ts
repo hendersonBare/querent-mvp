@@ -27,7 +27,7 @@ export function effectiveFloor(repId:string,categoryId:string):ResolvedFloor{
 }
 
 /**
- * Settings > My margin floors. `actingRepId` is the logged-in rep (the session principal's
+ * Settings > Margins (a rep's own, plan U9). `actingRepId` is the logged-in rep (the session principal's
  * rep_id, null for a customer); `repId` is whose floor to change. Editing another rep's floor
  * throws FloorPermissionError before anything is written. Throws RangeError for a floor outside
  * 0 to under 1; returns undefined if the rep has no floor row for the category.

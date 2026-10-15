@@ -1,15 +1,16 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {useRepScope} from '../../context';
 import {ActionMenu,type MenuItem} from '../ActionMenu';
+import {MoreIcon} from '../icons';
 import {setQuoteFlash,takeQuoteFlash} from './flash';
 import {QuoteToast,type ToastMessage} from './QuoteToast';
 import {reloadPage} from './reload';
 
-// The quote detail's ⋯ menu (spec §4, docs/design/screens/06; task 3.5), in the mockup's order:
+// The quote editor's More actions menu (plan U4, C_QE3; spec §4; task 3.5), under the More icon button,
+// in the frame's order:
 //   Duplicate quote       a new ready_for_review copy (POST /api/rep/quotes/<id>/duplicate),
-//                         then the copy's page opens, keeping the "Viewing" picker (?customer=);
+//                         then the copy's page opens;
 //   Reassign to another rep  the manager only (task D2): opens the page's Reassign dialog;
 //   Open customer in ERP  disabled until the ERP integration, with that as its tooltip;
 //   Reset sample quote    on the sample quote only (POST /api/rep/quotes/<id>/reset), then the
@@ -50,7 +51,6 @@ const quotePath=(id:string)=>`/api/rep/quotes/${encodeURIComponent(id)}`;
 
 export function MoreMenu({quote,flush,buttonClassName,readOnly=false,onReassign}:MoreMenuProps){
   const router=useRouter();
-  const scope=useRepScope();
   const [busy,setBusy]=useState<'duplicate'|'reset'|null>(null);
   const [toast,setToast]=useState<ToastMessage|null>(null);
   /** Set synchronously, so a second choice in the same instant can't start a second request. */
@@ -88,7 +88,7 @@ export function MoreMenu({quote,flush,buttonClassName,readOnly=false,onReassign}
     catch(error){if(error instanceof Refused)unanswered.current=null;throw error;}
     unanswered.current=null;
     setQuoteFlash(copy.id,`Duplicated ${quote.quote_number} as ${copy.quote_number}`);
-    router.push(scope.href(`/rep/quotes/${encodeURIComponent(copy.quote_number)}`));
+    router.push(`/rep/quotes/${encodeURIComponent(copy.quote_number)}`);
   },`${quote.quote_number} wasn’t duplicated. Check your connection and try again.`);
 
   const reset=()=>run('reset','Resetting the sample quote…',async()=>{
@@ -106,7 +106,7 @@ export function MoreMenu({quote,flush,buttonClassName,readOnly=false,onReassign}
   ];
 
   return <>
-    <ActionMenu buttonClassName={buttonClassName} label="More actions" menuLabel="More actions" items={items} emptyNote="">⋯</ActionMenu>
+    <ActionMenu buttonClassName={buttonClassName} label="More actions" menuLabel="More actions" items={items} align="right"><MoreIcon/></ActionMenu>
     <QuoteToast message={toast} onDismiss={dismiss}/>
   </>;
 }

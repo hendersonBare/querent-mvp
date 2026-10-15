@@ -3,12 +3,12 @@ import { expect, test, type Browser, type BrowserContext, type Locator, type Pag
 // Decline (task A1; v3 spec §2.1, §6; decisions 13 to 15): the PDF preview modal's Decline opens a
 // centered dialog with five reasons (no "no response"), a 250-character field for Other, a red
 // Cancel, an X and a confirm button labelled Decline that works with no reason. Afterwards Dana's
-// chip reads Declined and the bar is off; Brandi gets an unread badge, the Declined filter and chip,
-// and the reason (and the Other note, hers only) in the quote header and Activity.
+// chip reads Declined and the bar is off; Brandi gets an unread notification in her bell, the Declined filter and chip,
+// Declined in the editor's header, and the reason (and the Other note, hers only) in Quote details, Activity (plan U4).
 //
 // Runs on the mockup's seed day through the test-only reset (see golden-quote-flow.spec.ts): start
 // your own server with QUERENT_E2E_RESET=1, or let playwright.config.ts start one. Screenshots of the
-// dialog at 1440px and 390px go to this test's output folder.
+// dialog at 1440px go to this test's output folder.
 
 const SEED_DATE = "2026-09-23";
 const NOTE = "Our crew found the same bolts at the yard next door.";
@@ -24,11 +24,11 @@ async function newPage(browser: Browser, baseURL: string, viewport = { width: 14
   const context = await browser.newContext({ baseURL, viewport });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   return page;
 }
 
-/** Approve & send as Brandi, confirming the revision and total the send check shows. */
+/** Approve and send as Brandi, confirming the revision and total the send check shows. */
 async function send(number: string) {
   const status = await brandi.evaluate(async (number) => {
     const detail = await fetch(`/api/rep/quotes/${number}`).then((r) => r.json());
@@ -55,9 +55,22 @@ async function openPreview(page: Page, number: string) {
   return modal;
 }
 const bar = (modal: Locator) => modal.getByRole("group", { name: "Respond to this quote" });
-const sidebarChip = (number: string) => dana.getByRole("complementary", { name: "Quotes" }).getByRole("button").filter({ hasText: number }).locator(".cx-chip");
+/** Dana's bell row for a quote (plan U10): it reads as read once she has answered the quote. */
+async function bellRead(number: string) {
+  await dana.getByRole("button", { name: "Notifications" }).click();
+  const read = await dana.getByRole("dialog", { name: "Notifications" }).locator("[data-read]", { hasText: number }).getAttribute("data-read");
+  await dana.keyboard.press("Escape");
+  return read;
+}
 const repBadge = () => brandi.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.quotes as number));
 const repDetail = (number: string) => brandi.evaluate((n) => fetch(`/api/rep/quotes/${n}`).then((r) => r.json()), number);
+/** Opens Quote details on the rep's editor (plan U4, C_QE4) and returns its Activity section. */
+async function openActivity(page: Page) {
+  const button = page.getByRole("button", { name: /^Quote details/ });
+  await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  return page.getByRole("region", { name: "Quote details" }).getByRole("region", { name: "Activity", exact: true });
+}
 /** Dana's POST, from her page so her session goes with it. */
 async function decline(number: string, body: unknown) {
   return dana.evaluate(
@@ -138,45 +151,49 @@ test("Decline with a reason at 1440px: the centered dialog, Cancel and X change 
     await expect(dialog.getByRole("radio", { name: "Price too high" })).not.toBeChecked();
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Sent");
+    await expect(modal.locator(".qp-state")).toHaveText("Sent");
     expect((await repDetail(number)).quote.status).toBe("sent");
   });
 
-  await test.step("Decline with Price too high: Dana sees it declined, the bar is off, and the sidebar chip reads Declined", async () => {
+  await test.step("Decline with Price too high: Dana sees it declined, the bar is off, and her bell has the quote as read", async () => {
     await bar(modal).getByRole("button", { name: "Decline" }).click();
     await dialog.getByRole("radio", { name: "Price too high" }).check();
     await dialog.getByRole("button", { name: "Decline", exact: true }).click();
     await expect(dialog).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+    await expect(modal.locator(".qp-state")).toHaveText("Declined");
     await expect(bar(modal)).toContainText("You declined rev 1. Ask Brandi for a new quote if you still need these items.");
     for (const name of ["Decline", "Request changes", "Accept"]) await expect(bar(modal).getByRole("button", { name, exact: true })).toBeDisabled();
-    await expect(sidebarChip(number)).toHaveText("Declined");
     await modal.getByRole("button", { name: "Close" }).click();
+    await expect.poll(() => bellRead(number)).toBe("true");
   });
 
-  await test.step("Brandi: an unread badge, the Declined filter and chip, the reason in the header and Activity", async () => {
+  await test.step("Brandi: an unread notification, the Declined filter and lane, Declined in the header and the reason in Activity", async () => {
     expect(await repBadge()).toBe(before + 1);
     expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: "price_too_high", decline_note: null, unread_for_rep: true });
     await brandi.goto("/rep/quotes?status=declined");
-    await expect(brandi.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ })).toHaveAccessibleName(`Quotes ${before + 1} unread`);
-    await expect(brandi.getByRole("navigation", { name: "Filter by status" }).locator("[aria-current=page]")).toHaveText(/^Declined\d+$/);
-    const row = brandi.getByRole("table").getByRole("rowgroup").filter({ has: brandi.getByRole("link", { name: number, exact: true }) });
-    await expect(row).toHaveAttribute("data-status", "declined");
-    await expect(row).toHaveAttribute("data-unread", "true");
-    await expect(row.getByText("Declined", { exact: true })).toBeVisible();
-    await row.getByRole("link", { name: number, exact: true }).click();
-    await expect(brandi.getByText(/^Dana declined rev 1 on .+: Price too high\.$/)).toBeVisible();
-    const activity = brandi.getByRole("group", { name: "Activity" });
-    await activity.locator("summary").click();
-    await expect(activity.getByRole("list", { name: "Activity, newest first" }).getByRole("listitem").first()).toContainText(`Dana declined ${number} rev 1: Price too high`);
-    await expect(brandi.getByRole("button", { name: "Approve & send" })).toBeDisabled();
+    // The unread decline is in Brandi's bell (plan U2, C_QOB4).
+    await brandi.getByRole("button", { name: "Notifications" }).click();
+    await expect(brandi.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: new RegExp(`^${number} declined by Dana Ortiz`) })).toHaveCount(1);
+    await brandi.keyboard.press("Escape");
+    // The Declined filter keeps the Declined lane only (plan U3), with the quote in it.
+    await expect(brandi.locator("section[data-lane]")).toHaveCount(1);
+    const card = brandi.locator('section[data-lane][aria-label="Declined"]').getByRole("article", { name: number, exact: true });
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: number, exact: true }).click();
+    const sheet = brandi.getByRole("dialog", { name: number, exact: true });
+    await expect(sheet).toContainText("Status: Declined");
+    await sheet.getByRole("link", { name: "Open quote" }).click();
+    // The editor's header (plan U4, C_QEBase) says Declined; the reason is in Quote details, Activity.
+    await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Declined/);
+    const activity = await openActivity(brandi);
+    await expect(activity.locator('[data-ui="activity-message"]').first()).toHaveText(`Dana declined ${number} rev 1: Price too high`);
+    await expect(brandi.getByRole("button", { name: "Approve and send" })).toBeDisabled();
   });
 });
 
-test("Decline with Other at 390px: the 250-character note reaches Brandi only", async ({}, testInfo) => {
+test("Decline with Other: the 250-character note reaches Brandi only", async ({}, testInfo) => {
   const number = await sentCopy("Q-24815");
-  await dana.setViewportSize({ width: 390, height: 844 });
-  try {
+  {
     const modal = await openPreview(dana, number);
     await bar(modal).getByRole("button", { name: "Decline" }).click();
     const dialog = dana.getByRole("alertdialog", { name: "Decline quote" });
@@ -186,11 +203,10 @@ test("Decline with Other at 390px: the 250-character note reaches Brandi only", 
     await field.fill(NOTE);
     await expect(dialog).toContainText(`${NOTE.length}/250`);
     await expectCentered(dana, dialog);
-    expect(await dana.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-    await screenshot(dana, testInfo, "a1-decline-other-390");
+    await screenshot(dana, testInfo, "a1-decline-other-1440");
     await dialog.getByRole("button", { name: "Decline", exact: true }).click();
     await expect(dialog).toBeHidden();
-    await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+    await expect(modal.locator(".qp-state")).toHaveText("Declined");
     await expect(bar(modal).getByRole("button", { name: "Decline" })).toBeDisabled();
     await expect(modal).not.toContainText(NOTE);
     // What Dana's own API says about the quote never carries the note or the reason.
@@ -198,17 +214,14 @@ test("Decline with Other at 390px: the 250-character note reaches Brandi only", 
     expect(mine).not.toContain(NOTE);
     expect(mine).not.toContain("decline_reason");
     await modal.getByRole("button", { name: "Close" }).click();
-  } finally {
-    await dana.setViewportSize({ width: 1440, height: 900 });
   }
 
   expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: "other", decline_note: NOTE });
   await brandi.goto(`/rep/quotes/${number}`);
-  await expect(brandi.getByText(/^Dana declined rev 1 on .+: Other\.$/)).toBeVisible();
-  await expect(brandi.getByText(NOTE, { exact: true })).toBeVisible();
-  const activity = brandi.getByRole("group", { name: "Activity" });
-  await activity.locator("summary").click();
-  await expect(activity.getByRole("listitem").first()).toContainText(`Dana declined ${number} rev 1: Other: "${NOTE}"`);
+  // The reason and the Other note reach Brandi in Quote details, Activity (the header has no banner, plan U4).
+  await expect(brandi.getByRole("group", { name: "Status" })).toHaveText(/^Status\s*Declined/);
+  const activity = await openActivity(brandi);
+  await expect(activity.locator('[data-ui="activity-message"]').first()).toHaveText(`Dana declined ${number} rev 1: Other: "${NOTE}"`);
 });
 
 test("Decline with no reason is recorded; a second decline and an expired quote are refused", async () => {
@@ -216,7 +229,7 @@ test("Decline with no reason is recorded; a second decline and an expired quote 
   const modal = await openPreview(dana, number);
   await bar(modal).getByRole("button", { name: "Decline" }).click();
   await dana.getByRole("alertdialog", { name: "Decline quote" }).getByRole("button", { name: "Decline", exact: true }).click();
-  await expect(modal.locator(".cx-chip")).toHaveText("Declined");
+  await expect(modal.locator(".qp-state")).toHaveText("Declined");
   await modal.getByRole("button", { name: "Close" }).click();
   expect((await repDetail(number)).quote).toMatchObject({ status: "declined", decline_reason: null, decline_note: null, unread_for_rep: true });
   expect(await decline(number, { revision: 1, reason: "price_too_high" })).toMatchObject({ status: 409, json: { code: "illegal_transition", detail: `You already declined ${number}.` } });

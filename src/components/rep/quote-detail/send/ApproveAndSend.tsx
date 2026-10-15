@@ -10,7 +10,7 @@ import {newSendKey,postSend,SendRefused,type SendAnswer} from './api';
 import {ConfirmSendDialog} from './ConfirmSendDialog';
 import {SendDialog} from './SendDialog';
 
-// Approve & send (spec §4, §5.4; task 3.7): the send dialog, then Confirm send, then the send.
+// Approve and send (plan U4, C_QE1; spec §4, §5.4; task 3.7): the send dialog, then Confirm send, then the send.
 //
 // One send per click: the Confirm's Send runs once at a time (a ref set before the request, so a
 // double click can't start a second), and each attempt carries an Idempotency-Key. A retry after
@@ -59,8 +59,9 @@ export function ApproveAndSend({open,editor,figures,checks,onClose}:ApproveAndSe
   const total=figures.total??figures.items;
   const validUntil=day(detail.valid_until,detail.as_of);
   const place=quote.fulfillment==='delivery'?`Delivery from ${quote.branch_code}`:`Will call at ${quote.branch_code}`;
-  const summary=[itemCount(editor.lines.length),figures.total===null?`${money(figures.items)} before freight and tax`:`${money(figures.total)} before tax`,
-    quote.requested_date?`${place}, ${dayWithWeekday(quote.requested_date)}`:place,`valid until ${validUntil}`].join(' · ');
+  // C_QE1: "4 items, $1,122.40 before tax. Will call at SLC, Thu Oct 15. Valid until Oct 25."
+  const summary=`${itemCount(editor.lines.length)}, ${figures.total===null?`${money(figures.items)} before freight and tax`:`${money(figures.total)} before tax`}. `
+    +`${quote.requested_date?`${place}, ${dayWithWeekday(quote.requested_date)}`:place}. Valid until ${validUntil}.`;
   const blockers=[...(detail.editable?[]:[check.status_problem??`${quote.quote_number} can’t be sent now.`]),
     ...checks.filter(c=>c.kind==='blocker').map(c=>c.text)];
   const warnings=checks.filter(c=>c.kind!=='blocker');

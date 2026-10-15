@@ -3,24 +3,50 @@
 export interface Supplier {id:string;name:string;address:string;city:string;state:string;zip:string;phone:string;email:string;website:string}
 
 export interface Rep {id:string;name:string;initials:string;title:string;phone:string;email:string}
+/** A rep's Settings > Profile as stored (plan U9): the rep, and when their picture last changed (null: no picture). */
+export interface RepProfile extends Rep {picture_updated_at:string|null}
+/** The picture types a rep may upload (plan U9): never SVG, which can carry script. */
+export const PICTURE_TYPES=['image/png','image/jpeg','image/webp'] as const;
+export type PictureType=(typeof PICTURE_TYPES)[number];
+/** A rep's stored picture. */
+export interface RepPicture {data:Uint8Array;type:PictureType;updated_at:string}
+/** The notification events a rep turns on or off in the app (plan U9; Appendix C rep_notification_prefs). */
+export const REP_NOTIFICATION_KEYS=['quote_overdue','quote_aging','below_margin_floor','change_requested','quote_accepted','quote_declined','quote_expired','customer_chat_needs_rep'] as const;
+export type RepNotificationKey=(typeof REP_NOTIFICATION_KEYS)[number];
+/**
+ * Settings > Notifications' two cards (plan U9; C_RS4), in its order and words: the switches that feed the
+ * caution dropdown (Needs attention) and the ones that feed the bell (Notifications).
+ */
+export const NOTIFICATION_GROUPS:readonly {title:string;items:readonly {key:RepNotificationKey;label:string}[]}[]=[
+  {title:'Needs attention',items:[
+    {key:'quote_overdue',label:'Quote overdue'},{key:'quote_aging',label:'Quote aging'},
+    {key:'below_margin_floor',label:'Below margin floor'},{key:'change_requested',label:'Change requested'},
+  ]},
+  {title:'Notifications',items:[
+    {key:'quote_accepted',label:'Quote accepted'},{key:'quote_declined',label:'Quote declined'},
+    {key:'quote_expired',label:'Quote expired'},{key:'customer_chat_needs_rep',label:'Customer chat needs a rep'},
+  ]},
+];
 
 /** reps.role (v3 spec §8, decision 20): supervisor and admin are merged into manager. */
 export type RepRole='rep'|'manager';
 /** A rep's stored role and whether they are active, read on every rep request (task D1). */
 export interface RepStanding {role:RepRole;active:boolean}
-/** One row of the manager's Reps card (task D1): role, team label (a filter), active, and how many customers are theirs (customer_rep). */
-export interface TeamRep extends Pick<Rep,'id'|'name'|'initials'|'title'>,RepStanding {team:string|null;customer_count:number}
+/** One rep as Teams and Reps lists them (tasks D1, U7): role, team (its name and id, null for none), active, and how many customers are theirs (customer_rep). */
+export interface TeamRep extends Pick<Rep,'id'|'name'|'initials'|'title'>,RepStanding {team:string|null;team_id:number|null;customer_count:number}
 
 /** One row of the customer picker, the Customers list and Rep assignments (one rep per customer). */
 export interface CustomerListItem {id:string;name:string;account_number:string;rep_id:string|null;rep_name:string|null}
 
 /**
- * One row of the rep's Customers list (task 3.8): the picker's facts plus terms, balance and how
+ * One row of the rep's Customers list (task 3.8): the customer list's facts plus terms, balance and how
  * much history the account has. Placeholder customers have null terms and zero counts (spec §2).
  */
 export interface CustomerDirectoryRow extends CustomerListItem {
   terms:string|null;credit_limit:number|null;open_balance:number|null;
   order_count:number;last_order_date:string|null;quote_count:number;
+  /** Quotes still open: Draft ready, Changes requested or Sent (the Has open quotes filter, plan U5). */
+  open_quote_count:number;
 }
 
 export interface ShipTo {name:string|null;address:string;city:string|null;state:string|null;zip:string|null;lat:number|null;lng:number|null}
@@ -43,18 +69,19 @@ export interface CustomerStats {customer_id:string;last_order:{order_number:stri
 
 export interface Contact {id:string;customer_id:string;name:string;title:string|null;phone:string|null;email:string|null;is_primary:boolean}
 
-/** Static contacts for the customer sidebar; will-call rows point at their branch. */
+/** Static department contacts (the chat's answers); will-call rows point at their branch. */
 export interface Department {id:string;name:string;branch_id:string|null;phone:string;email:string|null;hours:string;sort_order:number}
 
-/** One Warehouse / Will-call row in the customer sidebar: the branch's code and name with its phone. */
-export interface WillCallContact {id:string;branch_id:string;code:string;name:string;phone:string;email:string|null;hours:string}
-
 /**
- * The customer's left sidebar (spec §3), all static seed data: the assigned rep at the very top,
- * then the departments without a branch (Customer Service, Accounts Receivable / Finance), then
- * Warehouse / Will-call with one phone per branch.
+ * GET /api/query/customer/contacts: the customer's assigned rep, shown in the My rep sheet (plan U10,
+ * C_CVL3). Only the rep: the departments stay in the chat's answers.
  */
-export interface CustomerContacts {supplier:string;rep:Rep|null;departments:Department[];willCall:WillCallContact[]}
+/**
+ * The rep as a customer sees them (plan U9): what the rep set on Settings > Profile, their title, and a link to
+ * their picture (null without one). No internal id, nothing else of the rep.
+ */
+export interface CustomerRep {name:string;initials:string;title:string;phone:string;email:string;picture_url:string|null}
+export interface CustomerRepContact {rep:CustomerRep|null}
 
 /** Freight rates (spec §5.3), shown read-only in Settings. */
 /** Settings > Pricing & delivery. road_factor turns straight-line miles into road miles (spec §5.3). */

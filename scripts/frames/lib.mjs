@@ -6,6 +6,13 @@ import { join, extname, resolve } from "node:path";
 
 export const FRAME_DIR = resolve("docs/design/canvas-frames");
 export const FRAME_SIZE = { width: 1440, height: 900 }; // the size frames are drawn at
+/**
+ * Open frames with this user agent when comparing them with the app. Google Fonts serves a different
+ * build of the same font file per user agent, and next/font downloads the app's copy with this one
+ * (node_modules/next/dist/compiled/@next/font/dist/google/fetch-resource.js). With it, the frame and the
+ * app render byte-identical Albert Sans and Geist Mono files, so text widths match too.
+ */
+export const FONT_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36";
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json" };
 

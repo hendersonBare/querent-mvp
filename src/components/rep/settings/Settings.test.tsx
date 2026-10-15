@@ -1,17 +1,21 @@
-import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {settingsFixture} from './test-fixtures';
+import {ALL_ON,FLAGS_OFF,FLAGS_ON,MANAGER_PROFILE,ORG_FLOORS,VIEW,rule,settingsFixture,table} from './test-fixtures';
 
-// Settings tabs (task 6.1): what each shows and what it sends to /api/rep/settings/*.
+// Settings (task 6.1; plan U8; C_S1 to C_S4): what each manager tab shows and what it sends to
+// /api/rep/settings/*, and the feature-flagged sections (decision 48). A rep's own tabs (plan U9) are in
+// RepSettings.test.tsx.
 
-const router=vi.hoisted(()=>({refresh:vi.fn()}));
-vi.mock('next/navigation',()=>({useRouter:()=>({refresh:router.refresh,replace:vi.fn(),push:vi.fn(),prefetch:vi.fn()})}));
+const nav=vi.hoisted(()=>({params:new URLSearchParams(),refresh:vi.fn()}));
+vi.mock('next/navigation',()=>({
+  useRouter:()=>({refresh:nav.refresh,replace:vi.fn(),push:vi.fn(),prefetch:vi.fn()}),
+  useSearchParams:()=>nav.params,usePathname:()=>'/rep/settings',
+}));
 
-const {RepAssignments}=await import('./RepAssignments');
 const {CustomerAccess}=await import('./CustomerAccess');
 const {MarginFloors}=await import('./MarginFloors');
 const {PricingDelivery}=await import('./PricingDelivery');
-const {DataSources}=await import('./DataSources');
+const {SettingsSection}=await import('../SettingsSection');
 
 type Reply={status?:number;body:unknown};
 let replies:Reply[]=[];
@@ -19,263 +23,309 @@ const fetchMock=vi.fn(async(_input:RequestInfo|URL,_init?:RequestInit)=>{
   const next=replies.shift()??{body:{detail:'Not found.'},status:404};
   return Response.json(next.body,{status:next.status??200});
 });
-const sent=()=>fetchMock.mock.calls.filter(([,init])=>init?.method==='PUT').map(([url,init])=>({url:String(url),body:JSON.parse(String(init!.body))}));
+const calls=()=>fetchMock.mock.calls.map(([url,init])=>({url:String(url),method:init?.method??'GET',body:init?.body?JSON.parse(String(init.body)):undefined}));
+const sent=()=>calls().filter(c=>c.method==='PUT').map(({url,body})=>({url,body}));
 
-beforeEach(()=>{replies=[];fetchMock.mockClear();router.refresh.mockClear();vi.stubGlobal('fetch',fetchMock);});
-afterEach(()=>vi.unstubAllGlobals());
+beforeEach(()=>{replies=[];fetchMock.mockClear();nav.params=new URLSearchParams();vi.stubGlobal('fetch',fetchMock);});
+afterEach(()=>{vi.unstubAllGlobals();vi.useRealTimers();});
 
-describe('Rep assignments',()=>{
-  const settings=settingsFixture();
-  const renderIt=(onChange=vi.fn(),manager=true)=>{render(<RepAssignments rows={settings.assignments} reps={settings.reps} repId="brandi" manager={manager} onChange={onChange}/>);return onChange;};
+describe('Customer access (C_S1, C_S1a, C_S1b)',()=>{
+  const renderIt=(props:Partial<Parameters<typeof CustomerAccess>[0]>={})=>render(<CustomerAccess initialRules={ALL_ON} initialTable={null} tabs={null} {...props}/>);
 
-  it('lists every customer, placeholders marked, with a rep dropdown and their quotes by rep',()=>{
+  it('with no search and no filter: one switch per data type for every customer, in the frame\'s words',()=>{
     renderIt();
-    const rows=within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(rows.map(r=>within(r).getByRole('rowheader').textContent)).toEqual([
-      'Canyon Ridge BuildersCRB-3318Placeholder','Great Basin FabricationGBF-2207Placeholder','Uinta Facility ServicesUFS-4051Placeholder','Wasatch Mechanical ContractorsWAS-1142',
+    const card=screen.getByRole('region',{name:'Customer access'});
+    expect(within(card).getAllByRole('switch').map(s=>[s.getAttribute('aria-label'),s.getAttribute('aria-checked')])).toEqual([
+      ['Items and stock','true'],['Pricing','true'],['Orders and quotes','true'],['Account','true'],
     ]);
-    const wasatch=screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'});
-    expect(wasatch).toHaveValue('brandi');
-    expect(within(wasatch).getAllByRole('option').map(o=>o.textContent)).toEqual(['Brandi Gallegos (you)','Eli Porter','Mara Jensen','Nora Chen']);
-    expect(screen.getByRole('combobox',{name:'Rep for Canyon Ridge Builders'})).toHaveValue('mara');
-    expect(rows[3]).toHaveTextContent('25 with Brandi Gallegos');
-    expect(rows[0]).toHaveTextContent('None yet');
+    expect(within(card).getAllByText('Querent answers')).toHaveLength(4);
+    expect(screen.getByRole('searchbox',{name:'Search customers'})).toHaveValue('');
+    expect(screen.getByRole('button',{name:'Filter'})).toBeInTheDocument();
+    expect(screen.queryByText(/of 6 customers/)).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("reassigns a customer, says its quotes stay put, and refreshes the picker's rep names",async()=>{
-    const moved=settings.assignments.map(a=>a.id==='wasatch'?{...a,rep_id:'mara',rep_name:'Mara Jensen'}:a);
-    replies=[{body:{assignments:moved}}];
-    const onChange=renderIt();
-    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'}),{target:{value:'mara'}});
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith(moved));
-    expect(sent()).toEqual([{url:'/api/rep/settings/assignments',body:{customer_id:'wasatch',rep_id:'mara'}}]);
-    expect(screen.getByRole('status')).toHaveTextContent('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 25 existing quotes stay with Brandi Gallegos.');
-    expect(router.refresh).toHaveBeenCalled();
+  it('turns a type off for every customer, and a mixed type reads "On for some customers" and turns on',async()=>{
+    const off=[rule('items_stock',true),rule('pricing',false),rule('orders_quotes',true),rule('account',true)];
+    replies=[{body:{customer_id:null,rules:off,all:off}}];
+    renderIt();
+    fireEvent.click(screen.getByRole('switch',{name:'Pricing'}));
+    await waitFor(()=>expect(screen.getByRole('switch',{name:'Pricing'})).toHaveAttribute('aria-checked','false'));
+    expect(sent()).toEqual([{url:'/api/rep/settings/access',body:{customer_id:null,category:'pricing',enabled:false}}]);
+    expect(screen.getByRole('switch',{name:'Pricing'})).toHaveAccessibleDescription('Not shared');
   });
 
-  it('“Also move this customer’s open quotes” (task D2): the save moves them too, and the notice says how many',async()=>{
-    const moved=settings.assignments.map(a=>a.id==='wasatch'?{...a,rep_id:'mara',rep_name:'Mara Jensen',
-      quotes:[{rep_id:'brandi',rep_name:'Brandi Gallegos',count:21},{rep_id:'mara',rep_name:'Mara Jensen',count:4}]}:a);
-    replies=[{body:{assignments:moved,moved:{to:{id:'mara',name:'Mara Jensen'},skipped:[],moved:[1,2,3,4].map(n=>({id:`q-${n}`,quote_number:`Q-${n}`,from:{id:'brandi',name:'Brandi Gallegos'}}))}}}];
-    const onChange=renderIt();
-    const box=screen.getByRole('checkbox',{name:'Also move this customer’s open quotes'});
-    expect(box).not.toBeChecked();
-    fireEvent.click(box);
-    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Wasatch Mechanical Contractors'}),{target:{value:'mara'}});
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith(moved));
-    expect(sent()).toEqual([{url:'/api/rep/settings/assignments',body:{customer_id:'wasatch',rep_id:'mara',moveOpenQuotes:true}}]);
-    expect(screen.getByRole('status')).toHaveTextContent('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. 4 open quotes moved to Mara Jensen. Its 21 existing quotes stay with Brandi Gallegos.');
-  });
-
-  it('a rep sees the assignments read-only: names, no dropdowns, no checkbox, and who can change them (task D2)',()=>{
-    renderIt(vi.fn(),false);
-    expect(screen.queryByRole('combobox')).toBeNull();
-    expect(screen.queryByRole('checkbox')).toBeNull();
-    const rows=within(screen.getByRole('table')).getAllByRole('row').slice(1);
-    expect(within(rows[3]).getAllByRole('cell')[0]).toHaveTextContent('Brandi Gallegos');
-    expect(within(rows[0]).getAllByRole('cell')[0]).toHaveTextContent('Mara Jensen');
-    expect(screen.getByText('Only a manager can change rep assignments.')).toBeInTheDocument();
-  });
-
-  it("shows the server's reason when a change isn't saved",async()=>{
-    replies=[{status:404,body:{detail:'Rep not found.'}}];
-    const onChange=renderIt();
-    fireEvent.change(screen.getByRole('combobox',{name:'Rep for Great Basin Fabrication'}),{target:{value:'eli'}});
-    expect(await screen.findByRole('alert')).toHaveTextContent('Rep not found.');
-    expect(onChange).not.toHaveBeenCalled();
-    expect(router.refresh).not.toHaveBeenCalled();
-  });
-});
-
-describe('Customer access',()=>{
-  it("shows what each category covers, and turns one off for the picked customer",async()=>{
-    const settings=settingsFixture('wasatch');
-    const off={...settings.access,rules:settings.access.rules.map(r=>r.category==='items_stock'?{...r,enabled:false}:r)};
-    replies=[{body:off}];
-    const onChange=vi.fn();
-    const {rerender}=render(<CustomerAccess access={settings.access} scopeLabel="Wasatch Mechanical Contractors" onChange={onChange}/>);
-    expect(screen.getByText(/What Querent answers in chat for Wasatch Mechanical Contractors/)).toBeInTheDocument();
-    expect(screen.getAllByRole('switch').map(s=>s.getAttribute('aria-label'))).toEqual(['Items & stock','Pricing','Orders & quotes','Account']);
-    expect(screen.getByText('Finding items, stock by branch, and asking for a quote in chat')).toBeInTheDocument();
-    const items=screen.getByRole('switch',{name:'Items & stock'});
-    expect(items).toBeChecked();
-    expect(items).toHaveAccessibleDescription('Querent answers');
-    fireEvent.click(items);
-    await waitFor(()=>expect(onChange).toHaveBeenCalledWith(off));
-    expect(sent()).toEqual([{url:'/api/rep/settings/access',body:{customer_id:'wasatch',category:'items_stock',enabled:false}}]);
-    rerender(<CustomerAccess access={off} scopeLabel="Wasatch Mechanical Contractors" onChange={onChange}/>);
-    expect(screen.getByRole('switch',{name:'Items & stock'})).not.toBeChecked();
-    expect(screen.getByRole('switch',{name:'Items & stock'})).toHaveAccessibleDescription('Off: chat refers them to Brandi Gallegos');
-  });
-
-  it('for All customers, sets every customer at once, and a mixed category reads as some-on and turns on',async()=>{
-    const settings=settingsFixture();
-    const mixed={...settings.access,rules:settings.access.rules.map(r=>r.category==='pricing'?{...r,enabled:null}:r)};
-    replies=[{body:settings.access}];
-    render(<CustomerAccess access={mixed} scopeLabel="All customers" onChange={vi.fn()}/>);
-    expect(screen.getByText(/for every customer\. A change here applies to all of them/)).toBeInTheDocument();
+  it('a mixed type turns on for everyone',async()=>{
+    replies=[{body:{customer_id:null,rules:ALL_ON,all:ALL_ON}}];
+    renderIt({initialRules:[rule('items_stock',true),rule('pricing',null),rule('orders_quotes',true),rule('account',true)]});
     const pricing=screen.getByRole('switch',{name:'Pricing'});
-    expect(pricing).not.toBeChecked();
+    expect(pricing).toHaveAttribute('aria-checked','false');
     expect(pricing).toHaveAccessibleDescription('On for some customers');
     fireEvent.click(pricing);
     await waitFor(()=>expect(sent()).toEqual([{url:'/api/rep/settings/access',body:{customer_id:null,category:'pricing',enabled:true}}]));
   });
+
+  it('a search lists the matching customers with their account numbers and one switch per type, and counts them',async()=>{
+    replies=[{body:table('basin',['great-basin','weber-basin'])}];
+    renderIt();
+    fireEvent.change(screen.getByRole('searchbox',{name:'Search customers'}),{target:{value:'basin'}});
+    await screen.findByText('2 of 6 customers');
+    const grid=screen.getByRole('table',{name:'Customer access by customer'});
+    expect(calls()).toEqual([{url:'/api/rep/settings/access?q=basin',method:'GET',body:undefined}]);
+    expect(within(grid).getAllByRole('columnheader').map(h=>h.textContent)).toEqual([':: Customer',':: Items and stock',':: Pricing',':: Orders and quotes',':: Account']);
+    expect(within(grid).getAllByRole('rowheader').map(h=>h.textContent)).toEqual(['Great Basin FabricationGBF-2207','Weber Basin FabricatorsWBF-6074']);
+    expect(screen.getByRole('switch',{name:'Pricing for Great Basin Fabrication'})).toHaveAttribute('aria-checked','false');
+    expect(screen.getByRole('switch',{name:'Pricing for Weber Basin Fabricators'})).toHaveAttribute('aria-checked','true');
+    expect(screen.getByText('2 of 6 customers')).toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Customer access'})).not.toBeInTheDocument();
+  });
+
+  it('the filter (Any, Querent answers, Not shared per type) lists the customers that match, with the count badge; a switch sets one customer',async()=>{
+    replies=[{body:table('',['great-basin','uinta-facility'])}];
+    renderIt();
+    fireEvent.click(screen.getByRole('button',{name:'Filter'}));
+    const panel=screen.getByRole('dialog',{name:'Filter customers'});
+    expect(within(panel).getAllByRole('radiogroup').map(g=>g.getAttribute('aria-labelledby')&&document.getElementById(g.getAttribute('aria-labelledby')!)!.textContent)).toEqual(['Items and stock','Pricing','Orders and quotes','Account']);
+    const pricing=within(panel).getAllByRole('radiogroup')[1];
+    expect(within(pricing).getAllByRole('radio').map(r=>r.textContent)).toEqual(['Any','Querent answers','Not shared']);
+    fireEvent.click(within(pricing).getByRole('radio',{name:'Not shared'}));
+    fireEvent.click(within(panel).getByRole('button',{name:'Apply filters'}));
+    await screen.findByText('2 of 6 customers');
+    expect(calls()).toEqual([{url:'/api/rep/settings/access?pricing=not_shared',method:'GET',body:undefined}]);
+    expect(screen.getByRole('button',{name:'Filter, 1 applied'})).toHaveTextContent('Filter1');
+    expect(screen.getByText('2 of 6 customers')).toBeInTheDocument();
+
+    replies=[{body:{customer_id:'great-basin',rules:ALL_ON,all:ALL_ON}}];
+    fireEvent.click(screen.getByRole('switch',{name:'Pricing for Great Basin Fabrication'}));
+    await waitFor(()=>expect(screen.getByRole('switch',{name:'Pricing for Great Basin Fabrication'})).toHaveAttribute('aria-checked','true'));
+    expect(sent()).toEqual([{url:'/api/rep/settings/access',body:{customer_id:'great-basin',category:'pricing',enabled:true}}]);
+
+    // Clear all and Apply goes back to every customer's switches.
+    fireEvent.click(screen.getByRole('button',{name:'Filter, 1 applied'}));
+    fireEvent.click(within(screen.getByRole('dialog',{name:'Filter customers'})).getByRole('button',{name:'Clear all'}));
+    fireEvent.click(within(screen.getByRole('dialog',{name:'Filter customers'})).getByRole('button',{name:'Apply filters'}));
+    expect(await screen.findByRole('region',{name:'Customer access'})).toBeInTheDocument();
+  });
+
+  it('opens on a linked customer (?customer=) searched for its name, and says so when nothing matches',async()=>{
+    renderIt({initialTable:table('Wasatch Mechanical Contractors',['wasatch'])});
+    expect(screen.getByRole('searchbox',{name:'Search customers'})).toHaveValue('Wasatch Mechanical Contractors');
+    expect(screen.getByRole('switch',{name:'Items and stock for Wasatch Mechanical Contractors'})).toBeInTheDocument();
+    expect(screen.getByText('1 of 6 customers')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    replies=[{body:table('zz',[])}];
+    fireEvent.change(screen.getByRole('searchbox',{name:'Search customers'}),{target:{value:'zz'}});
+    expect(await screen.findByText('No customers match.')).toBeInTheDocument();
+    expect(screen.getByText('0 of 6 customers')).toBeInTheDocument();
+  });
 });
 
-describe('Margin floors',()=>{
+describe('Margin floors (C_S2, C_S3)',()=>{
   const settings=settingsFixture();
-  const renderIt=(onSaved=vi.fn())=>{render(<MarginFloors mine={settings.floors.mine} others={settings.floors.others} onSaved={onSaved}/>);return onSaved;};
+  const renderIt=()=>render(<MarginFloors orgFloors={ORG_FLOORS} repMargins={settings.manager!.repMargins} meId="brandi" tabs={null}/>);
 
-  it("shows Brandi's floor per category to edit, and the other reps' read-only",()=>{
+  it('Organization margin floors: a field and a 0% to 50% bar per category, saved together',async()=>{
     renderIt();
-    expect(screen.getByRole('heading',{name:'My margin floors'})).toBeInTheDocument();
-    expect(screen.getByText(/like “Below Brandi’s 30% Safety & PPE floor”/)).toBeInTheDocument();
-    expect(screen.getAllByRole('textbox').map(f=>[f.getAttribute('aria-label'),(f as HTMLInputElement).value])).toEqual([
-      ['Fasteners floor','20.0'],['Abrasives & Cutting floor','25.0'],['Safety & PPE floor','30.0'],['Material Handling & Tie-downs floor','20.0'],['Tools floor','18.0'],['Janitorial/MRO floor','20.0'],
+    const card=screen.getByRole('region',{name:'Organization margin floors'});
+    expect(within(card).getAllByRole('textbox').map(f=>[f.getAttribute('aria-label'),(f as HTMLInputElement).value])).toEqual([
+      ['Fasteners floor','20.0'],['Abrasives & Cutting floor','20.0'],['Safety & PPE floor','20.0'],['Material Handling & Tie-downs floor','20.0'],['Tools floor','18.0'],['Janitorial/MRO floor','20.0'],
     ]);
-    for(const save of screen.getAllByRole('button',{name:'Save'}))expect(save).toBeDisabled();
-    const others=screen.getByRole('table');
-    expect(within(others).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Category','Eli Porter','Mara Jensen','Nora Chen']);
-    expect(within(others).getAllByRole('row')[3]).toHaveTextContent(/^Safety & PPE20\.0%20\.0%20\.0%$/);
-    expect(within(others).queryByRole('textbox')).not.toBeInTheDocument();
-  });
-
-  it('saves a changed floor to 0.1 point and shows what the server stored',async()=>{
-    const saved={...settings.floors.mine,floors:settings.floors.mine.floors.map(f=>f.category_id==='safety'?{...f,margin_floor:0.255,label:'25.5%'}:f)};
+    expect(within(card).getByText(':: Category')).toBeInTheDocument();
+    expect(within(card).getByText(':: Floor')).toBeInTheDocument();
+    expect(['0%','25%','50%'].every(t=>within(card).getByText(t))).toBe(true);
+    fireEvent.change(within(card).getByRole('textbox',{name:'Safety & PPE floor'}),{target:{value:'25'}});
+    const saved=ORG_FLOORS.map(f=>f.category_id==='safety'?{...f,floor:0.25,label:'25.0%'}:f);
     replies=[{body:saved}];
-    const onSaved=renderIt();
-    const field=screen.getByRole('textbox',{name:'Safety & PPE floor'});
-    fireEvent.change(field,{target:{value:'25.46'}});
-    const row=field.closest('li')!;
-    const save=within(row).getByRole('button',{name:'Save'});
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-    await waitFor(()=>expect(onSaved).toHaveBeenCalledWith(saved));
-    expect(sent()).toEqual([{url:'/api/rep/settings/floors',body:{rep_id:'brandi',category_id:'safety',floor_pct:25.5}}]);
-    expect(field).toHaveValue('25.5');
-    expect(within(row).getByRole('status')).toHaveTextContent('Saved');
+    fireEvent.click(within(card).getByRole('button',{name:'Save floors'}));
+    await waitFor(()=>expect(within(card).getByRole('status')).toHaveTextContent('Saved'));
+    expect(sent()).toEqual([{url:'/api/rep/settings/org-floors',body:{floors:[
+      {category_id:'fasteners',floor_pct:20},{category_id:'abrasives',floor_pct:20},{category_id:'safety',floor_pct:25},
+      {category_id:'material-handling',floor_pct:20},{category_id:'tools',floor_pct:18},{category_id:'janitorial',floor_pct:20},
+    ]}}]);
+    expect(within(card).getByRole('textbox',{name:'Safety & PPE floor'})).toHaveValue('25.0');
   });
 
-  it('says what a floor must be, and refuses to save until it is one',()=>{
+  it('says what a floor must be and will not save until each one is',()=>{
     renderIt();
-    const field=screen.getByRole('textbox',{name:'Fasteners floor'});
+    const card=screen.getByRole('region',{name:'Organization margin floors'});
+    const field=within(card).getByRole('textbox',{name:'Tools floor'});
     for(const value of ['abc','100','-5','']){
       fireEvent.change(field,{target:{value}});
       expect(field).toHaveAttribute('aria-invalid','true');
-      expect(field).toHaveAccessibleDescription('Enter a floor from 0 to 99.9.');
-      expect(within(field.closest('li')!).getByRole('button',{name:'Save'})).toBeDisabled();
+      expect(within(card).getByRole('alert')).toHaveTextContent('Enter a floor from 0 to 99.9.');
+      expect(within(card).getByRole('button',{name:'Save floors'})).toBeDisabled();
     }
-    fireEvent.submit(field.closest('form')!);
     expect(fetchMock).not.toHaveBeenCalled();
-    fireEvent.change(field,{target:{value:'20'}});
-    expect(field).not.toHaveAttribute('aria-invalid');
-    expect(within(field.closest('li')!).getByRole('button',{name:'Save'})).toBeDisabled();
   });
 
-  it("shows the server's reason when a floor isn't saved",async()=>{
-    replies=[{status:400,body:{detail:'Enter a floor from 0% to 99.9%.'}}];
-    const onSaved=renderIt();
-    const field=screen.getByRole('textbox',{name:'Tools floor'});
-    fireEvent.change(field,{target:{value:'22'}});
-    fireEvent.submit(field.closest('form')!);
-    await waitFor(()=>expect(field).toHaveAccessibleDescription('Enter a floor from 0% to 99.9%.'));
-    expect(onSaved).not.toHaveBeenCalled();
-    expect(field).toHaveValue('22');
+  it("shows the server's reason when the floors aren't saved",async()=>{
+    replies=[{status:403,body:{detail:'Manager access required.'}}];
+    renderIt();
+    const card=screen.getByRole('region',{name:'Organization margin floors'});
+    fireEvent.change(within(card).getByRole('textbox',{name:'Tools floor'}),{target:{value:'19'}});
+    fireEvent.click(within(card).getByRole('button',{name:'Save floors'}));
+    expect(await within(card).findByRole('alert')).toHaveTextContent('Manager access required.');
+  });
+
+  it('Rep margins: read-only, a searchable rep (Eli first, not the signed-in manager), their margin against the organization floor',()=>{
+    renderIt();
+    const card=screen.getByRole('region',{name:'Rep margins'});
+    expect(card).toHaveTextContent('Read-only. Each rep sets their own above your floors.');
+    const box=within(card).getByRole('combobox',{name:'Rep'});
+    expect(box).toHaveValue('Eli Porter');
+    const grid=within(card).getByRole('table',{name:'Eli Porter’s margins'});
+    expect(within(grid).getAllByRole('columnheader').map(h=>h.textContent)).toEqual([':: Category',':: Eli',':: Organization floor']);
+    expect(within(grid).getAllByRole('row').slice(1).map(r=>r.textContent)).toEqual([
+      'Fasteners22.0%20.0%','Abrasives & Cutting25.0%20.0%','Safety & PPE30.0%20.0%','Material Handling & Tie-downs20.0%20.0%','Tools18.0%18.0%','Janitorial/MRO21.0%20.0%',
+    ]);
+    expect(within(grid).queryByRole('textbox')).not.toBeInTheDocument();
+
+    // Open: every rep, Eli picked (C_S3); typing narrows; picking shows that rep.
+    fireEvent.click(box);
+    const list=within(card).getByRole('listbox',{name:'Reps'});
+    expect(within(list).getAllByRole('option').map(o=>[o.textContent,o.getAttribute('aria-selected')])).toEqual([
+      ['Brandi Gallegos','false'],['Eli Porter','true'],['Mara Jensen','false'],['Nora Chen','false'],
+    ]);
+    fireEvent.change(box,{target:{value:'ma'}});
+    expect(within(within(card).getByRole('listbox',{name:'Reps'})).getAllByRole('option').map(o=>o.textContent)).toEqual(['Mara Jensen']);
+    fireEvent.mouseDown(within(card).getByRole('option',{name:'Mara Jensen'}));
+    expect(within(card).queryByRole('listbox')).not.toBeInTheDocument();
+    expect(box).toHaveValue('Mara Jensen');
+    expect(within(card).getByRole('table',{name:'Mara Jensen’s margins'})).toHaveTextContent(':: Mara');
+  });
+
+  it('the rep list takes the arrow keys, Enter and Escape',()=>{
+    renderIt();
+    const box=within(screen.getByRole('region',{name:'Rep margins'})).getByRole('combobox',{name:'Rep'});
+    fireEvent.keyDown(box,{key:'ArrowDown'});
+    expect(screen.getByRole('listbox',{name:'Reps'})).toBeInTheDocument();
+    fireEvent.keyDown(box,{key:'ArrowDown'});
+    fireEvent.keyDown(box,{key:'Enter'});
+    expect(box).toHaveValue('Mara Jensen');
+    fireEvent.keyDown(box,{key:'ArrowDown'});
+    fireEvent.keyDown(box,{key:'Escape'});
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 });
 
-describe('Pricing & delivery',()=>{
-  const settings=settingsFixture();
+describe('Pricing and delivery (C_S4)',()=>{
+  const {pricing,delivery}=settingsFixture().manager!;
+  const renderIt=(flags=FLAGS_OFF)=>render(<PricingDelivery pricing={pricing} delivery={delivery} flags={flags} tabs={null}/>);
 
-  it('turns the scarcity uplift on (it is off by default)',async()=>{
+  it('Pricing: the scarcity uplift (off by default) and the broken case rule, in the frame\'s words',async()=>{
     replies=[{body:{scarcity_uplift_enabled:true}}];
-    const onPricing=vi.fn();
-    const {rerender}=render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={onPricing} onDelivery={vi.fn()}/>);
-    const scarcity=screen.getByRole('switch',{name:'Scarcity uplift'});
-    expect(scarcity).not.toBeChecked();
+    renderIt();
+    const card=screen.getByRole('region',{name:'Pricing'});
+    expect(card).toHaveTextContent('How Querent suggests a price for each quote line.');
+    expect(card).toHaveTextContent('Scarcity upliftWhen one branch can fill a line, or has under 1.5x the quantity on hand, suggest the customer price + 5%, never above list.Off (default)');
+    expect(card).toHaveTextContent("Broken caseWhen a line's quantity is under a full case, suggest the customer price + 10%, never above list. A higher last-paid price still wins.Always on");
+    expect(card).toHaveTextContent('Applies to quotes Querent prices from now on. Drafts already priced keep their suggestions.');
+    const scarcity=within(card).getByRole('switch',{name:'Scarcity uplift'});
     expect(scarcity).toHaveAccessibleDescription('Off (default)');
     fireEvent.click(scarcity);
-    await waitFor(()=>expect(onPricing).toHaveBeenCalledWith({scarcity_uplift_enabled:true}));
+    await waitFor(()=>expect(scarcity).toHaveAttribute('aria-checked','true'));
     expect(sent()).toEqual([{url:'/api/rep/settings/pricing',body:{scarcity_uplift_enabled:true}}]);
-    rerender(<PricingDelivery pricing={{scarcity_uplift_enabled:true}} delivery={settings.delivery} onPricing={onPricing} onDelivery={vi.fn()}/>);
-    expect(screen.getByRole('switch',{name:'Scarcity uplift'})).toBeChecked();
+    expect(scarcity).toHaveAccessibleDescription('On');
   });
 
-  it('says how a broken case is priced (fixed at customer price + 10%)',()=>{
-    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={vi.fn()}/>);
-    const pricing=screen.getByRole('region',{name:'Pricing'});
-    expect(pricing).toHaveTextContent('Broken caseWhen a line’s quantity is less than a full case, suggest the customer price + 10%, never above list. A higher last-paid price still wins.Always on');
-    expect(within(pricing).getAllByRole('switch')).toHaveLength(1);
-  });
-
-  it('edits every delivery rate: a worked example follows the typing, and Save sends all six',async()=>{
-    replies=[{body:{base_fee:30,per_mile:3.25,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}}];
-    const onDelivery=vi.fn();
-    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={onDelivery}/>);
-    const rates=screen.getByRole('region',{name:'Delivery rates'});
-    const field=(name:string)=>within(rates).getByRole('spinbutton',{name});
-    expect(['Base fee','Per road mile','Minimum charge','Free delivery at items total of','Delivery radius','Road miles per straight-line mile'].map(n=>(field(n) as HTMLInputElement).value))
+  it('Delivery rates: right-aligned fields, units under the labels, the worked example follows the typing, Save sends all six',async()=>{
+    renderIt();
+    const card=screen.getByRole('region',{name:'Delivery rates'});
+    expect(card).toHaveTextContent('Draft quotes use new rates from their next change.');
+    const field=(name:string)=>within(card).getByRole('textbox',{name}) as HTMLInputElement;
+    expect(['Base fee','Per road mile','Minimum charge','Free delivery at items total of','Delivery radius','Road miles per straight-line mile'].map(n=>field(n).value))
       .toEqual(['25','2.5','35','1500','75','1.25']);
-    expect(rates).toHaveTextContent('Example, 15.0 road miles from SLC: $25.00 + $2.50/mi × 15.0 mi = $62.50');
-    const save=within(rates).getByRole('button',{name:'Save rates'});
-    expect(save).toBeDisabled();
-    fireEvent.change(field('Base fee'),{target:{value:'30'}});
-    fireEvent.change(field('Per road mile'),{target:{value:'3.25'}});
-    expect(rates).toHaveTextContent('Example, 15.0 road miles from SLC: $30.00 + $3.25/mi × 15.0 mi = $78.75');
-    fireEvent.change(field('Minimum charge'),{target:{value:'40'}});
-    fireEvent.change(field('Free delivery at items total of'),{target:{value:'2000'}});
-    fireEvent.change(field('Delivery radius'),{target:{value:'90'}});
-    fireEvent.change(field('Road miles per straight-line mile'),{target:{value:'1.3'}});
-    fireEvent.click(save);
-    await waitFor(()=>expect(onDelivery).toHaveBeenCalledWith({base_fee:30,per_mile:3.25,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}));
-    expect(sent()).toEqual([{url:'/api/rep/settings/delivery',body:{base_fee:30,per_mile:3.25,min_charge:40,free_threshold:2000,max_radius_miles:90,road_factor:1.3}}]);
+    expect(card).toHaveTextContent('Delivery radiusMiles. Farther is call for freight');
+    expect(card).toHaveTextContent('Road miles per straight-line mileMultiplier on straight-line miles');
+    expect(card).toHaveTextContent('Minimum $35.00. Free with an items total of $1,500.00 or more, within 75 road miles. Example, 15.0 miles from SLC: $25.00 + $2.50/mi x 15.0 mi = $62.50. Sent quotes keep the freight they went out with.');
+    fireEvent.change(field('Per road mile'),{target:{value:'3'}});
+    expect(card).toHaveTextContent('$25.00 + $3.00/mi x 15.0 mi = $70.00');
+    replies=[{body:{...delivery,per_mile:3}}];
+    fireEvent.click(within(card).getByRole('button',{name:'Save rates'}));
+    await waitFor(()=>expect(within(card).getByRole('status')).toHaveTextContent('Saved'));
+    expect(sent()).toEqual([{url:'/api/rep/settings/delivery',body:{...delivery,per_mile:3}}]);
   });
 
-  it('says what is wrong before saving, and Cancel puts the saved rates back',()=>{
-    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={vi.fn()}/>);
-    const rates=screen.getByRole('region',{name:'Delivery rates'});
-    const radius=within(rates).getByRole('spinbutton',{name:'Delivery radius'});
-    fireEvent.change(radius,{target:{value:'0'}});
-    expect(within(rates).getByRole('alert')).toHaveTextContent('Delivery radius must be from 1 to 1,000.');
-    expect(within(rates).getByRole('button',{name:'Save rates'})).toBeDisabled();
-    fireEvent.change(within(rates).getByRole('spinbutton',{name:'Road miles per straight-line mile'}),{target:{value:''}});
-    fireEvent.click(within(rates).getByRole('button',{name:'Cancel'}));
-    expect(radius).toHaveValue(75);
-    expect(within(rates).queryByRole('alert')).not.toBeInTheDocument();
-    expect(sent()).toEqual([]);
+  it('says what is wrong with a rate before saving, and the server\'s reason after',async()=>{
+    renderIt();
+    const card=screen.getByRole('region',{name:'Delivery rates'});
+    fireEvent.change(within(card).getByRole('textbox',{name:'Delivery radius'}),{target:{value:'0'}});
+    expect(within(card).getByRole('alert')).toHaveTextContent('Delivery radius must be from 1 to 1,000.');
+    expect(within(card).getByRole('button',{name:'Save rates'})).toBeDisabled();
+    fireEvent.change(within(card).getByRole('textbox',{name:'Delivery radius'}),{target:{value:'80'}});
+    replies=[{status:403,body:{detail:'Manager access required.'}}];
+    fireEvent.click(within(card).getByRole('button',{name:'Save rates'}));
+    expect(await within(card).findByRole('alert')).toHaveTextContent('Manager access required.');
   });
 
-  it("shows the server's reason when the rates aren't saved",async()=>{
-    replies=[{status:400,body:{detail:'Base fee must be from 0 to 10,000.'}}];
-    const onDelivery=vi.fn();
-    render(<PricingDelivery pricing={settings.pricing} delivery={settings.delivery} onPricing={vi.fn()} onDelivery={onDelivery}/>);
-    const rates=screen.getByRole('region',{name:'Delivery rates'});
-    fireEvent.change(within(rates).getByRole('spinbutton',{name:'Base fee'}),{target:{value:'26'}});
-    fireEvent.click(within(rates).getByRole('button',{name:'Save rates'}));
-    await waitFor(()=>expect(within(rates).getByRole('alert')).toHaveTextContent('Base fee must be from 0 to 10,000.'));
-    expect(onDelivery).not.toHaveBeenCalled();
+  it('renders no feature-flagged section while its flag is off, and never loads them (decision 48)',()=>{
+    renderIt(FLAGS_OFF);
+    for(const name of ['Free delivery pricing','Recovery pool','Delivery cost model'])expect(screen.queryByRole('heading',{name})).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveTextContent(/FEATURE FLAG/i);
+  });
+
+  it('renders each flagged section when its own flag is on, and nothing more',async()=>{
+    replies=[{body:VIEW}];
+    const {unmount}=renderIt({...FLAGS_OFF,freeDeliveryPricing:true});
+    expect(await screen.findByRole('heading',{name:'Free delivery pricing'})).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Recovery pool'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Delivery cost model'})).not.toBeInTheDocument();
+    unmount();
+    replies=[{body:VIEW}];
+    renderIt({...FLAGS_ON,freeDeliveryPricing:false});
+    expect(await screen.findByRole('heading',{name:'Recovery pool'})).toBeInTheDocument();
+    expect(screen.getByRole('heading',{name:'Delivery cost model'})).toBeInTheDocument();
+    expect(screen.queryByRole('heading',{name:'Free delivery pricing'})).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/FEATURE FLAG/i);
   });
 });
 
-describe('Data sources',()=>{
-  it('shows the demo database and the last sync, then keeps them fresh',async()=>{
-    vi.useFakeTimers({shouldAdvanceTime:true,now:new Date('2026-09-27T02:43:31.000Z')});
-    try{
-      const settings=settingsFixture();
-      replies=[{body:settings.sources}];
-      render(<DataSources initial={settings.sources}/>);
-      expect(screen.getByRole('heading',{name:'Demo database'})).toBeInTheDocument();
-      expect(screen.getByText('Sep 23, 2026')).toBeInTheDocument();
-      expect(screen.getByText('4 customers, 60 items, 180 orders, 25 quotes')).toBeInTheDocument();
-      expect(screen.getByRole('heading',{name:'Herrick Industrial Supply ERP'})).toBeInTheDocument();
-      expect(screen.getByText('Connected')).toBeInTheDocument();
-      expect(screen.getByText(/^Last sync: ERP connection refreshed/)).toBeInTheDocument();
-      expect(screen.getAllByRole('listitem')).toHaveLength(2);
-      await waitFor(()=>expect(fetchMock).toHaveBeenCalledWith('/api/rep/settings/sources',{cache:'no-store'}));
-      // Two minutes without a sync reads as delayed.
-      replies=[{body:settings.sources}];
-      await act(async()=>{vi.setSystemTime(new Date('2026-09-27T02:46:00.000Z'));await vi.advanceTimersByTimeAsync(5000);});
-      expect(await screen.findByText('Update delayed')).toBeInTheDocument();
-    }finally{vi.useRealTimers();}
+describe('the Settings page (plan U8)',()=>{
+  const tabs=()=>screen.getByRole('navigation',{name:'Settings sections'});
+
+  it('gives the manager four tabs, Customer access first, then her own Profile (decision 69), and no Data sources',()=>{
+    render(<SettingsSection initial={settingsFixture()}/>);
+    expect(screen.getByRole('heading',{level:1,name:'Settings'})).toBeInTheDocument();
+    expect(within(tabs()).getAllByRole('link').map(l=>[l.textContent,l.getAttribute('href')])).toEqual([
+      ['Customer access','/rep/settings?tab=access'],['Margin floors','/rep/settings?tab=floors'],['Pricing and delivery','/rep/settings?tab=pricing'],['Aging','/rep/settings?tab=aging'],['Profile','/rep/settings?tab=profile'],
+    ]);
+    expect(within(tabs()).getByRole('link',{name:'Customer access'})).toHaveAttribute('aria-current','page');
+    expect(screen.getByRole('region',{name:'Customer access'})).toBeInTheDocument();
+    expect(screen.queryByText(/Data sources/)).not.toBeInTheDocument();
+  });
+
+  it('opens the tab in ?tab=, and Customer access for anything else (a rep-only tab included)',()=>{
+    for(const [tab,heading] of [['floors','Organization margin floors'],['pricing','Delivery rates'],['aging','Aging thresholds'],['profile','Profile'],['sources','Customer access'],['reps','Customer access'],['margins','Customer access'],['notifications','Customer access']] as const){
+      nav.params=new URLSearchParams({tab});
+      const {unmount}=render(<SettingsSection initial={settingsFixture()}/>);
+      expect(screen.getByRole('heading',{name:heading})).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("gives the manager her own Profile (decision 69; C_RS2, the rep's component): her picture, name, phone and email, saved through her own profile route",async()=>{
+    nav.params=new URLSearchParams({tab:'profile'});
+    render(<SettingsSection initial={settingsFixture()}/>);
+    expect(within(tabs()).getByRole('link',{name:'Profile'})).toHaveAttribute('aria-current','page');
+    const card=screen.getByRole('region',{name:'Profile'});
+    expect(within(card).getByText('BG',{exact:true})).toBeInTheDocument();
+    expect(within(card).getByRole('textbox',{name:'Name'})).toHaveValue('Brandi Gallegos');
+    expect(within(card).getByRole('textbox',{name:'Phone'})).toHaveValue('(801) 111-2222');
+    expect(within(card).getByRole('textbox',{name:'Email'})).toHaveValue('brandi.gallegos@herrickindustrial.com');
+    expect(screen.queryByRole('region',{name:'Your margins'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Needs attention'})).not.toBeInTheDocument();
+    fireEvent.change(within(card).getByRole('textbox',{name:'Phone'}),{target:{value:'(801) 555-0142'}});
+    replies=[{body:{...MANAGER_PROFILE,phone:'(801) 555-0142'}}];
+    fireEvent.click(within(card).getByRole('button',{name:'Save profile'}));
+    await waitFor(()=>expect(within(card).getByRole('status')).toHaveTextContent('Saved'));
+    expect(sent()).toEqual([{url:'/api/rep/profile',body:{name:'Brandi Gallegos',phone:'(801) 555-0142',email:'brandi.gallegos@herrickindustrial.com'}}]);
+  });
+
+  it("gives a rep their own three tabs, not the manager's (plan U9; RepSettings.test.tsx covers them)",()=>{
+    nav.params=new URLSearchParams({tab:'access'});
+    render(<SettingsSection initial={settingsFixture({manager:false})}/>);
+    expect(within(tabs()).getAllByRole('link').map(l=>l.textContent)).toEqual(['Margins','Profile','Notifications']);
+    for(const name of ['Customer access','Organization margin floors','Rep margins','Delivery rates','Aging thresholds'])expect(screen.queryByRole('heading',{name})).not.toBeInTheDocument();
   });
 });

@@ -21,7 +21,7 @@ async function signIn(browser: Browser, baseURL: string, persona?: "customer" | 
   const context = await browser.newContext({ baseURL });
   contexts.push(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/demo");
   if (persona) {
     const status = await page.evaluate(async (id) => (await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: id }) })).status, persona);
     expect(status).toBe(200);

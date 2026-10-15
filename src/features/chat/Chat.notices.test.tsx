@@ -1,10 +1,10 @@
 import {act,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-import type {ClarifyPayload,QuoteNotice} from '@/domain';
+import type {ChatNotice,ClarifyPayload,QuoteNotice} from '@/domain';
 import type {API,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
 import {onOpenQuote} from '@/components/customer/open-quote';
 import {QUOTES_CHANGED_EVENT} from '@/components/customer/quotes-changed';
-import {sidebarRoutes} from '@/components/customer/test-fixtures';
+import {siteRoutes} from '@/components/customer/test-fixtures';
 import {CustomerChat} from './Chat';
 
 // "Quote … is ready" in the customer chat (spec §3, task 5.1): the messages Approve & send posted
@@ -19,9 +19,9 @@ const notice=(id:string,created_at:string,extra:Partial<QuoteNotice>={}):QuoteNo
 const HISTORY=[turn({id:'t1',question:'Do you have bolts?',answer:'Yes, 64 at SLC.',timestamp:'2026-09-23T16:00:00.000Z'}),
   turn({id:'t2',question:'What is our balance?',answer:'Your open balance is $18,420.00.',timestamp:'2026-09-23T18:00:00.000Z'})];
 
-function makeApi({history=HISTORY,notices=()=>[] as QuoteNotice[]}:{history?:ChatTurn[];notices?:()=>QuoteNotice[]}={}){
+function makeApi({history=HISTORY,notices=()=>[] as ChatNotice[]}:{history?:ChatTurn[];notices?:()=>ChatNotice[]}={}){
   const get=vi.fn(async(path:string):Promise<unknown>=>{
-    if(path in sidebarRoutes)return sidebarRoutes[path as keyof typeof sidebarRoutes];
+    if(path in siteRoutes)return siteRoutes[path as keyof typeof siteRoutes];
     if(path===`customer/history/${CONVERSATION}`)return history;
     if(path===`customer/notices/${CONVERSATION}`)return notices();
     throw new Error(`unexpected get ${path}`);
@@ -47,6 +47,16 @@ describe('quote notices in the chat',()=>{
     expect(order()).toHaveLength(3);
   });
 
+  it("shows the rep's reply to a change request among the turns, as plain text with no button (decision 63)",async()=>{
+    const {api}=makeApi({notices:()=>[{kind:'rep_reply',id:'r1',conversation_id:CONVERSATION,created_at:'2026-09-23T17:00:00.000Z',
+      quote_id:'q-24790',quote_number:'Q-24790',rep_name:'Brandi Gallegos',text:'Yes, we can hold them at Ogden.\n**Brandi**'}]});
+    render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
+    const card=await screen.findByRole('article',{name:'Brandi Gallegos replied about Q-24790'});
+    expect(order()).toEqual(['turn:Do you have bolts?','notice:Brandi Gallegos replied about Q-24790','turn:What is our balance?']);
+    expect(card.querySelector('.qn-text')!.textContent).toBe('Yes, we can hold them at Ogden.\n**Brandi**');
+    expect(within(card).queryByRole('button')).toBeNull();
+  });
+
   it('View quote opens the preview modal on that revision',async()=>{
     const opened=vi.fn();
     const stop=onOpenQuote(opened);
@@ -57,12 +67,12 @@ describe('quote notices in the chat',()=>{
       fireEvent.click(within(card).getByRole('button',{name:'View quote'}));
     }finally{stop();}
     expect(opened).toHaveBeenCalledWith({id:'q-24818',quote_number:'Q-24818',revision:1});
-    // The layout's modal (the one the sidebar opens) loads that revision.
+    // The site's modal (the one the bell opens) loads that revision.
     expect(await screen.findByRole('dialog',{name:'Quote Q-24818'})).toBeInTheDocument();
     expect(get).toHaveBeenCalledWith('customer/quotes/q-24818?rev=1');
   });
 
-  it('shows a quote sent while the chat is open without a reload, after the turns on screen, and refreshes the quotes sidebar',async()=>{
+  it('shows a quote sent while the chat is open without a reload, after the turns on screen, and tells the site its quotes changed',async()=>{
     let sent:QuoteNotice[]=[];
     const {api,get}=makeApi({notices:()=>sent});
     const changed=vi.fn();
@@ -90,7 +100,7 @@ describe('quote notices in the chat',()=>{
     const pending:((value:QuoteNotice[])=>void)[]=[];
     let polling=false;
     const get=vi.fn((path:string):Promise<unknown>=>{
-      if(path in sidebarRoutes)return Promise.resolve(sidebarRoutes[path as keyof typeof sidebarRoutes]);
+      if(path in siteRoutes)return Promise.resolve(siteRoutes[path as keyof typeof siteRoutes]);
       if(path===`customer/history/${CONVERSATION}`)return Promise.resolve(HISTORY);
       if(path===`customer/notices/${CONVERSATION}`){
         if(!polling){polling=true;return Promise.resolve([]);}
@@ -136,7 +146,7 @@ describe('quote notices in the chat',()=>{
     render(<CustomerChat api={api} user={user} signOut={()=>{}}/>);
     await screen.findByRole('article',{name:/is ready/});
     fireEvent.change(screen.getByLabelText('Ask a question'),{target:{value:'Thanks'}});
-    fireEvent.click(screen.getByLabelText('Send question'));
+    fireEvent.click(screen.getByLabelText('Send'));
     await screen.findByText('Answered.');
     expect(order()).toEqual(['turn:Do you have bolts?','turn:What is our balance?','notice:Quote Q-24818 is ready: $531.00, valid until Oct 7','turn:Thanks']);
   });

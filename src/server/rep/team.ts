@@ -1,62 +1,44 @@
 import 'server-only';
 import type {TeamRep} from '@/domain';
 import {checkAgingThresholds,type AgingThresholds} from '@/server/quotes/aging';
-import {agingThresholds,inTransaction,setAgingThresholds,setRepActive,setRepTeam,teamReps} from '@/server/repository';
+import {agingThresholds,setAgingThresholds,setRepActive,teamReps} from '@/server/repository';
 import {SettingsError} from './settings';
 
-// The manager's settings (v3 spec §5, §6 Settings, §8; decisions 16, 20, 21; task D1): each rep's
-// team label (a free-text filter) and active flag, and the supplier's aging thresholds. The routes
-// serve them to the manager only (managerRoute); these functions check each request before it
-// reaches the repository.
+// The manager's settings (v3 spec §5, §6 Settings, §8; decisions 16, 20, 21; tasks D1, U7): each rep's
+// active flag, set on Teams and Reps, and the supplier's aging thresholds. The routes serve them to the
+// manager only (managerRoute); these functions check each request before it reaches the repository.
+// Teams are entities since U7 (src/server/rep/teams.ts); the free-text team label is gone.
 //
-// Deactivation: refused while any customer is the rep's (customer_rep): reassign them in Rep
-// assignments first. A manager can't deactivate themselves. An inactive rep's session is refused
-// (repAccess), they can't be given customers, and they stay in Team history. Reactivating is always allowed.
-
-/** A team label: up to 40 characters after trimming, plain text. Blank clears it. */
-export const TEAM_LABEL_MAX=40;
-const CONTROL=/[\u0000-\u001f\u007f]/;
+// Deactivation: refused while any customer is the rep's (customer_rep): give them another rep on Teams
+// and Reps first. A manager can't deactivate themselves. An inactive rep's session is refused
+// (repAccess), they can't be given customers, and they stay in Analytics history. Reactivating is always allowed.
 
 export interface TeamSettings {reps:TeamRep[]}
 
-/** GET /api/rep/team/reps: every rep with role, team label, active flag and customer count. */
+/** GET /api/rep/team/reps: every rep with role, team, active flag and customer count. */
 export function teamSettings():TeamSettings{return {reps:teamReps()};}
 
 const plural=(n:number,word:string)=>`${n} ${word}${n===1?'':'s'}`;
 
-/**
- * PUT /api/rep/team/reps/<id> {team?, active?}: sets the rep's team label (string or null) and/or
- * active flag, both or neither (nothing is written if any part is refused). Returns every rep.
- */
+/** PUT /api/rep/team/reps/<id> {active}: marks the rep active or inactive. Returns every rep. */
 export function updateTeamRep(actingRepId:string,repId:string,input:unknown):TeamSettings{
   const body=typeof input==='object'&&input!==null&&!Array.isArray(input)?input as Record<string,unknown>:{};
-  const hasTeam=Object.hasOwn(body,'team'),hasActive=Object.hasOwn(body,'active');
-  if(!hasTeam&&!hasActive)throw new SettingsError('Change the team label or the active setting.');
-  let team:string|null=null;
-  if(hasTeam){
-    const value=body.team;
-    if(value!==null&&(typeof value!=='string'||CONTROL.test(value)))throw new SettingsError('Enter a team label, or leave it blank.');
-    team=value?.trim()||null;
-    if(team&&team.length>TEAM_LABEL_MAX)throw new SettingsError(`Keep the team label to ${TEAM_LABEL_MAX} characters.`);
-  }
-  if(hasActive&&typeof body.active!=='boolean')throw new SettingsError('Choose active or inactive.');
-  const active=body.active as boolean|undefined;
+  if(!Object.hasOwn(body,'active'))throw new SettingsError('Change the active setting.');
+  if(typeof body.active!=='boolean')throw new SettingsError('Choose active or inactive.');
+  const active=body.active;
   const rep=teamReps().find(r=>r.id===repId);
   if(!rep)throw new SettingsError('Rep not found.',404);
-  if(active===false){
+  if(!active){
     if(repId===actingRepId)throw new SettingsError('You can’t mark yourself inactive.');
     if(rep.customer_count>0)throw hasCustomers(rep.name,rep.customer_count);
   }
-  inTransaction(()=>{
-    if(hasTeam)setRepTeam(repId,team);
-    // The repository checks customers again in the same statement; a customer assigned meanwhile rolls the label back too.
-    if(active!==undefined&&setRepActive(repId,active)==='has_customers')throw hasCustomers(rep.name,teamReps().find(r=>r.id===repId)?.customer_count??1);
-  });
+  // The repository checks customers again in the same statement: a customer assigned meanwhile still blocks it.
+  if(setRepActive(repId,active)==='has_customers')throw hasCustomers(rep.name,teamReps().find(r=>r.id===repId)?.customer_count??1);
   return teamSettings();
 }
 
 function hasCustomers(name:string,count:number){
-  return new SettingsError(`${name} still has ${plural(count,'customer')}. Reassign ${count===1?'it':'them'} in Rep assignments before marking ${name} inactive.`,409,'has_customers');
+  return new SettingsError(`${name} still has ${plural(count,'customer')}. Reassign ${count===1?'it':'them'} before marking ${name} inactive.`,409,'has_customers');
 }
 
 /** GET /api/rep/settings/aging: the six thresholds in hours (defaults in code, spec §1.3). */

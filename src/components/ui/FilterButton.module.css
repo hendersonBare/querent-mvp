@@ -1,0 +1,197 @@
+/* FilterButton and its panel (C_QOB2, C_CU1, C_CU2, C_AN4). Buttons the frames leave unstyled keep the
+   browser's button text colour and size (--q-button-text, --q-text-button). */
+.wrap {
+  position: relative;
+}
+.button {
+  box-sizing: border-box;
+  height: var(--q-header-button);
+  padding: 0 14px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  border-radius: var(--q-radius-control);
+  color: var(--q-button-text);
+  font-family: inherit;
+  font-size: var(--q-text-button);
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  cursor: pointer;
+}
+.button:hover {
+  background: var(--q-lane);
+}
+.active {
+  border: 2px solid var(--q-accent);
+}
+/* On a card's dark title bar (C_TRBase "Filter"): 38px, transparent, a #5A615D line, white bold text. */
+.bar {
+  height: var(--q-control-height);
+  border: 1px solid var(--q-titlebar-line);
+  background: transparent;
+  border-radius: var(--q-radius-button);
+  color: #fff;
+  font-weight: 700;
+}
+/* No frame: hover on the dark bar darkens it one step, as the rail's items do. */
+.bar:hover {
+  background: var(--q-rail-border);
+}
+.bar.active {
+  border: 2px solid var(--q-accent);
+}
+.count {
+  font-family: var(--q-font-mono);
+  font-size: 12px;
+  background: var(--q-accent);
+  color: #fff;
+  border-radius: var(--q-radius-pill);
+  padding: 1px 8px;
+}
+.panel {
+  top: 48px;
+  left: 0;
+  padding: 18px;
+}
+.panelRight {
+  left: auto;
+  right: 0;
+}
+.title {
+  font-weight: 800;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+.titleTight {
+  margin-bottom: 2px;
+}
+.description {
+  color: var(--q-text-2);
+  font-size: var(--q-text-secondary);
+}
+.label {
+  font-size: var(--q-text-label);
+  font-weight: 700;
+  color: var(--q-text-2);
+}
+.grid {
+  display: grid;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  cursor: pointer;
+}
+.rowCount {
+  margin-left: auto;
+  font-family: var(--q-font-mono);
+  font-size: 12px;
+  color: var(--q-text-2);
+}
+.field {
+  margin-bottom: 10px;
+}
+.fieldLabel {
+  margin-bottom: 4px;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.input {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: var(--q-control-height);
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-field);
+  background: transparent;
+  color: var(--q-text-2);
+  font-family: inherit;
+  font-size: var(--q-text-control);
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: normal;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--q-accent);
+}
+.segmented {
+  display: flex;
+  background: var(--q-lane);
+  border-radius: var(--q-radius-button);
+  padding: 3px;
+}
+.segment {
+  flex: 1;
+  margin: 0;
+  padding: 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--q-text-2);
+  font-family: inherit;
+  font-size: var(--q-text-control);
+  font-weight: 600;
+  letter-spacing: normal;
+  line-height: normal;
+  text-align: center;
+  cursor: pointer;
+}
+.segmentOn {
+  border-radius: 7px;
+  background: var(--q-accent);
+  color: #fff;
+  font-weight: 700;
+}
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.clear {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--q-text-2);
+  font-family: inherit;
+  font-size: var(--q-text-control);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: normal;
+  text-align: start;
+  cursor: pointer;
+}
+.apply {
+  box-sizing: border-box;
+  height: var(--q-control-height);
+  margin: 0;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--q-radius-button);
+  background: var(--q-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: var(--q-text-control);
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: normal;
+  display: flex;
+  align-items: center;
+  text-align: start;
+  cursor: pointer;
+}
+.apply:hover {
+  background: var(--q-accent-hover);
+}

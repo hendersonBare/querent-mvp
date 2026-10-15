@@ -32,5 +32,37 @@ export function setAccess(scope:string|null,category:Category,enabled:boolean){
   else run('UPDATE access SET enabled=? WHERE category=?',flag(enabled),category);
 }
 
+/** A data type's state in the Customer access filter (plan U8, C_S1a): "Querent answers" (on) or "Not shared" (off). Any is no constraint. */
+export type AccessState='answers'|'not_shared';
+export type AccessFilter=Partial<Record<Category,AccessState>>&{q?:string};
+export interface AccessCustomer {id:string;name:string;account_number:string;access:Record<Category,boolean>}
+
+/**
+ * Settings > Customer access with a filter (plan U8, C_S1b; Appendix C "a query to list customers by access
+ * state"): every customer by name, with their account number and one switch per data type, keeping those
+ * whose types match every state given and whose name or account number contains `q` (any case, trimmed,
+ * % and _ taken literally).
+ */
+export function accessCustomers(filter:AccessFilter={}):AccessCustomer[]{
+  const where:string[]=[],params:unknown[]=[];
+  const q=filter.q?.trim();
+  if(q){
+    const like=`%${q.toLowerCase().replace(/[\\%_]/g,m=>`\\${m}`)}%`;
+    where.push("(lower(c.name) LIKE ? ESCAPE '\\' OR lower(c.account_number) LIKE ? ESCAPE '\\')");params.push(like,like);
+  }
+  for(const category of categories){
+    const state=filter[category];
+    if(state!=='answers'&&state!=='not_shared')continue;
+    where.push('EXISTS (SELECT 1 FROM access a WHERE a.customer_id=c.id AND a.category=? AND a.enabled=?)');params.push(category,state==='answers'?1:0);
+  }
+  const rows=all<{id:string;name:string;account_number:string;toggles:string}>(
+    `SELECT c.id,c.name,c.account_number,(SELECT json_group_object(a.category,a.enabled) FROM access a WHERE a.customer_id=c.id) toggles
+     FROM customers c${where.length?` WHERE ${where.join(' AND ')}`:''} ORDER BY c.name COLLATE NOCASE,c.id`,...params);
+  return rows.map(({toggles,...c})=>{
+    const stored=JSON.parse(toggles??'{}') as Record<string,number>;
+    return {...c,access:Object.fromEntries(categories.map(category=>[category,bool(stored[category])])) as Record<Category,boolean>};
+  });
+}
+
 export function enabledCategories(customerId:string){return new Set(access(customerId).filter(r=>r.enabled).map(r=>r.category));}
 

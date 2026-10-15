@@ -1,15 +1,21 @@
 import type {Metadata} from 'next';
+import {CUSTOMERS_TABLE} from '@/components/rep/reference/tables';
 import {CustomersList} from '@/components/rep/customers/CustomersList';
+import {tablePrefs} from '@/server/repository';
 import {customerList,pickedCustomer} from '@/server/rep/reference';
-import {signedInRepId} from '@/server/rep/session';
+import {signedInRep} from '@/server/rep/session';
 
 export const metadata:Metadata={title:'Customers'};
 
 type SearchParams=Promise<Record<string,string|string[]|undefined>>;
 
-/** Customers (spec §4, task 3.8): every account and its assigned rep, read-only; the "Viewing" picker narrows it to one. */
+/**
+ * Customers (plan U5; C_CUBase, C_RCUBase): each account the signed-in rep may read, with its rep, read-only.
+ * A rep sees their own customers, the manager every customer (task U1); the page's own ?customer=
+ * narrows it to one. Search and Filter work on the page; column order and visibility are the user's own.
+ */
 export default async function CustomersPage({searchParams}:{searchParams:SearchParams}){
-  const repId=await signedInRepId();
-  const viewing=pickedCustomer(await searchParams);
-  return <CustomersList rows={customerList(viewing.customerId)} viewing={viewing} repId={repId}/>;
+  const reader=await signedInRep();
+  const viewing=pickedCustomer(await searchParams,reader);
+  return <CustomersList rows={customerList(reader,viewing.customerId)} manager={reader.manager} initialPrefs={tablePrefs(reader.repId,CUSTOMERS_TABLE)}/>;
 }

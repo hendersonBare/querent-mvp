@@ -3,16 +3,21 @@ import type {TeamQuoteFact,TeamStatusEvent} from '@/domain';
 import {roundDollars} from '@/lib/money';
 import {all,list} from './sql';
 
-// The Team dashboard's live reads (v3 spec §7; decisions 23–25; OA-13, OA-19; task D3). Live SQL
+// The Analytics leaderboard's live reads, first the D3 Team dashboard's (v3 spec §7; decisions 23–25; OA-13, OA-19; task D3). Live SQL
 // over the quotes as they are, no materialised tables. The cohort is the quotes created in
 // [from, to) (UTC ISO instants the browser computed at its local midnights) whose current owner
 // (quotes.rep_id, so a reassigned quote counts under its new rep) is one of `repIds`.
 // Internal: the facts carry cost, for the manager's dashboard only.
 
-export interface TeamCohort {from:string;to:string;repIds:readonly string[]}
+export interface TeamCohort {
+  from:string;to:string;repIds:readonly string[];
+  /** Only these customers' quotes (Analytics' customer filter, plan U6); null or absent for every customer. */
+  customerIds?:readonly string[]|null;
+}
 
-const COHORT='q.created_at>=@from AND q.created_at<@to AND q.rep_id IN (SELECT value FROM json_each(@repIds))';
-const bind=({from,to,repIds}:TeamCohort)=>({from,to,repIds:list(repIds)});
+const COHORT=`q.created_at>=@from AND q.created_at<@to AND q.rep_id IN (SELECT value FROM json_each(@repIds))
+  AND (@customerIds IS NULL OR q.customer_id IN (SELECT value FROM json_each(@customerIds)))`;
+const bind=({from,to,repIds,customerIds=null}:TeamCohort)=>({from,to,repIds:list(repIds),customerIds:customerIds?list(customerIds):null});
 
 /**
  * The pop-up behind each quote (task E1, OA-42): the quote_requested message names the quote and
@@ -23,7 +28,7 @@ const OFFERED=`coalesce((SELECT sum(coalesce(json_extract(p.payload,'$.suggestio
 
 /** The cohort's quotes, oldest first, with what the metrics sum: totals, priced cost, recovery, line sources, the pop-up's offer count. The live draft total is the service's (it prices freight). */
 export function teamQuoteFacts(cohort:TeamCohort):Omit<TeamQuoteFact,'draft_total'>[]{
-  const rows=all<Omit<TeamQuoteFact,'draft_total'>>(`SELECT q.id,q.quote_number,q.rep_id,q.status,q.created_at,q.sent_at,q.responded_at,q.valid_until,q.fulfillment,
+  const rows=all<Omit<TeamQuoteFact,'draft_total'>>(`SELECT q.id,q.quote_number,q.rep_id,q.customer_id,c.name customer_name,q.status,q.created_at,q.sent_at,q.responded_at,q.valid_until,q.fulfillment,
       q.last_rep_touch_at,q.customer_viewed_at,q.decline_reason,q.decline_note,q.declined_at,
       (SELECT v.total FROM quote_revisions v WHERE v.quote_id=q.id ORDER BY v.revision DESC LIMIT 1) sent_total,
       (SELECT coalesce(sum(l.qty*l.unit_price),0) FROM quote_lines l WHERE l.quote_id=q.id AND l.unit_price IS NOT NULL) priced_subtotal,
@@ -33,7 +38,7 @@ export function teamQuoteFacts(cohort:TeamCohort):Omit<TeamQuoteFact,'draft_tota
       (SELECT count(*) FROM quote_lines l WHERE l.quote_id=q.id AND l.added_by='suggestion') suggestion_lines,
       (SELECT count(*) FROM quote_lines l WHERE l.quote_id=q.id AND l.added_by='upsell') upsell_lines,
       ${OFFERED} suggestions_offered
-    FROM quotes q WHERE ${COHORT} ORDER BY q.created_at,q.quote_number`,bind(cohort));
+    FROM quotes q JOIN customers c ON c.id=q.customer_id WHERE ${COHORT} ORDER BY q.created_at,q.quote_number`,bind(cohort));
   return rows.map(r=>({...r,priced_subtotal:roundDollars(r.priced_subtotal),priced_cost:roundDollars(r.priced_cost)}));
 }
 

@@ -1,7 +1,7 @@
 import type {Fulfillment} from './orders';
 import type {DeclineReason,QuoteStatus} from './quotes';
 
-// The Team dashboard's facts (v3 spec §7; decisions 23–25; task D3). Internal: they carry cost
+// The Analytics leaderboard's facts, first the D3 Team dashboard's (v3 spec §7; decisions 23–25; task D3). Internal: they carry cost
 // and margin, for the manager only.
 
 /** Internal: one cohort quote (created in the window) as the Team metrics read it. Money in dollars unless named _cents. */
@@ -9,6 +9,8 @@ export interface TeamQuoteFact {
   id:string;quote_number:string;
   /** The current owner (a reassigned quote counts under its new rep). */
   rep_id:string;
+  /** The quote's customer (Analytics' customer filter and breakdown, plan U6). */
+  customer_id:string;customer_name:string;
   status:QuoteStatus;created_at:string;sent_at:string|null;responded_at:string|null;valid_until:string|null;
   fulfillment:Fulfillment;
   last_rep_touch_at:string|null;customer_viewed_at:string|null;

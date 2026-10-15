@@ -1,5 +1,5 @@
 // @vitest-environment node
-import {beforeAll,describe,expect,it} from 'vitest';
+import {afterEach,beforeAll,describe,expect,it,vi} from 'vitest';
 import type {NewQuoteLine} from '@/domain';
 import {clearSeededPool,setSettingFixture,useSeededDatabase} from '@/server/repository/test-db';
 
@@ -130,7 +130,7 @@ describe('the impact preview',()=>{
     // Starting rate 300 bp over 3 steps: 100 bp at step 1, 300 bp at full. 50 boxes at $31.50:
     // full 4,725¢ → 95¢ a box (301.6 bp → 302); step 1 1,575¢ → 32¢ a box (101.6 bp → 102).
     expect(preview).toEqual({deliveryQuotes:3,affected:1,step1Bp:100,fullBp:300,steps:3,windowDays:90,viewedAt:now,
-      categories:[{categoryId:'fasteners',categoryName:'Fasteners',lines:1,step1ChangeBp:102,fullChangeBp:302}]});
+      categories:[{categoryId:'fasteners',categoryName:'Fasteners',lines:1,step1ChangeBp:102,fullChangeBp:302,quotes:1,step1ChangeCents:32,fullChangeCents:95}]});
     expect(repo.freightPreviewViewedAt()).toBe(now);
     expect((await svc.freightSettingsView({now:before(-HOUR,now),source:null})).previewValid).toBe(true);
   });
@@ -156,5 +156,52 @@ describe('the modelled cost uses the stored fuel price (C2 wiring)',()=>{
     await setSettingFixture('freight_fuel_manual_cents','0');
     expect(modelledFreightCents(15,'UT')).toBe(3193);
     await setSettingFixture('freight_fuel_manual_cents',null);
+  });
+});
+
+// Decision 71 (plan U12): with a flag off, the preview, the pool panel and the modelled cost use what is
+// in effect (the code defaults, or free delivery pricing off), never what is stored; vitest.setup.ts turns the flags on.
+describe('feature flags off (decision 71)',()=>{
+  afterEach(()=>{vi.unstubAllEnvs();});
+
+  it('FEATURE_RECOVERY_POOL off: the preview uses the code starting rate, cap and ramp; on, the stored ones',async()=>{
+    const {svc}=await load();
+    await svc.updateFreightSettings({rates:{startingRateBp:950,rampSteps:4}},{now:NOW});
+    vi.stubEnv('FEATURE_RECOVERY_POOL','');
+    const off=await svc.freightImpactPreview({now:'2028-01-10T19:00:00.000Z'});
+    expect([off.step1Bp,off.fullBp,off.steps]).toEqual([100,300,3]);
+    vi.stubEnv('FEATURE_RECOVERY_POOL','1');
+    const on=await svc.freightImpactPreview({now:'2028-01-10T19:00:00.000Z'});
+    expect([on.step1Bp,on.fullBp,on.steps]).toEqual([200,800,4]);
+    await svc.updateFreightSettings({rates:{startingRateBp:300,rampSteps:3}},{now:NOW});
+  });
+
+  it('FEATURE_FREE_DELIVERY_PRICING off: the pool panel shows no ramp step and no rate in force, though the toggle is stored on (and kept)',async()=>{
+    const {svc,repo}=await load();
+    await setSettingFixture('free_delivery_pricing','true');
+    await setSettingFixture('free_delivery_enabled_at',before(35*DAY));
+    vi.stubEnv('FEATURE_FREE_DELIVERY_PRICING','');
+    const off=await svc.freightSettingsView({now:NOW,source:null});
+    expect(off).toMatchObject({enabled:true,enabledAt:before(35*DAY),pool:{step:0,rateInForceBp:0}});
+    expect(off.pool.schedule.map(s=>s.startsAt)).toEqual([null,null,null]);
+    expect(repo.freeDeliverySettings()).toEqual({enabled:true,enabledAt:before(35*DAY)});
+    vi.stubEnv('FEATURE_FREE_DELIVERY_PRICING','1');
+    expect((await svc.freightSettingsView({now:NOW,source:null})).pool).toMatchObject({step:2,rateInForceBp:200});
+    await setSettingFixture('free_delivery_pricing',null);
+    await setSettingFixture('free_delivery_enabled_at',null);
+  });
+
+  it('FEATURE_DELIVERY_COST_MODEL off: the modelled cost ignores the stored inputs and manual fuel price',async()=>{
+    const {modelledFreightCents}=await import('@/server/freight/quote');
+    await setSettingFixture('freight_fuel_manual_cents','0');
+    await setSettingFixture('freight_stop_minutes','15');
+    vi.stubEnv('FEATURE_DELIVERY_COST_MODEL','');
+    // Spec §4.2: 15.0 road mi at the stored UT $3.40/gal, no stop = 4,213¢.
+    expect(modelledFreightCents(15,'UT')).toBe(4213);
+    vi.stubEnv('FEATURE_DELIVERY_COST_MODEL','1');
+    // Fuel at $0 and a 15-minute stop: 600 + 450 + 2,767.86¢ = 3,818¢.
+    expect(modelledFreightCents(15,'UT')).toBe(3818);
+    await setSettingFixture('freight_fuel_manual_cents',null);
+    await setSettingFixture('freight_stop_minutes',null);
   });
 });

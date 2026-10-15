@@ -1,12 +1,13 @@
-// "Open quote" (spec §3): a quote button in the right sidebar and the chat's "View quote" ask for
-// the PDF preview modal (task 5.1) with this window event; the modal subscribes with onOpenQuote.
+// "Open quote" (spec §3; plan U10): a quote notification in the bell (C_CVL4, C_CVL5) and the chat's
+// "View quote" ask for the PDF preview modal (task 5.1) with this window event; the modal subscribes
+// with onOpenQuote.
 
 export const OPEN_QUOTE_EVENT='querent:open-quote';
 
 export interface OpenQuoteDetail {
   id:string;quote_number:string;
   /**
-   * The sent revision to show: a chat message names the one it announced. Omitted (the sidebar),
+   * The sent revision to show: a chat message names the one it announced. Omitted (the bell),
    * the modal shows the latest one sent.
    */
   revision?:number;

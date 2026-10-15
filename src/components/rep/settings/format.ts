@@ -1,8 +1,9 @@
+import type {Category} from '@/lib/contracts';
 import {formatMargin} from '@/server/floors';
-import type {AssignmentRow} from '@/server/rep/settings';
 
-// Pure helpers for Settings (task 6.1): the floor field's text, the floor marker's position, and
-// the sentences that say what a reassignment changed. No React, so they are unit-tested alone.
+// Pure helpers for Settings (task 6.1; plan U8): the floor field's text and the floor marker's position,
+// and the frames' words for Customer access, Aging and Pricing and delivery. No React, so they are
+// unit-tested alone. (Rep assignments and its sentences moved to Teams and Reps, plan U7.)
 
 /** The floor field's text: 0.3 -> "30.0", at the 0.1-point precision the warnings compare at (formatMargin). */
 export const floorInput=(fraction:number)=>formatMargin(fraction).replace('%','');
@@ -26,22 +27,53 @@ export const FLOOR_SCALE_MAX=0.5;
 /** Where the floor marker sits on the track, as a CSS percentage (clamped to the track). */
 export const floorPosition=(fraction:number)=>`${Math.round(Math.min(1,Math.max(0,fraction/FLOOR_SCALE_MAX))*1000)/10}%`;
 
-const count=(n:number,word:string)=>`${n} ${word}${n===1?'':'s'}`;
+// ---- Customer access (C_S1, C_S1a, C_S1b)
 
-/** "25 with Brandi Gallegos", "25 with Brandi Gallegos, 1 with Mara Jensen", or "None yet". */
-export function quotesByRep(quotes:AssignmentRow['quotes']){
-  return quotes.length?quotes.map(q=>`${q.count} with ${q.rep_name}`).join(', '):'None yet';
+/** The data types in the frames' order and words ("Items and stock", not the chat's "Items & stock"). */
+export const ACCESS_TYPES:readonly {category:Category;label:string}[]=[
+  {category:'items_stock',label:'Items and stock'},{category:'pricing',label:'Pricing'},
+  {category:'orders_quotes',label:'Orders and quotes'},{category:'account',label:'Account'},
+];
+
+/** A switch's state: on, off, or (no filter, C_S1) on for some customers and off for others. */
+export const accessState=(enabled:boolean|null)=>enabled===null?'On for some customers':enabled?'Querent answers':'Not shared';
+
+/** One filter state per data type (C_S1a): Any, Querent answers, Not shared. */
+export type AccessChoice='any'|'answers'|'not_shared';
+export type AccessFilterValue=Record<Category,AccessChoice>;
+export const NO_ACCESS_FILTER:AccessFilterValue={items_stock:'any',pricing:'any',orders_quotes:'any',account:'any'};
+export const ACCESS_CHOICES:readonly {value:AccessChoice;label:string}[]=[{value:'any',label:'Any'},{value:'answers',label:'Querent answers'},{value:'not_shared',label:'Not shared'}];
+
+/** The data types picked: the Filter badge (C_S1b "1"). */
+export const filterCount=(filter:AccessFilterValue)=>ACCESS_TYPES.filter(t=>filter[t.category]!=='any').length;
+
+/** GET /api/rep/settings/access's query: the search and every type not Any. */
+export function accessQuery(q:string,filter:AccessFilterValue){
+  const params=new URLSearchParams();
+  if(q.trim())params.set('q',q.trim());
+  for(const {category} of ACCESS_TYPES)if(filter[category]!=='any')params.set(category,filter[category]);
+  return params.toString();
 }
 
-/**
- * What a reassignment did, for the notice under the table: "Wasatch Mechanical Contractors is now
- * Mara Jensen’s customer. Its 25 existing quotes stay with Brandi Gallegos." With "Also move this
- * customer’s open quotes" (task D2), `moved` says how many went along: "4 open quotes moved to Mara Jensen."
- */
-export function reassignedNote(row:AssignmentRow,moved:number|null=null){
-  const others=row.quotes.filter(q=>q.rep_id!==row.rep_id);
-  const kept=others.reduce((n,q)=>n+q.count,0);
-  const went=moved===null?'':moved?` ${count(moved,'open quote')} moved to ${row.rep_name??'that rep'}.`:' No open quotes to move.';
-  const stay=kept?` Its ${count(kept,'existing quote')} ${kept===1?'stays':'stay'} with ${others.map(q=>q.rep_name).join(' and ')}.`:'';
-  return `${row.name} is now ${row.rep_name??'another rep'}’s customer. New quote requests go to ${row.rep_name??'that rep'}.${went}${stay}`;
+/** "2 of 6 customers" beside the Filter (C_S1b). */
+export const matchCount=(shown:number,total:number)=>`${shown} of ${total} ${total===1?'customer':'customers'}`;
+
+// ---- Aging (C_S8), Pricing and delivery (C_S4, C_S7), Rep margins (C_S2)
+
+/** "3 days" beside a whole number of days (24 h and up), so 72 and 168 read as decision 16's 3 and 7 days. */
+export function inDays(text:string){
+  const hours=Number(text);
+  return text.trim()&&Number.isInteger(hours)&&hours>=24&&hours%24===0?`${hours/24} ${hours===24?'day':'days'}`:'';
 }
+
+/** The frame's name for each aging status row (C_S8: "Draft ready", as the Quotes board names the lane). */
+export const AGING_STATUS:Readonly<Record<'Ready for review'|'Changes requested'|'Sent',string>>={'Ready for review':'Draft ready','Changes requested':'Changes requested',Sent:'Sent'};
+
+/** The freight engine's worked example with the frame's plain x (C_S4: "$25.00 + $2.50/mi x 15.0 mi = $62.50"). */
+export const plainFormula=(formula:string)=>formula.replace(/×/g,'x');
+
+/** An average line price change in cents as C_S7 prints it: "+$0.12". */
+export const plusDollars=(cents:number)=>`+$${(Math.max(0,cents)/100).toFixed(2)}`;
+
+/** "Eli" from "Eli Porter" (C_S2's column heading). */
+export const firstName=(name:string)=>name.trim().split(/\s+/)[0]||name;

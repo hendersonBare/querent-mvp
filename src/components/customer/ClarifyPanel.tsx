@@ -1,7 +1,7 @@
 'use client';
 import type {ClarifyLine,ClarifyPayload} from '@/domain';
 import {dropMessage,pickMessage} from '@/lib/clarify-messages';
-import {MailLink,PhoneLink} from './ContactsSidebar';
+import {MailLink,PhoneLink} from './contact-links';
 
 // The clarifying reply's controls (spec §3, task 2.2), under Querent's question in the chat. In
 // round 1 the question is the whole reply. From round 2 each open line shows its top 3 candidates

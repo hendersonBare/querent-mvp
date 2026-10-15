@@ -75,6 +75,8 @@ export interface Quote extends QuoteHeader {lines:QuoteLine[]}
 export interface QuoteListRow {
   id:string;quote_number:string;customer_id:string;customer_name:string;rep_id:string;rep_name:string;status:QuoteStatus;revision:number;
   requested_at:string;created_at:string;updated_at:string;sent_at:string|null;responded_at:string|null;valid_until:string|null;fulfillment:Fulfillment;change_request_note:string|null;
+  /** The quote's contact (the purchasing agent), or null for a quote with none. */
+  contact_name:string|null;
   unread_for_rep:boolean;is_sample:boolean;line_count:number;subtotal:number;cost_total:number;margin:number|null;freight_override:number|null;
   /** Total of the last sent revision, or null if never sent. */
   sent_total:number|null;
@@ -118,7 +120,7 @@ export interface QuoteActivity {id:number;quote_id:string;at:string;actor:Activi
 /** Internal notes, never shown to the customer. */
 export interface QuoteNote {id:number;quote_id:string;rep_id:string;rep_name:string;body:string;created_at:string}
 
-/** Customer-safe: one quote button in the customer's right sidebar. total is the last sent revision's, or null before the first send. */
+/** Customer-safe: one of the customer's quotes (GET /api/query/customer/quotes). total is the last sent revision's, or null before the first send. */
 export interface CustomerQuoteSummary {id:string;quote_number:string;status:QuoteStatus;revision:number;requested_at:string;sent_at:string|null;valid_until:string|null;total:number|null;unread:boolean}
 
 /** Customer-safe: the PDF preview modal. `sent` is the last revision the rep sent, or null before the first send. */

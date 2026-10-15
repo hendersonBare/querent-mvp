@@ -1,17 +1,18 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ClarifyPayload, ItemPopupPayload, QuoteNotice, QuoteRequestedPayload } from "@/domain";
+import { isRepReply, type ChatNotice, type ClarifyPayload, type ItemPopupPayload, type QuoteRequestedPayload } from "@/domain";
 import type { API, ChatAnswer, ChatTurn, Principal, QuoteRequestResult } from "@/lib/contracts";
 import { initials } from "@/lib/initials";
 import { everyWhileVisible } from "@/lib/use-poll";
 import { ClarifyPanel } from "@/components/customer/ClarifyPanel";
-import { CustomerLayout } from "@/components/customer/CustomerLayout";
 import { ItemPopup } from "@/components/customer/ItemPopup";
 import { QuoteNoticeCard } from "@/components/customer/QuoteNoticeCard";
+import { RepReplyCard } from "@/components/customer/RepReplyCard";
 import { emitQuotesChanged } from "@/components/customer/quotes-changed";
+import { actionClass, CustomerSite } from "@/components/customer/site/CustomerSite";
+import { QueryBox } from "@/components/customer/site/QueryBox";
 import { addArrived, NOTICE_POLL_MS, placeWithHistory, timeline, type PlacedNotice } from "./notices";
 
 /**
@@ -71,7 +72,7 @@ export function CustomerChat({
         (result) => ({ ok: true as const, result }),
         (reason: unknown) => ({ ok: false as const, reason }),
       ),
-      api.get<QuoteNotice[]>(`customer/notices/${conversation}`).catch(() => [] as QuoteNotice[]),
+      api.get<ChatNotice[]>(`customer/notices/${conversation}`).catch(() => [] as ChatNotice[]),
     ]).then(([history, sent]) => {
       if (cancelled) return;
       // A message sent before the history arrived stays, after the history.
@@ -85,14 +86,14 @@ export function CustomerChat({
     };
   }, [api, conversation]);
   // A quote the rep sends while the chat is open shows up without a reload (task 5.1). The chat
-  // polls like the quotes sidebar does, and asks the sidebar to refresh when one arrives.
+  // polls, and tells the site its quotes changed when one arrives (the bell reads again).
   useEffect(() => {
     if (!noticesFor || noticesFor !== conversation) return;
     let cancelled = false;
     // Only while the tab is visible: a hidden chat skips the poll and catches up when shown.
     const stop = everyWhileVisible(() => {
       api
-        .get<QuoteNotice[]>(`customer/notices/${conversation}`)
+        .get<ChatNotice[]>(`customer/notices/${conversation}`)
         .then((sent) => {
           if (cancelled) return;
           const arrived = sent.filter((n) => !shownNotices.current.has(n.id));
@@ -146,7 +147,7 @@ export function CustomerChat({
       setBusy(false);
     }
   }
-  /** Request quote succeeded: the confirmation joins the chat, and the quotes sidebar reloads. */
+  /** Request quote succeeded: the confirmation joins the chat, and the site is told its quotes changed. */
   function quoteRequested(result: QuoteRequestResult) {
     setTurns((t) =>
       t.some(
@@ -170,149 +171,108 @@ export function CustomerChat({
     setConversation(id);
     setError("");
   }
-  // The rep's section sits at the very top of the left sidebar (spec §3), so New conversation
-  // lives above the chat.
+  /** C_CVL1's starter questions for a signed-in customer (new-ui-implementation-prompt Appendix E). */
+  const starters = [
+    "Do you have 1/2 in grade 8 hex bolts in stock?",
+    "What did we pay for nitrile gloves last time?",
+    "Has our last order shipped?",
+    "What's our open balance?",
+  ];
+  // The customer site (plan U10, C_CVL1): the chat is the Querent box. New conversation has no frame:
+  // it shows next to Orders and My rep once the conversation has turns.
   return (
-    <CustomerLayout api={api} user={user} signOut={signOut}>
-      <div className="chat-column">
-        <div className="chat-toolbar">
-          <button className="new-chat" onClick={newChat} disabled={busy}>
-            <Plus size={16} />
+    <CustomerSite
+      api={api}
+      user={user}
+      signOut={signOut}
+      actions={
+        turns.length > 0 ? (
+          <button type="button" className={actionClass} onClick={newChat} disabled={busy}>
             New conversation
           </button>
-        </div>
-        <main className="chat-main">
-          <div className="chat-scroll">
-            {turns.length === 0 && (
-              <div className="chat-welcome">
-                <img src="/querent-logo.png" alt="" width="55" height="55" />
-                <p className="eyebrow">HERRICK INDUSTRIAL SUPPLY</p>
-                <h1>
-                  Your business.
-                  <br />
-                  Your answers.
-                </h1>
-                <p>Ask about stock, pricing, orders and quotes.</p>
-                <div className="suggestions">
-                  {[
-                    "Do you have 1/2 in grade 8 hex bolts in stock?",
-                    "What did we pay for nitrile gloves last time?",
-                    "Has our last order shipped?",
-                    "What's our open balance?",
-                  ].map((q) => (
-                    <button
-                      key={q}
-                      disabled={!conversation || busy}
-                      onClick={() => void ask(q)}
-                    >
-                      {q}
-                      <span>↗</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* The turns, with the "quote is ready" messages among them (task 5.1). */}
-            {(turns.length > 0 || notices.length > 0) && (
-              <div className="turns">
-                {timeline(turns, notices).map((entry) => {
-                  if (entry.kind === "notice")
-                    return <QuoteNoticeCard key={`notice-${entry.notice.id}`} notice={entry.notice} />;
-                  const { turn, index } = entry;
-                  return (
-                    <article className="chat-turn" key={turn.id}>
-                      <div className="question-row">
-                        <div className="question-bubble">{turn.question}</div>
-                        <span className="avatar user-avatar">{initials(user.user_name)}</span>
-                      </div>
-                      <div className="answer-row">
-                        <span className="avatar brand-avatar">
-                          <img src="/querent-logo.png" alt="Querent" />
-                        </span>
-                        <div className="answer-content">
-                          {!turn.answer ? (
-                            <div className="typing" role="status">
-                              Looking up your records<span>…</span>
-                            </div>
-                          ) : (
-                            <div
-                              className={`answer-bubble ${turn.outcome === "error" ? "answer-error" : ""}`}
-                            >
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {turn.answer}
-                              </ReactMarkdown>
-                              {/* Only the latest clarifying reply can still be answered (task 2.2). */}
-                              {turn.kind === "clarify" && turn.payload && index === turns.length - 1 && (
-                                <ClarifyPanel
-                                  payload={turn.payload as ClarifyPayload}
-                                  active={!busy && !!conversation}
-                                  onSend={(message) => void ask(message)}
-                                />
-                              )}
-                              {/* Only the latest pop-up can still be quoted, once (task 2.3). */}
-                              {turn.kind === "item_popup" && turn.payload && (
-                                <ItemPopup
-                                  api={api}
-                                  conversationId={conversation}
-                                  payload={turn.payload as ItemPopupPayload}
-                                  active={index === lastPopup && !!conversation}
-                                  requested={quoteRequestedAfter(turns, index)}
-                                  autoOpen={turn.id === popupToOpen}
-                                  onRequested={quoteRequested}
-                                />
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </article>
+        ) : null
+      }
+    >
+      <QueryBox
+        heading={
+          <>
+            Your business.
+            <br />
+            Your answers.
+          </>
+        }
+        sub="Ask about stock, pricing, orders and quotes."
+        starters={starters}
+        onStarter={(q) => void ask(q)}
+        startersDisabled={!conversation || busy}
+        showWelcome={turns.length === 0}
+        talk={
+          turns.length > 0 || notices.length > 0 ? (
+            <div className="turns">
+              {/* The turns, with the "quote is ready" messages (task 5.1) and the rep's replies (decision 63) among them. */}
+              {timeline(turns, notices).map((entry) => {
+                if (entry.kind === "notice")
+                  return isRepReply(entry.notice) ? (
+                    <RepReplyCard key={`notice-${entry.notice.id}`} notice={entry.notice} />
+                  ) : (
+                    <QuoteNoticeCard key={`notice-${entry.notice.id}`} notice={entry.notice} />
                   );
-                })}
-              </div>
-            )}
-            <div ref={end} />
-          </div>
-          <div className="composer-wrap">
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            <form
-              className="composer"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void ask(question);
-              }}
-            >
-              <textarea
-                aria-label="Ask a question"
-                placeholder="Ask about stock, pricing, orders…"
-                rows={1}
-                maxLength={4000}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void ask(question);
-                  }
-                }}
-              />
-              <button
-                className="send-button"
-                aria-label="Send question"
-                disabled={busy || !question.trim() || !conversation}
-              >
-                <ArrowUp size={21} />
-              </button>
-            </form>
-            <p className="composer-note">
-              Customer data, finally customer-facing.
-            </p>
-          </div>
-        </main>
-      </div>
-    </CustomerLayout>
+                const { turn, index } = entry;
+                return (
+                  <article className="chat-turn" key={turn.id}>
+                    <div className="question-row">
+                      <div className="question-bubble">{turn.question}</div>
+                      <span className="avatar user-avatar">{initials(user.user_name)}</span>
+                    </div>
+                    <div className="answer-row">
+                      <span className="avatar brand-avatar">
+                        <img src="/querent-logo.png" alt="Querent" />
+                      </span>
+                      <div className="answer-content">
+                        {!turn.answer ? (
+                          <div className="typing" role="status">
+                            Looking up your records<span>…</span>
+                          </div>
+                        ) : (
+                          <div className={`answer-bubble ${turn.outcome === "error" ? "answer-error" : ""}`}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.answer}</ReactMarkdown>
+                            {/* Only the latest clarifying reply can still be answered (task 2.2). */}
+                            {turn.kind === "clarify" && turn.payload && index === turns.length - 1 && (
+                              <ClarifyPanel
+                                payload={turn.payload as ClarifyPayload}
+                                active={!busy && !!conversation}
+                                onSend={(message) => void ask(message)}
+                              />
+                            )}
+                            {/* Only the latest pop-up can still be quoted, once (task 2.3). */}
+                            {turn.kind === "item_popup" && turn.payload && (
+                              <ItemPopup
+                                api={api}
+                                conversationId={conversation}
+                                payload={turn.payload as ItemPopupPayload}
+                                active={index === lastPopup && !!conversation}
+                                requested={quoteRequestedAfter(turns, index)}
+                                autoOpen={turn.id === popupToOpen}
+                                onRequested={quoteRequested}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+              <div ref={end} />
+            </div>
+          ) : null
+        }
+        question={question}
+        onQuestion={setQuestion}
+        onSubmit={() => void ask(question)}
+        busy={busy || !conversation}
+        error={error}
+      />
+    </CustomerSite>
   );
 }

@@ -48,6 +48,12 @@ export default defineConfig({
           // through the test-only POST /api/test/reset (e2e/golden-quote-flow.spec.ts).
           QUERENT_SEED_DATE: '2026-09-23',
           QUERENT_E2E_RESET: '1',
+          // The feature flags (decision 48) are off by default in the product. The E2E server runs with them
+          // on, unless the shell sets them, so the freight specs (free-delivery, demo-script act 5) reach their
+          // sections; e2e/frames-settings.spec.ts starts its own flags-off and flags-on servers.
+          FEATURE_FREE_DELIVERY_PRICING: process.env.FEATURE_FREE_DELIVERY_PRICING ?? '1',
+          FEATURE_RECOVERY_POOL: process.env.FEATURE_RECOVERY_POOL ?? '1',
+          FEATURE_DELIVERY_COST_MODEL: process.env.FEATURE_DELIVERY_COST_MODEL ?? '1',
         },
       }
     : undefined,

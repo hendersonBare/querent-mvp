@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 
-// The quote detail's ⋯ menu (task 3.5; spec §4, §5.4; docs/design/screens/06): Duplicate quote
-// makes a new ready_for_review quote and opens it (keeping ?customer=), Reset sample quote restores
+// The quote editor's More actions menu (task 3.5; plan U4, C_QE3; spec §4, §5.4): Duplicate quote
+// makes a new ready_for_review quote and opens it (carrying no ?customer=, task U1), Reset sample quote restores
 // Q-24817 to its seed state, and Open customer in ERP is disabled with the tooltip "Available after
 // ERP integration". "Reassign to another rep" is the manager's (Brandi, task D2; e2e/rep-reassign.spec.ts).
 //
@@ -38,7 +38,7 @@ test.beforeEach(async ({ playwright }, testInfo) => {
 });
 
 async function openQuote(page: Page, number = SAMPLE, query = "?customer=wasatch") {
-  await page.goto("/");
+  await page.goto("/demo");
   await page.getByRole("button", { name: /Herrick Industrial Supply/ }).click();
   await expect(page).toHaveURL(/\/rep\/quotes$/);
   await page.goto(`/rep/quotes/${number}${query}`);
@@ -51,9 +51,10 @@ async function openMenu(page: Page) {
   await expect(menu).toBeVisible();
   return menu;
 }
+/** The quote number in the editor's header (plan U4, C_QEBase). */
+const quoteFact = (page: Page) => page.getByRole("group", { name: "Quote", exact: true });
 const price = (page: Page, sku: string) => page.getByRole("textbox", { name: `Unit price for ${sku}` });
 const saved = (page: Page) => expect(page.getByText("All changes saved")).toBeVisible();
-const quotesNav = (page: Page) => page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: /^Quotes\b/ });
 /** Calls the API from the page, so the (Secure) session cookie goes with it. */
 const api = (page: Page, path: string, method = "GET", headers: Record<string, string> = {}) =>
   page.evaluate(
@@ -66,18 +67,15 @@ const api = (page: Page, path: string, method = "GET", headers: Record<string, s
 const quoteNumbers = async (page: Page) =>
   ((await api(page, "/api/rep/quotes")).body.rows as { quote_number: string }[]).map((r) => r.quote_number);
 const badge = async (page: Page) => (await api(page, "/api/rep/badges")).body.quotes as number;
-async function noSidewaysScroll(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-}
 /** Saves a screenshot in the test's output folder and attaches it to the report. */
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ path });
   await testInfo.attach(name, { path, contentType: "image/png" });
 }
-/** Waits for the copy of `from` to open (keeping ?customer=wasatch) and returns its number. */
+/** Waits for the copy of `from` to open (with no ?customer=: links never carry it, task U1) and returns its number. */
 async function copyOpened(page: Page, from: string) {
-  await page.waitForURL((url) => /^\/rep\/quotes\/Q-\d+$/.test(url.pathname) && !url.pathname.endsWith(`/${from}`) && url.search === "?customer=wasatch");
+  await page.waitForURL((url) => /^\/rep\/quotes\/Q-\d+$/.test(url.pathname) && !url.pathname.endsWith(`/${from}`) && url.search === "");
   return page.url().match(/Q-\d+/)![0];
 }
 async function inViewport(page: Page, locator: Locator) {
@@ -87,15 +85,15 @@ async function inViewport(page: Page, locator: Locator) {
   expect(box.x + box.width).toBeLessThanOrEqual(width);
 }
 
-test("screen 06 at 1440px: Duplicate, Reassign (the manager's), Open customer in ERP (disabled, with its tooltip) and Reset sample", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
+test("C_QE3 at 1920px: Duplicate, Reassign (the manager's), Open customer in ERP (disabled, with its tooltip) and Reset sample", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openQuote(page);
   const menu = await openMenu(page);
   // Brandi is the manager, so she has the mockup's "Reassign to another rep" (task D2).
   await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Reassign to another rep", "Open customer in ERP", "Reset sample quote"]);
   await expect(menu.getByRole("separator")).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Duplicate quote" })).toBeFocused();
-  await screenshot(page, testInfo, "more-menu-1440");
+  await screenshot(page, testInfo, "more-menu-1920");
 
   const erp = menu.getByRole("menuitem", { name: "Open customer in ERP" });
   await expect(erp).toHaveAttribute("aria-disabled", "true");
@@ -106,7 +104,7 @@ test("screen 06 at 1440px: Duplicate, Reassign (the manager's), Open customer in
   await expect(tooltip).toBeVisible();
   await expect(tooltip).toHaveText(ERP_TOOLTIP);
   await inViewport(page, tooltip);
-  await screenshot(page, testInfo, "more-menu-1440-erp-tooltip");
+  await screenshot(page, testInfo, "more-menu-1920-erp-tooltip");
 
   // Choosing it does nothing: no request, same page, the menu stays open.
   const posts: string[] = [];
@@ -128,7 +126,7 @@ test("screen 06 at 1440px: Duplicate, Reassign (the manager's), Open customer in
   await expect(moreButton(page)).toBeFocused();
 });
 
-test("Duplicate creates a new ready_for_review quote from the latest draft, opens it keeping ?customer=, and lists it", async ({ page }, testInfo) => {
+test("Duplicate creates a new ready_for_review quote from the latest draft, opens it, and lists it", async ({ page }, testInfo) => {
   await openQuote(page);
   const unread = await badge(page);
   // An edit still saving when Duplicate is chosen is in the copy.
@@ -142,7 +140,7 @@ test("Duplicate creates a new ready_for_review quote from the latest draft, open
   await expect(page.getByText(`Duplicated ${SAMPLE} as ${copy}`)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
   await expect(page.getByText("Draft ready")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(new RegExp(`Quotes\\s*/\\s*${copy}$`));
+  await expect(quoteFact(page)).toHaveText(new RegExp(`^Quote\\s*${copy}$`));
   await screenshot(page, testInfo, "more-menu-duplicated");
   // Copied as-is: the draft's prices, lines and request, not re-priced.
   await expect(price(page, "HCS-12-13-2G8")).toHaveValue("33.00");
@@ -153,11 +151,11 @@ test("Duplicate creates a new ready_for_review quote from the latest draft, open
 
   // The rep made it, so the badge doesn't move, and it is in their Quotes list.
   expect(await badge(page)).toBe(unread);
-  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Quotes" }).click();
-  await expect(page).toHaveURL(/\/rep\/quotes\?customer=wasatch$/);
-  const row = page.getByRole("table").getByRole("rowgroup").filter({ has: page.getByRole("link", { name: copy, exact: true }) });
-  await expect(row).toContainText("Draft ready");
-  await expect(row.getByRole("rowheader")).not.toHaveText(/^Unread: /);
+  await page.getByRole("navigation", { name: "Rep portal" }).getByRole("link", { name: "Quotes" }).click();
+  await expect(page).toHaveURL(/\/rep\/quotes$/);
+  // On the board (plan U3): a draft, and not in the bell (the rep made it, so it isn't unread).
+  await expect(page.locator('section[data-lane][aria-label="Draft ready"]').getByRole("article", { name: copy, exact: true })).toBeVisible();
+  expect(await page.evaluate(() => fetch("/api/rep/badges").then((r) => r.json()).then((b) => b.bell.map((n: { quote_number: string }) => n.quote_number)))).not.toContain(copy);
 });
 
 test("Duplicate works in any status: an expired quote becomes a new editable draft", async ({ page }) => {
@@ -167,8 +165,8 @@ test("Duplicate works in any status: an expired quote becomes a new editable dra
   const copy = await copyOpened(page, made.overdue);
   await expect(page.getByText(`Duplicated ${made.overdue} as ${copy}`)).toBeVisible();
   await expect(page.getByText("Draft ready")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Approve & send" })).toBeEnabled();
-  await expect(page.getByRole("combobox", { name: "Add item by SKU or name" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve and send" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Add item" })).toBeVisible();
 });
 
 test("a double click, or choosing Duplicate again while it runs, makes one copy", async ({ page }) => {
@@ -215,7 +213,8 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   await price(page, "HCS-12-13-2G8").fill("22.00");
   await price(page, "HCS-12-13-2G8").press("Tab");
   await page.getByRole("button", { name: "Remove Ratchet strap 2 in x 27 ft" }).click();
-  const box = page.getByRole("combobox", { name: "Add item by SKU or name" });
+  await page.getByRole("button", { name: "Add item" }).click();
+  const box = page.getByRole("combobox", { name: "Add item" });
   await box.fill("FD-45-60Z");
   await expect(page.getByRole("listbox", { name: "Matching items" }).getByRole("option").first()).toContainText("FD-45-60Z");
   await box.press("Enter");
@@ -232,10 +231,12 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   await expect(page).toHaveURL(new RegExp(`/rep/quotes/${SAMPLE}\\?customer=wasatch$`));
   await expect(page.getByRole("rowheader")).toHaveText(SEEDED_LINES.map(([sku]) => new RegExp(sku)));
   for (const [sku, value] of SEEDED_LINES) await expect(price(page, sku)).toHaveValue(value);
-  await expect(page.getByLabel("Quote totals")).toContainText("$1,122.40");
+  await expect(page.getByRole("region", { name: "Quote summary" })).toContainText("$1,122.40");
   await expect(page.getByText("Draft ready")).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "2 things to check before sending" })).toBeVisible();
+  // The seed's two warnings are back on their lines (decision 44): the gloves below floor, the straps short.
+  await expect(price(page, "GLV-N8-L-1000")).toHaveAccessibleDescription("Below Brandi's 30% Safety & PPE floor");
+  await expect(page.getByRole("rowheader", { name: /RS-2-27-JH/ })).toContainText("Short 5 at SLC.");
   await screenshot(page, testInfo, "more-menu-reset");
   // The server has the seed too.
   const detail = (await api(page, `/api/rep/quotes/${SAMPLE}`)).body;
@@ -243,7 +244,10 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   // The reset sample is unread again, as seeded, and the page on screen reads it: the badge
   // and the list agree, and end where they were.
   await expect.poll(() => badge(page)).toBe(unread);
-  await expect(quotesNav(page)).toHaveAccessibleName(unread ? `Quotes ${unread} unread` : "Quotes");
+  // The header bell (plan U2) lists the same unread quotes, and not the sample on screen.
+  const bell = (await api(page, "/api/rep/badges")).body.bell as { quote_number: string }[];
+  expect(bell).toHaveLength(unread);
+  expect(bell.map((b) => b.quote_number)).not.toContain(SAMPLE);
   const list = (await api(page, "/api/rep/quotes")).body;
   expect(list.unread).toBe(await badge(page));
 
@@ -251,27 +255,10 @@ test("Reset sample quote restores the seed state after edits, keeps other quotes
   for (const number of [copy, made.changes_requested, made.sent]) {
     await page.goto(`/rep/quotes/${number}?customer=wasatch`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Wasatch Mechanical Contractors");
-    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(number);
+    await expect(quoteFact(page)).toContainText(number);
   }
   await page.goto(`/rep/quotes/${copy}?customer=wasatch`);
   await expect(page.getByRole("rowheader")).toHaveText(SEEDED_LINES.map(([sku]) => new RegExp(sku)));
-});
-
-test("phone (390px): the open menu fits the screen, and a tap on Open customer in ERP shows why it is disabled", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openQuote(page);
-  const menu = await openMenu(page);
-  await expect(menu.getByRole("menuitem")).toHaveText(["Duplicate quote", "Reassign to another rep", "Open customer in ERP", "Reset sample quote"]);
-  await inViewport(page, menu);
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "more-menu-390");
-  await menu.getByRole("menuitem", { name: "Open customer in ERP" }).click({ force: true });
-  const tooltip = page.getByRole("tooltip");
-  await expect(tooltip).toBeVisible();
-  await expect(tooltip).toHaveText(ERP_TOOLTIP);
-  await inViewport(page, tooltip);
-  await noSidewaysScroll(page);
-  await screenshot(page, testInfo, "more-menu-390-erp-tooltip");
 });
 
 test("rep-only: visitors 401, customers 403, another rep's quote 404, and only the sample resets (409)", async ({ page, browser, baseURL, playwright }) => {
@@ -293,7 +280,7 @@ test("rep-only: visitors 401, customers 403, another rep's quote 404, and only t
   const context = await browser.newContext({ baseURL });
   try {
     const dana = await context.newPage();
-    await dana.goto("/");
+    await dana.goto("/demo");
     await dana.getByRole("button", { name: /Wasatch Mechanical Contractors/ }).click();
     await expect(dana.getByLabel("Ask a question")).toBeVisible();
     expect((await api(dana, `/api/rep/quotes/${SAMPLE}/duplicate`, "POST")).status).toBe(403);

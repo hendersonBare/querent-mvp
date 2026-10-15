@@ -2,30 +2,36 @@ import {render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import {describe,it,expect,vi,beforeEach} from 'vitest';
 import {CustomerChat} from './Chat';
 import type {API,ChatAnswer,ChatTurn,Principal} from '@/lib/contracts';
-import {sidebarRoutes} from '@/components/customer/test-fixtures';
+import {siteRoutes} from '@/components/customer/test-fixtures';
 const user:Principal={user_id:'u1',role:'customer_user',customer_id:'c1',name:'Wasatch Mechanical Contractors',user_name:'Dana Ortiz',rep_id:null,rep_role:null,contact_id:'dana'};
 function makeApi(get:API['get'],send:API['send']):API{return {get,send};}
 function emptyGet():API['get']{return vi.fn(async(path:string):Promise<any>=>{
- if(path in sidebarRoutes) return sidebarRoutes[path as keyof typeof sidebarRoutes];
+ if(path in siteRoutes) return siteRoutes[path as keyof typeof siteRoutes];
  if(path.startsWith('customer/history/')) return [] as ChatTurn[];
  throw new Error(`unexpected get ${path}`);
 }) as unknown as API['get'];}
 beforeEach(()=>{localStorage.clear();});
-it('sits between the contacts and quotes sidebars, with New conversation above the chat',async()=>{
+it('sits in the customer site\'s box (C_CVL1): the welcome, the four starter questions, the composer, Powered by Querent, and no sidebars',async()=>{
  render(<CustomerChat api={makeApi(emptyGet(),vi.fn())} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
- expect(within(screen.getByRole('complementary',{name:'Contacts'})).getByText('Your rep')).toBeInTheDocument();
- expect(await within(screen.getByRole('complementary',{name:'Quotes'})).findAllByRole('button',{name:/^Quote · /})).not.toHaveLength(0);
- const newChat=screen.getByRole('button',{name:'New conversation'});
- expect(newChat.compareDocumentPosition(box)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
- expect(screen.getByRole('main')).toContainElement(box);
+ expect(box).toHaveAttribute('placeholder','Ask about stock, pricing, orders...');
+ expect(screen.getByText('HERRICK INDUSTRIAL SUPPLY')).toBeInTheDocument();
+ expect(screen.getByRole('heading',{level:2}).textContent).toBe('Your business.Your answers.');
+ expect(screen.getByText('Ask about stock, pricing, orders and quotes.')).toBeInTheDocument();
+ expect(screen.getAllByRole('button',{name:/\?$/}).map(b=>b.textContent)).toEqual(['Do you have 1/2 in grade 8 hex bolts in stock?','What did we pay for nitrile gloves last time?','Has our last order shipped?','What\'s our open balance?']);
+ expect(screen.getByText('Powered by Querent')).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Orders'})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'My rep'})).toBeInTheDocument();
+ expect(screen.queryByRole('complementary')).toBeNull();
+ // No frame shows New conversation on the welcome: it appears once the conversation has turns.
+ expect(screen.queryByRole('button',{name:'New conversation'})).toBeNull();
 });
-it('starts a new conversation from the chat toolbar',async()=>{
+it('starts a new conversation once the conversation has turns',async()=>{
  const send=vi.fn().mockResolvedValue({answer:'Answered.',categories:['account'],outcome:'answered',row_count:0} satisfies ChatAnswer);
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'What is our open balance?'}});
- fireEvent.click(screen.getByLabelText('Send question'));
+ fireEvent.click(screen.getByLabelText('Send'));
  expect(await screen.findByText('Answered.')).toBeInTheDocument();
  const first=localStorage.getItem('querent-conversation-u1');
  fireEvent.click(screen.getByRole('button',{name:'New conversation'}));
@@ -38,7 +44,7 @@ it('submits a question on send and renders the answer',async()=>{
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'What is the status of PO-48213?'}});
- fireEvent.click(screen.getByLabelText('Send question'));
+ fireEvent.click(screen.getByLabelText('Send'));
  expect(await screen.findByText('PO-48213 shipped Sep 12.')).toBeInTheDocument();
  expect(send).toHaveBeenCalledWith('customer/chat','POST',expect.objectContaining({question:'What is the status of PO-48213?'}));
  expect(screen.getByText('DO',{selector:'.user-avatar'})).toBeInTheDocument();
@@ -59,7 +65,7 @@ it('renders a combined answer covering more than one category',async()=>{
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'Status of PO-48213 and my financing balance?'}});
- fireEvent.click(screen.getByLabelText('Send question'));
+ fireEvent.click(screen.getByLabelText('Send'));
  expect(await screen.findByText(/PO-48213 is shipped/)).toBeInTheDocument();
 });
 it('renders the restricted message',async()=>{
@@ -68,7 +74,7 @@ it('renders the restricted message',async()=>{
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'What are my financing balances?'}});
- fireEvent.click(screen.getByLabelText('Send question'));
+ fireEvent.click(screen.getByLabelText('Send'));
  expect(await screen.findByText('That information isn’t available here.')).toBeInTheDocument();
 });
 describe('the clarifying question (task 2.2)',()=>{
@@ -84,7 +90,7 @@ describe('the clarifying question (task 2.2)',()=>{
  async function say(text:string){
   const box=await screen.findByLabelText('Ask a question');
   fireEvent.change(box,{target:{value:text}});
-  fireEvent.click(screen.getByLabelText('Send question'));
+  fireEvent.click(screen.getByLabelText('Send'));
  }
  it('shows only the question in round 1, then candidate buttons and the rep in round 2; a button sends the pick',async()=>{
   const popup:ChatAnswer={answer:'Here is your list:',categories:['items_stock'],outcome:'answered',row_count:2,kind:'item_popup',payload:{fulfillment:'will_call',branch_id:'slc',lines:[]}};
@@ -114,7 +120,7 @@ describe('the clarifying question (task 2.2)',()=>{
  it('shows the buttons again after a reload, from the history',async()=>{
   const turn:ChatTurn={id:'t1',question:'Please quote 6 boxes of cut-off wheels',...clarify(2)};
   const get=vi.fn(async(path:string):Promise<any>=>{
-   if(path in sidebarRoutes) return sidebarRoutes[path as keyof typeof sidebarRoutes];
+   if(path in siteRoutes) return siteRoutes[path as keyof typeof siteRoutes];
    if(path.startsWith('customer/history/')) return [turn];
    throw new Error(`unexpected get ${path}`);
   }) as unknown as API['get'];
@@ -125,7 +131,7 @@ describe('the clarifying question (task 2.2)',()=>{
 it('keeps a message sent before the history has loaded',async()=>{
  let loaded:(turns:ChatTurn[])=>void=()=>{};
  const get=vi.fn(async(path:string):Promise<any>=>{
-  if(path in sidebarRoutes) return sidebarRoutes[path as keyof typeof sidebarRoutes];
+  if(path in siteRoutes) return siteRoutes[path as keyof typeof siteRoutes];
   if(path.startsWith('customer/history/')) return new Promise<ChatTurn[]>(resolve=>{loaded=resolve;});
   throw new Error(`unexpected get ${path}`);
  }) as unknown as API['get'];
@@ -134,7 +140,7 @@ it('keeps a message sent before the history has loaded',async()=>{
  const box=await screen.findByLabelText('Ask a question');
  await waitFor(()=>expect(get).toHaveBeenCalledWith(expect.stringMatching(/^customer\/history\//)));
  fireEvent.change(box,{target:{value:'Hi'}});
- fireEvent.click(screen.getByLabelText('Send question'));
+ fireEvent.click(screen.getByLabelText('Send'));
  loaded([]);
  expect(await screen.findByText('Answered.')).toBeInTheDocument();
  expect(screen.getByText('Hi',{selector:'.question-bubble'})).toBeInTheDocument();
@@ -144,7 +150,7 @@ it('recovers from an API failure by restoring the question and showing an error'
  render(<CustomerChat api={makeApi(emptyGet(),send)} user={user} signOut={()=>{}}/>);
  const box=await screen.findByLabelText('Ask a question');
  fireEvent.change(box,{target:{value:'What is the status of PO-48213?'}});
- fireEvent.click(screen.getByLabelText('Send question'));
+ fireEvent.click(screen.getByLabelText('Send'));
  expect(await screen.findByRole('alert')).toHaveTextContent('The request could not be completed. Please try again.');
  expect(box).toHaveValue('What is the status of PO-48213?');
  expect(screen.queryByText('What is the status of PO-48213?',{selector:'.question-bubble'})).not.toBeInTheDocument();

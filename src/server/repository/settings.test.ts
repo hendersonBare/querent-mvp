@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {agingThresholds,deliveryRates,floorFor,freeDeliverySettings,freightCostSettings,freightRateSettings,pricingSettings,repFloors,setScarcityUplift,updateOwnFloor} from './settings';
+import {agingThresholds,deliveryRates,floorFor,orgMarginFloors,setOrgMarginFloors,freeDeliverySettings,freightCostSettings,freightRateSettings,pricingSettings,repFloors,setScarcityUplift,updateOwnFloor} from './settings';
 import {setSettingFixture,useSeededDatabase} from './test-db';
 
 useSeededDatabase();
@@ -100,5 +100,33 @@ describe('aging thresholds (v3 spec §1.3, decision 16; the edit UI comes with r
     await setSettingFixture('aging_cr_red_h','-5');
     expect(agingThresholds()).toEqual({rfrAmberH:4,rfrRedH:24,crAmberH:4,crRedH:24,sentAmberH:48,sentRedH:120});
     for(const key of KEYS)await setSettingFixture(key,null);
+  });
+});
+
+describe('organization margin floors (plan U8; Appendix C org_margin_floors)',()=>{
+  it('lists every category in display order with its floor: on the seed, the lowest floor any rep has',()=>{
+    expect(orgMarginFloors().map(f=>[f.category_id,f.category_name,f.floor])).toEqual([
+      ['fasteners','Fasteners',0.2],['abrasives','Abrasives & Cutting',0.2],['safety','Safety & PPE',0.2],
+      ['material-handling','Material Handling & Tie-downs',0.2],['tools','Tools',0.18],['janitorial','Janitorial/MRO',0.2],
+    ]);
+  });
+
+  it('stores the floors given, in one transaction, and leaves the others',()=>{
+    const saved=setOrgMarginFloors([{category_id:'safety',floor:0.25},{category_id:'tools',floor:0.15}]);
+    expect(saved.find(f=>f.category_id==='safety')?.floor).toBe(0.25);
+    expect(saved.find(f=>f.category_id==='tools')?.floor).toBe(0.15);
+    expect(saved.find(f=>f.category_id==='fasteners')?.floor).toBe(0.2);
+    // A bad one stores none of them.
+    expect(()=>setOrgMarginFloors([{category_id:'safety',floor:0.3},{category_id:'tools',floor:1}])).toThrow(RangeError);
+    expect(orgMarginFloors().find(f=>f.category_id==='safety')?.floor).toBe(0.25);
+    setOrgMarginFloors([{category_id:'safety',floor:0.2},{category_id:'tools',floor:0.18}]);
+  });
+
+  it('reads a category with no stored floor as 0',async()=>{
+    const {db}=await import('../db');
+    db().prepare("DELETE FROM org_margin_floors WHERE category_id='tools'").run();
+    expect(orgMarginFloors().find(f=>f.category_id==='tools')?.floor).toBe(0);
+    setOrgMarginFloors([{category_id:'tools',floor:0.18}]);
+    expect(orgMarginFloors().find(f=>f.category_id==='tools')?.floor).toBe(0.18);
   });
 });

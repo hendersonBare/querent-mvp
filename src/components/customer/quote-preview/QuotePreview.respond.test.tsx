@@ -151,7 +151,7 @@ describe('Accept',()=>{
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('Send accepts the revision on screen once, then the modal shows it accepted and the sidebar is told',async()=>{
+  it('Send accepts the revision on screen once, then the modal shows it accepted and the bell is told',async()=>{
     let resolve:(value:unknown)=>void=()=>{};
     post.mockReturnValue(new Promise(r=>{resolve=r;}));
     const changed=vi.fn();
@@ -167,7 +167,7 @@ describe('Accept',()=>{
     expect(within(confirm('Confirm acceptance')).getByRole('button',{name:'Sending…'})).toBeDisabled();
     await act(async()=>resolve({quote:ACCEPTED,replayed:false}));
     expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(within(dialog).getByText('Accepted',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(dialog).getByText('Accepted',{selector:'.qp-state'})).toBeInTheDocument();
     const note=bar(dialog).getByText('You accepted rev 1 with PO 7781: pickup Tue Sep 29, 10:00 AM at SLC.');
     expect(note).toHaveFocus();
     expect(bar(dialog).getByRole('button',{name:'Accept'})).toBeDisabled();
@@ -276,7 +276,7 @@ describe('Request changes',()=>{
     fireEvent.click(within(c).getByRole('button',{name:'Send'}));
     expect(post).toHaveBeenCalledWith('q-24817','request-changes',{revision:1,note:'Make the bolts 12 boxes.\n\nThanks'},expect.any(String));
     await waitFor(()=>expect(screen.queryByRole('alertdialog')).toBeNull());
-    expect(within(dialog).getByText('Changes requested',{selector:'.cx-chip'})).toBeInTheDocument();
+    expect(within(dialog).getByText('Changes requested',{selector:'.qp-state'})).toBeInTheDocument();
     expect(bar(dialog).getByText('You asked for changes to rev 1. Brandi is revising the quote.')).toHaveFocus();
     expect(bar(dialog).getByRole('button',{name:'Request changes'})).toBeDisabled();
   });

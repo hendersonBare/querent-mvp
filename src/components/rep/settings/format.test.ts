@@ -1,8 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {floorInput,floorPosition,parseFloorPct,quotesByRep,reassignedNote} from './format';
-
-const wasatch={id:'wasatch',name:'Wasatch Mechanical Contractors',account_number:'WAS-1142',rep_id:'mara',rep_name:'Mara Jensen',placeholder:false,
-  quotes:[{rep_id:'brandi',rep_name:'Brandi Gallegos',count:25}]};
+import {ACCESS_TYPES,AGING_STATUS,NO_ACCESS_FILTER,accessQuery,accessState,filterCount,firstName,floorInput,floorPosition,inDays,matchCount,parseFloorPct,plainFormula,plusDollars} from './format';
 
 describe('floor field',()=>{
   it('shows a floor at the precision the warnings use',()=>{
@@ -31,17 +28,32 @@ describe('floor field',()=>{
   });
 });
 
-describe('assignment copy',()=>{
-  it("counts a customer's quotes by the rep they belong to",()=>{
-    expect(quotesByRep([])).toBe('None yet');
-    expect(quotesByRep(wasatch.quotes)).toBe('25 with Brandi Gallegos');
-    expect(quotesByRep([...wasatch.quotes,{rep_id:'mara',rep_name:'Mara Jensen',count:1}])).toBe('25 with Brandi Gallegos, 1 with Mara Jensen');
+describe('Customer access words and query (plan U8; C_S1, C_S1a, C_S1b)',()=>{
+  it("names the data types as the frames do, and each switch's state",()=>{
+    expect(ACCESS_TYPES.map(t=>[t.category,t.label])).toEqual([['items_stock','Items and stock'],['pricing','Pricing'],['orders_quotes','Orders and quotes'],['account','Account']]);
+    expect([accessState(true),accessState(false),accessState(null)]).toEqual(['Querent answers','Not shared','On for some customers']);
   });
 
-  it('says who has the customer now and that existing quotes stay put',()=>{
-    expect(reassignedNote(wasatch)).toBe('Wasatch Mechanical Contractors is now Mara Jensen’s customer. New quote requests go to Mara Jensen. Its 25 existing quotes stay with Brandi Gallegos.');
-    expect(reassignedNote({...wasatch,rep_id:'brandi',rep_name:'Brandi Gallegos'})).toBe('Wasatch Mechanical Contractors is now Brandi Gallegos’s customer. New quote requests go to Brandi Gallegos.');
-    expect(reassignedNote({...wasatch,quotes:[{rep_id:'brandi',rep_name:'Brandi Gallegos',count:1}]})).toMatch(/Its 1 existing quote stays with Brandi Gallegos\.$/);
-    expect(reassignedNote({...wasatch,name:'Great Basin Fabrication',quotes:[]})).toBe('Great Basin Fabrication is now Mara Jensen’s customer. New quote requests go to Mara Jensen.');
+  it('counts the types picked, builds the list query (Any left out) and says how many customers match',()=>{
+    expect(filterCount(NO_ACCESS_FILTER)).toBe(0);
+    expect(filterCount({...NO_ACCESS_FILTER,pricing:'not_shared',account:'answers'})).toBe(2);
+    expect(accessQuery('',NO_ACCESS_FILTER)).toBe('');
+    expect(accessQuery('  basin ',{...NO_ACCESS_FILTER,pricing:'not_shared'})).toBe('q=basin&pricing=not_shared');
+    expect(accessQuery('',{...NO_ACCESS_FILTER,items_stock:'answers'})).toBe('items_stock=answers');
+    expect(matchCount(2,6)).toBe('2 of 6 customers');
+    expect(matchCount(0,1)).toBe('0 of 1 customer');
+  });
+});
+
+describe('other Settings words',()=>{
+  it('aging hours as days beside a whole number of days (C_S8 "1 day", "3 days")',()=>{
+    expect([inDays('24'),inDays('72'),inDays('168'),inDays('4'),inDays('36'),inDays(''),inDays('abc')]).toEqual(['1 day','3 days','7 days','','','','']);
+    expect(AGING_STATUS).toEqual({'Ready for review':'Draft ready','Changes requested':'Changes requested',Sent:'Sent'});
+  });
+
+  it('a freight formula with an x, the change in dollars, and a first name',()=>{
+    expect(plainFormula('$25.00 + $2.50/mi × 15.0 mi = $62.50')).toBe('$25.00 + $2.50/mi x 15.0 mi = $62.50');
+    expect([plusDollars(12),plusDollars(968),plusDollars(0)]).toEqual(['+$0.12','+$9.68','+$0.00']);
+    expect(firstName('Eli Porter')).toBe('Eli');
   });
 });

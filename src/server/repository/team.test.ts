@@ -1,19 +1,19 @@
 import {describe,expect,it} from 'vitest';
-import {customers,repStanding,reps,setAssignedRep,setRepActive,setRepTeam,teamReps} from './accounts';
+import {customers,repStanding,reps,setAssignedRep,setRepActive,teamReps} from './accounts';
 import {useSeededDatabase} from './test-db';
 
-// Roles, team labels and deactivation in the repository (v3 spec §1.2 "006" row, §8; decisions 20,
-// 21; task D1). Seed: Brandi (manager) has Wasatch and Great Basin, Mara has Canyon Ridge, Nora has
+// Roles, teams and deactivation in the repository (v3 spec §1.2 "006" row, §8; decisions 20,
+// 21; tasks D1, U7: the team is the rep's team entity). Seed: Brandi (manager) has Wasatch and Great Basin, Mara has Canyon Ridge, Nora has
 // Uinta, Eli has no customers.
 useSeededDatabase();
 
 describe('the seeded team',()=>{
-  it('lists every rep by name with role, team label, active flag and customer count',()=>{
+  it('lists every rep by name with role, team (name and id), active flag and customer count',()=>{
     expect(teamReps()).toEqual([
-      {id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',role:'manager',team:'Inside Sales',active:true,customer_count:2},
-      {id:'eli',name:'Eli Porter',initials:'EP',title:'Outside Sales',role:'rep',team:'Outside Sales',active:true,customer_count:2},
-      {id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales',role:'rep',team:'Inside Sales',active:true,customer_count:1},
-      {id:'nora',name:'Nora Chen',initials:'NC',title:'Account Manager',role:'rep',team:'Outside Sales',active:true,customer_count:1},
+      {id:'brandi',name:'Brandi Gallegos',initials:'BG',title:'Inside Sales',role:'manager',team:'Inside Sales',team_id:1,active:true,customer_count:2},
+      {id:'eli',name:'Eli Porter',initials:'EP',title:'Outside Sales',role:'rep',team:'Outside Sales',team_id:2,active:true,customer_count:2},
+      {id:'mara',name:'Mara Jensen',initials:'MJ',title:'Inside Sales',role:'rep',team:'Inside Sales',team_id:1,active:true,customer_count:1},
+      {id:'nora',name:'Nora Chen',initials:'NC',title:'Account Manager',role:'rep',team:'Outside Sales',team_id:2,active:true,customer_count:1},
     ]);
   });
 
@@ -21,17 +21,6 @@ describe('the seeded team',()=>{
     expect(repStanding('brandi')).toEqual({role:'manager',active:true});
     expect(repStanding('mara')).toEqual({role:'rep',active:true});
     expect(repStanding('nobody')).toBeUndefined();
-  });
-});
-
-describe('setRepTeam',()=>{
-  it('stores a label or clears it, and says when the rep does not exist',()=>{
-    expect(setRepTeam('eli','Field Sales')).toBe(true);
-    expect(teamReps().find(r=>r.id==='eli')?.team).toBe('Field Sales');
-    expect(setRepTeam('eli',null)).toBe(true);
-    expect(teamReps().find(r=>r.id==='eli')?.team).toBeNull();
-    expect(setRepTeam('nobody','X')).toBe(false);
-    setRepTeam('eli','Outside Sales');
   });
 });
 

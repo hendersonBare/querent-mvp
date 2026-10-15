@@ -78,15 +78,15 @@ Details that matter for a sync:
 - **Local ids are not ERP ids.** Foreign keys use local `id` columns (for example `quote_lines.item_id REFERENCES items(id)`). The seed happens to use the SKU as `items.id`, but a sync must resolve each foreign key through `(source, external_id)` and must not assume local id = ERP id. (Repo: `schema.ts`, `seed/reference.ts`)
 - **Querent-created rows** leave `external_id` NULL. SQLite treats NULLs as distinct in a unique index, so they never collide. (Repo: `schema.ts`)
 - **Business keys are also unique:** `items.sku`, `customers.account_number`, `branches.code`, `contracts.contract_number`, `orders.order_number`. A sync that renames a SKU in the ERP has to update in place. (Repo: `schema.ts`)
-- **Nothing outside the seed writes the ERP fields of these 13 tables.** The one exception is Querent-owned columns added in v3: Settings > Reps writes `reps.team` and `reps.active` (`accounts.ts`). A rep sync must upsert the ERP fields and leave `role`, `team` and `active` alone. Otherwise the sync job would be the only writer. (Repo)
+- **Nothing outside the seed writes the ERP fields of these 13 tables.** The one exception is Querent-owned columns added in v3: Teams and Reps writes `reps.active` (`accounts.ts`; the team is the Querent-owned `teams` and `team_members` tables since U7). A rep sync must upsert the ERP fields and leave `role`, `team` and `active` alone. Otherwise the sync job would be the only writer. (Repo)
 
 ### 2.3 Querent-owned tables (never synced)
 
-`suppliers`, `settings`, `customer_rep` (one rep per customer, edited by a manager in Settings > Rep assignments), `rep_category_floors`, `departments`, `delivery_rates`, `quotes`, `quote_lines`, `quote_removed_lines`, `quote_revisions`, `quote_activity`, `quote_notes`, `conversations`, `messages`, `query_logs`, `access`, `fuel_prices` (v3: the daily state gasoline price from OilPriceAPI), `sync_events`, `meta` and the migration runner's `schema_migrations`. (Repo: `src/server/db/migrations/`)
+`suppliers`, `settings`, `customer_rep` (one rep per customer, edited by a manager on Teams and Reps), `teams` and `team_members` (Querent-owned, U7), `rep_category_floors`, `departments`, `delivery_rates`, `quotes`, `quote_lines`, `quote_removed_lines`, `quote_revisions`, `quote_activity`, `quote_notes`, `conversations`, `messages`, `query_logs`, `access`, `fuel_prices` (v3: the daily state gasoline price from OilPriceAPI), `sync_events`, `meta` and the migration runner's `schema_migrations`. (Repo: `src/server/db/migrations/`)
 
 Two decisions are needed at integration time:
 
-- Does `customer_rep` come from the ERP's salesrep on the customer, or stay Querent-owned? Today Settings writes it with `setAssignedRep` in `accounts.ts`.
+- Does `customer_rep` come from the ERP's salesrep on the customer, or stay Querent-owned? Today Teams and Reps writes it with `setAssignedRep` in `accounts.ts`.
 - Are the `departments` contacts (Customer Service, A/R, will-call phones) kept by hand in Querent?
 
 ### 2.4 Repository layer
@@ -189,7 +189,7 @@ The tools are defined in `src/server/chat/tools.ts`, and their schemas and dispa
 
 | Where | What | Integration note |
 |---|---|---|
-| `reps.role`, `reps.team`, `reps.active` (006) | `rep` or `manager`; a free-text team label used only as a filter; inactive reps lose access, and can only be marked inactive once no customer is assigned to them | Querent-owned columns on an ERP-sourced table: a rep sync must not overwrite them. If `customer_rep` comes from the ERP salesrep (§2.3), deactivation still waits for those customers to move. |
+| `reps.role`, `reps.team`, `reps.active` (006) | `rep` or `manager`; a free-text team label, migrated into `teams` and `team_members` in 011 and no longer read; inactive reps lose access, and can only be marked inactive once no customer is assigned to them | Querent-owned columns on an ERP-sourced table: a rep sync must not overwrite them. If `customer_rep` comes from the ERP salesrep (§2.3), deactivation still waits for those customers to move. |
 | `quotes.original_rep_id` (007) | the rep the quote was created for; `rep_id` is the current owner, which a manager can reassign (each move logged in `quote_activity`, kind `reassigned`) | Write-back should credit the current owner (`rep_id`) as the order's salesrep unless the customer decides otherwise. |
 | `quotes.status='declined'`, `declined_at`, `decline_reason`, `decline_note` (004) | the customer's decline and its reason; the Other note is rep-only | Never written back as an order. The reasons are CRM material (lost-reason codes) if a CRM sync is built. |
 | `quotes.last_rep_touch_at`, `customer_viewed_at` (005) | the rep's last open or edit, and the customer's last PDF view | Querent-only signals for the Team dashboard. |

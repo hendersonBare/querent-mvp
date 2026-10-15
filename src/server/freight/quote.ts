@@ -3,12 +3,13 @@ import type {DeliveryRates,Quote,QuoteHeader,QuoteLine} from '@/domain';
 import {roundDollars,toCents} from '@/lib/money';
 import {canEditDraft,effectiveStatus} from '@/server/quotes/lifecycle';
 import {
-  addQuoteActivity,branch,cachedPoolRate,deliveryRates,freeDeliverySettings,freightCostSettings,freightRateSettings,inTransaction,quote,saveQuoteRecovery,setFreightOverride,
+  addQuoteActivity,branch,deliveryRates,inTransaction,quote,saveQuoteRecovery,setFreightOverride,
 } from '@/server/repository';
 import {modelledDeliveryCost} from './cost-model';
 import {HaversineRoadFactorProvider,type DistanceProvider} from './distance';
 import {CALL_FOR_FREIGHT,computeFreight,formatUsd,freightWithMiles,needsMiles,resolveFreight,type FreightInput,type FreightOverride,type QuoteFreight} from './engine';
 import {fuelPriceStatus,refreshFuelPrice,type FuelPriceSource} from './fuel-price';
+import {freeDeliveryInEffect,freightCostInEffect,freightRatesInEffect,poolInEffect} from './in-effect';
 import {rampStep,rateInForce} from './pool';
 import {allocateRecovery,carriesRecovery} from './recovery';
 
@@ -17,10 +18,10 @@ import {allocateRecovery,carriesRecovery} from './recovery';
 //
 // Free delivery pricing on a quote (spec §4.4, §4.5; decisions 31–35). applyQuoteRecovery decides
 // and stores a draft's frozen state from the quote as it stands:
-//   - it carries recovery (carriesRecovery: toggle on with an enable time, delivery, no override,
+//   - it carries recovery (carriesRecovery: toggle in effect with an enable time, delivery, no override,
 //     goods at or over the free threshold, not call for freight) or not;
-//   - carrying, it keeps its frozen rate, or freezes the rate in force now (cachedPoolRate, the
-//     starting rate, the cap and the ramp step) when it has none: at creation, when the toggle was
+//   - carrying, it keeps its frozen rate, or freezes the rate in force now (the pool, the
+//     starting rate, the cap and the ramp step in effect) when it has none: at creation, when the toggle was
 //     turned on since, or when an override is cleared (OA-22). Not carrying, the rate is cleared
 //     (the quote leaves the pool) and every line's recovery is 0;
 //   - recovery is allocated at the frozen rate (./recovery), with the per-line cap in force;
@@ -29,6 +30,8 @@ import {allocateRecovery,carriesRecovery} from './recovery';
 // repriceQuoteRecovery runs it on a draft after every edit and on every rep open, so a draft whose
 // frozen state disagrees with the toggle reprices on its next open or edit. Sent and final quotes
 // never change: their customer price is frozen in the snapshot.
+// Every setting is read as in effect (./in-effect, decision 71): a feature flag that is off stops what
+// it governs, whatever is stored, and the stored settings apply again once it is back on.
 // The modelled cost's fuel price is the one in use for the delivering branch's state (./fuel-price:
 // manual, else the stored OilPriceAPI or seed price, else 0). It is refreshed (at most once a day)
 // before the synchronous transaction that freezes it: prepareFuelPrice.
@@ -56,9 +59,9 @@ function placesOf(q:QuoteRoute):Pick<FreightInput,'willCall'|'branch'|'shipTo'>{
   return {willCall:q.fulfillment==='will_call',branch:origin,shipTo:noShipTo?null:{address:q.ship_to_address,lat:q.ship_to_lat,lng:q.ship_to_lng}};
 }
 
-/** What the engine prices a quote's freight from: its branch (the origin), ship-to, subtotal, the rates and the free delivery pricing toggle. */
+/** What the engine prices a quote's freight from: its branch (the origin), ship-to, subtotal, the rates and the free delivery pricing toggle in effect. */
 function freightInputOf(q:Quote,rates:DeliveryRates,subtotal=pricedSubtotal(q.lines)):FreightInput{
-  return {...placesOf(q),subtotal,rates,freeDeliveryPricing:freeDeliverySettings().enabled};
+  return {...placesOf(q),subtotal,rates,freeDeliveryPricing:freeDeliveryInEffect().enabled};
 }
 
 const providerFor=(rates:DeliveryRates,provider?:DistanceProvider)=>provider??new HaversineRoadFactorProvider(rates.road_factor);
@@ -92,19 +95,19 @@ export function overrideFreight(quoteId:string,repId:string,override:FreightOver
 
 // ---- Free delivery pricing ----
 
-/** The rate a quote freezes at `now` (spec §4.4): the cached pool or starting rate, capped, at today's ramp step. */
+/** The rate a quote freezes at `now` (spec §4.4): the cached pool or starting rate, capped, at today's ramp step, all as in effect. */
 export function rateInForceNow(now:string){
-  const settings=freightRateSettings(),{enabledAt}=freeDeliverySettings(),pool=cachedPoolRate(now);
+  const settings=freightRatesInEffect(),{enabledAt}=freeDeliveryInEffect(),pool=poolInEffect(now);
   const step=rampStep({enabledAt,now,steps:settings.rampSteps,days:settings.rampDays});
   return {rateBp:rateInForce({poolBp:pool.rateBp,count:pool.count,startingBp:settings.startingRateBp,capBp:settings.rateCapBp,step,steps:settings.rampSteps}),step,steps:settings.rampSteps};
 }
 
 /**
  * The modelled cost of one delivery `miles` road miles away from a branch in `state`, in cents (spec
- * §4.2), with the fuel price in use there (fuelPriceStatus: manual, stored, or 0 with a warning).
+ * §4.2), with the cost-model inputs in effect and the fuel price in use there (fuelPriceStatus: manual, stored, or 0 with a warning).
  */
 export function modelledFreightCents(miles:number,state:string){
-  const s=freightCostSettings();
+  const s=freightCostInEffect();
   const fuelPriceCents=fuelPriceStatus(state).cents;
   return modelledDeliveryCost({miles,mpg:s.mpg,fuelPriceCents,wearCentsPerMile:s.wearCentsPerMile,depreciationCentsPerMile:s.depreciationCentsPerMile,
     driverCentsPerHour:s.driverCentsPerHour,avgSpeedMph:s.avgSpeedMph,stopMinutes:s.stopMinutes}).cents;
@@ -143,14 +146,14 @@ export function applyQuoteRecovery(q:Quote,miles:number|null,{now,remodel=false}
   const computed=freightWithMiles(input,miles);
   const callForFreight=computed.amount===CALL_FOR_FREIGHT;
   // On but never enabled (no enable time, so ramp step 0): nothing to freeze, so no recovery rather than a 0 bp rate.
-  const enabled=input.freeDeliveryPricing===true&&freeDeliverySettings().enabledAt!==null;
+  const enabled=input.freeDeliveryPricing===true&&freeDeliveryInEffect().enabledAt!==null;
   const carries=carriesRecovery({enabled,fulfillment:q.fulfillment,overridden:q.freight_override!==null,subtotal:input.subtotal,
     freeThreshold:rates.free_threshold,callForFreight});
   const rate=!carries?{rateBp:null,step:null,steps:null}
     :q.freight_rate_bp===null?rateInForceNow(now):{rateBp:q.freight_rate_bp,step:q.freight_ramp_step,steps:q.freight_ramp_steps};
   const measured=q.fulfillment==='delivery'&&!callForFreight&&computed.miles!==null?computed.miles:null;
   const modelledCents=measured===null?null:remodel||(carries&&q.modelled_freight_cents===null)?modelledFreightCents(measured,branch(q.branch_id)!.state):q.modelled_freight_cents;
-  const allocated=rate.rateBp===null?null:allocateRecovery({rateBp:rate.rateBp,lineCapBp:freightRateSettings().lineCapBp,lines:q.lines.map(l=>({
+  const allocated=rate.rateBp===null?null:allocateRecovery({rateBp:rate.rateBp,lineCapBp:freightRatesInEffect().lineCapBp,lines:q.lines.map(l=>({
     line_no:l.line_no,qty:l.qty,unitPriceCents:l.unit_price===null?null:toCents(l.unit_price),unitCostCents:toCents(l.unit_cost),basis:l.price_basis}))});
   const lines=q.lines.map((l,i)=>({lineId:l.id,freightRecovery:allocated?.[i].freight_recovery??0}));
   const same=rate.rateBp===q.freight_rate_bp&&rate.step===q.freight_ramp_step&&rate.steps===q.freight_ramp_steps&&modelledCents===q.modelled_freight_cents

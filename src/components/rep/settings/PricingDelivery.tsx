@@ -1,133 +1,102 @@
 'use client';
-import {useState,type FormEvent} from 'react';
+import {useState,type ReactNode} from 'react';
+import {Toggle} from '@/components/ui';
 import type {DeliveryRates,PricingSettings} from '@/domain';
+import type {FeatureFlags} from '@/server/flags';
 import {formatUsd,priceDelivery} from '@/server/freight/engine';
 import {DELIVERY_RATE_KEYS,DELIVERY_RATE_LIMITS,checkDeliveryRates,type DeliveryRateKey} from '@/server/freight/rates';
-import {BROKEN_CASE_UPLIFT_PERCENT} from '@/server/pricing/engine';
-import {repPageStyles as page} from '../RepPage';
+import {BROKEN_CASE_UPLIFT_PERCENT,SCARCITY_STOCK_MULTIPLE,SCARCITY_UPLIFT_PERCENT} from '@/server/pricing/engine';
 import {saveSetting} from './api';
-import {FreeDeliveryControls} from './FreeDeliveryPricing';
-import {Switch} from './Switch';
+import {FreightSections} from './FreeDeliveryPricing';
+import {plainFormula} from './format';
+import {Card,NumberField,Problem,SaveButton,SettingRow,SettingsFrame} from './parts';
 import s from './Settings.module.css';
 
-// Settings > Pricing & delivery. Pricing: the scarcity uplift (spec §5.1), off by default, and the
-// broken-case rule, fixed at customer price + 10%; the pricing engine reads them each time it
-// prices a quote. Delivery rates (spec §5.3): every rate the freight engine uses, editable by any
-// rep, with a worked example that follows the values being typed. Drafts use saved rates from
-// their next change on; a sent quote keeps the freight it went out with.
-// The manager also gets free delivery pricing's cards below them (./FreeDeliveryPricing, task C3);
-// the two cards above stay as they are (OA-55).
+// Settings > Pricing and delivery (spec §5.1, §5.3; plan U8; C_S4), the manager's. Pricing: the scarcity
+// uplift (off by default) and the broken-case rule, fixed at customer price + 10%; the pricing engine reads
+// them each time it prices a quote. Delivery rates: every rate the freight engine uses, right-aligned, the
+// unit under the label where a new user could misread it (Appendix E), with a worked example that follows
+// the typing. Drafts use saved rates from their next change on; a sent quote keeps its freight.
+// Below them, only while each one's flag is on (decision 48): Free delivery pricing, the Recovery pool and
+// the Delivery cost model (./FreeDeliveryPricing, C_S5 to C_S7). No frame: the "Saved" line beside Save.
 
 /** The worked example's distance, as in spec §5.3: 12 mi straight-line is 15.0 road miles. */
 const EXAMPLE_MILES=15;
+/** The unit line under a rate's label (C_S4); the dollar rates carry "$" before the field instead. */
+const UNIT_LINE:Partial<Record<DeliveryRateKey,string>>={max_radius_miles:'Miles. Farther is call for freight',road_factor:'Multiplier on straight-line miles'};
 
 const asText=(rates:DeliveryRates)=>Object.fromEntries(DELIVERY_RATE_KEYS.map(key=>[key,String(rates[key])])) as Record<DeliveryRateKey,string>;
 const asNumbers=(text:Record<DeliveryRateKey,string>)=>Object.fromEntries(DELIVERY_RATE_KEYS.map(key=>[key,text[key].trim()===''?Number.NaN:Number(text[key])]));
 
-export function PricingDelivery({pricing,delivery,manager=false,onPricing,onDelivery}:{pricing:PricingSettings;delivery:DeliveryRates;manager?:boolean;onPricing:(pricing:PricingSettings)=>void;onDelivery:(delivery:DeliveryRates)=>void}){
+export function PricingDelivery({pricing,delivery,flags,tabs}:{pricing:PricingSettings;delivery:DeliveryRates;flags:FeatureFlags;tabs:ReactNode}){
+  return <SettingsFrame tabs={tabs}>
+    <div className={s.split}>
+      <div className={s.left}><PricingCard initial={pricing}/></div>
+      <div className={s.right}><DeliveryRatesCard initial={delivery}/></div>
+    </div>
+    <FreightSections flags={flags}/>
+  </SettingsFrame>;
+}
+
+function PricingCard({initial}:{initial:PricingSettings}){
+  const [pricing,setPricing]=useState(initial);
   const [saving,setSaving]=useState(false),[error,setError]=useState('');
   const on=pricing.scarcity_uplift_enabled;
-
   async function toggle(){
     setSaving(true);setError('');
-    try{onPricing(await saveSetting<PricingSettings>('pricing',{scarcity_uplift_enabled:!on}));}
+    try{setPricing(await saveSetting<PricingSettings>('pricing',{scarcity_uplift_enabled:!on}));}
     catch(e){setError(e instanceof Error?e.message:'That change wasn’t saved. Try again.');}
     finally{setSaving(false);}
   }
-
-  return <>
-  <div className={s.split}>
-    <section className={`${page.card} ${s.card}`} aria-labelledby="settings-pricing">
-      <div className={s.head}>
-        <h2 id="settings-pricing">Pricing</h2>
-        <p>How Querent suggests a price for each quote line.</p>
+  return <Card title="Pricing" note="How Querent suggests a price for each quote line.">
+    <Problem>{error}</Problem>
+    <SettingRow label="Scarcity uplift" sub={`When one branch can fill a line, or has under ${SCARCITY_STOCK_MULTIPLE}x the quantity on hand, suggest the customer price + ${SCARCITY_UPLIFT_PERCENT}%, never above list.`}>
+      <div className={s.control}>
+        <span className={s.state} id="scarcity-state">{on?'On':'Off (default)'}</span>
+        <Toggle checked={on} label="Scarcity uplift" describedBy="scarcity-state" disabled={saving} onChange={()=>void toggle()}/>
       </div>
-      {error&&<p className={s.error} role="alert">{error}</p>}
-      <ul className={s.rows}>
-        <li className={s.row}>
-          <div className={s.rowText}>
-            <span className={s.name}>Scarcity uplift</span>
-            <span className={s.sub}>When the quote’s branch is the only one that can fill a line, or has less than 1.5× the quantity on hand, suggest the customer price + 5%, never above list.</span>
-          </div>
-          <span className={s.state} id="scarcity-state" data-state={on?'on':'default'}>{on?'On':'Off (default)'}</span>
-          <Switch checked={on} label="Scarcity uplift" describedBy="scarcity-state" disabled={saving} onToggle={()=>void toggle()}/>
-        </li>
-        <li className={s.row}>
-          <div className={s.rowText}>
-            <span className={s.name}>Broken case</span>
-            <span className={s.sub}>When a line’s quantity is less than a full case, suggest the customer price + {BROKEN_CASE_UPLIFT_PERCENT}%, never above list. A higher last-paid price still wins.</span>
-          </div>
-          <span className={s.state}>Always on</span>
-        </li>
-      </ul>
-      <p className={s.foot}>Applies to quotes Querent prices from now on. Drafts already priced keep their suggestions.</p>
-    </section>
-
-    <DeliveryRatesForm delivery={delivery} onSaved={onDelivery}/>
-  </div>
-  {manager&&<FreeDeliveryControls/>}
-  </>;
+    </SettingRow>
+    <SettingRow label="Broken case" sub={`When a line's quantity is under a full case, suggest the customer price + ${BROKEN_CASE_UPLIFT_PERCENT}%, never above list. A higher last-paid price still wins.`}>
+      <span className={s.state}>Always on</span>
+    </SettingRow>
+    <div className={s.foot}>Applies to quotes Querent prices from now on. Drafts already priced keep their suggestions.</div>
+  </Card>;
 }
 
 /** Delivery rates: all six, saved together. */
-function DeliveryRatesForm({delivery,onSaved}:{delivery:DeliveryRates;onSaved:(delivery:DeliveryRates)=>void}){
-  const [text,setText]=useState(()=>asText(delivery));
-  const [seen,setSeen]=useState(delivery);
-  if(delivery!==seen){setSeen(delivery);setText(asText(delivery));}
+function DeliveryRatesCard({initial}:{initial:DeliveryRates}){
+  const [stored,setStored]=useState(initial);
+  const [text,setText]=useState(()=>asText(initial));
   const [saving,setSaving]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
-
   const {rates,problem}=checkDeliveryRates(asNumbers(text));
-  const changed=rates!==null&&DELIVERY_RATE_KEYS.some(key=>rates[key]!==delivery[key]);
-  const edited=DELIVERY_RATE_KEYS.some(key=>text[key]!==String(delivery[key]));
-  const shown=rates??delivery;
+  const changed=rates!==null&&DELIVERY_RATE_KEYS.some(key=>rates[key]!==stored[key]);
+  const shown=rates??stored;
   const example=priceDelivery({origin:'SLC',miles:EXAMPLE_MILES,subtotal:0,rates:shown});
-  const miles=(n:number)=>`${n.toLocaleString('en-US')} road miles`;
 
-  async function save(event:FormEvent){
-    event.preventDefault();
-    if(!rates||!changed||saving)return;
+  async function save(){
+    if(!rates||saving)return;
+    if(!changed){setSaved(false);return;}
     setSaving(true);setError('');setSaved(false);
-    try{onSaved(await saveSetting<DeliveryRates>('delivery',rates));setSaved(true);}
+    try{const next=await saveSetting<DeliveryRates>('delivery',rates);setStored(next);setText(asText(next));setSaved(true);}
     catch(e){setError(e instanceof Error?e.message:'The delivery rates weren’t saved. Try again.');}
     finally{setSaving(false);}
   }
-  const cancel=()=>{setText(asText(delivery));setError('');setSaved(false);};
 
-  return <section className={`${page.card} ${s.card}`} aria-labelledby="settings-delivery">
-    <div className={s.head}>
-      <h2 id="settings-delivery">Delivery rates</h2>
-      <p>Freight is priced by road distance from the quote’s branch. Change any rate and save: draft quotes use the new rates from their next change on.</p>
+  return <Card title="Delivery rates" note="Draft quotes use new rates from their next change." saved={saved}
+    action={<SaveButton label="Save rates" disabled={!rates||saving} onClick={()=>void save()}/>}>
+    <Problem>{error||problem}</Problem>
+    {DELIVERY_RATE_KEYS.map(key=>{
+      const {label,unit}=DELIVERY_RATE_LIMITS[key];
+      const id=`delivery-${key}`;
+      return <SettingRow key={key} label={label} sub={UNIT_LINE[key]} htmlFor={id}>
+        <NumberField id={id} width={100} prefix={unit==='$'?'$':undefined} value={text[key]} disabled={saving}
+          onChange={e=>{const value=e.target.value;setText(t=>({...t,[key]:value}));setSaved(false);setError('');}}/>
+      </SettingRow>;
+    })}
+    <div className={`${s.foot} ${s.footTall}`}>
+      {`Minimum ${formatUsd(shown.min_charge)}. Free with an items total of ${formatUsd(shown.free_threshold)} or more, within ${shown.max_radius_miles.toLocaleString('en-US')} road miles.`}
+      {example.formula&&<>{` Example, ${EXAMPLE_MILES.toFixed(1)} miles from SLC: `}<span className={s.mono}>{plainFormula(example.formula)}</span>.</>}
+      {' Sent quotes keep the freight they went out with.'}
     </div>
-    <form onSubmit={event=>void save(event)} noValidate>
-      {(error||problem)&&<p className={s.error} role="alert">{error||problem}</p>}
-      <dl className={s.facts}>
-        {DELIVERY_RATE_KEYS.map(key=>{
-          const {label,min,max,decimals,unit}=DELIVERY_RATE_LIMITS[key];
-          const id=`delivery-${key}`;
-          return <div key={key}>
-            <dt><label htmlFor={id}>{label}</label></dt>
-            <dd>
-              <span className={s.rate}>
-                {unit==='$'&&<span aria-hidden="true">$</span>}
-                <input id={id} type="number" inputMode="decimal" min={min} max={max} step={1/10**decimals} value={text[key]} disabled={saving}
-                  onChange={event=>{setText(current=>({...current,[key]:event.target.value}));setSaved(false);setError('');}}/>
-                {unit==='mi'&&<span>miles; farther is call for freight</span>}
-                {unit==='x'&&<span>× straight-line miles</span>}
-              </span>
-            </dd>
-          </div>;
-        })}
-      </dl>
-      <div className={s.rateActions}>
-        <button type="submit" className={s.save} disabled={!changed||saving}>{saving?'Saving…':'Save rates'}</button>
-        {edited&&<button type="button" className={s.save} disabled={saving} onClick={cancel}>Cancel</button>}
-        <span className={s.floorNote} role="status" data-tone="ok">{saved&&!edited?'Saved':''}</span>
-      </div>
-    </form>
-    <p className={s.foot}>
-      Minimum {formatUsd(shown.min_charge)}; free with an items total of {formatUsd(shown.free_threshold)} or more; within {miles(shown.max_radius_miles)}.
-      {example.formula&&<> Example, {EXAMPLE_MILES.toFixed(1)} road miles from SLC: <span className={s.formula}>{example.formula}</span></>}
-      {' '}Sent quotes keep the freight they went out with.
-    </p>
-  </section>;
+  </Card>;
 }

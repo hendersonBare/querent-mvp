@@ -1,45 +1,56 @@
 'use client';
-import {useCallback,useMemo,useState} from 'react';
-import Link from 'next/link';
+import {useCallback,useEffect,useId,useMemo,useRef,useState,type ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
-import {ChevronRight} from 'lucide-react';
+import {Toggle,PageHeader} from '@/components/ui';
 import {formatRateBp} from '@/server/freight/recovery';
-import {DECLINE_REASON_LABELS,canEditDraft,fulfillmentTimeLabel} from '@/server/quotes';
+import {canEditDraft,sendBlockers,type SendBlocker} from '@/server/quotes';
+import {AGING_LABELS} from '@/server/quotes/aging';
 import type {QuoteDetail} from '@/server/rep/quote-detail';
-import {quoteChecks,quoteFigures,type CheckKind,type QuoteCheck,type QuoteFigures} from '@/server/rep/quote-math';
-import {useRepScope} from '../context';
-import {AgingMarker} from '../quotes/AgingMarker';
-import {StatusChip} from '../quotes/QuotesList';
+import {quoteChecks,quoteFigures,type QuoteFigures} from '@/server/rep/quote-math';
+import {HeaderAlerts} from '../HeaderAlerts';
+import {REP_STATUS} from '../quotes/labels';
 import {ReassignDialog,type ReassignTarget} from '../reassign/ReassignDialog';
-import {ViewFullChat} from './chat-drawer/ViewFullChat';
+import {ChatButton} from './chat-drawer/ViewFullChat';
 import {ExportMenu} from './export-menu/ExportMenu';
 import {AddItem} from './AddItem';
-import {LineGrid,lineRowId} from './LineGrid';
+import {SaveIcon} from './icons';
+import {LineGrid,lineRowId,priceFieldId,qtyFieldId} from './LineGrid';
 import {MoreMenu} from './more-menu/MoreMenu';
-import {QuotePanels} from './panels/QuotePanels';
+import {TOAST_STACK,Toast,ToastSlot} from './more-menu/QuoteToast';
+import {QuoteDetails,type DetailsSection} from './panels/QuotePanels';
+import {blockerSummary,blockerTarget} from './send/blockers';
 import {ApproveAndSend} from './send/ApproveAndSend';
 import {UpsellsSection} from './upsells/UpsellsSection';
-import {day,itemCount,money,requestedAt,signedMoney,timeOfDay} from './format';
+import {day,money,requestedAt,timeOfDay} from './format';
 import {useMarkQuoteRead} from './use-mark-read';
 import {useQuoteEditor,type QuoteEditor} from './use-quote-editor';
-import list from '../quotes/QuotesList.module.css';
 import s from './QuoteDetail.module.css';
 
-// The rep's quote detail (spec §4, docs/design/screens/03-04 and 08; task 3.3): the header with
-// its actions, the customer's request, "things to check before sending", the line grid with
-// the price-basis dropdowns and floor warnings, the totals and the summary card. Every edit
-// autosaves (./use-quote-editor). The side panels (3.4), the ⋯ menu items (3.5), "Suggested by
-// Querent" (3.6), the send dialog (3.7) and the Export menu (4.3) build on this page.
+// The rep's quote editor (plan U4; C_QEBase and its states C_QE1 to C_QE11): the minimal header
+// (customer, quote number, status with Overdue or Aging, purchasing agent, requested, valid until, and
+// on a quote that carries freight recovery the "Freight recovery N%" chip, decision 64) with the caution
+// and bell; the Items card (Show cost and stock, the lines, + Add item); Suggested by
+// Querent; and on the right the total box with Approve and send, the Save draft, Export, Chat and More
+// icon buttons, and Quote details. Every edit autosaves (./use-quote-editor); Undo takes the last one
+// back. Pricing, margin math, freight and the send rules are the server's (Appendix F).
 //
-// The manager (task D2; v3 spec §6, §8; decision 22) reads any rep's quote: on another rep's the
-// page is read-only (`read_only`): a banner names the rep and offers Reassign, every edit control
-// is off, and the quote isn't marked read for its rep. On any quote the ⋯ menu offers "Reassign to
-// another rep" (the mockup's item, screen 06). After a move the page reloads as the new owner sees it.
+// Send blockers (decision 44, no frame): Approve and send is disabled while sendBlockers() finds
+// anything; the first is named under it in red with "+N more", and clicking it jumps to the line or
+// field (a quote-level one opens Quote details). The server still refuses a blocked send (422).
+//
+// The manager (task D2; decision 22) reads any rep's quote: on another rep's it is read-only
+// (`read_only`): every edit control is off, one plain line under Approve and send says whose it is, the
+// More menu offers Reassign, and the quote isn't marked read for its rep. After a move the page reloads
+// as the new owner sees it.
 
 const firstName=(name:string)=>name.trim().split(/\s+/)[0];
+/** How long a jump target stays highlighted. */
+const FLASH_MS=2400;
 
 /** What the manager's Reassign needs (task D2): who she is and the active reps. Absent for a rep. */
 export interface QuoteReassign {me:string;targets:ReassignTarget[]}
+
+type Flash={kind:'line';lineId:string}|{kind:'details';section:DetailsSection}|{kind:'add-item'};
 
 export function QuoteDetailView({initial,reassign}:{initial:QuoteDetail;reassign?:QuoteReassign}){
   const editor=useQuoteEditor(initial);
@@ -52,189 +63,165 @@ export function QuoteDetailView({initial,reassign}:{initial:QuoteDetail;reassign
   const startReassign=useMemo(()=>reassign?()=>setMoving(true):undefined,[reassign]);
   const [showCost,setShowCost]=useState(false);
   const [open,setOpen]=useState<ReadonlySet<string>>(()=>new Set());
+  const [detailsOpen,setDetailsOpen]=useState(false);
   const [sending,setSending]=useState(false);
+  const [flash,setFlash]=useState<Flash|null>(null);
+  const flashTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+  useEffect(()=>()=>clearTimeout(flashTimer.current),[]);
   const floor=useMemo(()=>({repId:quote.rep_id,repName:quote.rep_name,floors:detail.floors}),[quote.rep_id,quote.rep_name,detail.floors]);
   const figures=useMemo(()=>quoteFigures(lines,{freight:detail.freight,rates:detail.delivery_rates,branchCode:quote.branch_code,floor}),
     [lines,detail.freight,detail.delivery_rates,quote.branch_code,floor]);
   const checks=useMemo(()=>quoteChecks(lines,quote,detail.freight.unresolved,floor,detail.as_of.slice(0,10)),[lines,quote,detail.freight.unresolved,floor,detail.as_of]);
+  const blockers=useMemo(()=>editable?sendBlockers({fulfillment:quote.fulfillment,ship_to_address:quote.ship_to_address,expires_on:quote.expires_on,lines},
+    detail.freight,{today:detail.as_of.slice(0,10)}):[],[editable,quote.fulfillment,quote.ship_to_address,quote.expires_on,lines,detail.freight,detail.as_of]);
   const toggle=useCallback((lineId:string)=>setOpen(current=>{const next=new Set(current);if(!next.delete(lineId))next.add(lineId);return next;}),[]);
-  const review=useCallback((lineId:string)=>{
-    setOpen(current=>new Set(current).add(lineId));
-    requestAnimationFrame(()=>document.getElementById(lineRowId(lineId))?.scrollIntoView({behavior:'smooth',block:'center'}));
-  },[]);
   const customer=quote.contact_name??quote.customer_name;
   const closeSend=useCallback(()=>setSending(false),[]);
-  // The quote's frozen freight recovery rate (spec §4.6), for "Why this price?".
+  // The quote's frozen freight recovery rate (spec §4.6), for line details.
   const recovery=useMemo(()=>quote.freight_rate_bp===null?null:{rateBp:quote.freight_rate_bp,step:quote.freight_ramp_step,steps:quote.freight_ramp_steps},
     [quote.freight_rate_bp,quote.freight_ramp_step,quote.freight_ramp_steps]);
 
-  return <>
-    <QuoteHeader detail={detail} editor={editor} onApprove={()=>setSending(true)} onReassign={startReassign}/>
-    {detail.read_only&&<section className={s.banner} data-tone="readonly" aria-label="Read only">
-      <span><strong>Read only:</strong> {detail.read_only.rep_name}’s quote. Reassign it to edit.</span>
-      {startReassign&&<button type="button" className={s.btn} onClick={startReassign}>Reassign…</button>}
-    </section>}
-    <StatusBanner detail={detail}/>
-    <div className={s.qgrid}>
-      <div className={s.qmain}>
-        {quote.request_text&&<RequestPanel detail={detail}/>}
-        {editable&&<ChecksPanel checks={checks} branchCode={quote.branch_code} onReview={review}/>}
-        <section className={s.card} aria-labelledby="quote-items">
-          <div className={s.itoolbar}>
-            <h2 id="quote-items">Items<span>{itemCount(lines.length)}</span></h2>
-            {editable&&<AddItem quoteId={quote.id} busy={editor.adding} onAdd={item=>editor.add(item)}/>}
-            <label className={s.switch}><input type="checkbox" role="switch" checked={showCost} onChange={event=>setShowCost(event.target.checked)}/>Show cost</label>
+  /** A send blocker's jump (decision 44): scroll to the line or field at fault and highlight it. */
+  const jump=useCallback((blocker:SendBlocker)=>{
+    const target=blockerTarget(blocker);
+    clearTimeout(flashTimer.current);
+    if(target.kind==='details'){setDetailsOpen(true);setFlash({kind:'details',section:target.section});}
+    else setFlash(target.kind==='line'?{kind:'line',lineId:target.lineId}:{kind:'add-item'});
+    if(target.kind==='line'){
+      document.getElementById(lineRowId(target.lineId))?.scrollIntoView({behavior:'smooth',block:'center'});
+      document.getElementById(target.field==='qty'?qtyFieldId(target.lineId):priceFieldId(target.lineId))?.focus({preventScroll:true});
+    }else if(target.kind==='add-item')document.querySelector('[data-ui="add-item"]')?.scrollIntoView({behavior:'smooth',block:'center'});
+    // Quote details opens first, then its section scrolls into view.
+    else requestAnimationFrame(()=>document.querySelector('[data-ui="total-column"] [data-flash="true"]')?.scrollIntoView({behavior:'smooth',block:'center'}));
+    flashTimer.current=setTimeout(()=>setFlash(null),FLASH_MS);
+  },[]);
+
+  return <div className={`ui-root ${s.editor}`}>
+    <PageHeader className={s.head} title={quote.customer_name} right={<HeaderAlerts/>}/>
+    <Facts detail={detail}/>
+    <div className={s.body}>
+      <div className={s.main}>
+        <section className={`${s.card} ${s.itemsCard}`} aria-labelledby="quote-items" data-ui="items-card">
+          <div className={s.titlebar}>
+            <div id="quote-items" className={s.cardTitle}>Items <span className={s.count} data-ui="item-count">{lines.length}</span></div>
+            <div>
+              <div className={s.switchRow}>
+                <span className={s.switchLabel}>Show cost and stock</span>
+                <Toggle checked={showCost} onChange={setShowCost} label="Show cost and stock"/>
+              </div>
+            </div>
           </div>
-          {editor.error&&<p className={s.problem} role="alert">{editor.error}<button type="button" className={s.link} onClick={editor.dismissError}>Dismiss</button></p>}
-          {editable&&<UndoBar editor={editor}/>}
           <LineGrid lines={lines} editor={editor} floor={floor} customerFirstName={firstName(customer)} asOf={detail.as_of} showCost={showCost} editable={editable}
-            open={open} onToggle={toggle} focusLineId={editor.focusLineId} onFocused={editor.clearFocus} recovery={recovery}/>
-          <Totals figures={figures}/>
+            open={open} onToggle={toggle} focusLineId={editor.focusLineId} onFocused={editor.clearFocus} recovery={recovery}
+            flashLineId={flash?.kind==='line'?flash.lineId:null}/>
+          {editable&&<div data-ui="add-item"><AddItem quoteId={quote.id} onAdd={item=>editor.add(item)} flash={flash?.kind==='add-item'}/></div>}
         </section>
         <UpsellsSection editor={editor} querentFound={figures.querentFoundLabel}/>
       </div>
-      <aside className={s.rail} aria-label="Quote summary">
-        <SummaryCard figures={figures} repName={quote.rep_name}/>
-        <QuotePanels editor={editor} figures={figures}/>
-      </aside>
+      <div className={s.side} data-ui="total-column">
+        <TotalBox figures={figures} editable={editable} blockers={blockers} readOnlyRep={detail.read_only?.rep_name??null}
+          onApprove={()=>setSending(true)} onJump={jump}/>
+        <div className={s.actions}>
+          <SaveDraft editor={editor} disabled={!editable}/>
+          {/* A read-only draft (the manager's view, task D2) still exports as the draft, as its owner would see it. */}
+          <ExportMenu detail={detail.read_only?{...detail,editable:canEditDraft(quote.status)}:detail} lines={editor.lines} flush={editor.flush} buttonClassName={s.iconButton}/>
+          <div className={s.actionWrap}><ChatButton quoteId={quote.id} customer={customer} hasChat={quote.conversation_id!==null} className={s.iconButton}/></div>
+          <MoreMenu quote={quote} flush={editor.flush} buttonClassName={s.iconButton} readOnly={readOnly} onReassign={startReassign}/>
+        </div>
+        <div className={s.spacer}/>
+        <QuoteDetails editor={editor} figures={figures} open={detailsOpen} onToggle={()=>setDetailsOpen(o=>!o)} flash={flash?.kind==='details'?flash.section:null}/>
+      </div>
     </div>
+    <EditorToasts editor={editor}/>
+    <div id={TOAST_STACK} className={s.toasts}/>
     <ApproveAndSend open={sending} editor={editor} figures={figures} checks={checks} onClose={closeSend}/>
     {moving&&reassign&&<ReassignDialog quotes={[{id:quote.id,quote_number:quote.quote_number}]} targets={reassign.targets} me={reassign.me}
       currentRep={quote.rep_id} initial={readOnly?reassign.me:null} onClose={()=>setMoving(false)}
       onDone={()=>{setMoving(false);router.refresh();}}/>}
-  </>;
-}
-
-function QuoteHeader({detail,editor,onApprove,onReassign}:{detail:QuoteDetail;editor:QuoteEditor;onApprove:()=>void;onReassign?:()=>void}){
-  const scope=useRepScope();
-  const {quote,editable}=detail;
-  const [savedNote,setSavedNote]=useState<string|null>(null);
-  async function saveDraft(){
-    setSavedNote(null);
-    await editor.flush();
-    setSavedNote(`Draft saved ${timeOfDay(new Date().toISOString())}`);
-  }
-  const who=[quote.contact_name,quote.contact_title].filter(Boolean).join(', ');
-  const status=editor.pending?'Saving…':savedNote??(editor.savedAt?'All changes saved':null);
-  return <>
-    <nav className={list.crumbs} aria-label="Breadcrumb">
-      <Link href={scope.href('/rep/quotes')}>Quotes</Link><span aria-hidden="true">/</span><span aria-current="page" className={list.crumbHere}>{quote.quote_number}</span>
-      {quote.is_sample&&<span className={list.tag}>Sample data</span>}
-    </nav>
-    <div className={s.qtop}>
-      <div className={s.qtitle}>
-        <div className={list.titleRow}><h1 className={s.title}>{quote.customer_name}</h1><StatusChip status={quote.status}/><AgingMarker aging={detail.aging}/>
-          {quote.freight_rate_bp!==null&&<span className={list.tag} title="Free delivery pricing: this rate of the goods value is recovered in item prices (rep-only)">Freight recovery {formatRateBp(quote.freight_rate_bp)}</span>}</div>
-        <p className={s.qmeta}>{quote.quote_number}{quote.revision>0&&` rev ${quote.revision}`}{who&&` · ${who}`} · Requested {requestedAt(quote.requested_at)} · Valid until {day(detail.valid_until,detail.as_of)}</p>
-      </div>
-      <div className={s.qactions}>
-        <p className={s.saveState} role="status">{status}</p>
-        <button type="button" className={s.btn} onClick={saveDraft} disabled={!editable}>Save draft</button>
-        {/* A read-only draft (the manager's view, task D2) still exports as the draft, as its owner would see it. */}
-        <ExportMenu detail={detail.read_only?{...detail,editable:canEditDraft(quote.status)}:detail} lines={editor.lines} flush={editor.flush} buttonClassName={s.btn}/>
-        <MoreMenu quote={quote} flush={editor.flush} buttonClassName={`${s.btn} ${s.sq}`} readOnly={detail.read_only!==null} onReassign={onReassign}/>
-        <button type="button" className={`${s.btn} ${s.primary}`} onClick={onApprove} disabled={!editable}>Approve &amp; send</button>
-      </div>
-    </div>
-  </>;
-}
-
-/** Why the quote is read-only, or the customer's change request on a quote the rep is revising. */
-function StatusBanner({detail}:{detail:QuoteDetail}){
-  const {quote,as_of}=detail;
-  const who=quote.contact_name?firstName(quote.contact_name):quote.customer_name;
-  switch(quote.status){
-    case 'changes_requested':
-      return <p className={s.banner} data-tone="changes"><strong>{who} asked for changes{quote.responded_at&&` on ${day(quote.responded_at,as_of)}`}:</strong> <q>{quote.change_request_note}</q></p>;
-    case 'sent':
-      return <p className={s.banner}><strong>Sent to {who} as rev {quote.revision}{quote.sent_at&&` on ${day(quote.sent_at,as_of)}`}.</strong> It can’t be edited unless they ask for changes.</p>;
-    case 'accepted':{
-      // What the customer sent with Accept (task 5.2): their PO and the pickup or delivery time.
-      const answer=[quote.customer_po&&`PO ${quote.customer_po}`,
-        quote.fulfillment_time&&`${quote.fulfillment==='delivery'?'delivery':'pickup'} ${fulfillmentTimeLabel(quote.fulfillment_time)} ${quote.fulfillment==='delivery'?'from':'at'} ${quote.branch_code}`].filter(Boolean).join(', ');
-      return <p className={s.banner} data-tone="accepted"><strong>{who} accepted rev {quote.revision}{quote.responded_at&&` on ${day(quote.responded_at,as_of)}`}{answer&&` with ${answer}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;
-    }
-    case 'declined':{
-      // The customer's Decline (task A1): the reason, and the Other note, which only the rep sees.
-      const why=quote.decline_reason?`: ${DECLINE_REASON_LABELS[quote.decline_reason]}.`:' without giving a reason.';
-      const at=quote.declined_at??quote.responded_at;
-      return <p className={s.banner} data-tone="declined"><strong>{who} declined rev {quote.revision}{at&&` on ${day(at,as_of)}`}{why}</strong>
-        {quote.decline_note&&<> <q>{quote.decline_note}</q></>} It can’t be edited. Duplicate it to quote again.</p>;
-    }
-    case 'expired':
-      return <p className={s.banner}><strong>Expired{quote.valid_until&&`: it was valid until ${day(quote.valid_until,as_of)}`}.</strong> It can’t be edited. Duplicate it to quote again.</p>;
-    default:
-      return null;
-  }
-}
-
-function RequestPanel({detail}:{detail:QuoteDetail}){
-  const {quote}=detail;
-  const who=quote.contact_name??quote.customer_name;
-  // The compact box stays as it was; "View full chat" (B1, decision 26) sits beside its summary when the request came from chat.
-  return <div className={`${s.card} ${s.reqCard}`}>
-    <details className={s.req}>
-      <summary><ChevronRight aria-hidden="true" size={14} strokeWidth={2} className={s.chev}/><span className={s.lbl}>Customer request</span>
-        <span className={s.reqSnip}>“{quote.request_text}”</span></summary>
-      <div className={s.reqBody}>
-        <blockquote>“{quote.request_text}”</blockquote>
-        <p className={s.who}>{who}{quote.conversation_id?', via Querent chat':''} · {requestedAt(quote.requested_at)}</p>
-      </div>
-    </details>
-    {quote.conversation_id&&<div className={s.reqChat}><ViewFullChat quoteId={quote.id} customer={who}/></div>}
   </div>;
 }
 
-const CHECK_LABELS:Record<CheckKind,string>={blocker:'Blocked',margin:'Margin',stock:'Stock',match:'Match'};
-
-function ChecksPanel({checks,branchCode,onReview}:{checks:readonly QuoteCheck[];branchCode:string;onReview:(lineId:string)=>void}){
-  const count=checks.length;
-  return <section className={`${s.card} ${s.checks}`} data-ok={!count||undefined} aria-labelledby="quote-checks" aria-live="polite">
-    <h2 id="quote-checks" className={s.chd}><i aria-hidden="true"/>{count?`${count} ${count===1?'thing':'things'} to check before sending`:'Ready to send'}</h2>
-    {count?<ul className={s.checkList}>{checks.map((c,i)=><li key={`${c.kind}-${c.lineId}-${i}`} className={s.check}>
-      <span><span className={s.sev} data-kind={c.kind}>{CHECK_LABELS[c.kind]}</span>{c.subject&&<><b>{c.subject}</b>: </>}{c.text}</span>
-      {c.lineId&&<button type="button" className={s.link} onClick={()=>onReview(c.lineId!)} aria-label={`Review ${c.subject??'line'}`}>Review</button>}
-    </li>)}</ul>
-    :<p className={s.check}>Every line is priced, in stock at {branchCode} and at or above its floor.</p>}
-  </section>;
+/**
+ * Quote, Status (with Overdue or Aging), Purchasing agent, Requested, Valid until (C_QEBase), and on a
+ * quote that carries freight recovery its frozen rate as a small chip (decision 64, decision 36).
+ */
+function Facts({detail}:{detail:QuoteDetail}){
+  const {quote,aging}=detail;
+  const id=useId();
+  const late=aging&&aging.level!=='ok'?aging:null;
+  return <div className={s.facts} role="group" aria-label="Quote facts">
+    <Fact id={`${id}-q`} label="Quote"><span className={s.quoteNo}>{quote.quote_number}</span></Fact>
+    <Fact id={`${id}-s`} label="Status"><span className={s.status}>{REP_STATUS[quote.status].label}</span>
+      {late&&<span className={s.aging} data-level={late.level} title={late.reason}>{AGING_LABELS[late.level as 'amber'|'red']}</span>}</Fact>
+    <Fact id={`${id}-a`} label="Purchasing agent">{quote.contact_name??'-'}</Fact>
+    <Fact id={`${id}-r`} label="Requested">{requestedAt(quote.requested_at)}</Fact>
+    <Fact id={`${id}-v`} label="Valid until">{day(detail.valid_until,detail.as_of)}</Fact>
+    {quote.freight_rate_bp!==null&&<div className={s.factChip}>
+      <span className={s.tag} title="Free delivery pricing: this rate of the goods value is recovered in item prices (rep-only)">{`Freight recovery ${formatRateBp(quote.freight_rate_bp)}`}</span>
+    </div>}
+  </div>;
 }
 
-function UndoBar({editor}:{editor:QuoteEditor}){
-  const top=editor.undoStack[0];
-  if(!top)return null;
-  return <div className={s.undo} role="status"><span>{top.label}</span>
-    <button type="button" onClick={editor.undo} disabled={!top.inverse}>Undo</button></div>;
+function Fact({id,label,children}:{id:string;label:string;children:ReactNode}){
+  return <div role="group" aria-labelledby={id}>
+    <div id={id} className={s.factLabel}>{label}</div>
+    <div className={s.factValue}>{children}</div>
+  </div>;
 }
 
-function Totals({figures}:{figures:QuoteFigures}){
-  const {freight}=figures;
-  return <dl className={s.totals} aria-label="Quote totals">
-    <dt>Items</dt><dd>{money(figures.items)}</dd>
-    <dt>{freight.label}</dt><dd>{freight.callForFreight?'Call for freight':money(freight.amount)}</dd>
-    <dt>Sales tax</dt><dd className={s.muted}>Added on invoice</dd>
-    <dt className={s.grand}>Quote total</dt><dd className={s.grand}>{money(figures.total)}</dd>
-  </dl>;
-}
-
-function SummaryCard({figures,repName}:{figures:QuoteFigures;repName:string}){
-  const {floor,bar,lift}=figures;
-  const marker=floor.uniform?`${firstName(repName)}’s ${floor.label} floor`:`the ${floor.label} blended floor`;
-  const blendNote=floor.uniform?undefined:'Each line’s floor for its category, weighted by the line’s total';
-  return <section className={`${s.card} ${s.summary}`} aria-label="Quote summary">
+/** The total box (C_QEBase): total, gross profit, margin with the floor, and Approve and send with what blocks it. */
+function TotalBox({figures,editable,blockers,readOnlyRep,onApprove,onJump}:{figures:QuoteFigures;editable:boolean;blockers:readonly SendBlocker[];
+  readOnlyRep:string|null;onApprove:()=>void;onJump:(blocker:SendBlocker)=>void}){
+  const reasonId=useId();
+  const blocked=blockerSummary(blockers);
+  const floor=figures.floor.value===null?null:`Margin, floor ${figures.floor.label}`;
+  return <section className={s.totalBox} aria-label="Quote summary">
     <div className={s.big}>{money(figures.total)}</div>
-    <div className={s.cap}>Quote total, before tax{figures.freight.callForFreight&&' (freight to set)'}</div>
+    <div className={s.cap}>Quote total, before tax</div>
     <div className={s.pair}>
-      <div><b>{money(figures.gp)}</b><span>Gross profit</span></div>
-      <div><b data-low={figures.belowFloor||undefined}>{figures.marginLabel}</b><span>Margin</span></div>
+      <div className={s.stat}><div className={s.statValue}>{money(figures.gp)}</div><div className={s.statLabel}>Gross profit</div></div>
+      <div className={s.stat}><div className={s.statValue} data-low={figures.belowFloor||undefined}>{figures.marginLabel}</div><div className={s.statLabel}>{floor??'Margin'}</div></div>
     </div>
-    <div className={s.floorBox}>
-      {lift!==null&&<p className={s.lift}>{lift===0?'Same as what they paid last time':<><span data-tone={lift>0?'good':'bad'}>{signedMoney(lift)}</span> vs. what they paid last time</>}</p>}
-      {floor.value!==null&&<>
-        <div className={s.fbar} role="img" aria-label={`Quote margin ${figures.marginLabel} against ${marker}`} title={blendNote}>
-          <i style={{width:`${bar.width}%`}} data-low={figures.belowFloor||undefined}/>{bar.marker!==null&&<u style={{left:`${bar.marker}%`}}/>}
-        </div>
-        <p className={s.barNote} title={blendNote}>Bar shows quote margin. Marker is {marker}.</p>
-      </>}
+    <div className={s.approveWrap}>
+      <button type="button" className={s.approve} onClick={onApprove} disabled={!editable||blocked!==null} aria-describedby={blocked?reasonId:undefined}>Approve and send</button>
+      {blocked&&<button type="button" id={reasonId} className={s.blocker} onClick={()=>onJump(blockers[0])}>{`${blocked.first}${blocked.more?` ${blocked.more}`:''}`}</button>}
+      {readOnlyRep&&<div className={s.readOnly}>{`Read only: ${readOnlyRep}'s quote. Reassign it to edit.`}</div>}
     </div>
   </section>;
+}
+
+/** Save draft (C_QEBase): waits for every queued edit, then says so (C_QE11 "Draft saved at 10:26 PM"). */
+function SaveDraft({editor,disabled}:{editor:QuoteEditor;disabled:boolean}){
+  const [saved,setSaved]=useState<string|null>(null);
+  useEffect(()=>{
+    if(!saved)return;
+    const timer=setTimeout(()=>setSaved(null),3200);
+    return()=>clearTimeout(timer);
+  },[saved]);
+  async function save(){
+    setSaved(null);
+    await editor.flush();
+    setSaved(`Draft saved at ${timeOfDay(new Date().toISOString())}`);
+  }
+  return <div className={s.actionWrap}>
+    <button type="button" className={s.iconButton} aria-label="Save draft" onClick={()=>void save()} disabled={disabled}><SaveIcon/></button>
+    <ToastSlot><div role="status" aria-live="polite">{saved&&<Toast text={saved} done/>}</div></ToastSlot>
+  </div>;
+}
+
+/**
+ * What the editor says as edits save (no frame): the save state for screen readers, a refused save
+ * (an alert toast with Dismiss), and Undo for the last edit ("Removed Ratchet strap 2 in x 27 ft").
+ */
+function EditorToasts({editor}:{editor:QuoteEditor}){
+  const top=editor.undoStack[0];
+  const status=editor.pending?'Saving…':editor.savedAt?'All changes saved':'';
+  return <>
+    <span className={s.srOnly} role="status">{status}</span>
+    <ToastSlot>
+      {editor.error&&<div className={s.toast} data-tone="error" role="alert"><span className={s.toastText}>{editor.error}</span>
+        <button type="button" className={s.toastAction} onClick={editor.dismissError}>Dismiss</button></div>}
+      {top&&<Toast text={top.label} action={<button type="button" className={s.toastAction} onClick={editor.undo} disabled={!top.inverse}>Undo</button>}/>}
+    </ToastSlot>
+  </>;
 }

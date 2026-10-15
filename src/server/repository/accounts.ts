@@ -1,6 +1,6 @@
 import 'server-only';
-import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,RepRole,RepStanding,Supplier,TeamRep} from '@/domain';
-import {all,bool,one,run} from './sql';
+import type {AccountSummary,Contact,CustomerAccount,CustomerDirectoryRow,CustomerListItem,CustomerStats,Department,Rep,RepNotificationKey,RepPicture,RepProfile,RepRole,RepStanding,Supplier,TeamRep} from '@/domain';
+import {all,bool,inTransaction,one,run} from './sql';
 
 const REP='SELECT id,name,initials,title,phone,email FROM reps';
 
@@ -10,12 +10,18 @@ export function customerIds(){return all<{id:string}>('SELECT id FROM customers 
 /** Every customer with its one rep: the customer picker, Customers list and Rep assignments. */
 export function customers(){return all<CustomerListItem>('SELECT c.id,c.name,c.account_number,r.id rep_id,r.name rep_name FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id ORDER BY c.name');}
 
-/** Internal: the rep's Customers list (task 3.8). Every customer by name with its rep, terms, balance and order and quote counts. */
-export function customerDirectory(){
+/**
+ * Internal: the rep's Customers list (task 3.8). Every customer by name with its rep, terms, balance
+ * and order and quote counts; `repId` keeps only that rep's customers, and counts only their own quotes (task U1).
+ * open_quote_count is the quotes still open (Draft ready, Changes requested, Sent: the Has open quotes filter, plan U5);
+ * the caller stores lazy expiry first, so a sent quote past valid until no longer counts.
+ */
+export function customerDirectory({repId=null}:{repId?:string|null}={}){
   return all<CustomerDirectoryRow>(`SELECT c.id,c.name,c.account_number,r.id rep_id,r.name rep_name,c.terms,c.credit_limit,c.open_balance,
       (SELECT count(*) FROM orders o WHERE o.customer_id=c.id) order_count,(SELECT max(o.order_date) FROM orders o WHERE o.customer_id=c.id) last_order_date,
-      (SELECT count(*) FROM quotes q WHERE q.customer_id=c.id) quote_count
-    FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id ORDER BY c.name`);
+      (SELECT count(*) FROM quotes q WHERE q.customer_id=c.id AND (@repId IS NULL OR q.rep_id=@repId)) quote_count,
+      (SELECT count(*) FROM quotes q WHERE q.customer_id=c.id AND (@repId IS NULL OR q.rep_id=@repId) AND q.status IN ('ready_for_review','changes_requested','sent')) open_quote_count
+    FROM customers c LEFT JOIN customer_rep cr ON cr.customer_id=c.id LEFT JOIN reps r ON r.id=cr.rep_id WHERE (@repId IS NULL OR cr.rep_id=@repId) ORDER BY c.name`,{repId});
 }
 
 type CustomerRow=Omit<CustomerAccount,'ship_to'|'rep'>&{ship_to_name:string|null;ship_to_address:string|null;ship_to_city:string|null;ship_to_state:string|null;ship_to_zip:string|null;ship_to_lat:number|null;ship_to_lng:number|null};
@@ -57,7 +63,7 @@ const toContact=(row:Omit<Contact,'is_primary'>&{is_primary:number}):Contact=>({
 export function contacts(customerId:string){return all<Omit<Contact,'is_primary'>&{is_primary:number}>(`${CONTACT} WHERE customer_id=? ORDER BY is_primary DESC,name`,customerId).map(toContact);}
 export function contact(contactId:string){const row=one<Omit<Contact,'is_primary'>&{is_primary:number}>(`${CONTACT} WHERE id=?`,contactId);return row&&toContact(row);}
 
-/** Static department contacts for the customer sidebar (spec §3). */
+/** Static department contacts (spec §3), for the chat's answers since the contacts sidebar went (plan U10). */
 export function departments(){return all<Department>('SELECT id,name,branch_id,phone,email,hours,sort_order FROM departments ORDER BY sort_order');}
 
 /** Every rep by name; activeOnly leaves out inactive reps (the ones a customer can't be assigned to, task D1). */
@@ -78,7 +84,7 @@ export function setAssignedRep(customerId:string,repId:string){
     ON CONFLICT(customer_id) DO UPDATE SET rep_id=excluded.rep_id`,customerId,repId).changes>0;
 }
 
-// ---- Roles, team labels and inactive reps (v3 spec §1.2 "006" row, §8; decisions 20, 21; task D1) ----
+// ---- Roles, teams and inactive reps (v3 spec §1.2 "006" row, §8; decisions 20, 21; tasks D1, U7) ----
 
 /** The rep's stored role and active flag: every rep request checks it (src/server/rep/access.ts). Undefined for an unknown rep. */
 export function repStanding(repId:string):RepStanding|undefined{
@@ -86,15 +92,15 @@ export function repStanding(repId:string):RepStanding|undefined{
   return row&&{role:row.role,active:bool(row.active)};
 }
 
-/** The manager's Reps card: every rep by name with role, team label, active flag and customer count. */
+/**
+ * Every rep by name with role, team, active flag and customer count (Teams and Reps, Analytics' filter).
+ * The team is the rep's team entity (011_teams, plan U7): its name and id, null for a rep in none.
+ */
 export function teamReps():TeamRep[]{
-  return all<Omit<TeamRep,'active'>&{active:number}>(`SELECT r.id,r.name,r.initials,r.title,r.role,r.team,r.active,
+  return all<Omit<TeamRep,'active'>&{active:number}>(`SELECT r.id,r.name,r.initials,r.title,r.role,t.name team,t.id team_id,r.active,
       (SELECT count(*) FROM customer_rep cr WHERE cr.rep_id=r.id) customer_count
-    FROM reps r ORDER BY r.name`).map(row=>({...row,active:bool(row.active)}));
+    FROM reps r LEFT JOIN team_members m ON m.rep_id=r.id LEFT JOIN teams t ON t.id=m.team_id ORDER BY r.name`).map(row=>({...row,active:bool(row.active)}));
 }
-
-/** Sets or clears (null) the rep's team label, already checked by the caller. False for an unknown rep. */
-export function setRepTeam(repId:string,team:string|null){return run('UPDATE reps SET team=? WHERE id=?',team,repId).changes>0;}
 
 /**
  * Marks the rep active or inactive. Deactivation is refused while any customer has the rep in
@@ -106,4 +112,52 @@ export function setRepActive(repId:string,active:boolean):'ok'|'not_found'|'has_
     ?run('UPDATE reps SET active=1 WHERE id=?',repId).changes
     :run('UPDATE reps SET active=0 WHERE id=? AND NOT EXISTS(SELECT 1 FROM customer_rep WHERE rep_id=?)',repId,repId).changes;
   return changed?'ok':'has_customers';
+}
+
+// ---- A rep's own Settings > Profile and Notifications (plan U9; 013_rep_profile; Appendix C) ----
+// Each function takes the rep whose row it reads or writes; the routes pass the signed-in rep only.
+
+const PROFILE='SELECT id,name,initials,title,phone,email,picture_updated_at FROM reps';
+
+/** The rep's name, initials, title, phone and email, and when their picture last changed (null: none). */
+export function repProfile(repId:string){return one<RepProfile>(`${PROFILE} WHERE id=?`,repId);}
+
+/** Customer-safe: the customer's assigned rep as the My rep sheet shows them (no picture bytes). */
+export function assignedRepProfile(customerId:string){return one<RepProfile>(`${PROFILE} WHERE id=(SELECT rep_id FROM customer_rep WHERE customer_id=?)`,customerId);}
+
+/** Stores the rep's name, initials, phone and email (already checked by the caller). Undefined for an unknown rep. */
+export function setRepProfile(repId:string,{name,initials,phone,email}:{name:string;initials:string;phone:string;email:string}){
+  run('UPDATE reps SET name=?,initials=?,phone=?,email=? WHERE id=?',name,initials,phone,email,repId);
+  return repProfile(repId);
+}
+
+/** The rep's picture: its bytes, its type and when it changed. Undefined when they have none. */
+export function repPicture(repId:string){
+  return one<RepPicture>('SELECT picture data,picture_type type,picture_updated_at updated_at FROM reps WHERE id=? AND picture IS NOT NULL',repId);
+}
+
+/** Customer-safe: the picture of the customer's own assigned rep, for the My rep sheet. Undefined when there is none. */
+export function assignedRepPicture(customerId:string){
+  return one<RepPicture>('SELECT picture data,picture_type type,picture_updated_at updated_at FROM reps WHERE id=(SELECT rep_id FROM customer_rep WHERE customer_id=?) AND picture IS NOT NULL',customerId);
+}
+
+/** Replaces the rep's picture (type already checked by its bytes), or clears it with null. False for an unknown rep. */
+export function setRepPicture(repId:string,picture:{type:RepPicture['type'];data:Uint8Array;at:string}|null){
+  const changes=picture
+    ?run('UPDATE reps SET picture=?,picture_type=?,picture_updated_at=? WHERE id=?',Buffer.from(picture.data),picture.type,picture.at,repId).changes
+    :run('UPDATE reps SET picture=NULL,picture_type=NULL,picture_updated_at=NULL WHERE id=?',repId).changes;
+  return changes>0;
+}
+
+/** The rep's stored in-app choices by event key. A key with no row is on (the caller fills it in). */
+export function repNotificationPrefs(repId:string):Partial<Record<RepNotificationKey,boolean>>{
+  return Object.fromEntries(all<{event_key:RepNotificationKey;in_app:number}>('SELECT event_key,in_app FROM rep_notification_prefs WHERE rep_id=? ORDER BY rowid',repId).map(r=>[r.event_key,bool(r.in_app)]));
+}
+
+/** Stores the choices given (keys already checked by the caller), all together, and returns every stored choice. */
+export function setRepNotificationPrefs(repId:string,prefs:Partial<Record<RepNotificationKey,boolean>>){
+  inTransaction(()=>{
+    for(const [key,on] of Object.entries(prefs))run('INSERT INTO rep_notification_prefs(rep_id,event_key,in_app) VALUES(?,?,?) ON CONFLICT(rep_id,event_key) DO UPDATE SET in_app=excluded.in_app',repId,key,on?1:0);
+  });
+  return repNotificationPrefs(repId);
 }

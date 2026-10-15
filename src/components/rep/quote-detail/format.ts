@@ -2,8 +2,8 @@
 // browser print the same text (no hydration drift): every date names its time zone.
 
 const usd=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
-/** "$1,122.40", or "—" with no amount. */
-export const money=(amount:number|null|undefined)=>amount==null?'—':usd.format(amount);
+/** "$1,122.40", or "-" with no amount (no em-dashes in the new UI, Appendix E). */
+export const money=(amount:number|null|undefined)=>amount==null?'-':usd.format(amount);
 /** "+$4.50" / "−$4.00" (a true minus sign), "$0.00". */
 export const signedMoney=(amount:number)=>amount>0?`+${usd.format(amount)}`:amount<0?`−${usd.format(-amount)}`:usd.format(0);
 /** A unit price in an input: "31.50", or "" while unpriced. */

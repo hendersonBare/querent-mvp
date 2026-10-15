@@ -35,7 +35,7 @@ import {
 //
 // Lines the customer added from the pop-up's "Frequently bought together" (task E1) are accepted
 // only when that pop-up offered them, and are stored as added_by 'suggestion' (the matched lines
-// stay 'querent'), so the Team dashboard can count accepted suggestions.
+// stay 'querent'), so the Analytics leaderboard can count accepted suggestions.
 //
 // One pop-up makes at most one quote: the quote_requested message records the pop-up it came from,
 // and pressing Request quote again (a double click, a retry, a second tab) replays that quote. The
