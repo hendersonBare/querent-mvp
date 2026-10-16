@@ -1,0 +1,309 @@
+/* A modal dialog in the visual language of the old customer item pop-up (ItemPopup's .ip-* rules, moved
+   here from customer.css in B0 for the quote tool's QuoteReviewDialog, task B5).
+
+   Markup:
+     <div class=backdrop>                              (click outside closes)
+       <div class=dialog role=dialog aria-modal aria-labelledby tabIndex=-1>
+         <header class=head><h2 class=title/><p class=intro/></header>
+         <div class=body>                              (scrolls)
+           <ul class=lines><li class="line lineHead"/><li class=line>
+             <div class=item><span class=desc/><span class=id><span class=sku/><span class=pack/></span></div>
+             <div class=qty><input class=input/><span class=fieldError/></div> …
+             <button class=remove/></li></ul>
+           <section class=section><h3 class=sectionTitle/><div class=suggestion>… <button class=add/></div></section>
+         </div>
+         <footer class=foot><span class=count/><div class=actions><button class=secondary/><button class=primary/></div></footer>
+
+   .line's columns are the pop-up's (item, qty, stock, remove); a dialog with other columns sets its own
+   grid-template-columns. The palette sits on .backdrop, so one place changes it. */
+.backdrop {
+  /* The Querent palette (src/app/tokens.css): the accent green, its tints and the neutral greys. */
+  --dlg-accent: var(--q-accent);
+  --dlg-accent-dark: var(--q-accent-hover);
+  --dlg-accent-soft: var(--q-accent-tint);
+  --dlg-line: var(--q-row-divider);
+  --dlg-field-line: var(--q-border);
+  --dlg-button-line: var(--q-border);
+  --dlg-focus: var(--q-accent);
+  --dlg-muted: var(--q-text-muted);
+  --dlg-ink: var(--q-text);
+  --dlg-subtle: var(--q-row-picked);
+  --dlg-warn-bg: var(--q-note);
+  --dlg-warn-text: var(--q-note-text);
+  --dlg-bad: var(--q-red);
+  --dlg-bad-dark: var(--q-red-hover);
+  --dlg-bad-line: var(--q-red-border);
+  --dlg-bad-soft: var(--q-red-tint);
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--q-backdrop-dialog);
+  color: var(--dlg-ink);
+  font-family: var(--q-font-sans), Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.backdrop,
+.backdrop * {
+  box-sizing: border-box;
+}
+:where(.backdrop) button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+:where(.backdrop) button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+:where(.backdrop) button:focus-visible {
+  outline: 2px solid var(--dlg-accent);
+  outline-offset: 4px;
+}
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100dvh - 48px));
+  border: 1px solid var(--dlg-line);
+  border-radius: 14px;
+  background: white;
+  box-shadow: var(--q-shadow-popover);
+  animation: dialog-in 0.16s ease-out;
+}
+/* The dialog takes focus when it opens, so screen readers announce it; its controls show focus. */
+.dialog:focus,
+.dialog:focus-visible {
+  outline: none;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+.head {
+  padding: 22px 24px 0;
+}
+.title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.35px;
+}
+.intro {
+  max-width: 52ch;
+  margin: 6px 0 0;
+  color: var(--dlg-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px 8px;
+}
+.warn {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--dlg-warn-bg);
+  color: var(--dlg-warn-text);
+  font-size: 14px;
+}
+.lines {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--dlg-line);
+}
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 150px 32px;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dlg-line);
+}
+.lineHead {
+  padding: 10px 0 8px;
+  color: var(--dlg-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.desc {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+.sku {
+  color: var(--dlg-accent-dark);
+  font-family: var(--q-font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pack {
+  color: var(--dlg-muted);
+  font-size: 12px;
+}
+.qty {
+  display: grid;
+  gap: 3px;
+}
+.input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--dlg-field-line);
+  border-radius: 9px;
+  color: var(--dlg-ink);
+  font: inherit;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.input:focus {
+  outline: 2px solid var(--dlg-focus);
+  outline-offset: -1px;
+  border-color: var(--dlg-focus);
+}
+.input[aria-invalid="true"] {
+  border-color: var(--dlg-bad-line);
+  outline-color: var(--dlg-bad-line);
+}
+.fieldError {
+  color: var(--dlg-bad);
+  font-size: 11px;
+  text-align: right;
+}
+.remove {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dlg-muted);
+}
+.remove:hover:not(:disabled) {
+  background: var(--dlg-bad-soft);
+  color: var(--dlg-bad);
+}
+.empty,
+.note {
+  margin: 14px 0 0;
+  color: var(--dlg-muted);
+  font-size: 14px;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* A titled list below the lines (the pop-up's "Frequently bought together"): each row reads like a line,
+   with its reason under the item and one action on the right. */
+.section {
+  margin-top: 22px;
+}
+.sectionTitle {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dlg-line);
+  color: var(--dlg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.suggestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--dlg-line);
+}
+.reason {
+  margin-top: 2px;
+  color: var(--dlg-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border: 1px solid var(--dlg-button-line);
+  border-radius: 9px;
+  background: white;
+  color: var(--dlg-accent-dark);
+  font-size: 14px;
+  font-weight: 600;
+}
+.add:hover:not(:disabled) {
+  border-color: var(--dlg-accent);
+  background: var(--dlg-accent-soft);
+}
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--dlg-line);
+}
+.count {
+  color: var(--dlg-muted);
+  font-size: 14px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+}
+.secondary,
+.primary {
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.secondary {
+  border: 1px solid var(--dlg-button-line);
+  background: white;
+  color: var(--dlg-ink);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--dlg-subtle);
+}
+.primary {
+  background: var(--dlg-accent);
+  color: white;
+}
+.primary:hover:not(:disabled) {
+  background: var(--dlg-accent-dark);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog {
+    animation: none;
+  }
+}

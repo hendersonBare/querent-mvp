@@ -1,3 +1,43 @@
-:root{--teal:#1e7e75;--teal-dark:#175f59;--pale:#e5f2ef;--ink:#192322;--muted:#6b7a78;--line:#e3eae8;--canvas:#f5f8f7;--white:#fff;--amber:#b18429;--radius:17px}*{box-sizing:border-box}body{margin:0;color:var(--ink);font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;background:var(--canvas)}button,input,select,textarea{font:inherit}button,a,select,input,textarea{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}button,a,input,select,textarea{outline-offset:4px}button:focus-visible,a:focus-visible{outline:2px solid var(--teal)}button{transition:background .15s,color .15s}a{color:var(--teal);text-decoration:none}a:hover{text-decoration:underline}h1,h2,h3,p{margin:0}h1{font-size:34px;line-height:1.2;letter-spacing:-1px;font-weight:600}h2{font-size:19px;letter-spacing:-.35px;font-weight:600}h3{font-size:15px;font-weight:600}small{font-size:13px}img{object-fit:contain}select,input,textarea{color:var(--ink)}select{max-width:100%;padding:10px 35px 10px 14px;border:1px solid var(--line);background:white;border-radius:9px;font-size:14px}input{width:100%;padding:13px 14px;border:1px solid #cedbd6;border-radius:9px}input:focus,textarea:focus{outline:2px solid #91c6bf}button{border:0}.muted{color:var(--muted)}.eyebrow{font-size:12px;font-weight:600;letter-spacing:1.4px;color:var(--muted)}.error{padding:12px 15px;border:1px solid #efd4cf;background:#fff2ef;border-radius:9px;color:#a34231;font-size:14px;margin:12px 0}.icon-button{display:inline-flex;align-items:center;justify-content:center;background:transparent;border-radius:8px;padding:8px;color:var(--muted);flex-shrink:0}.icon-button:hover{background:var(--pale);color:var(--teal)}.wordmark{display:flex;align-items:center;gap:11px;font-size:26px;font-weight:600;letter-spacing:-.8px;color:var(--ink)}.wordmark:hover{text-decoration:none}.login-page{display:grid;grid-template-columns:1fr 1fr;min-height:100dvh;background:white}.login-story{padding:55px 65px;background:#edf5f2;display:flex;flex-direction:column;justify-content:space-between;min-height:100dvh;border-right:1px solid var(--line)}.login-story h1{font-size:clamp(42px,4.1vw,65px);line-height:1.1;letter-spacing:-2.8px;margin:25px 0}.login-story h1 span{color:var(--teal)}.login-story p:not(.eyebrow){color:var(--muted);font-size:18px;line-height:1.75}.login-footer{font-size:13px;color:var(--muted)}.login-form-wrap{display:flex;align-items:center;justify-content:center;padding:35px}.login-form{width:100%;max-width:380px}.login-form h2{font-size:29px}.login-form>p{font-size:15px;color:var(--muted);margin:10px 0 30px}.login-form label{font-size:14px;display:block;margin:18px 0 7px}.login-form .login-help{text-align:center;font-size:13px;margin-top:22px}.setup-state{min-height:100dvh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:35px;text-align:center}.setup-state h1{font-size:27px}.turns{width:100%}.chat-turn{margin-bottom:30px}.question-row{display:flex;justify-content:flex-end;align-items:flex-start;gap:12px;margin-bottom:26px}.question-bubble{background:var(--q-rail);color:#fff;border-radius:14px 14px 4px 14px;padding:14px 18px;max-width:78%;white-space:pre-wrap;font-size:15px}.avatar{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:600}.user-avatar{background:var(--q-table-header);color:var(--q-text-2)}.brand-avatar{background:var(--q-card);border:1px solid var(--q-border)}.brand-avatar img{width:24px;height:24px}.answer-row{display:flex;align-items:flex-start;gap:13px}.answer-content{min-width:0;flex:1}.answer-bubble{background:var(--q-card);border:1px solid var(--q-border);border-radius:4px 14px 14px 14px;padding:16px 20px;overflow-x:auto;font-size:15px;line-height:1.6}.answer-bubble p+p{margin-top:14px}.answer-bubble ul{padding-left:20px}.answer-bubble table{font-size:14px;line-height:1.5}.answer-error{border-color:var(--q-red-border)}.typing{padding:15px;color:var(--q-text-2);font-size:14px}.typing span{animation:pulse 1s infinite}@keyframes pulse{50%{opacity:.3}}.card{border:1px solid var(--line);border-radius:var(--radius);background:white;padding:25px;margin-bottom:22px;min-width:0}table{border-collapse:collapse;text-align:left;width:100%;font-size:14px}th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;background:#f7f9f8;padding:13px 14px;white-space:nowrap}td{padding:15px 14px;border-bottom:1px solid var(--line);white-space:nowrap}tr:last-child td{border-bottom:0}.badge{font-size:10px;letter-spacing:.8px;background:#f1f5f3;color:var(--muted);padding:5px 8px;border-radius:5px;white-space:nowrap}
-@media(max-width:800px){.login-page{grid-template-columns:1fr}.login-story{min-height:auto;padding:30px}.login-story>div:nth-child(2){margin:35px 0}.login-story h1{font-size:40px}.login-story p:not(.eyebrow){font-size:16px}.login-footer{display:none}.login-form-wrap{padding:40px 25px}.answer-bubble{padding:16px;font-size:14px}.question-bubble{font-size:14px;padding:14px;max-width:85%}.avatar{width:27px;height:27px}.question-row{gap:8px}.answer-row{gap:8px}.card{padding:20px}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+/* Base rules for every page; the look comes from tokens.css and the components' CSS modules. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--q-page);
+  color: var(--q-text);
+  font-family: var(--q-font-sans), Arial, Helvetica, sans-serif;
+  font-size: var(--q-text-body);
+  -webkit-font-smoothing: antialiased;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+a {
+  color: var(--q-accent);
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

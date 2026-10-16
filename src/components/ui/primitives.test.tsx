@@ -1,61 +1,16 @@
-import {act,fireEvent,render,screen,within} from '@testing-library/react';
+import {fireEvent,render,screen,within} from '@testing-library/react';
 import {useState} from 'react';
 import {describe,expect,it,vi} from 'vitest';
-import {Dropdown,DropdownItem} from './Dropdown';
-import {HeaderIconButton} from './HeaderIconButton';
-import {Lane,LaneRow} from './Lane';
 import {PageHeader} from './PageHeader';
 import {Popover} from './Popover';
 import {Select} from './Select';
 import {Sheet} from './Sheet';
-import {StatusText} from './StatusText';
-import {Toggle} from './Toggle';
-import {ViewNoteButton} from './ViewNoteButton';
 
-// The small primitives (plan U0). Frames: C_S4 and C_RS4 (toggle), C_QOTable (status, View note),
-// C_QOB5 (sheet), C_QOB3 and C_QOB4 (dropdowns), C_QOBoard (page header, lanes), C_QOB8 (lane reorder).
-
-describe('Toggle',()=>{
-  it('is a switch that reports the new state',()=>{
-    const onChange=vi.fn();
-    const {rerender}=render(<Toggle label="Email me when a quote is accepted" checked={false} onChange={onChange}/>);
-    const toggle=screen.getByRole('switch',{name:'Email me when a quote is accepted'});
-    expect(toggle).toHaveAttribute('aria-checked','false');
-    fireEvent.click(toggle);
-    expect(onChange).toHaveBeenCalledWith(true);
-    rerender(<Toggle label="Email me when a quote is accepted" checked onChange={onChange}/>);
-    expect(toggle).toHaveAttribute('aria-checked','true');
-    fireEvent.click(toggle);
-    expect(onChange).toHaveBeenLastCalledWith(false);
-  });
-
-  it('does nothing while disabled',()=>{
-    const onChange=vi.fn();
-    render(<Toggle label="Recovery pool" checked disabled onChange={onChange}/>);
-    fireEvent.click(screen.getByRole('switch'));
-    expect(onChange).not.toHaveBeenCalled();
-  });
-});
-
-describe('StatusText and ViewNoteButton',()=>{
-  it('shows the status as plain text, with at most one problem line under it',()=>{
-    const {container,rerender}=render(<StatusText status="Changes requested" flag="Overdue"/>);
-    expect(container).toHaveTextContent('Changes requestedOverdue');
-    rerender(<StatusText status="Sent"/>);
-    expect(container.textContent).toBe('Sent');
-  });
-
-  it('is a "View note" button that calls back',()=>{
-    const onClick=vi.fn();
-    render(<ViewNoteButton onClick={onClick}/>);
-    fireEvent.click(screen.getByRole('button',{name:'View note'}));
-    expect(onClick).toHaveBeenCalledTimes(1);
-  });
-});
+// The small primitives (plan U0): page header, popover, sheet, select, and their focus handling.
 
 describe('PageHeader',()=>{
   it('puts the title first, then the page controls, then the right-hand buttons',()=>{
-    render(<PageHeader title="Quotes" right={<HeaderIconButton tone="bell" label="Notifications" icon="bell"/>}>
+    render(<PageHeader title="Quotes" right={<button aria-label="Notifications"/>}>
       <span>picker</span><span>filter</span>
     </PageHeader>);
     const header=screen.getByRole('banner');
@@ -96,30 +51,6 @@ describe('Popover',()=>{
   });
 });
 
-describe('Dropdown',()=>{
-  it('opens a short list under its button without navigating, and closes on Escape',()=>{
-    const onOpenChange=vi.fn();
-    function Harness(){
-      const [open,setOpen]=useState(false);
-      return <Dropdown open={open} onOpenChange={o=>{onOpenChange(o);setOpen(o);}} title="3 need your attention"
-        trigger={<HeaderIconButton tone="caution" icon="caution" label="Needs attention, 3 items" open={open}/>}>
-        <DropdownItem title="Q-24790" tag="Overdue" tone="problem" onSelect={vi.fn()}>Asked to move pickup.</DropdownItem>
-      </Dropdown>;
-    }
-    render(<Harness/>);
-    const button=screen.getByRole('button',{name:'Needs attention, 3 items'});
-    expect(button).toHaveAttribute('aria-expanded','false');
-    fireEvent.click(button);
-    expect(button).toHaveAttribute('aria-expanded','true');
-    const panel=screen.getByRole('dialog',{name:'3 need your attention'});
-    expect(panel).toHaveTextContent('3 need your attentionQ-24790OverdueAsked to move pickup.');
-    expect(within(panel).queryAllByRole('link')).toEqual([]);
-    fireEvent.keyDown(panel,{key:'Escape'});
-    expect(onOpenChange).toHaveBeenLastCalledWith(false);
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-});
-
 describe('Sheet',()=>{
   it('is a modal dialog with a title and a close button; Escape and the backdrop close it',()=>{
     const onClose=vi.fn();
@@ -155,24 +86,9 @@ describe('Select',()=>{
   });
 });
 
-describe('Lane',()=>{
-  it('shows its handle, label and count, and moves with Alt+Left and Alt+Right',()=>{
-    const onMove=vi.fn();
-    render(<LaneRow ids={['draft','sent','accepted']} onMove={onMove} label="Board columns">
-      {lane=><Lane {...lane} key={lane.id} label={lane.id} count={2}><p>cards</p></Lane>}
-    </LaneRow>);
-    const sent=screen.getByRole('group',{name:'sent'});
-    expect(sent).toHaveTextContent(':: sent2cards');
-    const handle=sent.querySelector('[draggable="true"]')!;
-    expect(handle).toHaveAttribute('tabindex','0');
-    act(()=>{fireEvent.keyDown(handle,{key:'ArrowRight',altKey:true});});
-    expect(onMove).toHaveBeenCalledWith(1,2);
-  });
-});
-
 // Appendix H "dropdowns and sheets trap and restore focus" (plan U11): each takes focus when it opens,
 // keeps Tab and Shift+Tab inside, and gives focus back to what had it when it closes.
-describe('focus: dropdowns and sheets trap and restore it',()=>{
+describe('focus: popovers and sheets trap and restore it',()=>{
   function SheetHarness(){
     const [open,setOpen]=useState(false);
     return <><button onClick={()=>setOpen(true)}>Open sheet</button><button>After</button>
@@ -196,31 +112,6 @@ describe('focus: dropdowns and sheets trap and restore it',()=>{
     fireEvent.keyDown(last,{key:'Escape'});
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(opener);
-  });
-
-  function DropdownHarness(){
-    const [open,setOpen]=useState(false);
-    return <><Dropdown open={open} onOpenChange={setOpen} title="2 notifications"
-      trigger={<HeaderIconButton tone="bell" icon="bell" label="Notifications" open={open}/>}>
-      <DropdownItem title="Q-24790 accepted" onSelect={vi.fn()}/><DropdownItem title="Q-24791 declined" onSelect={vi.fn()}/>
-    </Dropdown><button>After</button></>;
-  }
-  it('a dropdown takes focus, keeps Tab and Shift+Tab on its rows, and gives focus back to its button on close',()=>{
-    render(<DropdownHarness/>);
-    const button=screen.getByRole('button',{name:'Notifications'});
-    button.focus();
-    fireEvent.click(button);
-    const panel=screen.getByRole('dialog',{name:'2 notifications'});
-    expect(document.activeElement).toBe(panel);
-    const [first,second]=within(panel).getAllByRole('button');
-    second.focus();
-    fireEvent.keyDown(second,{key:'Tab'});
-    expect(document.activeElement).toBe(first);
-    fireEvent.keyDown(first,{key:'Tab',shiftKey:true});
-    expect(document.activeElement).toBe(second);
-    fireEvent.keyDown(second,{key:'Escape'});
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(document.activeElement).toBe(button);
   });
 
   it('a panel inside a panel traps on its own, and the outer one leaves it alone',()=>{

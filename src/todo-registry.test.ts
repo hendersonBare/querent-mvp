@@ -3,8 +3,9 @@ import {join,relative,resolve} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
 // The TODO registry guard (v3 decision 40; spec §12 "TODO registry"; task F1): every TODO(R-n)
-// marker in src/ names an ID that docs/todo-registry.md lists, and every ID the registry places in
-// code is marked there at least once. R-13 (tooling) lives in the registry only.
+// marker in src/ names an ID that docs/todo-registry.md lists, in the decision log's wording. The BOXT
+// branch (B0) removed the code most IDs were marked in, so the registry's "Where" column is history
+// and no ID has to be marked in code.
 
 const ROOT=resolve(__dirname,'..');
 const REGISTRY=join(ROOT,'docs/todo-registry.md');
@@ -34,24 +35,5 @@ describe('the TODO registry',()=>{
   it('knows every TODO(R-n) marker in src/',()=>{
     const known=new Set(rows().map(r=>r.id));
     expect(markers().filter(([,id])=>!known.has(id)).map(([file,id])=>`${file}: ${id}`)).toEqual([]);
-  });
-
-  it('finds every ID it places in code marked in src/ at least once, and R-13 nowhere',()=>{
-    const marked=new Set(markers().map(([,id])=>id));
-    const inCode=rows().filter(r=>!/registry only/i.test(r.where));
-    expect(inCode.map(r=>r.id).filter(id=>!marked.has(id))).toEqual([]);
-    expect(marked.has('R-13')).toBe(false);
-  });
-
-  it('marks the demo auth, the PII layer and the test routes (R-4, R-5, R-6) where the work will go',()=>{
-    const at=(id:string)=>new Set(markers().filter(([,m])=>m===id).map(([file])=>file));
-    expect(at('R-4')).toContain('src/server/session.ts');
-    expect(at('R-5')).toContain('src/server/repository/chat.ts');
-    for(const route of ['reset','rep-quotes'])expect(at('R-6'),route).toContain(`src/app/api/test/${route}/route.ts`);
-  });
-
-  it('marks the visitor box\'s stub (R-14, decision 49) where the real anonymous route will go',()=>{
-    const at=new Set(markers().filter(([,m])=>m==='R-14').map(([file])=>file));
-    expect(at).toContain('src/app/api/query/visitor/chat/route.ts');
   });
 });

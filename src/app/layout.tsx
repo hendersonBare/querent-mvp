@@ -1,8 +1,6 @@
 import type {Metadata} from 'next';
 import {Albert_Sans,Geist_Mono} from 'next/font/google';
 import './globals.css';
-import './persona.css';
-import './customer.css';
 import './tokens.css';
 
 // The new UI's type (plan U0; docs/design/new-ui-style-guide.md "Type"): Albert Sans 400 to 800 for
@@ -13,5 +11,5 @@ import './tokens.css';
 const albertSans=Albert_Sans({subsets:['latin'],weight:['400','500','600','700','800'],variable:'--font-albert-sans',fallback:['sans-serif'],adjustFontFallback:false});
 const geistMono=Geist_Mono({subsets:['latin'],weight:['400','500'],variable:'--font-geist-mono',fallback:['monospace'],adjustFontFallback:false});
 
-export const metadata:Metadata={title:'Querent | Herrick Industrial Supply',description:'Customer data, finally customer-facing.',icons:{icon:'/querent-logo.png'}};
+export const metadata:Metadata={title:{default:'Querent | BOXT Packaging',template:'%s | Querent | BOXT Packaging'},description:'Match a customer\'s list to BOXT items and build the quote.',icons:{icon:'/querent-logo.png'}};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" className={`${albertSans.variable} ${geistMono.variable}`}><body>{children}</body></html>;}

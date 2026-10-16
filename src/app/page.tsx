@@ -1,4 +1,4 @@
-import {App} from '@/components/App';
+import {redirect} from 'next/navigation';
 
-/** The customer site (plan U10): the visitor box with no session, the customer's box when signed in. */
-export default function Page(){return <App/>;}
+/** `/` opens the quote creation tool. */
+export default function Home():never{redirect('/quote-tool');}

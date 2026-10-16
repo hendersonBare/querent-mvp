@@ -1,10 +1,11 @@
-import {readdirSync,readFileSync} from 'node:fs';
+import {existsSync,mkdirSync,mkdtempSync,readdirSync,readFileSync,rmSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {describe,expect,it} from 'vitest';
 
-// The release gate (task 7.1): the golden quote flow runs in full, and so does every other E2E
-// spec. A test or step switched off, or a focused test that silently drops the rest, fails here
-// before CI's Playwright run would quietly pass without it.
+// The release gate (task 7.1): every E2E spec runs in full. A test or step switched off, or a focused
+// test that silently drops the rest, fails here before CI's Playwright run would quietly pass without
+// it. The guard holds with no e2e/ folder too (task B8 writes the BOXT specs).
 
 const E2E=resolve(__dirname,'../e2e');
 
@@ -26,42 +27,39 @@ export const DISABLED=[
 ];
 const disabled=(line:string)=>DISABLED.some(pattern=>pattern.test(line));
 
-/**
- * The golden spec's tests, each by its title and tag: steps 1 to 8, step 6 as its rep half (3.7)
- * and its customer half (5.1). Each must be there exactly once, as its own test.
- */
-export const GOLDEN_TESTS:readonly [title:string,tag:string|null][]=[
-  ["0. Setup: fresh seed on the mockup's day, scripted chat, both personas signed in",null],
-  ['1. Dana asks about stock → answer','@step1'],
-  ['2. Dana asks for goods with one vague line','@step2'],
-  ['3. Querent asks a clarifying question → Dana answers → item pop-up opens','@step3'],
-  ['4. Dana presses Request quote → quote is ready_for_review','@step4'],
-  ['5. Brandi opens it from the unread badge, switches a price basis, types a below-floor price → red warning','@step5'],
-  ['6. Brandi Approve and send → Confirm (rep half)','@step6'],
-  ['6. Dana receives it and opens the PDF preview (customer half)','@step6'],
-  ['7. Dana Request changes (note) → Confirm → Brandi edits and sends rev 2','@step7'],
-  ['8. Dana Accept (pickup time, PO) → Confirm → Brandi sees Accepted; both PDFs download and validate','@step8'],
-];
-
-/** The tests a spec declares, in order: `test("title", …)` or `test(\n  "title",\n  { tag: "@stepN", … }`, with the tag if it has one. */
-export function declaredTests(text:string){
-  return [...text.matchAll(/^test\(\s*(["'`])((?:\\.|(?!\1).)*)\1\s*,\s*(?:\{\s*tag:\s*(["'`])([^"'`]+)\3)?/gm)]
-    .map(m=>({title:m[2].replace(/\\(.)/g,'$1'),tag:m[4]??null}));
+/** Every spec and setup file (*.spec.ts, *.setup.ts) under e2e/, at any depth (none until task B8 writes them). */
+export function specFiles(dir=E2E,prefix=''):string[]{
+  if(!existsSync(dir))return [];
+  return readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()
+    ?specFiles(join(dir,entry.name),`${prefix}${entry.name}/`)
+    :/\.(?:spec|setup)\.[cm]?[jt]sx?$/.test(entry.name)?[`${prefix}${entry.name}`]:[]);
 }
 
-describe('the E2E suite',()=>{
-  const specs=readdirSync(E2E).filter(name=>name.endsWith('.spec.ts'));
-  const golden=readFileSync(join(E2E,'golden-quote-flow.spec.ts'),'utf8');
+/** Every line in the specs under `dir` that switches a test off, as "e2e/<spec>:<line>: <text>". */
+export const disabledLines=(dir=E2E)=>specFiles(dir).flatMap(name=>readFileSync(join(dir,name),'utf8').split('\n')
+  .flatMap((line,i)=>disabled(line)?[`e2e/${name}:${i+1}: ${line.trim()}`]:[]));
 
-  it('has every golden test, steps 1 to 8 with both halves of step 6, each once and in order',()=>{
-    expect(specs).toContain('golden-quote-flow.spec.ts');
-    expect(declaredTests(golden)).toEqual(GOLDEN_TESTS.map(([title,tag])=>({title,tag})));
+describe('the E2E suite',()=>{
+  it('switches no test or step off, focuses none, and expects none to fail',()=>{
+    expect(disabledLines()).toEqual([]);
   });
 
-  it('switches no test or step off, focuses none, and expects none to fail',()=>{
-    const found=specs.flatMap(name=>readFileSync(join(E2E,name),'utf8').split('\n')
-      .flatMap((line,i)=>disabled(line)?[`e2e/${name}:${i+1}: ${line.trim()}`]:[]));
-    expect(found).toEqual([]);
+  it('reads the setup projects as well as the specs',()=>{
+    expect(specFiles()).toEqual(expect.arrayContaining(['auth.setup.ts','quote-tool.spec.ts']));
+  });
+
+  it('finds a switched-off test in any spec, at any depth, and passes with no e2e/ folder',()=>{
+    const dir=mkdtempSync(join(tmpdir(),'e2e-guard-'));
+    try{
+      expect(disabledLines(join(dir,'missing'))).toEqual([]);
+      mkdirSync(join(dir,'auth'));
+      writeFileSync(join(dir,'quote.spec.ts'),'test("saves", async () => {});\n');
+      writeFileSync(join(dir,'auth','login.spec.ts'),'test("logs in", f);\ntest.only("x", f);\n');
+      writeFileSync(join(dir,'notes.md'),'test.skip is not a spec');
+      writeFileSync(join(dir,'auth.setup.ts'),'setup("signs in", f);\nsetup.skip("later", f);\n');
+      writeFileSync(join(dir,'global-setup.ts'),'export default async () => {};\n');
+      expect(disabledLines(dir).sort()).toEqual(['e2e/auth.setup.ts:2: setup.skip("later", f);','e2e/auth/login.spec.ts:2: test.only("x", f);']);
+    }finally{rmSync(dir,{recursive:true,force:true});}
   });
 
   it('reads every way a test or step is switched off',()=>{
@@ -78,10 +76,5 @@ describe('the E2E suite',()=>{
       'annotation: { type: "task", description: "2.2 Clarification loop" }','await test.step("round 1: the question only", async () => {})',
       'expect(skipped).toBe(0)','const { title } = testInfo;','// Every step runs.',
     ])expect(disabled(line),line).toBe(false);
-  });
-
-  it('reads the tests a spec declares, with their tags',()=>{
-    expect(declaredTests('test("0. Setup", async () => {});\ntest(\n  "6. Rep half",\n  { tag: "@step6", annotation: { type: "task" } },\n  async () => {},\n);\n  test("nested", f);'))
-      .toEqual([{title:'0. Setup',tag:null},{title:'6. Rep half',tag:'@step6'}]);
   });
 });
