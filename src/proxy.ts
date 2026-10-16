@@ -8,7 +8,10 @@ export function proxy(request:NextRequest){
   return updateSession(request);
 }
 
-// Everything except build assets, image optimisation, the favicon and public image files.
+// Everything except build assets (/_next/static/…), image optimisation (/_next/image), the favicon and
+// the real files in public/, each named exactly (follow-up F2: a path is not a public file because it
+// ends in an image extension, so /api/quotes/x.png is gated like any API). A new file in public/ goes
+// in this list (src/features/auth/session-proxy.test.ts checks every one is skipped).
 export const config={
-  matcher:['/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif)$).*)'],
+  matcher:['/((?!_next/static/|_next/image$|favicon\\.ico$|querent-logo\\.png$).*)'],
 };

@@ -9,3 +9,6 @@ test-results/
 .claude/settings.local.json
 .agents/
 .codex/
+# Playwright: the saved session and the report screenshots (e2e/README.md).
+e2e/.auth/
+e2e/screenshots/

@@ -38,11 +38,11 @@ const call=(method:string,path:string,body?:unknown)=>new NextRequest(`${ORIGIN}
 const ctx=(id:string)=>({params:Promise.resolve({id})});
 
 const matched=(over:Partial<QuoteLineInput>={}):QuoteLineInput=>({
-  sku:'M1044',description:'White Corrugated Mailers 10x4x4"',pack:'Each',listPrice:0.84,quantity:3,unit:'each',quantityUnclear:false,
+  sku:'M1044',description:'White Corrugated Mailers 10x4x4"',pack:'Each',listPrice:0.84,quantity:3,unit:'each',quantityUnclear:false,customerQuantity:null,
   unitPrice:0.845,matchedBy:'auto',originalText:'3 white mailers 10 x 4 x 4',unmatched:false,matchScore:0.91,nearMisses:[],...over,
 });
 const unmatched:QuoteLineInput={
-  sku:null,description:null,pack:null,listPrice:null,quantity:5,unit:'roll',quantityUnclear:true,unitPrice:null,matchedBy:null,
+  sku:null,description:null,pack:null,listPrice:null,quantity:5,unit:'roll',quantityUnclear:true,customerQuantity:null,unitPrice:null,matchedBy:null,
   originalText:'5 rolls of the blue tape we had last time',unmatched:true,matchScore:0.41,
   nearMisses:[{sku:'T902',description:'Packing tape',pack:'Case of 36',listPrice:2.1,score:0.41}],
 };

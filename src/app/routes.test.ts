@@ -23,8 +23,12 @@ const ROUTES=[
   // B2: auth pages and APIs (no sign-up route).
   '/login','/reset-password','/auth/confirm','/update-password',
   '/api/auth/login','/api/auth/signout','/api/auth/reset','/api/auth/update-password',
-  // B6: a quote's page and the quotes API (POST /api/quotes is B5's, in the same route file).
+  // B5: the quote tool's APIs (match and the Swap search; POST /api/quotes shares B6's route file).
+  '/api/quote-tool/match','/api/catalog/search',
+  // B6: a quote's page and the quotes API (GET and POST /api/quotes in one route file).
   '/quotes/[id]','/api/quotes','/api/quotes/[id]',
+  // B7: the settings API.
+  '/api/settings',
 ];
 
 describe('routes',()=>{

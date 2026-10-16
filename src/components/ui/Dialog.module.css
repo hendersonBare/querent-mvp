@@ -17,28 +17,30 @@
    .line's columns are the pop-up's (item, qty, stock, remove); a dialog with other columns sets its own
    grid-template-columns. The palette sits on .backdrop, so one place changes it. */
 .backdrop {
-  --dlg-accent: #1e7e75;
-  --dlg-accent-dark: #175f59;
-  --dlg-accent-soft: #eef6f4;
-  --dlg-line: #e3eae8;
-  --dlg-field-line: #cedbd6;
-  --dlg-button-line: #cfd9d6;
-  --dlg-focus: #91c6bf;
-  --dlg-muted: #6b7a78;
-  --dlg-ink: #192322;
-  --dlg-subtle: #f4f7f6;
-  --dlg-warn-bg: #fbf0d8;
-  --dlg-warn-text: #82590e;
-  --dlg-bad: #a34231;
-  --dlg-bad-line: #d9a79c;
-  --dlg-bad-soft: #fff2ef;
+  /* The Querent palette (src/app/tokens.css): the accent green, its tints and the neutral greys. */
+  --dlg-accent: var(--q-accent);
+  --dlg-accent-dark: var(--q-accent-hover);
+  --dlg-accent-soft: var(--q-accent-tint);
+  --dlg-line: var(--q-row-divider);
+  --dlg-field-line: var(--q-border);
+  --dlg-button-line: var(--q-border);
+  --dlg-focus: var(--q-accent);
+  --dlg-muted: var(--q-text-muted);
+  --dlg-ink: var(--q-text);
+  --dlg-subtle: var(--q-row-picked);
+  --dlg-warn-bg: var(--q-note);
+  --dlg-warn-text: var(--q-note-text);
+  --dlg-bad: var(--q-red);
+  --dlg-bad-dark: var(--q-red-hover);
+  --dlg-bad-line: var(--q-red-border);
+  --dlg-bad-soft: var(--q-red-tint);
   position: fixed;
   inset: 0;
   z-index: 50;
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(25, 35, 34, 0.38);
+  background: var(--q-backdrop-dialog);
   color: var(--dlg-ink);
   font-family: var(--q-font-sans), Arial, Helvetica, sans-serif;
   font-size: 16px;
@@ -69,7 +71,7 @@
   border: 1px solid var(--dlg-line);
   border-radius: 14px;
   background: white;
-  box-shadow: 0 24px 60px rgba(23, 50, 45, 0.22);
+  box-shadow: var(--q-shadow-popover);
   animation: dialog-in 0.16s ease-out;
 }
 /* The dialog takes focus when it opens, so screen readers announce it; its controls show focus. */
@@ -176,6 +178,8 @@
 }
 .input:focus {
   outline: 2px solid var(--dlg-focus);
+  outline-offset: -1px;
+  border-color: var(--dlg-focus);
 }
 .input[aria-invalid="true"] {
   border-color: var(--dlg-bad-line);

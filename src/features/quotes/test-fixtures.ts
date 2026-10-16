@@ -17,7 +17,7 @@ export function line(over:Partial<QuoteLine>={}):QuoteLine{
   return {
     id:LINE_IDS[0],position:1,originalText:'500 - 12 x 10 x 8 single wall boxes',unmatched:false,sku:'12108-BDL',matchedBy:'auto',
     description:'12 x 10 x 8" Corrugated Boxes, bundle pricing',pack:'Bundle of 25',listPrice:1.12,quantity:1500,unit:'each',
-    quantityUnclear:false,unitPrice:1.05,matchScore:0.93,nearMisses:[],createdAt:STAMP,updatedAt:STAMP,...over,
+    quantityUnclear:false,customerQuantity:null,unitPrice:1.05,matchScore:0.93,nearMisses:[],createdAt:STAMP,updatedAt:STAMP,...over,
   };
 }
 

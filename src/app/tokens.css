@@ -34,6 +34,9 @@
   --q-close: #EEF2F0;
   --q-count-bg: rgba(0, 0, 0, 0.08);
 
+  /* White: text on the accent and on the rail, the rail's avatar (B10: named here, not in each module). */
+  --q-white: #FFFFFF;
+
   /* Text */
   --q-text: #1B1F1D;
   --q-text-2: #585F5B;
@@ -47,9 +50,14 @@
   /* Accent, problems, notes */
   --q-accent: #14803C;
   --q-accent-hover: #0F6A31; /* no frame: "States not drawn" in the style guide */
+  /* The accent lightened, the bright band of the progress bar (no frame; B10). */
+  --q-accent-light: #5FB47F;
+  /* The accent as a tint behind a tag, a picked item or a hovered link (no frame; B10). */
+  --q-accent-tint: rgba(20, 128, 60, 0.1);
   --q-red: #C92A1C;
   --q-red-tint: #FFEDEA;
   --q-red-border: #E8A8A0;
+  --q-red-hover: #A82216; /* no frame: a red button's hover (B10) */
   --q-note: #FBE7A1;
   --q-note-text: #5C4300;
   --q-note-quote: #3D2E00; /* the customer's words in a note box (C_QOB5, C_QOB6) */
@@ -79,6 +87,8 @@
 
   /* Shape and size */
   --q-page-padding: 24px 32px 40px;
+  /* One content width for every page in the shell (Quote creation tool, Quotes, a quote, Settings; B10). */
+  --q-content-max: 1280px;
   --q-radius-card: 14px;
   --q-radius-control: 10px;
   --q-radius-button: 9px;

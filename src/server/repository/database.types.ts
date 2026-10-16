@@ -118,6 +118,7 @@ export type Database = {
           position: number;
           quantity: number | null;
           quantity_unclear: boolean;
+          customer_quantity: string | null;
           quote_id: string;
           sku: string | null;
           unit: string | null;
@@ -139,6 +140,7 @@ export type Database = {
           position: number;
           quantity?: number | null;
           quantity_unclear?: boolean;
+          customer_quantity?: string | null;
           quote_id: string;
           sku?: string | null;
           unit?: string | null;
@@ -159,6 +161,7 @@ export type Database = {
           position?: number;
           quantity?: number | null;
           quantity_unclear?: boolean;
+          customer_quantity?: string | null;
           quote_id?: string;
           sku?: string | null;
           unit?: string | null;

@@ -454,3 +454,26 @@ export function scorePackaging<T extends PackagingItem>(description:string,catal
   });
   return scored.sort((a,b)=>b.score-a.score||a.distance-b.distance||a.index-b.index).map(({index:_,distance:__,...c})=>c);
 }
+
+/** The variants of `spec` in a catalog (see scorePackaging), built per call so an edited catalog is never read stale. */
+function variantsIn(catalog:readonly PackagingItem[],spec:ScoredSpec){
+  const key=keyOf(spec);
+  return catalog.map(itemOf).filter(other=>keyOf(other)===key);
+}
+/** variantKey per parsed row (a row edited in place is parsed again, so its key is too). */
+const KEYS=new WeakMap<ScoredSpec,string>();
+function keyOf(spec:ScoredSpec){
+  let key=KEYS.get(spec);
+  if(key===undefined)KEYS.set(spec,key=variantKey(spec));
+  return key;
+}
+
+/**
+ * Strict's total accounting of `description` against ONE chosen item of `catalog` (the auto match, a
+ * Swap or a "Use this item" pick): the eligibility scorePackaging gives that item, without scoring
+ * the rest. The quote tool converts a customer's quantity only when this is strictEligible (B10b).
+ */
+export function accountLine<T extends PackagingItem>(description:string,item:T,catalog:readonly T[]):Eligibility{
+  const spec=itemOf(item);
+  return fit(parseSpec(description),spec,variantsIn(catalog,spec)).eligibility;
+}

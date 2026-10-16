@@ -66,6 +66,12 @@ export interface Spec {
   choiceValues:Partial<Record<ChoiceKey,string[]>>;
   /** Every pack count stated (pack keeps the first). */
   packValues:{outer:number[];roll:number[]};
+  /**
+   * What each pack phrase is per, in order: case (a carton is a case), bundle, box, pack, sleeve or
+   * roll; null for a bare count ("500 ct", "500 pcs"). Not used in scoring: the quote tool (B10b)
+   * converts a quantity only onto an item sold in that same pack.
+   */
+  packContainers:(string|null)[];
   colors:string[];
   materials:string[];
   choices:Partial<Record<ChoiceKey,string>>;
@@ -133,8 +139,14 @@ const PACK_RULES:{re:RegExp;unit:(m:RegExpExecArray)=>'outer'|'roll';count:(m:Re
   // "case of 500", "bundle of 25", "roll of 250"
   {re:new RegExp(String.raw`\b(${OUTER}|${ROLL})\s*(?:of|qty\.?:?)\s*${COUNT}\b`,'g'),unit:m=>/^r/.test(m[1])?'roll':'outer',count:m=>m[2]},
   // "1000 ct", "500 count", "10 pk", "10-pack", "500 pcs"
-  {re:new RegExp(String.raw`(?<![\w.,\/])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?|pkgs?|pcs|pieces)\b`,'g'),unit:()=>'outer',count:m=>m[1]},
+  {re:new RegExp(String.raw`(?<![\w.,\/])${COUNT}\s*-?\s*(ct|count|pks?|packs?|pkgs?|pcs|pieces)\b`,'g'),unit:()=>'outer',count:m=>m[1]},
 ];
+/** The container of a pack phrase as one name (B10b; see Spec.packContainers). */
+const CONTAINER_OF:readonly [RegExp,string][]=[[/^(?:cases?|cs|cartons?|ctns?)$/,'case'],[/^(?:bundles?|bdls?|bndls?)$/,'bundle'],[/^(?:boxe?s?|bx)$/,'box'],
+  [/^(?:packs?|pks?|pkgs?|packages?)$/,'pack'],[/^sleeves?$/,'sleeve'],[/^(?:rolls?|rls?)$/,'roll']];
+const containerOf=(word:string|undefined)=>CONTAINER_OF.find(([re])=>re.test(word??''))?.[1]??null;
+/** Each rule's container word: the word after the slash, the word before "of", or a bare count's word. */
+const CONTAINER_WORD=[(m:RegExpExecArray)=>m[3],(m:RegExpExecArray)=>m[1],(m:RegExpExecArray)=>m[2]];
 const toCount=(raw:string)=>Number(raw.replace(/,/g,''));
 
 /** Takes the stated pack quantities out of the text: `pack` holds the first per key, `values` every distinct one. */
@@ -143,9 +155,11 @@ function takePack(text:string){
   const values:{outer:number[];roll:number[]}={outer:[],roll:[]};
   /** The nouns pack phrases counted ("labels" in "500 labels/roll"), stemmed. */
   const contents:string[]=[];
-  for(const {re,unit,count,contents:what} of PACK_RULES){
+  const containers:(string|null)[]=[];
+  for(const [rule,{re,unit,count,contents:what}] of PACK_RULES.entries()){
     text=text.replace(re,(...args)=>{
       const m=args.slice(0,-2) as unknown as RegExpExecArray;
+      containers.push(containerOf(CONTAINER_WORD[rule](m)));
       const key=unit(m);
       const n=toCount(count(m));
       const noun=what?.(m);
@@ -155,7 +169,7 @@ function takePack(text:string){
       return ' ';
     });
   }
-  return {pack,values,contents,text};
+  return {pack,values,contents,containers,text};
 }
 
 /**
@@ -623,7 +637,7 @@ export const MAX_DIGITS=12;
 function unreadSpec(blockers:string[]):Spec{
   return {dims:null,dimRanks:null,otherDims:[],altDims:null,measures:[],strays:[],ect:null,burst:null,mil:null,gauge:null,number:null,core:null,
     values:{ect:[],burst:[],mil:[],gauge:[],number:[],core:[],milFromMicron:[]},colors:[],materials:[],choices:{},choiceValues:{},features:[],
-    pack:{},packValues:{outer:[],roll:[]},negated:{choices:{},features:[],colors:[],words:[]},words:[],blockers};
+    pack:{},packValues:{outer:[],roll:[]},packContainers:[],negated:{choices:{},features:[],colors:[],words:[]},words:[],blockers};
 }
 
 /** Takes a line (or a catalog description) apart. */
@@ -719,7 +733,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
     ect:ect.value,burst:bursts[0]??null,mil:mils[0]??null,gauge:gauge.value,number:number.value,core:cores[0]??null,
     values:{ect:ect.values,burst:bursts,mil:mils,gauge:gauge.values,number:number.values,core:cores,milFromMicron:micron.values},
     colors:colors.found,materials,choices:choices.choices,choiceValues:choices.values,features:features.found,
-    pack:packed.pack,packValues:packed.values,negated:negations.negated,
+    pack:packed.pack,packValues:packed.values,packContainers:packed.containers,negated:negations.negated,
     words:leftover.words,blockers:[...new Set(blockers)],
   };
 }
@@ -799,3 +813,6 @@ export function parseItemSpec(item:PackagingItem):ItemSpec{
 export function productGroup<T extends Pick<PackagingItem,'description'>>(item:T){
   return item.description.replace(TIER,'').toLowerCase().replace(/\s+/g,' ').trim();
 }
+
+/** What each pack phrase of a line is per (Spec.packContainers): for the quote tool's quantity check (B10b). */
+export const packContainersOf=(description:string)=>parseSpec(description).packContainers;

@@ -20,7 +20,7 @@ env:
 
 jobs:
   checks:
-    name: Typecheck, unit tests, build, Playwright
+    name: Typecheck, unit tests, build, local Supabase, test:db, Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -37,6 +37,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Includes the false-positive evaluation gate (src/eval).
       - name: Unit tests (Vitest)
         run: npm test
 
@@ -48,17 +49,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('package-lock.json') }}-
 
-      - name: Build
-        run: npm run build
+      # Before the stack exists and without any Supabase env (follow-up F1): the build must not need it.
+      # The Supabase URL and key are read at run time, so this build is the one Playwright runs below.
+      - name: Build (no Supabase env)
+        run: |
+          if [ -e .env.local ]; then echo ".env.local must not exist before the build"; exit 1; fi
+          env -u NEXT_PUBLIC_SUPABASE_URL -u NEXT_PUBLIC_SUPABASE_ANON_KEY npm run build
+
+      # The Supabase CLI from devDependencies; images come from public.ecr.aws/supabase (its default).
+      - name: Start the local Supabase stack
+        run: npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,studio,postgres-meta
+
+      - name: Write .env.local from the stack and reset the database
+        run: |
+          npm run db:env
+          npm run db:reset
+
+      - name: Database tests (repository, RLS, auth)
+        run: npm run test:db
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      # playwright.config.ts runs `npm run start` itself when CI is set. The specs come with task B8.
+      # playwright.config.ts resets the database again, then runs `npm run start` on a free port with the
+      # stack's URL and anon key, QUERENT_SCRIPTED=1 and ANTHROPIC_API_KEY=''.
       - name: Playwright (Chromium)
-        run: npx playwright test --pass-with-no-tests
-        env:
-          QUERENT_BASE_URL: http://127.0.0.1:3000
+        run: npx playwright test
 
       - name: Upload Playwright report and traces
         if: failure()
@@ -70,3 +86,16 @@ jobs:
             test-results/
           retention-days: 14
           if-no-files-found: ignore
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots-${{ github.run_id }}-${{ github.run_attempt }}
+          path: e2e/screenshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Stop the local Supabase stack
+        if: always()
+        run: npx supabase stop --no-backup

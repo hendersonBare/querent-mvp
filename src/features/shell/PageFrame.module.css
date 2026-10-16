@@ -1,5 +1,7 @@
-/* A page inside the shell: the header, then the body. */
+/* A page inside the shell: the header, then the body. Every page shares one content width
+   (--q-content-max), left-aligned under the same header, so the pages line up (B10). */
 .frame {
+  max-width: var(--q-content-max);
   background: transparent;
 }
 .header {

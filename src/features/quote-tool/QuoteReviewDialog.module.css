@@ -1,0 +1,496 @@
+/* The review dialog: Dialog.module.css (the old item pop-up's look) for the frame, head, inputs, SKU,
+   pack, section titles, buttons and footer; these rules add the review's own columns and states. The
+   palette comes from Dialog.module.css's .backdrop custom properties. */
+
+.dialog {
+  width: min(1060px, 100%);
+  max-height: min(880px, calc(100dvh - 48px));
+}
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.intro {
+  max-width: none;
+}
+.head .summary {
+  color: var(--dlg-ink);
+  font-weight: 600;
+}
+.close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin: -4px -6px 0 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--dlg-muted);
+}
+.close:hover:not(:disabled) {
+  background: var(--dlg-subtle);
+  color: var(--dlg-ink);
+}
+
+/* Customer name and reference. */
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+.label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.optional {
+  color: var(--dlg-muted);
+  font-weight: 400;
+}
+.text {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--dlg-field-line);
+  border-radius: 9px;
+  background: white;
+  color: var(--dlg-ink);
+  font: inherit;
+  font-size: 15px;
+}
+.text:focus {
+  outline: 2px solid var(--dlg-focus);
+}
+
+.section {
+  margin-top: 26px;
+}
+.sectionNote {
+  margin: 10px 0 0;
+  color: var(--dlg-muted);
+  font-size: 13px;
+}
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A matched line: item, qty, unit price, line total, actions; the Swap picker spans the row below. */
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px 178px 92px 128px;
+  align-items: start;
+  gap: 8px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dlg-line);
+}
+.lineHead {
+  align-items: center;
+  padding: 10px 0 8px;
+  color: var(--dlg-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.right {
+  text-align: right;
+}
+.wrote {
+  margin-bottom: 2px;
+  color: var(--dlg-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.listPrice {
+  color: var(--dlg-muted);
+  font-size: 12px;
+}
+.listPrice::before,
+.tag::before {
+  content: "";
+}
+.tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--dlg-accent-soft);
+  color: var(--dlg-accent-dark);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.cell {
+  display: grid;
+  gap: 4px;
+}
+.money {
+  position: relative;
+  display: block;
+}
+.dollar {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: var(--dlg-muted);
+  font-size: 15px;
+  pointer-events: none;
+}
+.priceInput {
+  padding-left: 22px;
+}
+.flag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--dlg-warn-bg);
+  color: var(--dlg-warn-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* An input with its unit after it: "250 [each]", "$ 1.25 [per each]". */
+.withUnit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.withUnit > .money {
+  flex: 1;
+  min-width: 0;
+}
+.qtyInput {
+  flex: 1;
+  min-width: 0;
+}
+.unit {
+  flex: none;
+  color: var(--dlg-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+/* Under the qty and price: the conversion note or the "Check quantity" flag, across those columns, right
+   under the inputs (the item spans both rows). */
+.withNotes > :first-child {
+  grid-row: span 2;
+}
+.qtyNotes {
+  grid-column: 2 / 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: -2px;
+}
+.aside {
+  color: var(--dlg-muted);
+  font-size: 12.5px;
+}
+.lineTotal {
+  padding-top: 9px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+.muted {
+  color: var(--dlg-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.lineActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 4px;
+}
+.link {
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dlg-accent-dark);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.link:hover:not(:disabled) {
+  background: var(--dlg-accent-soft);
+}
+.link[aria-expanded="true"] {
+  background: var(--dlg-accent-soft);
+}
+.linkDanger {
+  color: var(--dlg-muted);
+}
+.linkDanger:hover:not(:disabled) {
+  background: var(--dlg-bad-soft);
+  color: var(--dlg-bad);
+}
+.removed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--dlg-line);
+  color: var(--dlg-muted);
+  font-size: 14px;
+}
+
+/* The Swap picker. */
+.picker {
+  grid-column: 1 / -1;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--dlg-line);
+  border-radius: 12px;
+  background: var(--dlg-subtle);
+}
+.pickerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pickerTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+.pickerLabel {
+  margin: 10px 0 0;
+  color: var(--dlg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.options {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--dlg-line);
+}
+.option:last-child {
+  border-bottom: 0;
+}
+.search {
+  margin-top: 12px;
+}
+.pickerNote {
+  margin: 10px 0 0;
+  color: var(--dlg-muted);
+  font-size: 13px;
+}
+
+/* An unmatched line: what the customer wrote, the qty, the near-miss toggle; the list opens below. */
+.uline {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dlg-line);
+}
+.utop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 190px;
+  align-items: start;
+  gap: 8px 16px;
+}
+.wroteLabel {
+  color: var(--dlg-muted);
+  font-size: 12px;
+}
+.original {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.nomatch {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--dlg-warn-bg);
+  color: var(--dlg-warn-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.hint {
+  margin-top: 4px;
+  color: var(--dlg-muted);
+  font-size: 12.5px;
+}
+.uqty {
+  padding-top: 18px;
+  color: var(--dlg-ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.toggle {
+  justify-self: end;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--dlg-button-line);
+  border-radius: 9px;
+  background: white;
+  color: var(--dlg-accent-dark);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.toggle:hover:not(:disabled),
+.toggle[aria-expanded="true"] {
+  border-color: var(--dlg-accent);
+  background: var(--dlg-accent-soft);
+}
+.none {
+  justify-self: end;
+  padding-top: 18px;
+  color: var(--dlg-muted);
+  font-size: 13px;
+}
+.misses {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 4px 16px;
+  border: 1px solid var(--dlg-line);
+  border-radius: 12px;
+  background: var(--dlg-subtle);
+}
+.miss {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--dlg-line);
+}
+.miss:last-child {
+  border-bottom: 0;
+}
+/* A closest item's similarity: neutral words and a small grey bar, never a claim that it matches. */
+.similarity {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+.similarityText {
+  color: var(--dlg-muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.similarityBar {
+  display: block;
+  width: 72px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dlg-line);
+}
+.similarityBar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dlg-muted);
+}
+
+/* Footer: the total on the left, Cancel / Save quote on the right with the reason Save is disabled under them. */
+.foot {
+  align-items: flex-start;
+}
+.totalBlock {
+  display: grid;
+  gap: 1px;
+}
+.totalLabel {
+  color: var(--dlg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.totalValue {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+}
+.saveBlock {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+.why,
+.error {
+  margin: 0;
+  font-size: 13px;
+  text-align: right;
+}
+.why {
+  color: var(--dlg-muted);
+}
+.toCheck {
+  margin: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--dlg-warn-bg);
+  color: var(--dlg-warn-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.error {
+  max-width: 46ch;
+  color: var(--dlg-bad);
+}
+.confirm {
+  margin: 0;
+  align-self: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+.danger {
+  background: var(--dlg-bad);
+}
+.danger:hover:not(:disabled) {
+  background: var(--dlg-bad-dark);
+}
+
+@media (max-width: 760px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+  .line {
+    grid-template-columns: minmax(0, 1fr) 132px 178px;
+  }
+  .qtyNotes {
+    grid-column: 1 / -1;
+  }
+  .withNotes > :first-child {
+    grid-row: auto;
+  }
+  .lineHead {
+    display: none;
+  }
+  .line > .item,
+  .line > :first-child {
+    grid-column: 1 / -1;
+  }
+  .lineActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .utop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .toggle,
+  .none {
+    justify-self: start;
+  }
+}
