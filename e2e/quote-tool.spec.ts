@@ -259,6 +259,7 @@ test('a pack size the customer states is kept: "Use this item" on a box bundled 
   await expect(rows.filter({hasText:line50})).toContainText('Quantity was flagged: customer wrote 2 bundles (50/bundle)');
   await expect(rows.filter({hasText:LINES.box})).toContainText('Customer asked for 10 bundles');
   await expect(page.getByTestId('quote-total')).toHaveText('$437.50');
+  await shot(page,'08c-quote-detail-stated-pack');
   const id=new URL(page.url()).pathname.split('/').pop();
   const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
   expect(quote.lines.map((l:{quantity:number;unit:string;quantityUnclear:boolean;customerQuantity:string|null;matchedBy:string})=>[l.quantity,l.unit,l.quantityUnclear,l.customerQuantity,l.matchedBy]))
