@@ -26,7 +26,7 @@
 //      pk, ct, count, qty, per, master, inner, outer, skid, sleeve, ea, each, pcs, dozen, gross,
 //      packed…); words that also name products (box, bag, roll, pack, carton, pallet, tube, spool,
 //      mailer…) next to a count, "/", a word of the first kind, "of N" or "x N"; "/" between a number and
-//      a word, or next to a container word; "in a"/"in each"; "of N"; a count glued to "s" ("500s"); a
+//      a word, or next to a container word; "in a"/"in each"/"in box"; "of N"; a count glued to "s" ("500s", "500's"); a
 //      stray count; a part of a number before a container ("½ case"). So "50 lb/bundle" is unread.
 // A bare count (S3 "500 ct") is per the quantity's unit when that is a pack ("500 ct, 2 cases": 500 to a
 // case); otherwise its kind is unknown, and it never equals an item's pack.
@@ -89,6 +89,8 @@ const QTY_LABEL=new Set(['qty','quantity','x','×']);
 /** Marks skipped when looking for a neighbour ("12-pack", "case: 500", "(500)"). */
 const SOFT=new Set(['-','–','—',':','(',')','.','=']);
 const SEPARATOR=new Set(['/','per','a','an']);
+/** "in a case", "in each box", "in the carton". */
+const IN_WORDS=new Set(['a','an','each','every','the']);
 const EACH=new Set(list('each ea pc pcs piece pieces'));
 /** Product nouns a quantity in pieces may be written in ("500 boxes" of a quantity in each). */
 const NOUN=new Set(list('box bag pouch mailer envelope roll sheet label coil tube'));
@@ -120,7 +122,7 @@ interface Token {
 const TOKEN=/\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?|[a-z]+|\S/giu;
 
 function tokenize(text:string):{text:string;tokens:Token[]}{
-  const normal=text.normalize('NFKC').replace(/[⁄∕÷⧸]/g,'/');
+  const normal=text.normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g,'').replace(/[\u2044\u2215\u00F7\u29F8]/g,'/');
   const tokens:Token[]=[];
   for(const m of normal.matchAll(TOKEN)){
     const raw=m[0],start=m.index;
@@ -172,13 +174,46 @@ class Text {
     return !!after&&after.glued&&(after.low===','||after.low==='.')&&this.at(i+2)?.type==='num'&&this.at(i+2)!.glued;
   }
 
-  /** A size or measure: next to x/×, before a measure word or mark, or one side of a fraction. */
+  /** A size or measure: a side of a dimension ("12x10", "18\" x 1500'"), before a measure word or mark, or one side of a fraction. */
   private measured(i:number):boolean{
-    const prev=this.at(i-1),nxt=this.at(i+1);
-    if(prev&&DIMENSION.has(prev.low))return true;
-    if(nxt&&(DIMENSION.has(nxt.low)||MEASURE.has(nxt.low)||MEASURE_MARK.has(nxt.low)))return true;
+    const nxt=this.at(i+1);
+    if(this.dimension(i))return true;
+    if(nxt&&(MEASURE.has(nxt.low)||MEASURE_MARK.has(nxt.low)))return !this.inPack(i+1);
     return this.fraction(i);
   }
+  /**
+   * A side of a size: x/× between two numbers (a number may carry its inch or foot mark), at most three
+   * sides. "x500" after a word, a fourth side ("10x4x4 x6") and "4 x6" (x glued to the number after it
+   * only) are counts, not sizes.
+   */
+  private dimension(i:number):boolean{
+    const sides=(j:number)=>{
+      // The numbers of the size chain ending at token j (a number), counted backwards.
+      let n=1;
+      for(;;){
+        const before=MEASURE_MARK.has(this.low(j-1))?j-1:j;
+        const x=before-1;
+        if(!DIMENSION.has(this.low(x))||!this.joins(x))return n;
+        const prev=MEASURE_MARK.has(this.low(x-1))&&this.at(x-2)?.type==='num'?x-2:x-1;
+        if(this.at(prev)?.type!=='num')return n;
+        n++;
+        j=prev;
+      }
+    };
+    if(this.at(i)?.type!=='num')return false;
+    const back=sides(i);
+    if(back>3)return false;
+    if(back>1)return true;
+    const x=MEASURE_MARK.has(this.low(i+1))?i+2:i+1;
+    return DIMENSION.has(this.low(x))&&this.joins(x)&&this.at(x+1)?.type==='num';
+  }
+  /** An x that joins two sides: spaced on both sides or on neither ("4 x6" is a multiplier). */
+  private joins=(x:number)=>{
+    const t=this.at(x),after=this.at(x+1);
+    return !!t&&!!after&&t.glued===after.glued;
+  };
+  /** "in" that says where pieces are packed ("in a case", "in box"), not inches. */
+  private inPack=(i:number)=>this.low(i)==='in'&&(IN_WORDS.has(this.low(i+1))||CONTAINER.has(this.low(i+1)));
   private fraction=(i:number)=>(this.low(i+1)==='/'&&this.at(i+2)?.type==='num')||(this.low(i-1)==='/'&&this.at(i-2)?.type==='num');
 
   /** A plain count: a whole number ≥ 1 that is not a size, measure, label ("#2"), SKU ("PB3866", "S-4128") or list number ("1."). */
@@ -187,7 +222,7 @@ class Text {
     if(!t||t.type!=='num'||!Number.isSafeInteger(t.value)||t.value<1||t.low.includes('.')||this.fragment(i)||this.measured(i))return false;
     const prev=this.at(i-1),nxt=this.at(i+1);
     if(prev&&LABEL.has(prev.low))return false;
-    if(prev&&t.glued&&prev.type==='word')return false;
+    if(prev&&t.glued&&prev.type==='word'&&!DIMENSION.has(prev.low))return false;
     if(prev&&t.glued&&prev.low==='-'&&prev.glued&&this.at(i-2)?.type==='word')return false;
     if(nxt&&nxt.glued&&nxt.type==='word'&&!this.packWord(nxt.low)&&!['s','per','a'].includes(nxt.low))return false;
     if(i===0&&nxt&&(nxt.low==='.'||nxt.low===')'))return false;
@@ -205,7 +240,7 @@ class Text {
     const candidates=this.tokens.flatMap((t,i)=>{
       if(t.type!=='num'||t.value!==quantity||this.fragment(i)||!this.free(i))return [];
       const nxt=this.at(i+1);
-      if(nxt&&(DIMENSION.has(nxt.low)||MEASURE.has(nxt.low)||MEASURE_MARK.has(nxt.low)))return [];
+      if(nxt&&((DIMENSION.has(nxt.low)&&this.at(i+2)?.type==='num')||MEASURE.has(nxt.low)||MEASURE_MARK.has(nxt.low)))return [];
       return nxt?.low==='/'&&this.at(i+2)?.type==='num'?[]:[i];
     });
     const labelOf=(i:number)=>{
@@ -312,6 +347,8 @@ class Text {
       j++;
     }
     if(!this.free(j)||!BARE.has(this.low(j)))return null;
+    // "500 ct box", "case 500 ct": a container right after it (or a case word before it) makes it a pack this grammar does not read.
+    if(CONTAINER.has(this.low(this.next(j)))||(CONTAINER.has(this.low(i-1))&&STRONG.has(this.low(i-1))))return null;
     tokens.push(...this.withDot(j));
     const own=BARE.get(this.low(j))!;
     if(own!==null)return this.statement(this.at(i)!.value,own,tokens,false);
@@ -336,9 +373,10 @@ class Text {
       const w=t.low;
       if(t.type==='word'){
         if(STRONG.has(w))out.add(i);
-        else if(w==='in'&&['a','an','each','every'].includes(this.low(i+1)))out.add(i).add(i+1);
+        else if(this.inPack(i))out.add(i).add(i+1);
         else if(w==='of'&&this.free(i+1)&&this.at(i+1)?.type==='num')out.add(i);
         else if(w==='s'&&t.glued&&this.at(i-1)?.type==='num')out.add(i-1).add(i);
+        else if(w==='s'&&t.glued&&['\'','’'].includes(this.low(i-1))&&this.at(i-2)?.type==='num')out.add(i-2).add(i-1).add(i);
         else if(WEAK.has(w)){
           const after=this.neighbour(i,1);
           if(triggers(this.neighbour(i,-1))||triggers(after)
@@ -375,7 +413,7 @@ class Text {
         const j=k+step,t=this.at(j);
         if(!t||t.low===','||t.low===';')return k;
         const glued=step===1?t.glued:this.tokens[k].glued;
-        if(glued||(t.type==='num'&&this.free(j)&&!DIMENSION.has(this.low(j-1))&&!DIMENSION.has(this.low(j+1))))k=j;
+        if(glued||(t.type==='num'&&this.free(j)&&!this.dimension(j)))k=j;
         else return k;
       }
     };

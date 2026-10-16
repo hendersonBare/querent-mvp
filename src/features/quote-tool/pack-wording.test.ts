@@ -109,6 +109,9 @@ describe('adversarial pack phrasings: none converts silently',()=>{
     '500 ct per case','500ct/cs','box of 500','500 per sleeve','inner pack 500','500 bags/master case','ctn qty: 500','500 pcs per ctn',
     'packed 500s','(500)','500 bags','bags of 500','500 per','pk 500','500/case 500/case','500 x case','500 each case','case x 500',
     '500 ﹙case﹚','½ case of 1,000','500 CS','500/CASE','QTY/CS 500','500 Per Case','500 per outer','dozen cases','2 gross',
+    // Found while attacking this design: a possessive plural, a count after x, a bare count next to a container, packages, zero-width characters.
+    "500's",'x500','500 ct box','box 500 ct','500-bag case','500/package','package of 500','500 in box','1000/cs (500 bags)','500 units',
+    'ca\u200bse 500','500 ct (box)','500 bags x 2 cases',
   ])('"Reclosable Poly Bags 4x10 6 mil %s, 2 cases" on a case of 1,000',phrase=>{
     const raw=`Reclosable Poly Bags 4x10 6 mil ${phrase}, 2 cases`;
     expect(run(raw,'PB3866').note?.kind,raw).toBe('check');
@@ -212,6 +215,8 @@ const PACK_TEMPLATES:((n:string,word:string,kind:Kind)=>string)[]=[
   (n,w)=>`${w}/${n}`,(n,w)=>`${w} qty ${n}`,(n,w)=>`${w} (${n})`,(n,w)=>`${w}: ${n}`,(n,w)=>`${n}-ct ${w}`,(n,w)=>`${n} count ${w}`,
   (n,w)=>`${w} pack ${n}`,(n,w)=>`${n} in a ${w}`,(n,w)=>`${n} per master ${w}`,(n,w)=>`${w}=${n}`,(n,w)=>`(${n}/${w})`,(n,w)=>`${n}⁄${w}`,
   (n,w)=>`${n} pc. per ${w}`,(n,w)=>`${n} ${w}`,(n,w)=>`${w} ${n}`,(n,w)=>`${n} pcs. per ${w}.`,(n,w)=>`${n} to the ${w}`,
+  (n,w)=>`${n}'s ${w}`,(n,w)=>`x${n} ${w}`,(n,w)=>`${n} ct ${w}`,(n,w)=>`${w} ${n} ct`,(n,w)=>`${n} in ${w}`,(n,w)=>`${n} pcs in each ${w}`,
+  (n,w)=>`${w} - ${n} pcs`,(n,w)=>`${n} bags/${w}`,(n,w)=>`${w}s of ${n}`,(n,w)=>`${n}${w}`,
 ];
 const WORDS:Record<Kind,string[]>={
   case:['case','cs','carton','ctn','CASE','Cs.'],bundle:['bundle','bdl','bndl','Bundle'],roll:['roll','rl'],box:['box','bx'],pack:['pack','pk','pkg'],pallet:['pallet','skid'],
@@ -240,10 +245,10 @@ const QUANTITIES:((r:()=>number)=>string)[]=[
 ];
 
 describe('property: conversion happens only when no pack was written or the written pack is the item\'s',()=>{
-  it('holds for 600 random lines (quantity phrase x 0 to 2 pack phrases x item), through the scripted parser',()=>{
+  it('holds for 1,500 random lines (quantity phrase x 0 to 2 pack phrases x item), through the scripted parser',()=>{
     const r=rng(20261016);
     let converted=0,flagged=0,withPack=0;
-    for(let n=0;n<600;n++){
+    for(let n=0;n<1500;n++){
       const item=pick(ITEMS,r);
       const packs:{count:number;kind:Kind}[]=[];
       const phrases:string[]=[];
@@ -265,9 +270,9 @@ describe('property: conversion happens only when no pack was written or the writ
       expect(ok,`${raw} on ${item.sku} -> ${JSON.stringify(result)}`).toBe(true);
     }
     // The generator covers both outcomes.
-    expect(converted).toBeGreaterThan(30);
-    expect(flagged).toBeGreaterThan(200);
-    expect(withPack).toBeGreaterThan(400);
+    expect(converted).toBeGreaterThan(75);
+    expect(flagged).toBeGreaterThan(500);
+    expect(withPack).toBeGreaterThan(1000);
   });
 
   it('never converts a line that states two different packs, whatever they are',()=>{
