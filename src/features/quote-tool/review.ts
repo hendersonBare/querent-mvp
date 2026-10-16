@@ -1,7 +1,7 @@
 import type {StrictnessLevel} from '@/features/settings/strictness';
 import {readPrice,readQuantity} from '@/features/quotes/limits';
 import type {LineReason,MatchRun,ResultItem,SaveLine,SaveQuoteRequest,ScoredItem} from './types';
-import {convertQuantity,type QuantityNote} from './units';
+import {convertQuantity,statedPack,type QuantityNote,type StatedPack} from './units';
 
 // The review dialog's state and rules, kept out of the component so they can be tested without a DOM:
 // what the rep typed (prices and quantities as text), how a line totals in cents (as the database's
@@ -33,6 +33,8 @@ export interface ReviewLine {
   /** The quantity and unit the customer wrote (as parsed), kept for converting again after Swap or "Use this item". */
   customerQuantity:number|null;
   customerUnit:string|null;
+  /** A pack size the customer states in the line ("50/bundle"); an item with another pack never gets a converted quantity. */
+  customerPack:StatedPack|null;
   /** How the customer's quantity became `quantity`: converted exactly, or kept and to be checked (null: same unit, or no quantity). */
   quantityNote:QuantityNote|null;
   /** The rep has edited the quantity since the line got its item (a "check" flag then turns into an aside). */
@@ -52,7 +54,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
     const base:ReviewLine={
       key:line.index,status:'unmatched',restoreTo:'unmatched',reason:matched?null:line.reason,blockers:[...line.eligibility?.blockers??[]],
       rawText:line.rawText,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
-      customerQuantity:line.quantity,customerUnit:line.unit,quantityNote:null,quantityChecked:false,
+      customerQuantity:line.quantity,customerUnit:line.unit,customerPack:statedPack(line.description),quantityNote:null,quantityChecked:false,
       price:'',item:null,matchedBy:null,score:null,candidates:line.candidates,nearMisses:line.nearMisses,
     };
     return matched?{...withItem(base,{...line.item!,score:line.score},'auto'),price:''}:base;
@@ -67,7 +69,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
 export function withItem(line:ReviewLine,choice:ScoredItem,matchedBy:'auto'|'rep'):ReviewLine{
   const {score,...item}=choice;
   const unit=item.pricing?.unit??null;
-  const {quantity,note}=convertQuantity(line.customerQuantity,line.customerUnit,item.pricing);
+  const {quantity,note}=convertQuantity(line.customerQuantity,line.customerUnit,item.pricing,line.customerPack);
   const keepPrice=line.status==='matched'&&line.item!==null&&line.unit===unit;
   return {
     ...line,status:'matched',restoreTo:'matched',item:item as ResultItem,matchedBy,score,

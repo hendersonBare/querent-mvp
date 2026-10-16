@@ -30,6 +30,10 @@ import {quantityProblem} from '@/features/quotes/limits';
 //     item priced per case may be cases or pieces, so it is flagged.
 //   - Any other word ("pallets", "skids", "bx") is kept as written and flagged.
 //   - A part of a countable unit (2.5 bundles, 2.5 cases) is flagged, never presented as exact.
+//   - A pack size the customer states ("50/bundle", "500/case", "case of 1,000", "500 ct"; statedPack)
+//     must be the item's: when it differs from the item's known count, or the item's count is not known,
+//     the customer's numbers are kept and flagged ("Check quantity: customer's pack is 50/bundle, this
+//     item is a bundle of 25"); never converted.
 
 export interface PricingUnit {
   /** What the list price is per, singular and lowercase: "each", "case", "roll", "coil". */
@@ -148,6 +152,55 @@ export const perUnitLabel=(unit:string|null)=>unit?`per ${unit}`:null;
 const NUMBER=new Intl.NumberFormat('en-US',{maximumFractionDigits:3});
 const amount=(quantity:number,unit:string|null)=>unit?`${NUMBER.format(quantity)} ${unitLabel(quantity,unit)}`:NUMBER.format(quantity);
 
+// ---- The customer's stated pack ----------------------------------------------------------------------
+
+/** A pack size the customer states: the count, what it is per (bundle, case, roll, box; null for a bare count: "500 ct", "pack of 100"), and how to say it. */
+export interface StatedPack {count:number;per:'bundle'|'case'|'roll'|'box'|null;text:string}
+
+const CONTAINERS:Readonly<Record<string,StatedPack['per']>>={
+  bundle:'bundle',bundles:'bundle',bdl:'bundle',bdls:'bundle',bndl:'bundle',
+  case:'case',cases:'case',cs:'case',carton:'case',cartons:'case',ctn:'case',ctns:'case',
+  box:'box',boxes:'box',bx:'box',roll:'roll',rolls:'roll',rl:'roll',rls:'roll',
+  pack:null,packs:null,pk:null,pks:null,
+};
+const CONTAINER=`(${Object.keys(CONTAINERS).sort((a,b)=>b.length-a.length).join('|')})`;
+const COUNT=String.raw`(\d{1,3}(?:,\d{3})+|\d+)`;
+const PACK_PATTERNS:{re:RegExp;count:number;per:number|null}[]=[
+  // "50/bundle", "1,000 / cs", "100 per carton", "36 rolls per case", "500 a case"
+  {re:new RegExp(String.raw`(?<![\w.,#])${COUNT}\s*(?:[a-z]+\s+)?(?:\/|\bper\b|\ba\b)\s*${CONTAINER}\b`,'i'),count:1,per:2},
+  // "case of 1,000", "bundle of 25", "roll of 250", "pack of 100"
+  {re:new RegExp(String.raw`\b${CONTAINER}\s+of\s+${COUNT}\b`,'i'),count:2,per:1},
+  // "500 ct", "100 count", "12 pk", "12-pack"
+  {re:new RegExp(String.raw`(?<![\w.,#])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?)\b`,'i'),count:1,per:null},
+];
+
+/** The pack size stated in the customer's line (its description), or null. */
+export function statedPack(text:string|null|undefined):StatedPack|null{
+  for(const {re,count,per} of PACK_PATTERNS){
+    const match=re.exec(text??'');
+    if(!match)continue;
+    const n=Number(match[count].replace(/,/g,''));
+    if(!Number.isInteger(n)||n<1)continue;
+    const container=per===null?null:CONTAINERS[match[per].toLowerCase()];
+    return {count:n,per:container,text:container?`${NUMBER.format(n)}/${container}`:`${NUMBER.format(n)} ct`};
+  }
+  return null;
+}
+
+/** The item's own pack: bundles of N of an item priced each, or the pricing unit of N; null when the count is not known. */
+function itemPack(pricing:PricingUnit):{count:number;per:string}|null{
+  if(pricing.unit==='each')return pricing.bundleOf?{count:pricing.bundleOf,per:'bundle'}:null;
+  return pricing.contains?{count:pricing.contains,per:pricing.unit}:null;
+}
+
+/** Why the customer's stated pack is not the item's, or null when it is. */
+function packMismatch(pack:StatedPack,pricing:PricingUnit):string|null{
+  const own=itemPack(pricing);
+  if(!own)return 'this item\'s pack count is not known';
+  if(own.count===pack.count&&(pack.per===null||pack.per===own.per))return null;
+  return `this item is a ${own.per} of ${NUMBER.format(own.count)}`;
+}
+
 // ---- Converting -------------------------------------------------------------------------------------
 
 /**
@@ -169,17 +222,22 @@ export interface ConvertedQuantity {quantity:number|null;note:QuantityNote|null}
  *   - pieces (each, ea, pcs, or the item's own noun: "4 rolls", "2,000 bags") of an item priced per
  *     case (or roll) of N: quantity / N, when that is whole.
  * Anything else (an unknown or missing unit, an item without a pricing unit, pieces that do not divide,
- * a part of a unit) keeps the customer's number with a "check" note. Never changes a number without a note.
+ * a part of a unit, a stated pack size that is not the item's: see statedPack) keeps the customer's
+ * number with a "check" note. Never changes a number without a note.
  */
-export function convertQuantity(quantity:number|null,unit:string|null,pricing:PricingUnit|null):ConvertedQuantity{
+export function convertQuantity(quantity:number|null,unit:string|null,pricing:PricingUnit|null,pack:StatedPack|null=null):ConvertedQuantity{
   if(quantity===null)return {quantity:null,note:null};
   const key=lower(unit);
   const known=Object.hasOwn(UNIT_WORDS,key)?UNIT_WORDS[key]:null;
   const noun=pieceNoun(unit);
   const word=known?.word??noun?.singular??(unit?unit.trim():null);
-  const wrote=unit?amount(quantity,word):`${NUMBER.format(quantity)}, no unit`;
+  const wrote=`${unit?amount(quantity,word):`${NUMBER.format(quantity)}, no unit`}${pack?` (${pack.text})`:''}`;
   const check:ConvertedQuantity={quantity,note:{kind:'check',wrote,text:`Check quantity (customer wrote: ${wrote})`}};
-  if(!pricing||!Number.isInteger(quantity)||quantityProblem(quantity)!==null)return check;
+  if(!pricing)return check;
+  // The customer's own pack size must be the item's, or nothing is converted.
+  const mismatch=pack?packMismatch(pack,pricing):null;
+  if(pack&&mismatch)return {quantity,note:{kind:'check',wrote,text:`Check quantity: customer's pack is ${pack.text}, ${mismatch}`}};
+  if(!Number.isInteger(quantity)||quantityProblem(quantity)!==null)return check;
 
   let said:Measure|null=known?.unit??null;
   // The item's own product noun is a piece ("500 boxes" of a box, "4 rolls" of stretch wrap); a box only

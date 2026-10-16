@@ -207,6 +207,25 @@ describe('withItem (Swap and "Use this item")',()=>{
     expect(quantityAside(promoted)).toBe('Customer asked for 4 rolls = 1 case');
   });
 
+  it('compares the customer\'s stated pack with the new item, on the initial match, Swap and "Use this item"',()=>{
+    const run=sampleRun();
+    // An unmatched line the customer packs 50 to a bundle; the closest item is bundled 25.
+    run.lines[2]={...run.lines[2],rawText:'Corrugated Boxes 12x10x8 32 ECT 50/bundle, 2 bundles',description:'Corrugated Boxes 12x10x8 32 ECT 50/bundle',quantity:2,unit:'bundle'};
+    // A matched line whose stated pack is the item's.
+    run.lines[0]={...run.lines[0],description:'12 x 10 x 8" Corrugated Boxes 25/bundle'};
+    const lines=initialReview(run);
+    expect(lines[2].customerPack).toEqual({count:50,per:'bundle',text:'50/bundle'});
+    expect(lines[0]).toMatchObject({quantity:'250',quantityNote:{kind:'converted',text:'Customer asked for 10 bundles (25/bundle) = 250 each'}});
+
+    const picked=withItem(lines[2],PLT,'rep');
+    expect(picked).toMatchObject({quantity:'2',unit:'each',quantityNote:{kind:'check',wrote:'2 bundles (50/bundle)'}});
+    expect(quantityFlag(picked)).toBe('Check quantity: customer\'s pack is 50/bundle, this item is a bundle of 25');
+    expect(toSaveRequest([{...picked,price:'1'}],{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:2,unit:'each',quantityUnclear:true,customerQuantity:'2 bundles (50/bundle)'});
+
+    // Swap keeps comparing: to bags per case of 250, the 50/bundle pack is still not the item's.
+    expect(quantityFlag(withItem(picked,BAGS,'rep'))).toBe('Check quantity: customer\'s pack is 50/bundle, this item is a case of 250');
+  });
+
   it('keeps the quantity blank when the customer gave none',()=>{
     const wrap=initialReview(sampleRun())[1];
     expect(withItem(wrap,BAGS,'rep')).toMatchObject({quantity:'',unit:'case',quantityNote:null});
