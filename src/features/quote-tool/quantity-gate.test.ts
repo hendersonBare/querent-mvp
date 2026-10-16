@@ -210,6 +210,25 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['Bags 4x10 ٥٠٠ a carton, 2 cartons','Bags 4x10',null,2,'carton','٥٠٠ a carton'],
     ['Bags 4x10 five hundred bags, 2 cases','Bags 4x10',null,2,'case','five hundred bags'],
     ['Bags 4x10 ½ case, 2 cases','Bags 4x10',null,2,'case','1⁄2 case'],
+    // A plain currency amount (a unit price "each", or a line total) is not about the quantity: taken out.
+    ['Boxes 12x10x8, 4 bundles $1.10','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8, 4 bundles, $1,100.00','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8, 4 bundles USD 45.00','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8, 4 bundles $1.10 ea','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8, 4 bundles $1.10/ea','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8, 4 bundles $1.10 EACH $110.00','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8 $1.10 4 bundles','Boxes 12x10x8',null,4,'bundle',null],
+    ['Boxes 12x10x8, $1.10 ea, 4 bundles, $110.00','Boxes 12x10x8',null,4,'bundle',null],
+    // A price per any other unit or pack leaves that unit behind: flagged.
+    ['Bags 4x10, 2 cases $45/cs','Bags 4x10',null,2,'case','/cs'],
+    ['Boxes 12x10x8, 4 bundles $0.50 per bundle','Boxes 12x10x8',null,4,'bundle','per bundle'],
+    ['Boxes 12x10x8, 4 bundles $1.10/box','Boxes 12x10x8',null,4,'bundle','/box'],
+    ['Boxes 12x10x8, 4 bundles $1.10 each case','Boxes 12x10x8',null,4,'bundle','case'],
+    // Not a currency amount: a bare number, or one glued to more digits, stays.
+    ['Boxes 12x10x8, 4 bundles 1.10','Boxes 12x10x8',null,4,'bundle','1.10'],
+    ['Boxes 12x10x8, 4 bundles $1.10x50','Boxes 12x10x8',null,4,'bundle','$1.10x50'],
+    ['Boxes 12x10x8, 4 bundles $1,10','Boxes 12x10x8',null,4,'bundle','$1,10'],
+    ['Boxes 12x10x8, 4 bundles $1100.00','Boxes 12x10x8',null,4,'bundle',null],
     // A description the raw line does not contain word for word leaves it all over.
     ['Bags 4x10, 2 cases','Reclosable Bags 4x10',null,2,'case','Bags 4x10'],
     // A unit the raw line does not say is not the quantity phrase.

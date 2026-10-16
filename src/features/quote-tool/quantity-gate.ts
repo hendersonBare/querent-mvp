@@ -8,7 +8,8 @@
 //      item does not confirm are all blockers there;
 //   2. the raw line (this file): once a leading list marker ("1."), the description, the supplier's
 //      SKU and the parser's quantity phrase (its number and unit word, with a "qty"/"x" label) are
-//      taken out of the raw text by exact span, nothing is left but separators and a few filler words:
+//      taken out of the raw text by exact span, with any plain currency amount ("$1.10", "$1.10 ea",
+//      "USD 45.00", a line total; never "$45/cs": that unit stays), nothing is left but separators and a few filler words:
 //      no digit of any script, and no word but FILLER;
 //   3. the pack kind: each pack the description states (the matcher reads them; packContainersOf) is
 //      per the item's own pack: the matcher counts a box, a case and a bundle alike, the quantity does
@@ -20,6 +21,8 @@ const FILLER=new Set(['qty','quantity','please','pls','of']);
 /** Labels before the quantity's number that belong to the quantity phrase: "qty 2 cases", "x 4 bundles". */
 const QTY_LABEL=new Set(['qty','quantity','x','×']);
 const MAX_LEFTOVER=60;
+/** "$1,100.00", "USD 45", optionally followed by exactly "ea", "each" or "/ea"; never glued to more letters or digits. */
+const CURRENCY=/(?<![\p{L}\p{N}$])(?:\$|USD\s*)\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:\s*\/\s*ea\b|\s*(?:ea|each)\b)?(?![\p{L}\p{N}.,]\p{N}|[\p{L}\p{N}])/giu;
 
 const words=(kind:string,text:string)=>text.split(' ').map(w=>[w,kind] as const);
 /** Unit words as one name, so the parser's unit ("case") finds the customer's word ("cs", "cartons"). */
@@ -89,6 +92,13 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
         break;
       }
     }
+  }
+  // A plain currency amount: a unit price each ("$1.10", "$1.10 ea", "$1.10/ea", "USD 45.00") or a line
+  // total ("$110.00"). Only "ea"/"each" may follow it: a price per anything else ("$45/cs", "$0.50 per
+  // bundle") leaves that unit behind, which flags.
+  for(const m of text.matchAll(CURRENCY)){
+    const span={start:m.index,end:m.index+m[0].length};
+    if(!removed.slice(span.start,span.end).some(Boolean))remove(span.start,span.end);
   }
   // The quantity phrase: its number, with its unit word right after it and a label before it.
   if(quantity!==null){
