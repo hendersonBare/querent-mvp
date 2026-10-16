@@ -304,3 +304,40 @@ describe('convertQuantity with the two-part gate (B10b): converts only a line th
     expect(convertQuantity(3,'each',pricingUnit('Each',1),{...OK,packs:['bundle']})?.note?.kind).toBe('check');
   });
 });
+
+describe('the item\'s own product noun means pieces, never a container (B10b, the verifier\'s folding cartons)',()=>{
+  const OK={accounted:true,leftover:null};
+  const FOLDING=pricingUnit('Case',1,{description:'White Folding Cartons, 4x4x4"',category:'boxes'})!;
+  it('reads a folding carton\'s noun as carton, not as the box category',()=>{
+    expect(FOLDING.nouns).toEqual(['carton']);
+    expect(productNouns('Kraft Folding Cartons, 3x3x3"','boxes')).toEqual(['carton']);
+    // "Carton Sealing Tape": carton is a modifier there.
+    expect(productNouns('Carton Sealing Tape 2" x 110 yds','tape')).toEqual(['roll']);
+  });
+  it('flags "500 cartons" of folding cartons sold per case of an unknown count (never 500 cases)',()=>{
+    expect(convertQuantity(500,'cartons',FOLDING,OK)).toEqual({quantity:500,note:{kind:'check',wrote:'500 cartons',text:'Check quantity (customer wrote: 500 cartons)'}});
+    expect(convertQuantity(1000,'carton',FOLDING,OK)?.note?.kind).toBe('check');
+    expect(convertQuantity(2,'ctn',FOLDING,OK)?.note?.kind).toBe('check');
+  });
+  it('converts cartons of a carton item only as pieces into a known case count that divides',()=>{
+    const KNOWN=pricingUnit('Case of 250',1,{description:'White Folding Cartons, 4x4x4"',category:'boxes'})!;
+    expect(convertQuantity(500,'cartons',KNOWN,OK)?.note?.text).toBe('Customer asked for 500 cartons = 2 cases');
+    expect(convertQuantity(300,'cartons',KNOWN,OK)?.note?.kind).toBe('check');
+    const EACH=pricingUnit('Each',50,{description:'White Folding Cartons, 4x4x4"',category:'boxes'})!;
+    expect(convertQuantity(500,'cartons',EACH,OK)).toEqual({quantity:500,note:null});
+  });
+  it('reads cartons as cases only of an item that is not a carton, with a known case count',()=>{
+    const BAGS=pricingUnit('Case of 1,000',1,{description:'Reclosable Poly Bags, 4x10" 6 MIL',category:'bags'})!;
+    expect(convertQuantity(2,'cartons',BAGS,OK)?.note?.text).toBe('Customer asked for 2 cartons = 2 cases');
+    const TAPE=pricingUnit('Case',1,{description:'Clear Tape',category:'tape'})!;
+    expect(convertQuantity(1,'ctn',TAPE,OK)?.note?.kind).toBe('check');
+  });
+  it('keeps the other container nouns as pieces: rolls of a roll, bags of a case of bags, boxes only of an item priced each',()=>{
+    const FILM=pricingUnit('Roll',1,{description:'Machine Stretch Film 20" x 5000\'',category:'stretch-wrap'})!;
+    expect(convertQuantity(10,'rolls',FILM,OK)).toEqual({quantity:10,note:null});
+    const POLY=pricingUnit('Case of 1,000',1,{description:'Reclosable Poly Bags, 4x6" 2 MIL',category:'bags'})!;
+    expect(convertQuantity(2000,'bags',POLY,OK)?.quantity).toBe(2);
+    const MAILER_BOXES=pricingUnit('Case of 50',1,{description:'Kraft Mailer Boxes 9x6x3"',category:'boxes'})!;
+    expect(convertQuantity(100,'boxes',MAILER_BOXES,OK)?.note?.kind).toBe('check');
+  });
+});

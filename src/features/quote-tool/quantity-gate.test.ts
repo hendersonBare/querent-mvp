@@ -229,6 +229,23 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['Boxes 12x10x8, 4 bundles $1.10x50','Boxes 12x10x8',null,4,'bundle','$1.10x50'],
     ['Boxes 12x10x8, 4 bundles $1,10','Boxes 12x10x8',null,4,'bundle','$1,10'],
     ['Boxes 12x10x8, 4 bundles $1100.00','Boxes 12x10x8',null,4,'bundle',null],
+    // A piece noun is not the unit "each" the parser gave: the raw word and the parser's unit disagree.
+    ['Thermal Mailers 8x11, 800 boxes','Thermal Mailers 8x11',null,800,'each','800 boxes'],
+    ['Poly bags 4x10, 2,000 bags','Poly bags 4x10',null,2000,'each','2,000 bags'],
+    // Symbols left over (anything but spaces and separators) flag.
+    ['Boxes 12x10x8 ~4 bundles','Boxes 12x10x8',null,4,'bundle','~'],
+    ['Boxes 12x10x8 4 # bundles','Boxes 12x10x8',null,4,'bundle','4 # bundles'],
+    ['Boxes 12x10x8 4 = bundles','Boxes 12x10x8',null,4,'bundle','4 = bundles'],
+    ['Boxes 12x10x8 4 bundles +','Boxes 12x10x8',null,4,'bundle','+'],
+    ['Boxes 12x10x8 ≈4 bundles','Boxes 12x10x8',null,4,'bundle','≈'],
+    ['Boxes 12x10x8 4 bundles ±','Boxes 12x10x8',null,4,'bundle','±'],
+    ['Boxes 12x10x8 <4 bundles','Boxes 12x10x8',null,4,'bundle','<'],
+    ['Boxes 12x10x8 4 bundles @','Boxes 12x10x8',null,4,'bundle','@'],
+    ['Boxes 12x10x8 4 bundles *','Boxes 12x10x8',null,4,'bundle','*'],
+    ['Boxes 12x10x8 4 bundles %','Boxes 12x10x8',null,4,'bundle','%'],
+    // Separators are not symbols.
+    ['Boxes 12x10x8 - 4 bundles; (rush) ','Boxes 12x10x8',null,4,'bundle','rush'],
+    ['Boxes 12x10x8 - 4 bundles.','Boxes 12x10x8',null,4,'bundle',null],
     // A description the raw line does not contain word for word leaves it all over.
     ['Bags 4x10, 2 cases','Reclosable Bags 4x10',null,2,'case','Bags 4x10'],
     // A unit the raw line does not say is not the quantity phrase.
@@ -236,6 +253,39 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['Bags 4x10, 2 pallets','Bags 4x10',null,2,'case','2 pallets'],
   ])('%j',(rawText,description,suppliersSku,quantity,unit,left)=>{
     expect(rawLeftover({rawText,description,suppliersSku,quantity,unit})).toBe(left);
+  });
+});
+
+describe('folding cartons (the B10b round-2 verifier): "N cartons" of a carton item are cartons, never cases',()=>{
+  it.each<[string,string,Override|null]>([
+    ['White Folding Cartons 4x4x4, 500 cartons','RTC61W',null],
+    ['White Folding Cartons, 4x4x4", 500 cartons','RTC61W',{description:'White Folding Cartons, 4x4x4"',quantity:500,unit:'cartons'}],
+    ['Kraft Folding Cartons 3x3x3, 1000 cartons','RTC60',null],
+    ['Kraft Folding Cartons, 3x3x3", 2 ctns','RTC60',{description:'Kraft Folding Cartons, 3x3x3"',quantity:2,unit:'carton'}],
+  ])('%s (%s) flags',(raw,sku,ov)=>{
+    expect(flagged(run(raw,sku,ov??{})),raw).toBe(true);
+  });
+
+  it('sweep: for every catalog item whose product noun is also a container word, "N <noun>s" is pieces (exact) or flagged, never N containers',()=>{
+    const CONTAINER_NOUNS=new Set(['box','carton','pack','bag','roll','sleeve','tube','coil']);
+    let items=0;
+    for(const row of catalog){
+      const pricing=pricingUnit(row.pack,row.caseQty,row);
+      const noun=pricing?.nouns[0];
+      if(!pricing||!noun||!CONTAINER_NOUNS.has(noun))continue;
+      items++;
+      const plural=noun==='box'?'boxes':`${noun}s`;
+      for(const n of [1,2,12,100,500,1000]){
+        for(const word of [plural,noun]){
+          const result=convertQuantity(n,word,pricing,{accounted:true,leftover:null});
+          if(flagged(result))continue;
+          // Pieces: the same number of an item priced each, or per its own piece (a roll priced per roll), or whole cases of a known count.
+          const pieces=pricing.unit==='each'||pricing.unit===noun?n:pricing.contains?n/pricing.contains:NaN;
+          expect(result.quantity,`${row.sku} ${row.description} (${row.pack}) ${n} ${word} -> ${JSON.stringify(result)}`).toBe(pieces);
+        }
+      }
+    }
+    expect(items).toBeGreaterThan(300);
   });
 });
 
