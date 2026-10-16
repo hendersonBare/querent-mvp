@@ -82,11 +82,16 @@ percent-encode them in the URL.
 
 ## 2. Create the database tables and load the catalog
 
-The schema is three SQL files in `supabase/migrations/`, applied in order:
+The schema is four SQL files in `supabase/migrations/`, applied in order:
 
 1. `20261015170000_boxt_schema.sql`: tables, the `quote_summaries` view, constraints and triggers.
 2. `20261015170100_boxt_security.sql`: grants, row-level security, the example-quote guard.
 3. `20261015170200_boxt_quote_rpcs.sql`: `create_quote` and `update_quote` (a quote and its lines save atomically).
+4. `20261016090000_boxt_customer_quantity.sql`: adds `quote_lines.customer_quantity`, the customer's
+   quantity as they wrote it ("10 bundles", "10 pallets", at most 100 characters), kept when the review
+   dialog converted it into the item's pricing unit or flagged it, so the saved quote can still show it.
+   It also replaces the line writer that `create_quote` and `update_quote` use, so they accept that
+   field. Additive: existing quotes keep their lines, with no customer quantity.
 
 ### 2.1 Apply the migrations (choose one way)
 
@@ -96,34 +101,41 @@ pinned version; [`db push` reference](https://supabase.com/docs/reference/cli/su
 ```sh
 npx supabase login                             # opens the browser once
 npx supabase link --project-ref <project-ref>  # asks for the database password
-npx supabase db push --dry-run                 # lists the 3 migrations it would apply
+npx supabase db push --dry-run                 # lists the 4 migrations it would apply
 npx supabase db push                           # applies them
 ```
 
 `db push` records each file in `supabase_migrations.schema_migrations`, so running it again later only
-applies new files.
+applies new files. A project set up before the fourth file existed gets just that one: run the same two
+`db push` commands (the dry run lists only `20261016090000_boxt_customer_quantity.sql`), then redeploy
+the app.
 
 Do **not** run `npx supabase config push`: it would copy the local `supabase/config.toml` (which points at
 `http://127.0.0.1:3000`) over the hosted project's Auth settings.
 
 **B. SQL editor.** In the dashboard, **SQL Editor > New query**, paste the whole of the first file, **Run**,
-then the second, then the third, in that order. This does not fill the migration history, so if you later
-switch to the CLI, first mark the three files as applied:
-`npx supabase migration repair --status applied 20261015170000 20261015170100 20261015170200`.
+then the second, the third and the fourth, in that order. This does not fill the migration history, so if
+you later switch to the CLI, first mark the files you ran as applied:
+`npx supabase migration repair --status applied 20261015170000 20261015170100 20261015170200 20261016090000`.
 
 Check the result in the SQL editor:
 
 ```sql
 select tablename, rowsecurity from pg_tables where schemaname = 'public' order by 1;
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'quote_lines' and column_name = 'customer_quantity';
 ```
 
 Expected: `activity_log`, `catalog_items`, `org_settings`, `quote_lines`, `quotes`, each with
-`rowsecurity = true`.
+`rowsecurity = true`; and one row, `customer_quantity` (the fourth file is applied).
 
 ### 2.2 Load the catalog and the example quote
 
 `npm run db:seed:boxt` upserts the 1,555 BOXT catalog rows from `data/boxt-catalog.json` and creates the one
-read-only **Example quote**, in a single transaction. It is idempotent: run it again whenever you like.
+**Example quote** (customer "Example customer", reference "Example quote": 3 matched, priced lines and 1
+unmatched line with its closest items, prices illustrative), in a single transaction. The example quote is
+read-only and cannot be deleted, by anyone, in the app or through the database's API; only the seed may
+rewrite it. The seed is idempotent: run it again whenever you like.
 It needs `DATABASE_URL` (the Session pooler string from step 1). A value in the shell wins over
 `.env.local`, so a local `.env.local` does not get in the way.
 
@@ -297,8 +309,9 @@ request is merged. Either:
 2. **Framework Preset**: Next.js (detected). **Root Directory**: the repository root. Leave the **Build
    Command** (`next build`, which is `npm run build`), **Install Command** (npm, from `package-lock.json`)
    and **Output Directory** at their defaults.
-3. **Environment Variables**: add the four production variables now (the build needs them, and
-   `NEXT_PUBLIC_*` values are built into the app):
+3. **Environment Variables**: add the four production variables now. The build itself does not need
+   them (it succeeds without any Supabase setting), but `NEXT_PUBLIC_*` values present at build time are
+   built into the app, and without them the deployed app cannot sign anyone in:
 
 | Name | Value | Type |
 |---|---|---|
@@ -324,8 +337,9 @@ Vercel only applies changed environment variables to **new** deployments
 - **Function region** (**Settings > Functions**): same area as the Supabase region. The default
   Washington, D.C. (`iad1`) suits a Supabase project in East US (North Virginia).
 - **Preview deployments**: other branches and pull requests get preview builds. Give them no environment
-  variables (production only, as above): without Supabase settings a preview cannot reach your data.
-  Previews may then fail to build; that is harmless.
+  variables (production only, as above): without Supabase settings a preview cannot reach your data. The
+  preview still builds; it fails closed when used (every page sends you to the sign-in page, every API
+  answers 401, and signing in fails with an error).
 
 ### 5.4 Function time and upload limits
 
@@ -334,13 +348,18 @@ Vercel only applies changed environment variables to **new** deployments
 
 - The matching route (`POST /api/quote-tool/match`) declares `maxDuration = 300` seconds. Vercel allows
   300 s on Hobby (default and maximum) and on Pro (default 300 s, maximum 800 s), so it fits either plan
-  with no setting to change. Inside that, the app gives up reading a list after **150 s** and stops judging
-  at **270 s** (lines not judged by then are "No match"), so a run always ends with a clear message rather
-  than a platform timeout. Each judge call has a **30 s** limit, with **4** calls at a time.
+  with no setting to change. Inside that, the app gives up reading a list after **150 s** (the Claude call
+  is aborted and the rep sees "Reading the list took too long. Try again, or split it into smaller
+  lists.") and stops judging **270 s** after the run started (lines not judged by then are "No match"), so a
+  run always ends with a clear message rather than a platform timeout. The judge is asked only about lines
+  the scorer already clears; each judge call has a **30 s** limit, with at most **4** calls at a time, and
+  a call that fails or runs late makes that line "No match".
 - Vercel refuses request bodies over **4.5 MB** (`413 FUNCTION_PAYLOAD_TOO_LARGE`). The app caps PDFs at
   **4 MB** (checked in the browser before upload and again on the server, which allows the upload's form
   framing on top), so every PDF the app accepts fits under Vercel's limit. Pasted lists are capped at
-  **200 lines** and **60,000 characters**.
+  **200 lines** and **60,000 characters**. These three limits are checked on the page first, and the
+  server answers `413` with a message saying what to do. A PDF that reads as more than 200 lines ends the
+  run with "This list has more than 200 lines. Split it into smaller lists ...".
 
 ### 5.5 Deployment Protection
 
@@ -376,15 +395,17 @@ Every variable the app or its scripts read. `.env.example` has the same list wit
 
 | Variable | What it is, where to get it | Vercel (Production) | Local `.env.local` | CI | Secret? |
 |---|---|---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL, `https://<ref>.supabase.co` (the **Connect** dialog). Local: `http://127.0.0.1:54321`. | **Yes** | Written by `npm run db:env` | Local stack | No |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key `sb_publishable_...` (or the legacy anon key). Public: row-level security protects the data. | **Yes** | Written by `npm run db:env` | Local stack | No (public by design) |
-| `ANTHROPIC_API_KEY` | Claude Console > API keys. | **Yes**, type Secret | Optional (empty = fixture parser and judge) | Not set (fixtures) | **Yes** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL, `https://<ref>.supabase.co` (the **Connect** dialog). Local: `http://127.0.0.1:54321`. | **Yes** | Written by `npm run db:env` | Local stack (not set for the build) | No |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key `sb_publishable_...` (or the legacy anon key; `db:env` writes the local stack's legacy anon key). Public: row-level security protects the data. | **Yes** | Written by `npm run db:env` | Local stack (not set for the build) | No (public by design) |
+| `ANTHROPIC_API_KEY` | Claude Console > API keys. Also needed on your own machine for `npm run eval:record` ([OPERATIONS.md](OPERATIONS.md#match-strictness)). | **Yes**, type Secret | Optional (empty = fixture parser and judge) | Empty (fixtures) | **Yes** |
 | `ANTHROPIC_MODEL` | The Claude model for parsing and judging. Unset = the default in `src/server/llm/client.ts`, currently `claude-sonnet-5-5`. | Optional | Optional | Not set | No |
 | `QUERENT_SCRIPTED` | `1` = fixture parser and judge, never the network. | **Must not be set** (or empty) | `1` (written by `db:env`) | `1` | No |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret key `sb_secret_...` (or legacy service_role). Bypasses row-level security. Only for admin commands you run yourself ([OPERATIONS.md](OPERATIONS.md#users)); the app never reads it, and nothing in the deploy needs it. | **No** | Local stack's key (written by `db:env`) | Local stack | **Yes** |
 | `DATABASE_URL` | Postgres connection string (Session pooler) with the database password. Only for `npm run db:seed:boxt` and SQL tools. | **No** | Local stack's (written by `db:env`) | Local stack | **Yes** |
 | `PORT` | Port for `npm start`. Vercel ignores it. | No | Optional (default 3000) | Set by the test setup | No |
 | `QUERENT_DEV_PASSWORD` | Password for the local dev users that `npm run db:reset` creates. Local stack only. | No | Optional | Optional | No (local only) |
+| `MAILPIT_URL` | The local stack's mail catcher, where password-reset emails land. Read by the database and browser tests only; the app never reads it. | No | Written by `db:env` | Local stack | No |
+| `QUERENT_BASE_URL`, `QUERENT_WEBSERVER`, `QUERENT_E2E_CHROMIUM` | Options for the browser tests only (a server you started yourself, another Chromium build): see `e2e/README.md`. | No | Optional | Not set | No |
 
 Important:
 
@@ -413,11 +434,11 @@ export ANON=<publishable key>
 | 4 | APIs need a session | `for p in /api/quotes /api/settings "/api/catalog/search?q=box"; do curl -s -w " $p\n" "$APP$p"; done; curl -s -X POST -w " match\n" "$APP/api/quote-tool/match"` | Each `{"error":"Sign in to continue."}` (HTTP 401) |
 | 5 | Row-level security: the public key alone reads nothing | `for t in catalog_items quotes quote_lines quote_summaries org_settings activity_log; do curl -s "$SUPABASE_URL/rest/v1/$t?select=*&limit=1" -H "apikey: $ANON" -w " $t\n"; done` | Each `{"code":"42501",...,"message":"permission denied for table <name>"}` (HTTP 401; the view says "for view") |
 | 6 | Sign-in and password reset | In a private browser window: open `$APP`, sign in as a user from step 4. Sign out, choose **Forgot password?**, enter the email, open the email, choose a new password. | You land on **Quote creation tool** after each. The email arrives from your SMTP sender within a minute. A wrong password says "Email or password is incorrect." |
-| 7 | Matching uses Claude (live mode) | Paste a short list (for example `500 - 12 x 10 x 8 single wall boxes, 32 ECT` and `250 boxes 12 x 10 x 8 double wall, 48 ECT`) and run it. Then look at the Claude Console usage page. | The review dialog opens with one outcome per line, and the Claude Console shows new requests for your key at that time. No new requests means the app is in fixture mode: see [7](#7-environment-variables). |
-| 8 | The example quote is there | Open **Quotes**. | "Example quote" for "Example customer" is listed, marked as the example, with 4 lines; it cannot be edited or deleted. |
+| 7 | Matching uses Claude (live mode) | Paste a short list (for example `500 - 12 x 10 x 8 single wall boxes, 32 ECT` and `250 boxes 12 x 10 x 8 double wall, 48 ECT`) and run it. Then look at the Claude Console usage page. | The review dialog opens with one outcome per line, and the Claude Console shows new requests for your key at that time. No new requests means the app is in fixture mode: see [7](#7-environment-variables). A matched line shows its quantity and price in the item's pricing unit ("each", "per each", "Web list: $.../each"). |
+| 8 | The example quote is there | Open **Quotes**, then the example. | "Example quote" for "Example customer" is listed with the **Example** tag and creator "Example", 4 lines (1 unmatched). Its page has no **Edit quote** or **Delete** button and says "This example can't be edited or deleted." |
 | 9 | Strict is the default | Open **Settings**. Or SQL: `select match_strictness from public.org_settings;` | **Strict** selected / `strict`. |
 | 10 | No trackers | Signed in, open the browser's developer tools, **Network** tab, reload each page. | Every request goes to `$APP` only: no analytics, fonts or scripts from other hosts. (The browser never talks to Supabase or Anthropic directly; the app's server does.) |
-| 11 | Activity is recorded without customer text | SQL editor: `select action, metadata, created_at from public.activity_log order by created_at desc limit 10;` | Rows for your `login` and `match_run` with counts, levels and durations only. |
+| 11 | Activity is recorded without customer text | SQL editor: `select action, metadata, created_at from public.activity_log order by created_at desc limit 10;` | Rows for your `login` (`{"method": "password"}`) and `match_run` (`rows`, `matched`, `unmatched`, `judged`, `level`, `input`, `durationMs`, `outcome`) with numbers and fixed words only. |
 
 ## 9. Adding a custom domain later
 
@@ -451,7 +472,8 @@ directly to Supabase, Anthropic or anything else (go-live check 10).
 
 - The pasted list and the uploaded PDF are processed in memory for that one request and never stored. Only
   when a rep **saves** a quote are its lines kept (each line's original text, the chosen item, quantity and
-  price), in Supabase.
+  price, the customer's quantity as written when it was converted or flagged, and for an unmatched line
+  the closest items shown), in Supabase.
 - The app writes nothing about requests to its logs (it has no logging calls). Vercel's own request logs
   record the address, status and browser of each request, not request bodies; note that the Swap search
   term a rep types in the review dialog is part of a URL (`/api/catalog/search?q=...`), so it can appear
@@ -474,26 +496,32 @@ organization.
 
 ## 11. Verified locally
 
-On 2026-10-15, against the local Supabase stack (`npm run db:start`, migrations applied, seeded, the dev
-users) and a production build of this branch (`npm run build && PORT=3190 npm start`), plus a production
-build of the quote tool branch at its verified commit (`e128e3b`, port 3191) for the match-route checks:
+On 2026-10-16, against the local Supabase stack (all four migrations applied, seeded, the dev users) and
+a production build of this branch with every feature merged in (`npm run build && PORT=3195 npm start`,
+fixture parser and judge). Rows marked 2026-10-15 were checked the day before, against a build of the
+branch at that time, and were not repeated.
 
 | Check | Command (local equivalent of the go-live check) | Result |
 |---|---|---|
 | Sign-up refused | `POST /auth/v1/signup` with the anon key, and again with the publishable key | `422 signup_disabled` both times |
-| Row-level security | `GET /rest/v1/<name>?select=*` for the 5 tables and the view with the anon key; `quotes` and `POST /rest/v1/rpc/create_quote` with the publishable key | `401 42501 permission denied` for each |
+| Row-level security | `GET /rest/v1/<name>?select=*` for the 5 tables and the view with the anon key; `quotes` and `POST /rest/v1/rpc/create_quote` with the anon and the publishable key; `quote_lines?select=customer_quantity` with the anon key | `401 42501 permission denied` for each |
 | `/signup` | signed out / signed in | `307 /login?next=%2Fsignup` / `404` |
 | Pages signed out | `/`, `/quote-tool`, `/quotes`, `/settings`, `/quotes/<id>` | `307 /login?next=...` each |
-| APIs signed out | `/api/quotes`, `/api/settings`, `/api/catalog/search`, `POST /api/quote-tool/match` | `401 {"error":"Sign in to continue."}` each |
+| APIs signed out | `/api/quotes`, `/api/settings`, `/api/catalog/search?q=box`, `POST /api/quote-tool/match` | `401 {"error":"Sign in to continue."}` each |
 | Sign-in | `POST /api/auth/login` wrong / right password | `401 "Email or password is incorrect."` / `200` |
 | Choosing a password while signed in | `/update-password` with a normal session / signed out | `200` / `307 /reset-password?error=expired` |
-| Password reset | `POST /api/auth/reset` for a dev user; read the email in Mailpit (`http://127.0.0.1:54324`); open its link | Email "Reset your BOXT quote tool password" with a `{{ .SiteURL }}/auth/confirm?token_hash=...&type=recovery&next=/update-password` link; `303` to `/update-password` (page `200`); the same link again: `303 /reset-password?error=expired` |
-| Publishable key in `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production build with the publishable key; sign in, list quotes, catalog search, open `/quote-tool` | All `200`; signed out `307` |
-| Match run (fixture mode) | `POST /api/quote-tool/match` with 2 lines | NDJSON progress, then a `strict` result: 1 matched, 1 no match; one `match_run` activity row with counts, level, input, duration and outcome only |
-| Caps | 201 lines; a 4 MB + 1 byte PDF | `413` with the "more than 200 lines" / "larger than 4 MB" messages |
+| Cross-origin request | `POST /api/quote-tool/match` with another site's `Origin` | `403` |
+| Match run (fixture mode) | `POST /api/quote-tool/match` with the two lines of go-live check 7 | NDJSON progress (parse, match, judge 1 of 1), then a `strict` result: the single wall line matched (12108-BDL, priced per each), the double wall line No match (`not_accounted`); the judge was asked about the one clearing line only; one `match_run` row `{rows 2, matched 1, unmatched 1, judged 1, level strict, input text, durationMs, outcome success}` |
+| Caps | 201 lines; 60,001 characters; a 4 MB + 1 byte PDF | `413` with the "more than 200 lines" / "too long" / "larger than 4 MB" messages |
+| Saved customer quantity | `POST /api/quotes` with a converted line (`customerQuantity` "10 bundles") and a flagged one ("10 pallets", `quantityUnclear`); the flagged-quantity SQL in [OPERATIONS.md](OPERATIONS.md#activity-reports-sql); then `DELETE` | `201`; both rows with `customer_quantity` and `flagged` as sent; `200` on delete |
+| Example quote | `DELETE` and `PATCH /api/quotes/<example id>`; its page | `409` "The example quote can't be deleted." / "can't be edited."; the page has the Example tag and no Edit quote or Delete button |
+| SQL in these docs | Every SQL block of this file and of OPERATIONS.md, with `psql` against the local database | All run without error |
 | Seed | `npm run db:seed:boxt` (again, on a seeded database) | `Seeded the local database: catalog 1555 rows (0 new, 1555 updated); example quote 4 lines.` |
-| Failed sign-in in Auth logs | Auth server log after a wrong password | `/token` `400` `invalid_credentials` (no email in the line); `auth.audit_log_entries` has `login` and `user_recovery_requested` rows, not failed attempts |
-| No outside hosts | Signed-in `/quotes` and `/login` HTML | No `http(s)://` address other than the app's; no Supabase URL |
+| No outside hosts | Signed-in `/quotes`, `/quote-tool`, `/settings` and `/login` HTML | No `http(s)://` address at all; no Supabase URL |
+| Build without Supabase settings | CI's build step (`env -u NEXT_PUBLIC_SUPABASE_URL -u NEXT_PUBLIC_SUPABASE_ANON_KEY npm run build`) | Passes (B8 verification, follow-up F1) |
+| Password reset (2026-10-15) | `POST /api/auth/reset` for a dev user; read the email in Mailpit (`http://127.0.0.1:54324`); open its link | Email "Reset your BOXT quote tool password" with a `{{ .SiteURL }}/auth/confirm?token_hash=...&type=recovery&next=/update-password` link; `303` to `/update-password` (page `200`); the same link again: `303 /reset-password?error=expired`. The E2E suite repeats this on every run (`e2e/auth.spec.ts`). |
+| Publishable key in `NEXT_PUBLIC_SUPABASE_ANON_KEY` (2026-10-15) | Production build with the publishable key; sign in, list quotes, catalog search, open `/quote-tool` | All `200`; signed out `307` |
+| Failed sign-in in Auth logs (2026-10-15) | Auth server log after a wrong password | `/token` `400` `invalid_credentials` (no email in the line); `auth.audit_log_entries` has `login` and `user_recovery_requested` rows, not failed attempts |
 
 Not verifiable locally (check on the real projects): the Supabase and Vercel dashboard steps, custom SMTP
 delivery, the Session pooler connection with `sslmode=no-verify` (or `verify-full` with the downloaded
