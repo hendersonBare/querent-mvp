@@ -136,7 +136,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B6 | Quotes list and detail | B1, B2 | merged |
 | B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
 | B8 | E2E, access control, CI | B5, B6, B7 | in progress (`boxt/task/B8-e2e-ci`, staged on B5 + B7) |
-| B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 (staged on the B8 head) | in progress (`boxt/task/B10-price-unit-polish`) |
+| B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 (staged on the B8 head) | in progress (`boxt/task/B10-price-unit-polish`, fix round 2; WIP 570d323 saved across two container restarts; fresh implementer) |
 | B9 | DEPLOY.md, OPERATIONS.md, README | B8 | in progress (`boxt/task/B9-docs`, drafted early; final check after B8) |
 
 ### B0: Strip to the shell; new stack scaffolding
