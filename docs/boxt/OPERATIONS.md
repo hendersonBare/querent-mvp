@@ -1,7 +1,8 @@
 # Operating the BOXT Quote Creation Tool
 
-Day-to-day running of the live app: logs and activity reports, users, keys, the catalog, match strictness,
-backups and the known follow-ups. Setting it up in the first place is [DEPLOY.md](DEPLOY.md).
+Day-to-day running of the live app: what reps can expect from matching, logs and activity reports, users,
+keys, the catalog, match strictness, backups and the known follow-ups. Setting it up in the first place is
+[DEPLOY.md](DEPLOY.md).
 
 Placeholders used below: `<app-url>` is the live address (for example `https://<project-name>.vercel.app`),
 `<project-ref>` is the Supabase project's reference (the `<ref>` in `https://<ref>.supabase.co`).
@@ -10,6 +11,7 @@ everything; app users cannot read the activity log at all.
 
 ## Contents
 
+- [Matching: what to expect](#matching-what-to-expect)
 - [Where to look](#where-to-look)
 - [Logs](#logs)
 - [Activity reports (SQL)](#activity-reports-sql)
@@ -19,6 +21,96 @@ everything; app users cannot read the activity log at all.
 - [Match strictness](#match-strictness)
 - [Backups and pausing](#backups-and-pausing)
 - [Follow-ups](#follow-ups)
+
+## Matching: what to expect
+
+For reps and the owner. The tool is built to leave a line for the rep rather than put a wrong item on a
+quote: a line the tool leaves unmatched costs a minute, a wrong item can cost the order.
+
+### How a list becomes a quote
+
+1. **Read.** Claude reads the pasted list or the PDF into lines: the customer's original text, the product
+   description, the quantity and the unit (up to 200 lines).
+2. **Score.** Each line's description is compared with BOXT's 1,555 catalog items, by description only. A
+   SKU in the line (the customer's supplier's, or even a BOXT one) is plain text and never decides a match.
+3. **Judge.** Only a line whose best item already clears the strictness level is shown to Claude, with up
+   to 8 candidate items (SKU, description, pack, category; never a price). Claude may pick one of them or
+   say none.
+4. **Decide.** A line is **matched** only when the score clears the level **and** Claude picks that same
+   product (the bundle and pallet pricing of one box count as one product). Anything else is **Could not
+   detect a match**. Claude alone never matches a line, and every line gets exactly one outcome.
+
+### What Strict leaves for you
+
+**Strict** (the default) matches a line only when one catalog item accounts for everything the line
+states, the line states everything that defines the item, and no item of another product comes close.
+So expect a fair share of "Could not detect a match" on real lists, typically:
+
+- **A defining choice left unsaid**, where BOXT sells more than one: strapping without "hand" or
+  "machine", stretch film without "cast" or "blown", a box size BOXT has in kraft and in white without
+  saying which, a bubble mailer without kraft or poly, a double or triple wall left out, a tape without its
+  model number or roll length.
+- **More than one of something**: two sizes, "32 or 44 ECT", "2 mil or 4 mil", "hot melt or acrylic".
+- **Words the catalog cannot confirm**: "for", "to fit", "approx", ranges ("4-6"), a size outside the
+  dimensions ("12 in deep"), claims such as "BPA-free" or "no zipper", or a style or grade the catalog
+  does not name ("Style A").
+- **A different pack**: "50/bundle" for an item sold in bundles of 25, "case of 1,000" for a case of 500.
+- **A close rival**: two items of different products fit about as well.
+
+Under each unmatched line, a short hint says why, for example "Not matched automatically: the line says
+"or"", "More than one catalog item fits about as well." or "Claude did not confirm the closest item is
+the same product."
+
+In the evaluation suite (`src/eval/README.md`: 1,035 lines in another supplier's style), Strict put **no
+wrong item** on any line, even with a judge that agrees with everything, and matched 95% of the lines that
+name exactly one BOXT item. Real lists are less tidy, so the matched share will be lower.
+
+### Closest items and "Use this item"
+
+An unmatched line offers **Show N closest items**: up to 5 catalog items, each with a **Similarity**
+percentage (how closely its description fits the line; it does not mean the item is right). **Use this
+item** puts it on the quote, marked **Picked by rep**. "No similar items in the catalog" means nothing was
+close. A matched line has **Swap** (search the catalog for another item, also Picked by rep) and **Remove**
+(with Undo). Lines left unmatched are saved on the quote too, with their original text and the closest
+items, so nothing the customer asked for is lost.
+
+### Quantities and prices: one pricing unit per line
+
+Every matched line is priced in its item's **pricing unit**, the unit BOXT's list price is per: **each**
+(boxes and mailers, even when sold in bundles), **case** (bags, sold per case of N), **roll**, **coil** and
+so on. The quantity box is labelled with it ("250 each"), the price box says "per each" or "per case", and
+the reference label matches ("Web list: $0.84/each"). The web list price is only a reference: no price is
+ever filled in, and Save stays disabled until every matched line has a valid quantity and a price.
+
+The customer's quantity is converted into the pricing unit only when that is exact, with a note:
+
+- "10 bundles" of a box sold in bundles of 25: **250 each**, "Customer asked for 10 bundles = 250 each";
+- "2 cartons" of an item priced per case: **2 cases**, "Customer asked for 2 cartons = 2 cases";
+- "4 rolls" of a wrap sold per case of 4 rolls: **1 case**.
+
+Anything else keeps the customer's number and is flagged **Check quantity**: an unknown unit ("Check
+quantity (customer wrote: 10 pallets)"), a pack size that is not the item's ("Check quantity: customer's
+pack is 50/bundle, this item is a bundle of 25"), a part of a unit (2.5 bundles), or no quantity. Under
+Save, "2 lines have a quantity to check." reminds the rep; Save is still allowed, because the rep decides.
+Typing a quantity clears the flag and the note then reads "Customer wrote: 10 pallets"; the line is still
+saved as flagged, so the quote's page shows it was checked by hand. After **Swap** or
+**Use this item** the quantity is converted again for the new item and its price is cleared.
+
+On the saved quote's page each line shows its quantity with the unit, the price per unit, the line total,
+and the customer's own quantity when it was converted or flagged: "Customer asked for 10 bundles", or
+"Quantity was flagged: customer wrote 10 pallets" (the `customer_quantity` column of `quote_lines`).
+
+### The example quote
+
+Every installation has one **Example quote** (customer "Example customer", tagged **Example**, creator
+"Example"): 3 matched, priced lines and 1 unmatched line with its closest items, to show what a saved
+quote looks like. It cannot be edited or deleted by anyone; `npm run db:seed:boxt` refreshes it.
+
+### Changing strictness
+
+**Settings > Match strictness**: Strict, Balanced or Lenient, then **Save**. It applies to every user and
+to new match runs only. Stay on Strict unless the reasons are understood: see
+[Match strictness](#match-strictness).
 
 ## Where to look
 
@@ -51,8 +143,10 @@ Status codes you will see and what they mean:
 |---|---|---|
 | 307 | any page | Not signed in: sent to `/login` (normal). |
 | 401 | `/api/*` | Not signed in, or the session ended (normal after sign-out or a ban). |
+| 400 | `/api/*` | Input the app refused (a form field missing or invalid, a file that is not a PDF); the rep sees why. |
 | 403 | `/api/*` POST/PUT/PATCH/DELETE | Cross-origin request refused (a request not sent by the app's own pages). |
-| 413 | `/api/quote-tool/match` | List over 200 lines or 60,000 characters, or PDF over 4 MB (the rep sees why). |
+| 409 | `/api/quotes/<id>` PATCH/DELETE | Someone tried to edit or delete the example quote (refused by design). |
+| 413 | `/api/quote-tool/match`, `POST /api/quotes` | List over 200 lines or 60,000 characters, or PDF over 4 MB (the rep sees why); a quote over 1 MB of data. |
 | 504 | `/api/quote-tool/match` | Should not happen: the app stops at 270 s, inside Vercel's 300 s. If it does, check the function's max duration in Vercel settings. |
 | 500 | any | A real error: look at the request in Logs, and at Supabase's logs at the same time. |
 
@@ -123,9 +217,10 @@ group by 1, 2
 order by 1 desc, 2;
 ```
 
-`outcome` is `success`, `failure` (the list could not be read, or no product lines were found) or
-`timeout` (reading the list took over 150 s). A run's `matched` share is a fair measure of how much the
-tool saves reps; at Strict a low share is expected.
+`outcome` is `success`, `failure` (the list could not be read, no product lines were found, or the run
+broke) or `timeout` (reading the list took over 150 s). `judged` counts the lines Claude was asked about
+(only those that cleared the level). A run's `matched` share is a fair measure of how much the tool saves
+reps; at Strict a low share is expected ([what to expect](#matching-what-to-expect)).
 
 Match runs per person (30 days):
 
@@ -160,6 +255,34 @@ select created_at, created_by_email, customer_name, reference, line_count, unmat
 from public.quote_summaries
 order by created_at desc
 limit 50;
+```
+
+(The example quote has no `created_by_email`; the app shows its creator as "Example".)
+
+Saved lines whose quantity was converted from the customer's unit or flagged for checking. `quantity` and
+`unit` are in the item's pricing unit; `customer_quantity` is what the customer wrote; `flagged` lines were
+saved with "Check quantity" (customer data, so this reads the quotes, not the activity log):
+
+```sql
+select q.created_at, q.customer_name, q.reference, l.position, l.sku, l.quantity, l.unit,
+       l.customer_quantity, l.quantity_unclear as flagged
+from public.quote_lines l
+join public.quotes q on q.id = l.quote_id
+where not l.unmatched and (l.quantity_unclear or l.customer_quantity is not null)
+order by q.created_at desc, l.position
+limit 100;
+```
+
+How saved lines were matched, over all real quotes: `auto` (the tool), `rep` (Swap or "Use this item"),
+and no value for lines saved unmatched:
+
+```sql
+select l.matched_by, count(*) as lines
+from public.quote_lines l
+join public.quotes q on q.id = l.quote_id
+where not q.is_example
+group by 1
+order by 1;
 ```
 
 Settings changes (`metadata` is `{"from": ..., "to": ...}`):
@@ -262,7 +385,8 @@ To refresh it:
 1. Optional, fetch the current website catalog into the file: `npx tsx scripts/fetch-boxt-catalog.ts`. It
    prints how many items it wrote. Review the change (`git diff --stat data/boxt-catalog.json`).
 2. Run the tests (`npm test`): the evaluation suite runs every test line against the catalog, so a removed
-   or renamed item shows up there. If an item the example quote uses disappears, the seed stops with "The
+   or renamed item shows up there, and the pricing-unit test fails on a pack shape the quote tool does not
+   know yet (for example a new "Bag of N"), so quantities are never read in the wrong unit. If an item the example quote uses disappears, the seed stops with "The
    example quote needs SKUs the catalog does not have" and changes nothing.
 3. Commit the file, then load it into the live database exactly as in
    [DEPLOY.md 2.2](DEPLOY.md#22-load-the-catalog-and-the-example-quote): `npm run db:seed:boxt` with
@@ -281,11 +405,38 @@ It applies to everyone, for new match runs only; saved quotes do not change. Eac
 `settings_change` ([report above](#activity-reports-sql)). To check the current level:
 `select match_strictness, updated_at from public.org_settings;`
 
+What the Settings page says about each level (from `src/features/settings/strictness.ts`, the one place
+the levels are defined):
+
+| Level | On the Settings page | Rule |
+|---|---|---|
+| **Strict** (Default, recommended) | "Matches a line only when one item accounts for everything it states and no other item comes close, which is the safest setting and leaves the most lines for you to match." | Score 0.90 and a lead of 0.35 over any other product, **and total accounting**: every part of the line is read and confirmed by the item, and everything that defines the item is stated by the line. |
+| **Balanced** | "Also matches when one detail is unconfirmed, such as a word the catalog does not use or a feature the line does not mention, so check those matches before you save." | Score 0.70, lead 0.20. No total accounting. |
+| **Lenient** | "Matches when one item is clearly the best fit even with two details unconfirmed, which leaves the fewest lines over but needs the closest review." | Score 0.55, lead 0.15. No total accounting. |
+
 **Strict** is the default and the recommended setting. The product rule is to prefer "No match" over a
-wrong item: in the evaluation suite Strict matched no wrong item at all, even with a judge that agrees with
-everything, while Balanced and Lenient match more lines but let some wrong items through when the judge
-does not catch them. The numbers behind each level and the latest evaluation results are in
-`src/eval/README.md`; the levels themselves are defined in `src/features/settings/strictness.ts`.
+wrong item, and Strict does not depend on Claude for it: in the evaluation suite it put no wrong item on
+any of 1,035 lines even with a judge that agrees with everything (and matched 95% of the lines that should
+match).
+
+**Balanced and Lenient rely on the judge.** They let through lines with one or two unconfirmed details,
+and only Claude's check stands between those lines and a wrong item: with a judge that agrees with
+everything, Balanced matched 257 wrong items in the evaluation suite and Lenient 332. The judge verdicts
+the suite uses today are **hand-written** (no API key was available when it was built), so how well the
+real judge catches those lines has not been measured yet. Before relying on Balanced or Lenient:
+
+1. On your own machine, in a clone of the repository, run the recording with the key in the shell (the
+   script does not read `.env.local`, and `QUERENT_SCRIPTED` must not be `1`):
+   `read -rs ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY && npm run eval:record; unset ANTHROPIC_API_KEY`.
+   It asks the live judge about every case that has candidates, rewrites
+   `src/eval/judge-recording.json` with `recordedBy: 'live'`, the model and the time, and prints which
+   verdicts changed. If any call fails, it writes nothing.
+2. Run `npm run eval:report` and read the Balanced and Lenient rows with the **recorded** judge: their
+   false positives are what reps would see. Then `npm test` (the evaluation gate).
+3. Commit the new recording, and choose the level from those numbers. Re-record after changing
+   `ANTHROPIC_MODEL`.
+
+A recording is one Claude call per case with candidates, about a thousand requests, 4 at a time. The full method and the latest numbers are in `src/eval/README.md`.
 
 ## Backups and pausing
 
@@ -318,18 +469,27 @@ Known gaps, decided and documented rather than built.
   link cannot create an account and the app cannot complete it (it accepts only passwords and reset links),
   so the effect is an unexpected email. Mitigation: replace the **Magic link** email template's body with a
   notice and no link ([DEPLOY.md 3.3](DEPLOY.md#33-magic-links-and-email-codes-follow-up-f3)).
-- **F4: password change without the old password, and MFA.** A signed-in user can set a new password at
+- **F4: password change without the old password.** A signed-in user can set a new password at
   `/update-password` without typing the current one (Supabase's **Secure password change** is off), so
-  anyone with a person's unlocked, signed-in browser could change their password. Possible next steps:
-  ask for the current password in the app, turn on Secure password change (asks for recent sign-in), and
-  add multi-factor authentication (Supabase supports TOTP apps). None is built yet.
-- **Reset links opened by mail scanners.** Some corporate mail filters open links before the person does,
-  which uses up the one-time reset token. If reps hit "link expired" every time, the fix is a confirm button
-  on the page before the token is used (or a 6-digit code instead of a link).
+  anyone with a person's unlocked, signed-in browser could change their password. Possible next steps: ask
+  for the current password in the app, or turn on Secure password change (asks for a recent sign-in).
+- **Multi-factor authentication.** Not built. Supabase supports authenticator apps (TOTP); the app would
+  need an enrolment page and a second step at sign-in.
+- **Custom SMTP.** Until it is set up ([DEPLOY.md 3.5](DEPLOY.md#35-email-delivery-custom-smtp)),
+  password-reset emails do not reach BOXT reps (Supabase's built-in sender only mails your Supabase team,
+  2 an hour), and you set passwords yourself ([Users](#users)).
+- **Reset links opened by mail scanners.** Some corporate mail filters (for example Microsoft Defender Safe
+  Links) open links before the person does, which uses up the one-time reset token. If reps hit "link
+  expired" every time, ask IT to exclude the app's address from link scanning; the lasting fix is a
+  confirm button on the page before the token is used (or a 6-digit code instead of a link).
+- **Real judge recording.** The evaluation suite's judge verdicts are hand-written. Record them with the
+  live judge (`npm run eval:record`, [Match strictness](#match-strictness)) before relying on Balanced or
+  Lenient, and again after changing `ANTHROPIC_MODEL`. Strict does not depend on it.
 - **Error reporting (optional).** There is none, on purpose. If you add a service such as Sentry, configure
   it so it never sends request bodies, form fields, cookies or headers (customer lists, PDFs and quote
-  contents are in them): turn off default PII and body capture, and scrub events before sending. Add its
-  host to the go-live check that the app talks to no other hosts, and update
+  contents are in them): turn off default PII and body capture, scrub every event before sending (strip
+  request data, breadcrumbs with URLs such as the Swap search, and user emails), and do not enable session
+  replay. Add its host to the go-live check that the app talks to no other hosts, and update
   [DEPLOY.md 10](DEPLOY.md#10-data-flow-and-confidentiality).
 - **Secrets manager (R-2).** Keys live in Vercel's environment variables (marked Secret) and in local
   `.env.local` files. Moving them to a dedicated secrets manager is a later option.
