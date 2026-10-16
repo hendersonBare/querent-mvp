@@ -137,7 +137,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
 | B8 | E2E, access control, CI | B5, B6, B7 | in progress (`boxt/task/B8-e2e-ci`, staged on B5 + B7) |
 | B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 (staged on the B8 head) | blocked after 3 verifier FAILs; continued as B10b on the same branch |
-| B10b | Fail-closed quantity conversion (any pack wording not fully understood, or more than one pack, flags) | B10 branch | in progress (`boxt/task/B10-price-unit-polish`) |
+| B10b | Fail-closed quantity conversion (two-part total accounting) | B10 branch | final head `3944128`; under final verification in the release candidate `boxt/rc` |
 | B9 | DEPLOY.md, OPERATIONS.md, README | B8 | final accuracy pass done (`eab30e2`, B10 merged in); to verify after B10b |
 
 ### B0: Strip to the shell; new stack scaffolding
@@ -246,6 +246,9 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B1 | `d2ee06f` | PASS | typecheck 0; `npm test` 25 files / 276; build 0; stack restarted from checkout; `db:reset` 1,555 rows + example + 2 dev users; `test:db` 32 pass; psql: RLS on all 5 tables, policies `authenticated` only, anon has no table/view/sequence/function privilege, view `security_invoker`; anon REST → 42501; signup → 422 `signup_disabled`; example quote refused for authenticated and service_role; bad line in `create_quote`/`update_quote` writes nothing; seed idempotent; planted boundary violations caught. Notes: metadata keys must come from a fixed list in app code; one misleading RPC error wording. |
 | B4 | `6509674` | PASS | typecheck 0; `npm test` 21 files / 244 tests offline; build 0; only `client.ts` names a model or reads the key; probes: case/space-variant SKU → null, empty candidates → no call, 201 rows refused, 4 MB+1 PDF refused, `judgeAll` ≤ 2 in flight with concurrency 2, timeouts abort. Follow-ups for B5: bound the parse time to fit the route's `maxDuration`; consider `strict` tools after an SDK upgrade. |
 | B0 | `90a07a5` | PASS | typecheck 0; `npm test` 13 files / 147 tests; build routes only `/`, `/quote-tool`, `/quotes`, `/settings`; acceptance grep empty; curl: `/` 307 → `/quote-tool`, old routes 404; planted skip/key violations fail the guards; matching/llm untouched. Notes: Dialog.module.css kept for B5; `catalog.test.ts` excluded until B3; sign-out endpoint pending B2. |
+
+## Release candidate
+`boxt/rc` (`9301784`) = `boxt/quote-tool` + the B10 branch (B5, B7, B8, B10, B10b) + B9 docs. Gates on it: typecheck 0, `npm test` 1,365 passed, build 0. Under final verification against the Definition of done; on PASS it is fast-forwarded into `boxt/quote-tool` and the PR to `main` is opened.
 
 ## Follow-ups
 - F1 (B2): `createSupabaseServerClient` reads env before `cookies()`, so `next build` fails without Supabase env. Fix in B8 (call `connection()`/`cookies()` first; CI also sets env).
