@@ -79,7 +79,7 @@ const STRONG=new Set([
 /** Pack wording only next to a count, "/", a STRONG word, "of N" or "x N", since they also name products ("Corrugated Boxes", "Folding Cartons", "Bubble Dispenser Packs"). */
 const WEAK=new Set(list('box boxes carton cartons pack packs packet packets bag bags roll rolls coil coils tube tubes spool spools pallet pallets bale bales mailer mailers envelope envelopes sheet sheets label labels pouch pouches'));
 /** Words after a number that make it a measure, not a count. */
-const MEASURE=new Set(list('in inch inches mil mils ft feet foot mm cm m yd yds yard yards lb lbs pound pounds oz gauge ga ect ply gal gallon gallons kg g l ml mic micron microns cu test wide long high deep thick dia'));
+const MEASURE=new Set(list('in inch inches mil mils ft feet foot mm cm yd yds yard yards lb lbs pound pounds oz gauge ga ect ply gal gallon gallons kg g l ml mic micron microns cu test wide long high deep thick dia'));
 const MEASURE_MARK=new Set(['"','\'','′','″','”','’','%','#']);
 const DIMENSION=new Set(['x','×','*']);
 /** Words before a number that make it a label, not a count ("#2", "size 4", "item 3"). */
@@ -111,6 +111,8 @@ export function unitName(word:string|null|undefined):string|null{
 
 interface Token {
   type:'num'|'word'|'mark';
+  /** As written (after NFKC). */
+  raw:string;
   low:string;
   start:number;
   end:number;
@@ -128,7 +130,7 @@ function tokenize(text:string):{text:string;tokens:Token[]}{
     const raw=m[0],start=m.index;
     const type=/^\d/.test(raw)?'num':/^[a-z]/i.test(raw)?'word':'mark';
     const prev=tokens.at(-1);
-    tokens.push({type,low:raw.toLowerCase(),start,end:start+raw.length,value:type==='num'?Number(raw.replace(/,/g,'')):NaN,glued:prev!==undefined&&prev.end===start});
+    tokens.push({type,raw,low:raw.toLowerCase(),start,end:start+raw.length,value:type==='num'?Number(raw.replace(/,/g,'')):NaN,glued:prev!==undefined&&prev.end===start});
   }
   return {text:normal,tokens};
 }
@@ -191,10 +193,10 @@ class Text {
       // The numbers of the size chain ending at token j (a number), counted backwards.
       let n=1;
       for(;;){
-        const before=MEASURE_MARK.has(this.low(j-1))?j-1:j;
-        const x=before-1;
+        const x=j-1;
         if(!DIMENSION.has(this.low(x))||!this.joins(x))return n;
-        const prev=MEASURE_MARK.has(this.low(x-1))&&this.at(x-2)?.type==='num'?x-2:x-1;
+        // The side before x may carry its unit: 18" x, 48mm x, 2 m x.
+        const prev=(MEASURE_MARK.has(this.low(x-1))||MEASURE.has(this.low(x-1))||this.low(x-1)==='m')&&this.at(x-2)?.type==='num'?x-2:x-1;
         if(this.at(prev)?.type!=='num')return n;
         n++;
         j=prev;
@@ -204,7 +206,7 @@ class Text {
     const back=sides(i);
     if(back>3)return false;
     if(back>1)return true;
-    const x=MEASURE_MARK.has(this.low(i+1))?i+2:i+1;
+    const x=MEASURE_MARK.has(this.low(i+1))||MEASURE.has(this.low(i+1))||this.low(i+1)==='m'?i+2:i+1;
     return DIMENSION.has(this.low(x))&&this.joins(x)&&this.at(x+1)?.type==='num';
   }
   /** An x that joins two sides: spaced on both sides or on neither ("4 x6" is a multiplier). */
@@ -216,15 +218,15 @@ class Text {
   private inPack=(i:number)=>this.low(i)==='in'&&(IN_WORDS.has(this.low(i+1))||CONTAINER.has(this.low(i+1)));
   private fraction=(i:number)=>(this.low(i+1)==='/'&&this.at(i+2)?.type==='num')||(this.low(i-1)==='/'&&this.at(i-2)?.type==='num');
 
-  /** A plain count: a whole number ≥ 1 that is not a size, measure, label ("#2"), SKU ("PB3866", "S-4128") or list number ("1."). */
+  /** A plain count: a whole number ≥ 1 that is not a size, measure, label ("#2"), SKU ("PB3866", "S-4128") or list number ("1."); "500set", "500x" are counts. */
   private count(i:number):boolean{
     const t=this.at(i);
     if(!t||t.type!=='num'||!Number.isSafeInteger(t.value)||t.value<1||t.low.includes('.')||this.fragment(i)||this.measured(i))return false;
     const prev=this.at(i-1),nxt=this.at(i+1);
     if(prev&&LABEL.has(prev.low))return false;
-    if(prev&&t.glued&&prev.type==='word'&&!DIMENSION.has(prev.low))return false;
-    if(prev&&t.glued&&prev.low==='-'&&prev.glued&&this.at(i-2)?.type==='word')return false;
-    if(nxt&&nxt.glued&&nxt.type==='word'&&!this.packWord(nxt.low)&&!['s','per','a'].includes(nxt.low))return false;
+    // A SKU: capitals glued to it ("PB3866", "S-4128"), unless they are pack wording ("CS500", "CTN-500").
+    const word=prev&&t.glued&&prev.type==='word'?prev:prev&&t.glued&&prev.low==='-'&&prev.glued&&this.at(i-2)?.type==='word'?this.at(i-2)!:null;
+    if(word&&/^[A-Z]+$/.test(word.raw)&&!this.packWord(word.low)&&!MEASURE.has(word.low))return false;
     if(i===0&&nxt&&(nxt.low==='.'||nxt.low===')'))return false;
     return true;
   }
@@ -367,7 +369,8 @@ class Text {
 
   unread():string|null{
     const out=new Set<number>();
-    const triggers=(j:number)=>j>=0&&(this.count(j)||this.low(j)==='/');
+    // Any number that is not a size or a measure (a count, a SKU's digits, a part of a number), or "/".
+    const triggers=(j:number)=>j>=0&&((this.at(j)!.type==='num'&&!this.measured(j))||this.low(j)==='/');
     this.tokens.forEach((t,i)=>{
       if(!this.free(i))return;
       const w=t.low;
