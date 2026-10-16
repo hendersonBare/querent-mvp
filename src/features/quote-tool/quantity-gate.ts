@@ -7,7 +7,7 @@
 //      ScoredItem as `accounted`). A stated pack that differs, a second size, a number or a word the
 //      item does not confirm are all blockers there;
 //   2. the raw line (this file): once a leading list marker ("1."), the description, the supplier's
-//      SKU and the parser's quantity phrase (its number and unit word, with a "qty"/"x" label) are
+//      SKU (only an ordinary code: ordinarySku) and the parser's quantity phrase (its number and unit word, with a "qty"/"x" label) are
 //      taken out of the raw text by exact span, with any plain currency amount ("$1.10", "$1.10 ea",
 //      "USD 45.00", a line total; never "$45/cs": that unit stays), nothing is left but separators and a few filler words:
 //      no digit of any script, and no word but FILLER;
@@ -53,6 +53,22 @@ interface Token {text:string;start:number;end:number}
 const CONTENT=/[\p{L}\p{M}]+|\p{N}+/gu;
 const tokens=(text:string,from=0,to=text.length):Token[]=>[...text.slice(from,to).matchAll(CONTENT)].map(m=>({text:m[0].toLowerCase(),start:from+m.index,end:from+m.index+m[0].length}));
 
+/** Container and count abbreviations a supplier code must not carry as a segment, a prefix or a suffix. */
+const PACK_CODES=new Set('cs case bdl bundle bx box pk pack ct ctn carton ea pc pcs rl roll skid plt'.split(' '));
+/**
+ * An ordinary supplier code ("S-4128", "S-14823BL", "PB3866"): letters and digits with at most one
+ * hyphen, and no container or count abbreviation as a segment or as the letters it starts or ends with
+ * ("CS-500", "500CS", "BDL25" may be pack text the parser filed as a SKU). Any other "SKU" is left in
+ * the raw line, so it counts as leftover and flags.
+ */
+export function ordinarySku(sku:string):boolean{
+  if(!/^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)?$/u.test(sku))return false;
+  return sku.toLowerCase().split('-').every(segment=>{
+    const lead=/^\p{L}+/u.exec(segment)?.[0],trail=/\p{L}+$/u.exec(segment)?.[0];
+    return !PACK_CODES.has(segment)&&!(lead&&PACK_CODES.has(lead))&&!(trail&&PACK_CODES.has(trail));
+  });
+}
+
 export interface RawLine {
   rawText:string;
   /** The parser's description of the item. */
@@ -81,7 +97,7 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
   if(marker&&(!marker[1]||Number(marker[1])<=QUOTE_LIMITS.linesMax))remove(0,marker[0].length);
   // The supplier's SKU, by exact span.
   const sku=suppliersSku?.normalize('NFKC').trim();
-  if(sku){
+  if(sku&&ordinarySku(sku)){
     const at=text.toLowerCase().indexOf(sku.toLowerCase());
     if(at>=0)remove(at,at+sku.length);
   }
