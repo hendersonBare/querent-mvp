@@ -457,8 +457,15 @@ export function scorePackaging<T extends PackagingItem>(description:string,catal
 
 /** The variants of `spec` in a catalog (see scorePackaging), built per call so an edited catalog is never read stale. */
 function variantsIn(catalog:readonly PackagingItem[],spec:ScoredSpec){
-  const key=variantKey(spec);
-  return catalog.map(itemOf).filter(other=>variantKey(other)===key);
+  const key=keyOf(spec);
+  return catalog.map(itemOf).filter(other=>keyOf(other)===key);
+}
+/** variantKey per parsed row (a row edited in place is parsed again, so its key is too). */
+const KEYS=new WeakMap<ScoredSpec,string>();
+function keyOf(spec:ScoredSpec){
+  let key=KEYS.get(spec);
+  if(key===undefined)KEYS.set(spec,key=variantKey(spec));
+  return key;
 }
 
 /**

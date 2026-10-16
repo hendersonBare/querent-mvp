@@ -62,9 +62,12 @@ export async function requestMatch(form:FormData,onProgress:(event:ProgressEvent
   return outcome??{ok:false,error:GENERIC_ERROR};
 }
 
-/** The Swap search: up to 10 catalog items for the query (2 characters or more). */
-export async function searchCatalog(q:string,{fetcher=defaultFetch,signal}:{fetcher?:Fetcher;signal?:AbortSignal}={}):Promise<ScoredItem[]>{
-  const response=await fetcher(`/api/catalog/search?q=${encodeURIComponent(q)}`,{signal});
+/**
+ * The Swap search: up to 10 catalog items for the query (2 characters or more). With the line's
+ * description, each item says whether it fully accounts for it (`accounted`, B10b).
+ */
+export async function searchCatalog(q:string,{fetcher=defaultFetch,signal,line}:{fetcher?:Fetcher;signal?:AbortSignal;line?:string}={}):Promise<ScoredItem[]>{
+  const response=await fetcher(`/api/catalog/search?q=${encodeURIComponent(q)}${line?`&line=${encodeURIComponent(line)}`:''}`,{signal});
   if(!response.ok)throw new Error(await errorOf(response));
   return ((await response.json()) as {items:ScoredItem[]}).items;
 }

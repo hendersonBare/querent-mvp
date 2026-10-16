@@ -29,13 +29,14 @@ export interface QuoteReviewDialogProps {
   /** Called with the new quote's id after it saved. */
   onSaved:(id:string)=>void;
   save?:(body:SaveQuoteRequest)=>Promise<{id:string}>;
-  search?:(q:string)=>Promise<ScoredItem[]>;
+  /** The Swap search; `line` is the line's description, which each result is accounted against. */
+  search?:(q:string,line:string)=>Promise<ScoredItem[]>;
 }
 
 const plural=(n:number,one:string,many=`${one}s`)=>`${n} ${n===1?one:many}`;
 const QUANTITY=new Intl.NumberFormat('en-US',{maximumFractionDigits:3});
 
-export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(body),search=q=>defaultSearch(q)}:QuoteReviewDialogProps){
+export function QuoteReviewDialog({run,onClose,onSaved,save=body=>defaultSave(body),search=(q,line)=>defaultSearch(q,{line})}:QuoteReviewDialogProps){
   const [lines,setLines]=useState<ReviewLine[]>(()=>initialReview(run));
   const [customerName,setCustomerName]=useState('');
   const [reference,setReference]=useState('');
@@ -326,7 +327,7 @@ function MatchedLine({line,saving,swapping,picker,onQuantity,onPrice,onSwap,onRe
   </li>;
 }
 
-function SwapPicker({line,search,onPick,onCancel}:{line:ReviewLine;search:(q:string)=>Promise<ScoredItem[]>;onPick:(choice:ScoredItem)=>void;onCancel:()=>void}){
+function SwapPicker({line,search,onPick,onCancel}:{line:ReviewLine;search:(q:string,line:string)=>Promise<ScoredItem[]>;onPick:(choice:ScoredItem)=>void;onCancel:()=>void}){
   const [q,setQ]=useState('');
   const [results,setResults]=useState<ScoredItem[]|null>(null);
   const [status,setStatus]=useState<'idle'|'loading'|'error'>('idle');
@@ -341,10 +342,10 @@ function SwapPicker({line,search,onPick,onCancel}:{line:ReviewLine;search:(q:str
     let cancelled=false;
     const timer=setTimeout(()=>{
       setStatus('loading');
-      search(query).then(items=>{if(!cancelled){setResults(items);setStatus('idle');}},()=>{if(!cancelled){setResults(null);setStatus('error');}});
+      search(query,line.description).then(items=>{if(!cancelled){setResults(items);setStatus('idle');}},()=>{if(!cancelled){setResults(null);setStatus('error');}});
     },300);
     return ()=>{cancelled=true;clearTimeout(timer);};
-  },[q,search]);
+  },[q,search,line.description]);
 
   const option=(choice:ScoredItem)=><li key={choice.sku} className={s.option}>
     <div className={d.item}>

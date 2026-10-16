@@ -114,13 +114,13 @@ export function toResultItem(item:CatalogItem):ResultItem{
   const pricing=pricingUnit(item.pack,item.caseQty,item);
   return {sku:item.sku,description:item.description,pack:packLabel(item),category:item.category,listPrice:item.listPrice,listPriceUnit:pricing?.unit??null,pricing};
 }
-const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toResultItem(c.item),score:c.score});
+const toScored=(c:Candidate<CatalogItem>):ScoredItem=>({...toResultItem(c.item),score:c.score,accounted:c.eligibility.strictEligible});
 
 function resultLine(index:number,row:ParsedRow,retrieval:Retrieval<CatalogItem>,verdict:JudgeVerdict|undefined):ResultLine{
   const decision=decide(retrieval,{sku:verdict?.sku??null});
   const eligibility=eligibilityOf(retrieval);
   const base={
-    index,rawText:row.rawText,description:row.description,quantity:row.quantity,unit:row.unit,quantityUnclear:row.quantityUnclear,
+    index,rawText:row.rawText,description:row.description,suppliersSku:row.suppliersSku,quantity:row.quantity,unit:row.unit,quantityUnclear:row.quantityUnclear,
     candidates:retrieval.candidates.map(toScored),nearMisses:retrieval.nearMisses.map(toScored),
     ...(eligibility?{eligibility}:{}),
   };

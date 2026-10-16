@@ -1,7 +1,7 @@
 import type {StrictnessLevel} from '@/features/settings/strictness';
 import {readPrice,readQuantity} from '@/features/quotes/limits';
 import type {LineReason,MatchRun,ResultItem,SaveLine,SaveQuoteRequest,ScoredItem} from './types';
-import {readPacks,type PackReading} from './pack-wording';
+import {rawLeftover} from './quantity-gate';
 import {convertQuantity,type QuantityNote} from './units';
 
 // The review dialog's state and rules, kept out of the component so they can be tested without a DOM:
@@ -26,6 +26,8 @@ export interface ReviewLine {
   /** The matcher's Strict blockers for the line (empty when none were reported). */
   blockers:string[];
   rawText:string;
+  /** The parser's description of the item: what a Swap pick is accounted against. */
+  description:string;
   /** As typed; for a matched line, in `unit`. */
   quantity:string;
   /** A matched line: its item's pricing unit ("each", "case"), or null when the item has none. Unmatched: the customer's unit. */
@@ -34,8 +36,12 @@ export interface ReviewLine {
   /** The quantity and unit the customer wrote (as parsed), kept for converting again after Swap or "Use this item". */
   customerQuantity:number|null;
   customerUnit:string|null;
-  /** The customer's pack wording in the line (./pack-wording.ts): a quantity converts only with none, or with one pack equal to the item's. */
-  customerPack:PackReading;
+  /**
+   * What the raw line says besides the description, the supplier's SKU and the quantity phrase
+   * (./quantity-gate.ts), or null: a quantity converts only with nothing left over, and only onto an
+   * item that fully accounts for the description (ScoredItem.accounted).
+   */
+  customerLeftover:string|null;
   /** How the customer's quantity became `quantity`: converted exactly, or kept and to be checked (null: same unit, or no quantity). */
   quantityNote:QuantityNote|null;
   /** The rep has edited the quantity since the line got its item (a "check" flag then turns into an aside). */
@@ -54,11 +60,13 @@ export function initialReview(run:MatchRun):ReviewLine[]{
     const matched=line.outcome==='matched'&&line.item!==undefined;
     const base:ReviewLine={
       key:line.index,status:'unmatched',restoreTo:'unmatched',reason:matched?null:line.reason,blockers:[...line.eligibility?.blockers??[]],
-      rawText:line.rawText,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
-      customerQuantity:line.quantity,customerUnit:line.unit,customerPack:readPacks(line.description,line.rawText,line.quantity,line.unit),quantityNote:null,quantityChecked:false,
+      rawText:line.rawText,description:line.description,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
+      customerQuantity:line.quantity,customerUnit:line.unit,customerLeftover:rawLeftover(line),quantityNote:null,quantityChecked:false,
       price:'',item:null,matchedBy:null,score:null,candidates:line.candidates,nearMisses:line.nearMisses,
     };
-    return matched?{...withItem(base,{...line.item!,score:line.score},'auto'),price:''}:base;
+    // The matched item's accounting is its candidate's (a matched item is always one of them).
+    const accounted=line.candidates.find(c=>c.sku===line.item?.sku)?.accounted;
+    return matched?{...withItem(base,{...line.item!,score:line.score,accounted},'auto'),price:''}:base;
   });
 }
 
@@ -68,9 +76,9 @@ export function initialReview(run:MatchRun):ReviewLine[]{
  * and the price cleared when the line was not matched before or the unit changed.
  */
 export function withItem(line:ReviewLine,choice:ScoredItem,matchedBy:'auto'|'rep'):ReviewLine{
-  const {score,...item}=choice;
+  const {score,accounted,...item}=choice;
   const unit=item.pricing?.unit??null;
-  const {quantity,note}=convertQuantity(line.customerQuantity,line.customerUnit,item.pricing,line.customerPack);
+  const {quantity,note}=convertQuantity(line.customerQuantity,line.customerUnit,item.pricing,{accounted:accounted===true,leftover:line.customerLeftover});
   const keepPrice=line.status==='matched'&&line.item!==null&&line.unit===unit;
   return {
     ...line,status:'matched',restoreTo:'matched',item:item as ResultItem,matchedBy,score,

@@ -2,13 +2,16 @@ import 'server-only';
 import type {NextRequest} from 'next/server';
 import type {ApiSession} from '@/features/auth/server';
 import {getCatalog} from '@/server/catalog';
-import {scorePackaging} from '@/server/matching';
+import {accountLine,scorePackaging} from '@/server/matching';
+import {MAX_LINE_LENGTH} from '@/server/matching/packaging';
 import {toResultItem} from './pipeline';
 import type {ScoredItem} from './types';
 
 // GET /api/catalog/search?q= (the review dialog's Swap search): the 10 catalog items the scorer rates
-// highest for the query, best first: {items:[{sku, description, pack (label), category, listPrice, listPriceUnit, score}]}.
-// The query is matched like a customer's line and is not logged.
+// highest for the query, best first: {items:[{sku, description, pack (label), category, listPrice, listPriceUnit, score, accounted}]}.
+// The query is matched like a customer's line and is not logged. `line` (optional, the review line's
+// description, not logged either): each item says whether it fully accounts for it (`accounted`, the
+// matcher's Strict total accounting; B10b converts a customer's quantity only onto such an item).
 
 export const MIN_QUERY=2;
 export const MAX_QUERY=200;
@@ -23,6 +26,8 @@ export async function handleCatalogSearch(request:NextRequest,{db}:ApiSession):P
   try{catalog=await getCatalog(db);}catch{
     return Response.json({error:'The catalog could not be loaded. Try again.'},{status:500,headers:NO_STORE});
   }
-  const items:ScoredItem[]=scorePackaging(q,catalog).filter(c=>c.score>0).slice(0,SEARCH_LIMIT).map(({item,score})=>({...toResultItem(item),score}));
+  const line=(request.nextUrl.searchParams.get('line')??'').trim();
+  const accounted=(item:(typeof catalog)[number])=>!!line&&line.length<=MAX_LINE_LENGTH&&accountLine(line,item,catalog).strictEligible;
+  const items:ScoredItem[]=scorePackaging(q,catalog).filter(c=>c.score>0).slice(0,SEARCH_LIMIT).map(({item,score})=>({...toResultItem(item),score,accounted:accounted(item)}));
   return Response.json({items},{headers:NO_STORE});
 }

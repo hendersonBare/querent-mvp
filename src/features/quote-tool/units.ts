@@ -1,5 +1,4 @@
 import {quantityProblem} from '@/features/quotes/limits';
-import type {PackReading,StatedPack} from './pack-wording';
 
 // Price units (one unit per quote line). A catalog item's list price is per one unit of its pack: its
 // PRICING UNIT. A matched line's quantity and the rep's unit price are both in that unit, so the line
@@ -31,15 +30,13 @@ import type {PackReading,StatedPack} from './pack-wording';
 //     item priced per case may be cases or pieces, so it is flagged.
 //   - Any other word ("pallets", "skids", "bx") is kept as written and flagged.
 //   - A part of a countable unit (2.5 bundles, 2.5 cases) is flagged, never presented as exact.
-//   - Fail closed on the customer's pack wording (./pack-wording.ts readPacks, from the description and
-//     the raw line): a quantity is converted, or kept as the same number without a note, only when the
-//     line has no pack wording besides the quantity's own unit, or all of it is ONE read pack statement
-//     ("50/bundle", "case of 1,000") equal to the item's pack in count AND kind (a box is not a case, a
-//     roll is not a case, a pack is not a case). Any other pack wording ("bdl/50", "case (500)", "master
-//     case"), two packs, an item sold one at a time or of unknown count keeps the customer's numbers
-//     and is flagged ("Check quantity (customer wrote: 2 bundles (bdl/50))", "Check quantity: customer's
-//     pack is 50/bundle, this item is a bundle of 25"). A matching pack is named in the note
-//     ("2 bundles (25/bundle) = 50 each").
+//   - Fail closed, two-part total accounting (B10b, ./quantity-gate.ts): nothing is converted (or kept
+//     as the same number without a note) unless the line's description is fully accounted for by the
+//     chosen item (the matcher's Strict accounting: a stated pack that differs, a second size, an
+//     unread number or word all block it) AND nothing but the description, the supplier's SKU and the
+//     quantity phrase is in the raw line ("50 x 4 bundles", "pack size 50" left over: flagged). Then
+//     the rules above apply. A flag says what the customer wrote: "Check quantity (customer wrote:
+//     4 bundles, pack size 50)".
 
 export interface PricingUnit {
   /** What the list price is per, singular and lowercase: "each", "case", "roll", "coil". */
@@ -158,22 +155,6 @@ export const perUnitLabel=(unit:string|null)=>unit?`per ${unit}`:null;
 const NUMBER=new Intl.NumberFormat('en-US',{maximumFractionDigits:3});
 const amount=(quantity:number,unit:string|null)=>unit?`${NUMBER.format(quantity)} ${unitLabel(quantity,unit)}`:NUMBER.format(quantity);
 
-// ---- The customer's stated pack (./pack-wording.ts reads it, fail closed) --------------------------
-
-/** The item's own pack: a bundle of N of an item priced each, its pricing unit of N, or null (sold one at a time, or the count is not known). */
-function itemPack(pricing:PricingUnit):{count:number;per:string}|null{
-  if(pricing.unit==='each')return pricing.bundleOf?{count:pricing.bundleOf,per:'bundle'}:null;
-  return pricing.contains?{count:pricing.contains,per:pricing.unit}:null;
-}
-
-/** Why the customer's one stated pack is not the item's, or null when it is: the same count AND the same kind (a box is not a case, a roll is not a case). */
-function packMismatch(pack:StatedPack,pricing:PricingUnit):string|null{
-  const own=itemPack(pricing);
-  if(own&&own.count===pack.count&&own.per===pack.per)return null;
-  if(own)return `this item is a ${own.per} of ${NUMBER.format(own.count)}`;
-  return pricing.unit==='each'?'this item is sold one at a time':'this item\'s pack count is not known';
-}
-
 const MAX_WROTE=100;
 
 // ---- Converting -------------------------------------------------------------------------------------
@@ -197,26 +178,30 @@ export interface ConvertedQuantity {quantity:number|null;note:QuantityNote|null}
  *   - pieces (each, ea, pcs, or the item's own noun: "4 rolls", "2,000 bags") of an item priced per
  *     case (or roll) of N: quantity / N, when that is whole.
  * Anything else (an unknown or missing unit, an item without a pricing unit, pieces that do not divide,
- * a part of a unit, and any pack wording but one pack statement equal to the item's: see readPacks)
- * keeps the customer's number with a "check" note. Never changes a number without a note.
+ * a part of a unit, a line the item does not fully account for or a raw line with anything left over:
+ * see ./quantity-gate.ts) keeps the customer's number with a "check" note. Never changes a number
+ * without a note.
  */
-export function convertQuantity(quantity:number|null,unit:string|null,pricing:PricingUnit|null,reading:PackReading|null=null):ConvertedQuantity{
+/**
+ * The two-part total accounting (./quantity-gate.ts): `accounted`, the chosen item fully accounts for
+ * the line's description; `leftover`, what else the raw line says (null: nothing). Without a gate (unit
+ * tests of the conversion rules) only the rules apply; the review dialog always passes one.
+ */
+export interface QuantityGate {accounted:boolean;leftover:string|null}
+
+export function convertQuantity(quantity:number|null,unit:string|null,pricing:PricingUnit|null,gate:QuantityGate|null=null):ConvertedQuantity{
   if(quantity===null)return {quantity:null,note:null};
   const key=lower(unit);
   const known=Object.hasOwn(UNIT_WORDS,key)?UNIT_WORDS[key]:null;
   const noun=pieceNoun(unit);
   const word=known?.word??noun?.singular??(unit?unit.trim():null);
-  const packs=reading?.packs??[];
-  const said=[...packs.map(p=>p.text),...reading?.unread?[reading.unread]:[]].join(', ');
-  const full=`${unit?amount(quantity,word):`${NUMBER.format(quantity)}, no unit`}${said?` (${said})`:''}`;
-  const wrote=full.length>MAX_WROTE?`${full.slice(0,MAX_WROTE-2).trimEnd()}…)`:full;
+  const leftover=gate?.leftover?.replace(/[()[\]{}]/g,' ').replace(/\s+/g,' ').trim();
+  const full=`${unit?amount(quantity,word):`${NUMBER.format(quantity)}, no unit`}${leftover?`, ${leftover}`:''}`;
+  const wrote=full.length>MAX_WROTE?`${full.slice(0,MAX_WROTE-1).trimEnd()}…`:full;
   const check:ConvertedQuantity={quantity,note:{kind:'check',wrote,text:`Check quantity (customer wrote: ${wrote})`}};
   if(!pricing)return check;
-  // Fail closed: pack wording this module did not read, or more than one pack, is never converted.
-  if(reading?.unread||packs.length>1)return check;
-  // The customer's one stated pack must be the item's (count and kind), or nothing is converted.
-  const mismatch=packs.length===1?packMismatch(packs[0],pricing):null;
-  if(mismatch)return {quantity,note:{kind:'check',wrote,text:`Check quantity: customer's pack is ${packs[0].text}, ${mismatch}`}};
+  // Fail closed: the chosen item must account for the whole description, and nothing else may be in the raw line.
+  if(gate&&(!gate.accounted||leftover))return check;
   if(!Number.isInteger(quantity)||quantityProblem(quantity)!==null)return check;
 
   let measure:Measure|null=known?.unit??null;

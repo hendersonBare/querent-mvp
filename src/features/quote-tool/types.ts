@@ -22,8 +22,13 @@ export interface ResultItem {
   pricing:PricingUnit|null;
 }
 
-/** A catalog item with its scorer score (0 to 1): a Swap candidate, a near-miss or a search hit. */
-export interface ScoredItem extends ResultItem {score:number}
+/**
+ * A catalog item with its scorer score (0 to 1): a Swap candidate, a near-miss or a search hit.
+ * `accounted`: the line's description is fully accounted for by this item (the matcher's Strict total
+ * accounting, accountLine), the first condition for converting the customer's quantity (B10b);
+ * missing or false: the quantity is kept and flagged.
+ */
+export interface ScoredItem extends ResultItem {score:number;accounted?:boolean}
 
 /**
  * Why a line came out as it did: `matched`; `judge_error` (the judge failed or timed out: No match); or
@@ -44,6 +49,8 @@ export interface ResultLine {
   rawText:string;
   /** The item description the parser took from it. */
   description:string;
+  /** The supplier's own item number the parser took out of the line ("S-4128"), or null. */
+  suppliersSku?:string|null;
   quantity:number|null;
   unit:string|null;
   quantityUnclear:boolean;
