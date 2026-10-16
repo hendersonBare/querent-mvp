@@ -298,6 +298,8 @@ describe('statedPack: the pack size the customer states',()=>{
     ['Bubble Dispenser Packs 24"x50\'',null],
     ['Tape 3/4" x 36 yds',null],
     ['Gloves 3 packs',null],
+    ['Kraft paper 36" 50 lb./bundle',null],
+    ['Poly mailers 10x13 100/pk',{count:100,per:null,text:'100 ct'}],
   ])('%j -> %j',(text,pack)=>{
     expect(statedPack(text)).toEqual(pack);
   });
