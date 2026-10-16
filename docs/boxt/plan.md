@@ -138,7 +138,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B8 | E2E, access control, CI | B5, B6, B7 | in progress (`boxt/task/B8-e2e-ci`, staged on B5 + B7) |
 | B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 (staged on the B8 head) | blocked after 3 verifier FAILs; continued as B10b on the same branch |
 | B10b | Fail-closed quantity conversion (any pack wording not fully understood, or more than one pack, flags) | B10 branch | in progress (`boxt/task/B10-price-unit-polish`) |
-| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | in progress (`boxt/task/B9-docs`, drafted early; final check after B8) |
+| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | final accuracy pass done (`eab30e2`, B10 merged in); to verify after B10b |
 
 ### B0: Strip to the shell; new stack scaffolding
 - Delete the SQLite data layer (`src/server/db`, `better-sqlite3`), every feature, route, component, test,
