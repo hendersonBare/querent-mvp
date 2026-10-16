@@ -89,9 +89,9 @@ addWords('case','carton',['carton','cartons','ctn','ctns']);
 addWords('roll','roll',['roll','rolls','rl','rls']);
 addWords('coil','coil',['coil','coils']);
 
-/** The product nouns, singular -> its group: box, bag (bag, pouch), mailer (mailer, envelope), roll, sheet, label, coil. */
+/** The product nouns, singular -> its group: carton (folding cartons), box, bag (bag, pouch), mailer (mailer, envelope), roll, sheet, label, coil. */
 const NOUNS:Readonly<Record<string,string>>={
-  box:'box',bag:'bag',pouch:'bag',mailer:'mailer',envelope:'mailer',roll:'roll',sheet:'sheet',label:'label',coil:'coil',
+  carton:'carton',box:'box',bag:'bag',pouch:'bag',mailer:'mailer',envelope:'mailer',roll:'roll',sheet:'sheet',label:'label',coil:'coil',
 };
 /** Only categories whose every item is that thing (the bags category also holds pallet covers and sheeting; mailers, dispenser packs). */
 const CATEGORY_NOUNS:Readonly<Record<string,string>>={boxes:'box',labels:'label'};
@@ -220,13 +220,20 @@ export function convertQuantity(quantity:number|null,unit:string|null,pricing:Pr
   if(!Number.isInteger(quantity)||quantityProblem(quantity)!==null)return check;
 
   let measure:Measure|null=known?.unit??null;
-  // The item's own product noun is a piece ("500 boxes" of a box, "4 rolls" of stretch wrap); a box only
-  // of an item priced each, since a box of an item priced per case may be the case itself.
-  if(measure!==pricing.unit&&noun&&pricing.nouns.includes(noun.group)&&(noun.group!=='box'||pricing.unit==='each'))measure='each';
+  // The item's own product noun means pieces, never a container ("500 cartons" of folding cartons are
+  // 500 cartons, not 500 cases; "4 rolls" of stretch wrap sold per case of 4 are 1 case), except where
+  // the piece is the item's pricing unit itself (10 rolls of film priced per roll). A box only of an
+  // item priced each, since a box of an item priced per case may be the case itself.
+  const own=!!noun&&pricing.nouns.includes(noun.group);
+  if(own&&noun.group!==pricing.unit){
+    if(noun.group==='box'&&pricing.unit!=='each')return check;
+    measure='each';
+  }
   if(!measure)return check;
   const converted=(n:number):ConvertedQuantity=>quantityProblem(n)!==null?check
     :{quantity:n,note:{kind:'converted',wrote,text:`Customer asked for ${wrote} = ${amount(n,pricing.unit)}`}};
-  if(measure===pricing.unit)return known?.word==='carton'?converted(quantity):{quantity,note:null};
+  // Cartons are cases only of an item that is not itself a carton and whose case count is known.
+  if(measure===pricing.unit)return known?.word==='carton'&&!own?pricing.contains?converted(quantity):check:{quantity,note:null};
 
   if(measure==='bundle'&&pricing.unit==='each'&&pricing.bundleOf)return converted(quantity*pricing.bundleOf);
   if(measure==='each'&&pricing.contains&&quantity%pricing.contains===0)return converted(quantity/pricing.contains);

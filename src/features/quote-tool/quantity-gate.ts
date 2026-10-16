@@ -21,6 +21,8 @@ const FILLER=new Set(['qty','quantity','please','pls','of']);
 /** Labels before the quantity's number that belong to the quantity phrase: "qty 2 cases", "x 4 bundles". */
 const QTY_LABEL=new Set(['qty','quantity','x','×']);
 const MAX_LEFTOVER=60;
+/** Anything left but spaces, separators (, . ; : brackets quotes ! ? dashes • |) and the words and digits checked above: ~ # = + * @ % < > ≈ ± / & $ … */
+const SYMBOL=/[^\s\p{L}\p{M}\p{N},.;:()[\]{}'"!?\-–—•·|]/u;
 /** "$1,100.00", "USD 45", optionally followed by exactly "ea", "each" or "/ea"; never glued to more letters or digits. */
 const CURRENCY=/(?<![\p{L}\p{N}$])(?:\$|USD\s*)\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:\s*\/\s*ea\b|\s*(?:ea|each)\b)?(?![\p{L}\p{N}.,]\p{N}|[\p{L}\p{N}])/giu;
 
@@ -36,8 +38,6 @@ const UNIT_NAMES:ReadonlyMap<string,string>=new Map([
   ...words('coil','coil coils'),
   ...words('pallet','pallet pallets plt plts'),
 ]);
-/** Product nouns a quantity in pieces may be written in ("500 boxes" for a quantity in each). */
-const PIECE_NOUNS=new Set(['box','bag','pouch','mailer','envelope','roll','sheet','label','coil','tube']);
 
 /** A unit word as one name: "cases"/"cs"/"carton" -> case, "pcs" -> each, "boxes" -> box, "mailers" -> mailer. */
 export function unitName(word:string|null|undefined):string|null{
@@ -116,12 +116,14 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
       if(!/^\d+$/.test(rest[i].text))continue;
       const v=value(i);
       if(!v||v.n!==quantity)continue;
-      const between=(a:Token,b:Token)=>/^[\s\-.:#=]*$/.test(text.slice(a.end,b.start));
+      const between=(a:Token,b:Token)=>/^[\s\-.:]*$/.test(text.slice(a.end,b.start));
       let to=rest[v.last].end;
       if(name){
         const next=rest[v.last+1];
         const said=next?unitName(next.text):null;
-        if(!next||!between(rest[v.last],next)||!(said===name||(name==='each'&&PIECE_NOUNS.has(said??''))))continue;
+        // The raw word must be the parser's unit: "800 boxes" read as "each" is not 800 each (the dialog's unit
+        // rules treat a box differently), so a disagreement leaves the phrase over and flags.
+        if(!next||!between(rest[v.last],next)||said!==name)continue;
         to=next.end;
       }
       let from=rest[i].start;
@@ -138,7 +140,7 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
   }
 
   const left=[...text].map((c,i)=>removed[i]?' ':c).join('');
-  const dirty=/\p{N}/u.test(left)||tokens(left).some(t=>!FILLER.has(t.text));
+  const dirty=/\p{N}/u.test(left)||tokens(left).some(t=>!FILLER.has(t.text))||SYMBOL.test(left);
   if(!dirty)return null;
   // As written, without brackets (so a flag's own brackets stay balanced) or stray separators at the ends.
   const shown=left.replace(/[()[\]{}]/g,' ').replace(/\s+/g,' ').replace(/^[\s,;:.\-–—]+|[\s,;:\-–—]+$/g,'').trim();

@@ -133,9 +133,10 @@ describe('convertQuantity',()=>{
     expect(convertQuantity(2500.5,'each',BAGS)?.note?.kind).toBe('check');
   });
 
-  it('reads cartons as cases: the same number of an item priced per case, with a note naming the customer\'s word',()=>{
+  it('reads cartons as cases: the same number of an item priced per case of a known count, with a note naming the customer\'s word',()=>{
     expect(convertQuantity(2,'cartons',BAGS)).toEqual({quantity:2,note:{kind:'converted',wrote:'2 cartons',text:'Customer asked for 2 cartons = 2 cases'}});
-    expect(convertQuantity(1,'ctn',TAPE)?.note?.text).toBe('Customer asked for 1 carton = 1 case');
+    // A case whose count is not known may not be the customer's carton (B10b round 3).
+    expect(convertQuantity(1,'ctn',TAPE)?.note?.text).toBe('Check quantity (customer wrote: 1 carton)');
   });
 });
 

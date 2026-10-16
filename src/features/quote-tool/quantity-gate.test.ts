@@ -200,7 +200,7 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['S-4128 12x10x8 boxes 32 ECT 10 bdl','12x10x8 boxes 32 ECT','S-4128',10,'bundle',null],
     ['Reclosable Poly Bags 30 x 30" 2 Mil, qty 2 cases','Reclosable Poly Bags 30 x 30" 2 Mil',null,2,'case',null],
     ['Reclosable Poly Bags 30 x 30" 2 Mil, Quantity: 2 cs.','Reclosable Poly Bags 30 x 30" 2 Mil',null,2,'cases',null],
-    ['Poly bags 4x10, 2,000 bags please','Poly bags 4x10',null,2000,'each',null],
+    ['Poly bags 4x10, 2,000 bags please','Poly bags 4x10',null,2000,'bags',null],
     ['Poly bags 4x10 x 12','Poly bags 4x10',null,12,null,null],
     // The parser's description word for word, with other marks: still the description.
     ['Poly bags 4x10" - 6 mil, 2 cases','Poly bags 4x10 6 mil',null,2,'case',null],
