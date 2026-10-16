@@ -17,6 +17,9 @@ export const CATALOG:CatalogItem[]=[
   item('SF188CAST','Cast Stretch Wrap 18"x1500\' 80 Gauge','Case of 4',4,24.5,'Stretch Film'),
   item('PB3669','Reclosable Poly Bags 30x30" 2 Mil','Case of 250',250,89,'Poly Bags'),
   item('PB3670','Reclosable Poly Bags 30x30" 4 Mil','Case of 100',100,99,'Poly Bags'),
+  // Two rows the TIE line fully names, worded apart (two product groups with the same score): a genuine tie.
+  item('T902','Clear Hot Melt Tape 2" x 110 yd','Case of 36',1,60,'Tape'),
+  item('T902B','Clear Hot Melt Tape, 2" x 110 yd','Case of 36',1,60,'Tape'),
 ];
 
 export const STRICT={minScore:0.9,minLead:0.35};
@@ -25,9 +28,9 @@ export const STRICT={minScore:0.9,minLead:0.35};
 export const CLEAR_BOX='12x10x8" Corrugated Boxes, 32 ECT';
 export const CLEAR_WRAP='Cast Stretch Wrap 18"x1500\' 80 Gauge';
 export const CLEAR_BAGS='Reclosable Poly Bags 30x30" 2 Mil';
-/** Lines that do not: nothing scores; a tie between two groups; a wrong-order box. */
+/** Lines that do not: nothing scores; a tie between two groups (both fully accounted for, equal scores); a wrong-order box. */
 export const NOTHING='Foam peanuts 14 cu ft';
-export const TIE='Reclosable Poly Bags 30x30"';
+export const TIE='Clear Hot Melt Tape 2" x 110 yd';
 export const WRONG_BOX='12x8x10" Corrugated Boxes';
 
 export function row(description:string,overrides:Partial<ParsedRow>={}):ParsedRow{
