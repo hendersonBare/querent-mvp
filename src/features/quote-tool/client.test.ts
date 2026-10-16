@@ -1,5 +1,5 @@
 import {describe,expect,it,vi} from 'vitest';
-import {readNdjson,requestMatch} from './client';
+import {readNdjson,requestMatch,searchCatalog} from './client';
 import type {MatchStreamEvent} from './types';
 
 // The browser side of the match stream: NDJSON split across chunks at any byte, one event per line,
@@ -57,5 +57,15 @@ describe('requestMatch',()=>{
       .toEqual({ok:false,error:expect.stringMatching(/connection/i)});
     expect(await requestMatch(new FormData(),()=>{},{fetcher:async()=>ndjson([{type:'progress',stage:'parse',done:0,total:1}])}))
       .toEqual({ok:false,error:expect.stringMatching(/try again/i)});
+  });
+});
+
+describe('searchCatalog',()=>{
+  it('sends the line\'s description with the query, so each result says whether it accounts for the line (B10b)',async()=>{
+    const fetcher=vi.fn(async(_url:string)=>new Response(JSON.stringify({items:[]}),{status:200}));
+    await searchCatalog('poly bags',{fetcher:fetcher as unknown as typeof fetch,line:'Bags 4x6 & 2 mil'});
+    expect(fetcher.mock.calls[0][0]).toBe('/api/catalog/search?q=poly%20bags&line=Bags%204x6%20%26%202%20mil');
+    await searchCatalog('poly bags',{fetcher:fetcher as unknown as typeof fetch});
+    expect(fetcher.mock.calls[1][0]).toBe('/api/catalog/search?q=poly%20bags');
   });
 });

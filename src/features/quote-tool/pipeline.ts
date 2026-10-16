@@ -1,7 +1,7 @@
 import {judgeAll} from '@/server/llm';
 import {JUDGE_ERROR} from '@/server/llm/verdicts';
 import type {Judge,JudgeCandidate,JudgeVerdict,ParsedRow,ParseInput,ParseResult,Parser} from '@/server/llm/types';
-import {decide,packLabel,retrieve,type MatchRule,type Retrieval} from '@/server/matching';
+import {decide,packContainersOf,packLabel,retrieve,type MatchRule,type Retrieval} from '@/server/matching';
 import type {Candidate} from '@/server/matching/retrieve';
 import type {CatalogItem} from '@/server/repository/types';
 import {nullSkuMap,type SupplierSkuMap} from './sku-map';
@@ -120,7 +120,7 @@ function resultLine(index:number,row:ParsedRow,retrieval:Retrieval<CatalogItem>,
   const decision=decide(retrieval,{sku:verdict?.sku??null});
   const eligibility=eligibilityOf(retrieval);
   const base={
-    index,rawText:row.rawText,description:row.description,suppliersSku:row.suppliersSku,quantity:row.quantity,unit:row.unit,quantityUnclear:row.quantityUnclear,
+    index,rawText:row.rawText,description:row.description,suppliersSku:row.suppliersSku,packContainers:packContainersOf(row.description),quantity:row.quantity,unit:row.unit,quantityUnclear:row.quantityUnclear,
     candidates:retrieval.candidates.map(toScored),nearMisses:retrieval.nearMisses.map(toScored),
     ...(eligibility?{eligibility}:{}),
   };

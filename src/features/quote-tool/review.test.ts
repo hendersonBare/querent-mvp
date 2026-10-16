@@ -176,93 +176,75 @@ describe('the quantity on a line',()=>{
 });
 
 describe('withItem (Swap and "Use this item")',()=>{
+  // An item that fully accounts for the line's description (ScoredItem.accounted), and one that does not.
+  const PLT_OK:ScoredItem={...PLT,accounted:true};
+
   it('re-derives the unit from the new item and re-runs the conversion from the customer\'s quantity',()=>{
     const lines=initialReview(sampleRun());
-    // An unmatched line of 4 cases promoted to a bag priced per case: still 4 cases.
-    const promoted=withItem(lines[2],BAGS,'rep');
-    expect(promoted).toMatchObject({status:'matched',restoreTo:'matched',item:{sku:'PB3669'},matchedBy:'rep',score:0.56,quantity:'4',unit:'case',quantityNote:null,price:''});
-    // The box line swapped for a box priced each in bundles: 10 bundles = 250 each again, even after an edit.
-    const swapped=withItem(editQuantity({...lines[0],price:'0.8'},'300'),PLT,'rep');
+    // The box line swapped for a box priced each in bundles that accounts for the line: 10 bundles = 250 each again, even after an edit.
+    const swapped=withItem(editQuantity({...lines[0],price:'0.8'},'300'),PLT_OK,'rep');
     expect(swapped).toMatchObject({item:{sku:'12108-PLT'},quantity:'250',unit:'each',quantityChecked:false,price:'0.8'});
     expect(swapped.quantityNote?.text).toBe('Customer asked for 10 bundles = 250 each');
+    // An unmatched line of 4 cases promoted to a bag that does not account for it (3 mil asked, 2 mil sold): 4 cases kept and flagged.
+    const promoted=withItem(lines[2],BAGS,'rep');
+    expect(promoted).toMatchObject({status:'matched',restoreTo:'matched',item:{sku:'PB3669'},matchedBy:'rep',score:0.56,quantity:'4',unit:'case',price:''});
+    expect(quantityFlag(promoted)).toBe('Check quantity (customer wrote: 4 cases)');
+    // The same pick, accounted for: the same unit, no note.
+    expect(withItem(lines[2],{...BAGS,accounted:true},'rep')).toMatchObject({quantity:'4',unit:'case',quantityNote:null});
+  });
+
+  it('fails closed when the item\'s accounting is not known (a pick without `accounted`)',()=>{
+    const box=initialReview(sampleRun())[0];
+    expect(quantityFlag(withItem(box,PLT,'rep'))).toBe('Check quantity (customer wrote: 10 bundles)');
   });
 
   it('clears the price when the new item is priced per another unit, and converts or flags the quantity for it',()=>{
     const box=initialReview(sampleRun())[0];
-    const bags=withItem({...box,price:'0.8'},BAGS,'rep');
+    const bags=withItem({...box,price:'0.8'},{...BAGS,accounted:true},'rep');
     expect(bags).toMatchObject({unit:'case',quantity:'10',price:''});
     expect(quantityFlag(bags)).toBe('Check quantity (customer wrote: 10 bundles)');
 
-    const pieces={...initialReview(sampleRun())[3],customerQuantity:500,customerUnit:'each',quantity:'500'};
-    expect(withItem(pieces,ROLLS,'rep')).toMatchObject({unit:'roll',quantity:'2',quantityNote:{kind:'converted',text:'Customer asked for 500 each = 2 rolls'}});
+    const pieces={...initialReview(sampleRun())[3],customerQuantity:500,customerUnit:'each',quantity:'500',customerLeftover:null};
+    expect(withItem(pieces,{...ROLLS,accounted:true},'rep')).toMatchObject({unit:'roll',quantity:'2',quantityNote:{kind:'converted',text:'Customer asked for 500 each = 2 rolls'}});
   });
 
   it('counts the item\'s own product noun as pieces: 4 rolls of stretch wrap priced per case of 4 is 1 case',()=>{
-    const wrapLine={...initialReview(sampleRun())[3],customerQuantity:4,customerUnit:'roll',quantity:'4',unit:'roll'};
+    const wrapLine={...initialReview(sampleRun())[3],customerQuantity:4,customerUnit:'roll',quantity:'4',unit:'roll',customerLeftover:null};
     const wrap:ScoredItem={sku:'SF188CAST',description:'Cast Stretch Wrap, Hand Length, 18"x1500\' 80 Gauge',pack:'Case of 4',category:'stretch-wrap',listPrice:81.08,listPriceUnit:'case',
-      pricing:pricingUnit('Case of 4',1,{description:'Cast Stretch Wrap, Hand Length, 18"x1500\' 80 Gauge',category:'stretch-wrap'}),score:1};
+      pricing:pricingUnit('Case of 4',1,{description:'Cast Stretch Wrap, Hand Length, 18"x1500\' 80 Gauge',category:'stretch-wrap'}),score:1,accounted:true};
     const promoted=withItem(wrapLine,wrap,'rep');
     expect(promoted).toMatchObject({quantity:'1',unit:'case',quantityNote:{kind:'converted',text:'Customer asked for 4 rolls = 1 case'}});
     expect(quantityFlag(promoted)).toBeNull();
     expect(quantityAside(promoted)).toBe('Customer asked for 4 rolls = 1 case');
   });
 
-  it('compares the customer\'s stated pack with the new item, on the initial match, Swap and "Use this item"',()=>{
+  it('flags a raw line with anything besides the description, the SKU and the quantity, on the initial match, Swap and "Use this item" (B10b)',()=>{
     const run=sampleRun();
-    // An unmatched line the customer packs 50 to a bundle; the closest item is bundled 25.
-    run.lines[2]={...run.lines[2],rawText:'Corrugated Boxes 12x10x8 32 ECT 50/bundle, 2 bundles',description:'Corrugated Boxes 12x10x8 32 ECT 50/bundle',quantity:2,unit:'bundle'};
-    // A matched line whose stated pack is the item's.
-    run.lines[0]={...run.lines[0],description:'12 x 10 x 8" Corrugated Boxes 25/bundle'};
+    run.lines[0]={...run.lines[0],rawText:'S-4128 12 x 10 x 8" Corrugated Boxes, pack size 50, 4 bundles',quantity:4,unit:'bundle'};
+    run.lines[2]={...run.lines[2],rawText:'Corrugated Boxes 12x10x8 32 ECT 50 x 4 bundles',description:'Corrugated Boxes 12x10x8 32 ECT',quantity:4,unit:'bundle'};
     const lines=initialReview(run);
-    expect(lines[2].customerPack).toEqual({packs:[{count:50,per:'bundle',text:'50/bundle'}],unread:null});
-    expect(lines[0]).toMatchObject({quantity:'250',quantityNote:{kind:'converted',text:'Customer asked for 10 bundles (25/bundle) = 250 each'}});
-
-    const picked=withItem(lines[2],PLT,'rep');
-    expect(picked).toMatchObject({quantity:'2',unit:'each',quantityNote:{kind:'check',wrote:'2 bundles (50/bundle)'}});
-    expect(quantityFlag(picked)).toBe('Check quantity: customer\'s pack is 50/bundle, this item is a bundle of 25');
-    expect(toSaveRequest([{...picked,price:'1'}],{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:2,unit:'each',quantityUnclear:true,customerQuantity:'2 bundles (50/bundle)'});
-
-    // Swap keeps comparing: to bags per case of 250, the 50/bundle pack is still not the item's.
-    expect(quantityFlag(withItem(picked,BAGS,'rep'))).toBe('Check quantity: customer\'s pack is 50/bundle, this item is a case of 250');
-    // Once the rep types a quantity, the flag becomes an aside with the customer's words, and the save keeps them.
-    const edited=editQuantity(picked,'100');
-    expect([quantityFlag(edited),quantityAside(edited)]).toEqual([null,'Customer wrote: 2 bundles (50/bundle)']);
-    expect(toSaveRequest([{...edited,price:'1'}],{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:100,quantityUnclear:true,customerQuantity:'2 bundles (50/bundle)'});
+    expect(lines[0].customerLeftover).toBe('pack size 50');
+    // The auto match accounts for the description, but the raw line says more: 4 kept, flagged, saved unclear with the customer's words.
+    expect(lines[0]).toMatchObject({quantity:'4',unit:'each',quantityNote:{kind:'check',wrote:'4 bundles, pack size 50'}});
+    expect(quantityFlag(lines[0])).toBe('Check quantity (customer wrote: 4 bundles, pack size 50)');
+    expect(toSaveRequest([{...lines[0],price:'1'}],{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:4,unit:'each',quantityUnclear:true,customerQuantity:'4 bundles, pack size 50'});
+    // "50 x 4 bundles": the 50 is left over, whatever item is picked.
+    const picked=withItem(lines[2],PLT_OK,'rep');
+    expect(picked).toMatchObject({quantity:'4',unit:'each',quantityNote:{kind:'check',wrote:'4 bundles, 50'}});
+    // Once the rep types a quantity, the flag becomes an aside with the customer's words.
+    const edited=editQuantity(picked,'200');
+    expect([quantityFlag(edited),quantityAside(edited)]).toEqual([null,'Customer wrote: 4 bundles, 50']);
   });
 
-  it('flags 1 case of 500 bags picked as a case of 1,000, and reads a pack the parser left out of the description',()=>{
+  it('checks the kind of a stated pack against the item: a box of 100 is not a case of 100',()=>{
     const run=sampleRun();
-    run.lines[2]={...run.lines[2],rawText:'Reclosable Poly Bags 4x10" 6 mil 500/case, 1 case',description:'Reclosable Poly Bags 4x10" 6 mil 500/case',quantity:1,unit:'case'};
-    run.lines[3]={...run.lines[3],rawText:'2 cases of 1,000 poly bags 4x10',description:'poly bags 4x10',quantity:2,unit:'case'};
-    const PB3866:ScoredItem={sku:'PB3866',description:'Reclosable Poly Bags, 4x10" 6 MIL',pack:'Case of 1,000',category:'bags',listPrice:112.19,listPriceUnit:'case',
-      pricing:pricingUnit('Case of 1,000',1,{description:'Reclosable Poly Bags, 4x10" 6 MIL',category:'bags'}),score:0.9};
-    const lines=initialReview(run);
-    const picked=withItem(lines[2],PB3866,'rep');
-    expect(picked).toMatchObject({quantity:'1',unit:'case',quantityNote:{kind:'check',wrote:'1 case (500/case)'}});
-    expect(quantityFlag(picked)).toBe('Check quantity: customer\'s pack is 500/case, this item is a case of 1,000');
-    expect(quantityChecks([picked])).toBe(1);
-
-    expect(lines[3].customerPack).toEqual({packs:[{count:1000,per:'case',text:'1,000/case'}],unread:null});
-    expect(withItem(lines[3],PB3866,'rep')).toMatchObject({quantity:'2',unit:'case',quantityNote:null});
-    expect(quantityFlag(withItem(lines[3],BAGS,'rep'))).toBe('Check quantity: customer\'s pack is 1,000/case, this item is a case of 250');
-  });
-
-  it('fails closed on pack wording it does not read or on two packs: kept, flagged, saved unclear with the customer\'s words (B10b)',()=>{
-    const run=sampleRun();
-    run.lines[2]={...run.lines[2],rawText:'Corrugated Boxes 12x10x8 bdl/50, 2 bundles',description:'Corrugated Boxes 12x10x8 bdl/50',quantity:2,unit:'bundle'};
-    run.lines[3]={...run.lines[3],rawText:'Thermal Mailers 8x11 100/box 10 boxes/case, 2 cases',description:'Thermal Mailers 8x11 100/box 10 boxes/case',quantity:2,unit:'case'};
-    const lines=initialReview(run);
-    expect(lines[2].customerPack).toEqual({packs:[],unread:'bdl/50'});
-    const picked=withItem(lines[2],PLT,'rep');
-    expect(picked).toMatchObject({quantity:'2',unit:'each',quantityNote:{kind:'check',wrote:'2 bundles (bdl/50)'}});
-    expect(quantityFlag(picked)).toBe('Check quantity (customer wrote: 2 bundles (bdl/50))');
-    expect(toSaveRequest([{...picked,price:'1'}],{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:2,unit:'each',quantityUnclear:true,customerQuantity:'2 bundles (bdl/50)'});
-    // Two packs, one of them a case of 100 like the item: still not converted (a 10x under-quote otherwise).
+    run.lines[2]={...run.lines[2],rawText:'Thermal Mailers 8x11 100 per box, 2 cases',description:'Thermal Mailers 8x11 100 per box',quantity:2,unit:'case',packContainers:['box']};
     const INM811:ScoredItem={sku:'INM811',description:'Thermal Mailers 8x11"',pack:'Case of 100',category:'mailers',listPrice:80,listPriceUnit:'case',
-      pricing:pricingUnit('Case of 100',1,{description:'Thermal Mailers 8x11"',category:'mailers'}),score:0.9};
-    const mailers=withItem(lines[3],INM811,'rep');
-    expect(mailers).toMatchObject({quantity:'2',unit:'case',quantityNote:{kind:'check',wrote:'2 cases (100/box, 10/case)'}});
-    expect(quantityChecks([mailers,picked])).toBe(2);
+      pricing:pricingUnit('Case of 100',1,{description:'Thermal Mailers 8x11"',category:'mailers'}),score:0.9,accounted:true};
+    const line=initialReview(run)[2];
+    expect(line.packContainers).toEqual(['box']);
+    expect(quantityFlag(withItem(line,INM811,'rep'))).toBe('Check quantity (customer wrote: 2 cases)');
+    expect(withItem({...line,packContainers:['case']},INM811,'rep')).toMatchObject({quantity:'2',quantityNote:null});
   });
 
   it('keeps the quantity blank when the customer gave none',()=>{

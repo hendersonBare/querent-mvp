@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {describe,expect,it} from 'vitest';
 import {parseLine} from '@/server/llm/scripted-parser';
-import {accountLine,type PackagingItem} from '@/server/matching';
+import {accountLine,packContainersOf,type PackagingItem} from '@/server/matching';
 import {rawLeftover} from './quantity-gate';
 import {convertQuantity,pricingUnit,type ConvertedQuantity,type PricingUnit} from './units';
 
@@ -39,7 +39,7 @@ function run(raw:string,sku:string,ov:Override={}):ConvertedQuantity{
   const unit='unit' in ov?ov.unit!:row.unit;
   const suppliersSku='suppliersSku' in ov?ov.suppliersSku!:row.suppliersSku;
   const leftover=rawLeftover({rawText:raw,description,suppliersSku,quantity,unit});
-  return convertQuantity(quantity,unit,pricingOf(sku),{accounted:accounted(description,sku),leftover});
+  return convertQuantity(quantity,unit,pricingOf(sku),{accounted:accounted(description,sku),leftover,packs:packContainersOf(description)});
 }
 const flagged=(r:ConvertedQuantity)=>r.quantity===null||r.note?.kind==='check';
 /** Safe: flagged, or (when the line states nothing but the item's own pack) exactly `right`. */
@@ -209,7 +209,7 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['Boxes 12x10x8 50 x 4 bundles','Boxes 12x10x8',null,4,'bundle','50'],
     ['Bags 4x10 ٥٠٠ a carton, 2 cartons','Bags 4x10',null,2,'carton','٥٠٠ a carton'],
     ['Bags 4x10 five hundred bags, 2 cases','Bags 4x10',null,2,'case','five hundred bags'],
-    ['Bags 4x10 ½ case, 2 cases','Bags 4x10',null,2,'case','½ case'],
+    ['Bags 4x10 ½ case, 2 cases','Bags 4x10',null,2,'case','1⁄2 case'],
     // A description the raw line does not contain word for word leaves it all over.
     ['Bags 4x10, 2 cases','Reclosable Bags 4x10',null,2,'case','Bags 4x10'],
     // A unit the raw line does not say is not the quantity phrase.

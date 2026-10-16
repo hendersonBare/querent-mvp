@@ -187,7 +187,21 @@ export interface ConvertedQuantity {quantity:number|null;note:QuantityNote|null}
  * the line's description; `leftover`, what else the raw line says (null: nothing). Without a gate (unit
  * tests of the conversion rules) only the rules apply; the review dialog always passes one.
  */
-export interface QuantityGate {accounted:boolean;leftover:string|null}
+export interface QuantityGate {
+  accounted:boolean;
+  leftover:string|null;
+  /**
+   * What each pack the description states is per (the matcher's packContainersOf: case, bundle, box,
+   * pack, sleeve, roll; null for a bare count, which is per the customer's unit). The matcher counts a
+   * box, a case and a bundle alike, so this checks the kind: each must be the item's own pack.
+   */
+  packs?:readonly (string|null)[];
+}
+
+/** The kind of pack an item is sold in: a bundle (priced each, sold in bundles), else its pricing unit. */
+const packKind=(pricing:PricingUnit)=>pricing.unit==='each'?pricing.bundleOf?'bundle':null:pricing.unit;
+/** One name for a customer's unit word, as the matcher names containers ("cartons" is case). */
+const kindOf=(unit:string|null)=>{const key=lower(unit);return Object.hasOwn(UNIT_WORDS,key)?UNIT_WORDS[key].unit:pieceNoun(unit)?.group??(key||null);};
 
 export function convertQuantity(quantity:number|null,unit:string|null,pricing:PricingUnit|null,gate:QuantityGate|null=null):ConvertedQuantity{
   if(quantity===null)return {quantity:null,note:null};
@@ -202,6 +216,7 @@ export function convertQuantity(quantity:number|null,unit:string|null,pricing:Pr
   if(!pricing)return check;
   // Fail closed: the chosen item must account for the whole description, and nothing else may be in the raw line.
   if(gate&&(!gate.accounted||leftover))return check;
+  if(gate?.packs?.some(per=>(per??kindOf(unit))!==packKind(pricing)))return check;
   if(!Number.isInteger(quantity)||quantityProblem(quantity)!==null)return check;
 
   let measure:Measure|null=known?.unit??null;

@@ -29,7 +29,11 @@ describe('runPipeline',()=>{
       item:{sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,listPriceUnit:'each',pricing:{unit:'each',contains:1,bundleOf:25,nouns:['box']}},
     });
     expect(line.candidates.map(c=>c.sku)).toEqual(['12108-BDL','12108-PLT','161212-BDL']);
-    expect(line.candidates[2]).toEqual({sku:'161212-BDL',description:'16x12x12" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:1.52,listPriceUnit:'each',pricing:{unit:'each',contains:1,bundleOf:25,nouns:['box']},score:expect.any(Number)});
+    expect(line.candidates[2]).toEqual({sku:'161212-BDL',description:'16x12x12" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:1.52,listPriceUnit:'each',pricing:{unit:'each',contains:1,bundleOf:25,nouns:['box']},score:expect.any(Number),accounted:false});
+    // Each candidate says whether it fully accounts for the line (B10b): the matched box does, the 16x12x12 box does not.
+    expect(line.candidates[0].accounted).toBe(true);
+    // The supplier's SKU and what each stated pack is per travel with the line.
+    expect(line).toMatchObject({suppliersSku:null,packContainers:[]});
     expect(result.counts).toEqual({rows:1,matched:1,unmatched:0,judged:1});
   });
 

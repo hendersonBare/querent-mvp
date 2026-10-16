@@ -6,10 +6,13 @@
 //      matcher's Strict total accounting, accountLine in src/server/matching; carried on each
 //      ScoredItem as `accounted`). A stated pack that differs, a second size, a number or a word the
 //      item does not confirm are all blockers there;
-//   2. the raw line (this file): once the description, the supplier's SKU and the parser's quantity
-//      phrase (its number and unit word, with a "qty"/"x" label) are taken out of the raw text by
-//      exact span, nothing is left but separators and a few filler words: no digit of any script, and
-//      no word but FILLER.
+//   2. the raw line (this file): once a leading list marker ("1."), the description, the supplier's
+//      SKU and the parser's quantity phrase (its number and unit word, with a "qty"/"x" label) are
+//      taken out of the raw text by exact span, nothing is left but separators and a few filler words:
+//      no digit of any script, and no word but FILLER;
+//   3. the pack kind: each pack the description states (the matcher reads them; packContainersOf) is
+//      per the item's own pack: the matcher counts a box, a case and a bundle alike, the quantity does
+//      not (./units.ts QuantityGate.packs).
 // Nothing here recognises pack wording: whatever is left over flags, whatever it says.
 
 /** Words that may be left over without meaning anything about the quantity. */
@@ -67,6 +70,9 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
   const remove=(from:number,to:number)=>{for(let i=from;i<to;i++)removed[i]=true;};
   const free=(t:Token)=>!removed.slice(t.start,t.end).some(Boolean);
 
+  // A list marker the parser drops ("1.", "2)", "-", "•") at the very start.
+  const marker=/^\s*(?:[-*•·]|\d{1,3}[.)])\s+/.exec(text);
+  if(marker)remove(0,marker[0].length);
   // The supplier's SKU, by exact span.
   const sku=suppliersSku?.normalize('NFKC').trim();
   if(sku){
@@ -111,7 +117,11 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
       let from=rest[i].start;
       const label=rest[i-1];
       if(label&&QTY_LABEL.has(label.text)&&between(label,rest[i]))from=label.start;
-      else if(/[x×]\s*$/i.test(text.slice(0,from))&&/(^|\s)[x×]\s*$/i.test(text.slice(0,from)))from=text.slice(0,from).search(/[x×]\s*$/i);
+      else{
+        // "×" is a symbol, not a word token: "× 4 bundles".
+        const times=/(?:^|\s)×\s*$/.exec(text.slice(0,from));
+        if(times)from=times.index+times[0].indexOf('×');
+      }
       found={from,to};
     }
     if(found)remove(found.from,found.to);

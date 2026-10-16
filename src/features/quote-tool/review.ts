@@ -42,6 +42,8 @@ export interface ReviewLine {
    * item that fully accounts for the description (ScoredItem.accounted).
    */
   customerLeftover:string|null;
+  /** What each pack the description states is per (ResultLine.packContainers): the chosen item must be sold in that pack. */
+  packContainers:(string|null)[];
   /** How the customer's quantity became `quantity`: converted exactly, or kept and to be checked (null: same unit, or no quantity). */
   quantityNote:QuantityNote|null;
   /** The rep has edited the quantity since the line got its item (a "check" flag then turns into an aside). */
@@ -61,7 +63,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
     const base:ReviewLine={
       key:line.index,status:'unmatched',restoreTo:'unmatched',reason:matched?null:line.reason,blockers:[...line.eligibility?.blockers??[]],
       rawText:line.rawText,description:line.description,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
-      customerQuantity:line.quantity,customerUnit:line.unit,customerLeftover:rawLeftover(line),quantityNote:null,quantityChecked:false,
+      customerQuantity:line.quantity,customerUnit:line.unit,customerLeftover:rawLeftover(line),packContainers:line.packContainers??[],quantityNote:null,quantityChecked:false,
       price:'',item:null,matchedBy:null,score:null,candidates:line.candidates,nearMisses:line.nearMisses,
     };
     // The matched item's accounting is its candidate's (a matched item is always one of them).
@@ -78,7 +80,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
 export function withItem(line:ReviewLine,choice:ScoredItem,matchedBy:'auto'|'rep'):ReviewLine{
   const {score,accounted,...item}=choice;
   const unit=item.pricing?.unit??null;
-  const {quantity,note}=convertQuantity(line.customerQuantity,line.customerUnit,item.pricing,{accounted:accounted===true,leftover:line.customerLeftover});
+  const {quantity,note}=convertQuantity(line.customerQuantity,line.customerUnit,item.pricing,{accounted:accounted===true,leftover:line.customerLeftover,packs:line.packContainers});
   const keepPrice=line.status==='matched'&&line.item!==null&&line.unit===unit;
   return {
     ...line,status:'matched',restoreTo:'matched',item:item as ResultItem,matchedBy,score,

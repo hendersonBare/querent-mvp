@@ -68,7 +68,7 @@ describe('QuoteReviewDialog',()=>{
 
   it('keeps a quantity it cannot convert exactly, flags it with what the customer wrote, and turns the flag into a note once edited',()=>{
     const run=sampleRun();
-    run.lines[0]={...run.lines[0],rawText:'12x10x8 boxes 10 pallets',quantity:10,unit:'pallet'};
+    run.lines[0]={...run.lines[0],rawText:'12x10x8 boxes 10 pallets',description:'12x10x8 boxes',suppliersSku:null,quantity:10,unit:'pallet'};
     render(<QuoteReviewDialog run={run} onClose={()=>{}} onSaved={()=>{}} save={async()=>({id:'x'})} search={async()=>[]}/>);
     const line=within(matchedSection()).getByTestId('line-0');
     expect(within(line).getByLabelText('Quantity for 12108-BDL')).toHaveValue('10');
@@ -80,7 +80,7 @@ describe('QuoteReviewDialog',()=>{
 
   it('says under Save how many lines have a quantity to check, without blocking Save',()=>{
     const run=sampleRun();
-    run.lines[0]={...run.lines[0],rawText:'12x10x8 boxes 10 pallets',quantity:10,unit:'pallet'};
+    run.lines[0]={...run.lines[0],rawText:'12x10x8 boxes 10 pallets',description:'12x10x8 boxes',suppliersSku:null,quantity:10,unit:'pallet'};
     render(<QuoteReviewDialog run={run} onClose={()=>{}} onSaved={()=>{}} save={async()=>({id:'x'})} search={async()=>[]}/>);
     type(screen.getByLabelText('Unit price for 12108-BDL'),'1');
     type(screen.getByLabelText('Unit price for SF188CAST'),'24.5');
@@ -192,12 +192,12 @@ describe('QuoteReviewDialog',()=>{
     type(within(promoted).getByLabelText('Unit price for PB3670'),'99');
     fireEvent.click(saveButton());
     await waitFor(()=>expect(save).toHaveBeenCalled());
-    expect(save.mock.calls[0][0].lines[2]).toEqual({unmatched:false,sku:'PB3670',matchedBy:'rep',originalText:'Reclosable bags 30x30 3 mil 4 cases',quantity:4,unit:'case',quantityUnclear:false,customerQuantity:null,unitPrice:99,matchScore:0.42});
+    expect(save.mock.calls[0][0].lines[2]).toEqual({unmatched:false,sku:'PB3670',matchedBy:'rep',originalText:'Reclosable bags 30x30 3 mil 4 cases',quantity:4,unit:'case',quantityUnclear:true,customerQuantity:'4 cases',unitPrice:99,matchScore:0.42});
   });
 
   it('Swap offers the line\'s other candidates and a catalog search; choosing one makes it the rep\'s pick',async()=>{
     const found:ScoredItem={sku:'SF187CAST',description:'Cast Stretch Wrap 18"x1500\' 70 Gauge',pack:'Case of 4',category:'Stretch Film',listPrice:70,listPriceUnit:'case',pricing:pricingUnit('Case of 4',1),score:0.8};
-    const search=vi.fn(async(_q:string)=>[found]);
+    const search=vi.fn(async(_q:string,_line:string)=>[found]);
     const {save}=setup({search});
     const line=within(matchedSection()).getByTestId('line-0');
     fireEvent.click(within(line).getByRole('button',{name:'Swap'}));
@@ -216,7 +216,8 @@ describe('QuoteReviewDialog',()=>{
     fireEvent.click(within(wrap).getByRole('button',{name:'Swap'}));
     const box=within(wrap).getByRole('searchbox',{name:'Search the catalog'});
     await act(async()=>{type(box,'70 gauge');await new Promise(r=>setTimeout(r,350));});
-    await waitFor(()=>expect(search).toHaveBeenCalledWith('70 gauge'));
+    // The search gets the line's description, which each result is accounted against (B10b).
+    await waitFor(()=>expect(search).toHaveBeenCalledWith('70 gauge','Cast Stretch Wrap 18" x 1500\' 80 ga'));
     fireEvent.click(await within(wrap).findByRole('button',{name:/Use SF187CAST/}));
     expect(wrap).toHaveTextContent('SF187CAST');
 

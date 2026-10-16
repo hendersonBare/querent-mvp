@@ -48,9 +48,18 @@ describe('GET /api/catalog/search',()=>{
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     const {items}=await response.json() as {items:ScoredItem[]};
-    expect(items[0]).toEqual({sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,listPriceUnit:'each',pricing:{unit:'each',contains:1,bundleOf:25,nouns:['box']},score:1});
+    expect(items[0]).toEqual({sku:'12108-BDL',description:'12x10x8" Corrugated Boxes, 32 ECT, bundle pricing',pack:'Bundle of 25',category:'Boxes',listPrice:0.84,listPriceUnit:'each',pricing:{unit:'each',contains:1,bundleOf:25,nouns:['box']},score:1,accounted:false});
     expect(items.map(i=>i.score)).toEqual([...items.map(i=>i.score)].sort((a,b)=>b-a));
     expect(items.every(i=>i.score>0)).toBe(true);
+  });
+
+  it('says whether each item fully accounts for the review line\'s description (`line`), never without one (B10b)',async()=>{
+    const url=(line:string)=>`http://127.0.0.1:3000/api/catalog/search?q=${encodeURIComponent('12x10x8 corrugated boxes')}&line=${encodeURIComponent(line)}`;
+    const read=async(line:string)=>Object.fromEntries(((await (await GET(new NextRequest(url(line),{headers:{host:'127.0.0.1:3000'}}),ctx)).json()) as {items:ScoredItem[]}).items.map(i=>[i.sku,i.accounted]));
+    expect((await read('12x10x8" Corrugated Boxes, 32 ECT'))['12108-BDL']).toBe(true);
+    expect((await read('12x10x8" Corrugated Boxes, 32 ECT, pack size 50'))['12108-BDL']).toBe(false);
+    expect((await read('Reclosable Poly Bags 30x30" 2 Mil'))['12108-BDL']).toBe(false);
+    expect((await read('x'.repeat(600)))['12108-BDL']).toBe(false);
   });
 
   it('returns at most 10 items',async()=>{

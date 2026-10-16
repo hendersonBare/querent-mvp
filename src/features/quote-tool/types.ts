@@ -51,6 +51,11 @@ export interface ResultLine {
   description:string;
   /** The supplier's own item number the parser took out of the line ("S-4128"), or null. */
   suppliersSku?:string|null;
+  /**
+   * What each pack the description states is per (the matcher's packContainersOf: case, bundle, box,
+   * pack, sleeve, roll; null for a bare count). A quantity converts only onto an item sold in that pack (B10b).
+   */
+  packContainers?:(string|null)[];
   quantity:number|null;
   unit:string|null;
   quantityUnclear:boolean;

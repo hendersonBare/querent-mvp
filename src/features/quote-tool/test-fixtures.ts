@@ -80,10 +80,11 @@ export function resultLine(overrides:Partial<ResultLine>&Pick<ResultLine,'index'
 /** Two matched lines (one with an unclear quantity) and two unmatched lines (one with near-misses). */
 export function sampleRun():MatchRun{
   const lines:ResultLine[]=[
-    resultLine({index:0,rawText:'S-4128 12 x 10 x 8" Corrugated Boxes 10 bundles',description:'12 x 10 x 8" Corrugated Boxes',quantity:10,unit:'bundle',
-      outcome:'matched',reason:'matched',item:BOX,score:1,candidates:[{...BOX,score:1},{...BOX_PLT,score:1}],nearMisses:[{...BOX,score:1}]}),
+    // Matched at Strict: the item accounts for the whole description (accounted), and the supplier's SKU was taken out.
+    resultLine({index:0,rawText:'S-4128 12 x 10 x 8" Corrugated Boxes 10 bundles',description:'12 x 10 x 8" Corrugated Boxes',suppliersSku:'S-4128',quantity:10,unit:'bundle',
+      outcome:'matched',reason:'matched',item:BOX,score:1,candidates:[{...BOX,score:1,accounted:true},{...BOX_PLT,score:1,accounted:true}],nearMisses:[{...BOX,score:1,accounted:true}]}),
     resultLine({index:1,rawText:'Cast Stretch Wrap 18" x 1500\' 80 ga as needed',description:'Cast Stretch Wrap 18" x 1500\' 80 ga',quantity:null,quantityUnclear:true,
-      outcome:'matched',reason:'matched',item:WRAP,score:0.95,candidates:[{...WRAP,score:0.95}],nearMisses:[{...WRAP,score:0.95}]}),
+      outcome:'matched',reason:'matched',item:WRAP,score:0.95,candidates:[{...WRAP,score:0.95,accounted:true}],nearMisses:[{...WRAP,score:0.95,accounted:true}]}),
     resultLine({index:2,rawText:'Reclosable bags 30x30 3 mil 4 cases',description:'Reclosable bags 30x30 3 mil',quantity:4,unit:'case',
       outcome:'no_match',reason:'low_lead',score:0.56,candidates:[{...BAGS,score:0.56},{...BAGS4,score:0.42}],nearMisses:[{...BAGS,score:0.56},{...BAGS4,score:0.42}]}),
     resultLine({index:3,rawText:'Foam peanuts 14 cu ft 2 bags',description:'Foam peanuts 14 cu ft',quantity:2,unit:'bag',outcome:'no_match',reason:'no_candidates'}),
