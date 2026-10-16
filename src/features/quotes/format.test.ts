@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {decimalPlaces,formatDateTime,formatMoney,formatQuantity,formatScore,formatUnitPrice,lineTotal,quoteTotal} from './format';
+import {decimalPlaces,formatDateTime,formatMoney,formatQuantity,formatSimilarity,formatUnitPrice,lineTotal,quoteTotal} from './format';
 import {line,quote} from './test-fixtures';
 
 // Money on the quotes pages (docs/boxt/plan.md B6): totals and line totals as $1,234.56, rounded half
@@ -76,17 +76,20 @@ describe('decimalPlaces',()=>{
   });
 });
 
-describe('formatQuantity and formatScore',()=>{
+describe('formatQuantity and formatSimilarity',()=>{
   it('print quantities with grouping and their decimals',()=>{
     expect(formatQuantity(1500)).toBe('1,500');
     expect(formatQuantity(2.5)).toBe('2.5');
     expect(formatQuantity(4)).toBe('4');
   });
 
-  it('print scores to two decimals',()=>{
-    expect(formatScore(0.58)).toBe('0.58');
-    expect(formatScore(0.5)).toBe('0.50');
-    expect(formatScore(null)).toBe('None');
+  it('print a similarity score as a whole percent, as the review dialog does',()=>{
+    expect(formatSimilarity(0.58)).toBe('58%');
+    expect(formatSimilarity(0.5)).toBe('50%');
+    expect(formatSimilarity(1)).toBe('100%');
+    expect(formatSimilarity(0.555)).toBe('56%');
+    expect(formatSimilarity(0)).toBe('0%');
+    expect(formatSimilarity(null)).toBeNull();
   });
 });
 

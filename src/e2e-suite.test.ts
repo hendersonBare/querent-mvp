@@ -27,12 +27,12 @@ export const DISABLED=[
 ];
 const disabled=(line:string)=>DISABLED.some(pattern=>pattern.test(line));
 
-/** Every spec under e2e/, at any depth (none until task B8 writes them). */
+/** Every spec and setup file (*.spec.ts, *.setup.ts) under e2e/, at any depth (none until task B8 writes them). */
 export function specFiles(dir=E2E,prefix=''):string[]{
   if(!existsSync(dir))return [];
   return readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()
     ?specFiles(join(dir,entry.name),`${prefix}${entry.name}/`)
-    :/\.spec\.[cm]?[jt]sx?$/.test(entry.name)?[`${prefix}${entry.name}`]:[]);
+    :/\.(?:spec|setup)\.[cm]?[jt]sx?$/.test(entry.name)?[`${prefix}${entry.name}`]:[]);
 }
 
 /** Every line in the specs under `dir` that switches a test off, as "e2e/<spec>:<line>: <text>". */
@@ -44,6 +44,10 @@ describe('the E2E suite',()=>{
     expect(disabledLines()).toEqual([]);
   });
 
+  it('reads the setup projects as well as the specs',()=>{
+    expect(specFiles()).toEqual(expect.arrayContaining(['auth.setup.ts','quote-tool.spec.ts']));
+  });
+
   it('finds a switched-off test in any spec, at any depth, and passes with no e2e/ folder',()=>{
     const dir=mkdtempSync(join(tmpdir(),'e2e-guard-'));
     try{
@@ -52,7 +56,9 @@ describe('the E2E suite',()=>{
       writeFileSync(join(dir,'quote.spec.ts'),'test("saves", async () => {});\n');
       writeFileSync(join(dir,'auth','login.spec.ts'),'test("logs in", f);\ntest.only("x", f);\n');
       writeFileSync(join(dir,'notes.md'),'test.skip is not a spec');
-      expect(disabledLines(dir)).toEqual(['e2e/auth/login.spec.ts:2: test.only("x", f);']);
+      writeFileSync(join(dir,'auth.setup.ts'),'setup("signs in", f);\nsetup.skip("later", f);\n');
+      writeFileSync(join(dir,'global-setup.ts'),'export default async () => {};\n');
+      expect(disabledLines(dir).sort()).toEqual(['e2e/auth.setup.ts:2: setup.skip("later", f);','e2e/auth/login.spec.ts:2: test.only("x", f);']);
     }finally{rmSync(dir,{recursive:true,force:true});}
   });
 

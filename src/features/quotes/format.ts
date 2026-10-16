@@ -92,8 +92,8 @@ export const formatUnitPrice=(price:number)=>UNIT_PRICE.format(price);
 /** 1,500 or 2.5. */
 export const formatQuantity=(quantity:number)=>QUANTITY.format(quantity);
 
-/** A match score to two decimals (0.58). */
-export const formatScore=(score:number|null)=>score===null?'None':score.toFixed(2);
+/** A similarity score (0 to 1) as a whole percent ("58%"), as the review dialog and the quote page show it; null without one. */
+export const formatSimilarity=(score:number|null)=>score===null?null:`${Math.round(score*100)}%`;
 
 /** Oct 15, 2026, 2:05 PM in `timeZone` (the viewer's, see LocalDateTime). */
 export function formatDateTime(iso:string,timeZone?:string):string{

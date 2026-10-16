@@ -12,7 +12,7 @@ import type {Judge,JudgeCandidate,JudgeVerdict,Parser} from './types';
 // batch of lines with bounded concurrency and a per-call timeout. A failed or timed-out line
 // degrades to No match (judge_error); the batch never fails.
 
-export type {Judge,JudgeCandidate,JudgeOptions,JudgeVerdict,ParsedRow,ParseInput,ParseResult,Parser} from './types';
+export type {Judge,JudgeCandidate,JudgeOptions,JudgeVerdict,ParsedRow,ParseInput,ParseOptions,ParseResult,Parser} from './types';
 export {DEFAULT_MODEL,llmMode,model,type LlmMode} from './client';
 export {JUDGE_ERROR,NO_CANDIDATES,NOT_IN_CANDIDATES} from './verdicts';
 export {MAX_PDF_BYTES,MAX_ROWS,PARSE_ERROR,PDF_TOO_LARGE_ERROR,SERVICE_ERROR,TOO_MANY_ROWS_ERROR} from './rows';
@@ -28,7 +28,7 @@ function lazyClient(env:Env):MessagesClient{
 export function getParser(env:Env=process.env):Parser&{readonly mode:LlmMode}{
   const mode=llmMode(env);
   const parser=mode==='live'?createLiveParser({client:lazyClient(env)}):createScriptedParser();
-  return {mode,parse:input=>parser.parse(input)};
+  return {mode,parse:(input,options)=>parser.parse(input,options)};
 }
 
 export function getJudge(env:Env=process.env):Judge&{readonly mode:LlmMode}{

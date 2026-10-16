@@ -98,7 +98,7 @@
   border: 0;
   border-radius: var(--q-radius-button);
   background: var(--q-accent);
-  color: #fff;
+  color: var(--q-white);
   font-size: var(--q-text-control);
   font-weight: 700;
 }

@@ -4,7 +4,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {EXAMPLE_ID,LINE_IDS,QUOTE_ID,quote} from './test-fixtures';
 
 // /quotes/[id] (docs/boxt/plan.md B6): the header, the matched lines (item with the customer's original
-// text under it, SKU, qty, unit price, line total, "Matched by rep"), the unmatched lines with their
+// text under it, SKU, qty, unit price, line total, "Picked by rep"), the unmatched lines with their
 // original text and stored near-misses, the total; edit (customer, reference, qty, unit price, remove)
 // with Save disabled while anything is invalid; delete behind a confirm dialog; the example read-only.
 
@@ -54,11 +54,38 @@ describe('reading a quote',()=>{
     expect(within(rowOf('B855SS')).getByText('$125.98')).toBeInTheDocument();
   });
 
+  it('shows each line\'s quantity and unit price in its unit ("1,500 each", "$1.05 per each", "4 cases")',()=>{
+    render(<QuoteDetail initial={quote()}/>);
+    const cells=(sku:string)=>within(rowOf(sku)).getAllByRole('cell').map(c=>c.textContent?.replace(/\s+/g,' ').trim());
+    expect(cells('12108-BDL').slice(2)).toEqual(['1,500 each','$1.05 per each','$1,575.00']);
+    expect(cells('M1044').slice(2)).toEqual(['200 each','$0.375 per each','$75.00']);
+    expect(cells('B855SS').slice(2)).toEqual(['4 cases','$31.495 per case','$125.98']);
+  });
+
+  it('keeps a flagged quantity visible after save: "Quantity was flagged: customer wrote 10 pallets"',()=>{
+    const q=quote();
+    render(<QuoteDetail initial={{...q,lines:[
+      {...q.lines[0],quantity:10,quantityUnclear:true,customerQuantity:'10 pallets'},
+      {...q.lines[1],quantityUnclear:true,customerQuantity:null},
+      {...q.lines[2],customerQuantity:'400 mailers'},
+    ]}}/>);
+    expect(rowOf('12108-BDL')).toHaveTextContent('Quantity was flagged: customer wrote 10 pallets');
+    expect(rowOf('M1044')).toHaveTextContent('Quantity was flagged');
+    expect(rowOf('B855SS')).toHaveTextContent('Customer asked for 400 mailers');
+    expect(rowOf('B855SS')).not.toHaveTextContent('flagged');
+  });
+
+  it('shows a line saved without a unit as a bare quantity and price',()=>{
+    const q=quote();
+    render(<QuoteDetail initial={{...q,lines:[{...q.lines[0],unit:null}]}}/>);
+    expect(within(rowOf('12108-BDL')).getAllByRole('cell').map(c=>c.textContent?.trim()).slice(2,4)).toEqual(['1,500','$1.05']);
+  });
+
   it('tags only the lines the rep matched',()=>{
     render(<QuoteDetail initial={quote()}/>);
-    expect(within(rowOf('B855SS')).getByText('Matched by rep')).toBeInTheDocument();
-    expect(within(rowOf('M1044')).queryByText('Matched by rep')).toBeNull();
-    expect(screen.getAllByText('Matched by rep')).toHaveLength(1);
+    expect(within(rowOf('B855SS')).getByText('Picked by rep')).toBeInTheDocument();
+    expect(within(rowOf('M1044')).queryByText('Picked by rep')).toBeNull();
+    expect(screen.getAllByText('Picked by rep')).toHaveLength(1);
   });
 
   it('lists the unmatched lines with their original text, qty and the stored near-misses',()=>{
@@ -66,13 +93,15 @@ describe('reading a quote',()=>{
     const section=screen.getByRole('region',{name:/Unmatched lines/});
     expect(within(section).getByText('Unmatched - original text')).toBeInTheDocument();
     expect(within(section).getByText('250 boxes 12 x 10 x 8 double wall, 48 ECT')).toBeInTheDocument();
-    expect(within(section).getByText(/250/,{selector:'[data-qty]'})).toBeInTheDocument();
-    const near=within(section).getByRole('table',{name:/Near-misses/});
+    expect(within(section).getByText('Qty 250 each',{selector:'[data-qty]'})).toBeInTheDocument();
+    const near=within(section).getByRole('table',{name:/Closest items/});
+    expect(within(near).getAllByRole('columnheader').map(h=>h.textContent)).toEqual(['Item','SKU','Similarity']);
     const cells=within(near).getAllByRole('row').slice(1).map(r=>within(r).getAllByRole('cell').map(c=>c.textContent));
     expect(cells).toEqual([
-      ['12 x 10 x 8" Corrugated Boxes, bundle pricing','12108-BDL','0.58'],
-      ['12 x 10 x 8" Corrugated Boxes, pallet pricing','12108-PLT','0.57'],
+      ['12 x 10 x 8" Corrugated Boxes, bundle pricing','12108-BDL','58%'],
+      ['12 x 10 x 8" Corrugated Boxes, pallet pricing','12108-PLT','57%'],
     ]);
+    expect(section).not.toHaveTextContent(/match\b/i);
     // Read-only: nothing to pick.
     expect(within(section).queryByRole('button')).toBeNull();
   });
@@ -82,19 +111,22 @@ describe('reading a quote',()=>{
     expect(screen.getByTestId('quote-total')).toHaveTextContent('$1,775.98');
   });
 
-  it('shows "None" for an empty customer or reference, and no unmatched section when every line matched',()=>{
+  it('shows "Not set" (muted) for an empty reference, and no unmatched section when every line matched',()=>{
     const q=quote({customerName:'',reference:''});
     render(<QuoteDetail initial={{...q,lines:q.lines.filter(l=>!l.unmatched)}}/>);
     expect(screen.getByRole('heading',{level:1}).textContent).toBe('No customer name');
-    expect(screen.getByText('None')).toBeInTheDocument();
+    expect(screen.getByText('Not set')).toBeInTheDocument();
+    expect(screen.queryByText('None')).toBeNull();
     expect(screen.queryByRole('region',{name:/Unmatched lines/})).toBeNull();
   });
 });
 
 describe('the example quote',()=>{
   it('is tagged Example, says it cannot be edited or deleted, and offers neither',()=>{
-    render(<QuoteDetail initial={quote({id:EXAMPLE_ID,isExample:true,customerName:'Example customer'})}/>);
-    expect(screen.getByText('Example')).toBeInTheDocument();
+    render(<QuoteDetail initial={quote({id:EXAMPLE_ID,isExample:true,customerName:'Example customer',createdByEmail:null})}/>);
+    expect(screen.getByText('Example',{selector:'h1 ~ *'})).toBeInTheDocument();
+    // Created by "Example", not "None".
+    expect(screen.getByText('Created by').nextElementSibling?.textContent).toBe('Example');
     expect(screen.getByText('This example can\'t be edited or deleted.')).toBeInTheDocument();
     expect(screen.queryByRole('button',{name:/Edit/})).toBeNull();
     expect(screen.queryByRole('button',{name:/Delete/})).toBeNull();
@@ -113,6 +145,11 @@ describe('editing',()=>{
     expect(screen.getByRole('textbox',{name:'Reference'})).toHaveValue('PO-7781');
     expect(qty('M1044')).toHaveValue('200');
     expect(price('M1044')).toHaveValue('0.375');
+    // The units stay beside the inputs.
+    expect(within(rowOf('M1044')).getByText('each')).toBeInTheDocument();
+    expect(within(rowOf('M1044')).getByText('per each')).toBeInTheDocument();
+    expect(within(rowOf('B855SS')).getByText('cases')).toBeInTheDocument();
+    expect(within(rowOf('B855SS')).getByText('per case')).toBeInTheDocument();
     expect(save()).toBeEnabled();
     expect(screen.queryByRole('button',{name:/Delete quote/})).toBeNull();
   });

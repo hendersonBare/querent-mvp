@@ -2,18 +2,21 @@
 import {useId,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
+import {perUnitLabel,unitLabel} from '@/features/quote-tool/units';
 import type {Quote,QuoteLine} from '@/server/repository/types';
 import {QUOTE_COPY} from './copy';
 import {DeleteQuoteDialog} from './DeleteQuoteDialog';
 import {checkDraft,draftFrom,draftTotal,parsePrice,parseQuantity,toPatch,type LineDraft,type QuoteDraft} from './draft';
-import {formatMoney,formatQuantity,formatScore,formatUnitPrice,lineTotal} from './format';
+import {formatMoney,formatQuantity,formatSimilarity,formatUnitPrice,lineTotal} from './format';
 import {LocalDateTime} from './LocalDateTime';
 import s from './Quotes.module.css';
 
 // A saved quote (docs/boxt/plan.md B6, product rule 6): the header (customer, reference, who created it
 // and when); the matched lines (item with the customer's original text under it, SKU, qty, unit price,
-// line total, and "Matched by rep" when the rep picked the item); the unmatched lines with their
-// original text, qty and the near-misses stored with them (read-only); the total.
+// line total, and "Picked by rep" when the rep picked the item); the unmatched lines with their
+// original text, qty and the closest items stored with them and their similarity (read-only); the
+// total. Each line's qty and unit price read in its unit ("250 each", "$0.95 per each"): a matched
+// line's unit is its item's pricing unit, saved with it (src/features/quote-tool/units.ts).
 //
 // Edit quote turns the customer, reference, quantities and unit prices into inputs and adds Remove to
 // each line; Save changes stays disabled while anything is invalid (./draft.ts) and sends
@@ -109,7 +112,7 @@ export function QuoteDetail({initial}:{initial:Quote}){
         </div>
         <dl className={s.meta}>
           <div><dt>Reference</dt><dd>{quote.reference||<None/>}</dd></div>
-          <div><dt>Created by</dt><dd>{quote.createdByEmail||<None/>}</dd></div>
+          <div><dt>Created by</dt><dd>{quote.createdByEmail||(quote.isExample?QUOTE_COPY.exampleCreator:<None/>)}</dd></div>
           <div><dt>Created</dt><dd><LocalDateTime iso={quote.createdAt}/></dd></div>
         </dl>
       </div>
@@ -169,18 +172,18 @@ export function QuoteDetail({initial}:{initial:Quote}){
             <div className={s.unmatchedText}>
               <span className={s.label}>{QUOTE_COPY.unmatchedLabel}</span>
               <p className={s.originalBig}>{line.originalText}</p>
-              <span className={s.muted} data-qty="">{line.quantity===null?'Qty not given':`Qty ${formatQuantity(line.quantity)}`}{line.unit?` ${line.unit}`:''}</span>
+              <span className={s.muted} data-qty="">{line.quantity===null?'Qty not given':`Qty ${formatQuantity(line.quantity)}${line.unit?` ${unitLabel(line.quantity,line.unit)}`:''}`}</span>
             </div>
             {editing&&<RemoveButton label={`${QUOTE_COPY.remove} unmatched line ${line.position}`} onClick={()=>removeLine(line.id)}/>}
           </div>
           {line.nearMisses.length>0&&<table className={s.nearMisses} aria-label={`${QUOTE_COPY.nearMissesTitle} for line ${line.position}`}>
             <caption className={s.caption}>{QUOTE_COPY.nearMissesTitle}</caption>
-            <thead><tr><th scope="col">Item</th><th scope="col">SKU</th><th scope="col" className={s.num}>Score</th></tr></thead>
+            <thead><tr><th scope="col">Item</th><th scope="col">SKU</th><th scope="col" className={s.num}>{QUOTE_COPY.similarity}</th></tr></thead>
             <tbody>
               {line.nearMisses.map((n,i)=><tr key={`${n.sku}-${i}`}>
                 <td>{n.description}</td>
                 <td className={s.sku}>{n.sku}</td>
-                <td className={`${s.num} ${s.score}`}>{formatScore(n.score)}</td>
+                <td className={`${s.num} ${s.score}`}>{formatSimilarity(n.score)??<None/>}</td>
               </tr>)}
             </tbody>
           </table>}
@@ -196,6 +199,9 @@ function MatchedRow({line,edit,errors,onChange,onRemove}:{line:QuoteLine;edit:Li
   const qtyError=useId(),priceError=useId();
   const total=edit?lineTotal(parseQuantity(edit.quantity),parsePrice(edit.unitPrice)):lineTotal(line.quantity,line.unitPrice);
   const sku=line.sku??'';
+  const unit=line.unit;
+  const qtyUnit=unitLabel(edit?parseQuantity(edit.quantity):line.quantity,unit);
+  const priceUnit=perUnitLabel(unit);
   return <tr>
     <td className={s.itemCell}>
       <div className={s.desc}>
@@ -203,29 +209,39 @@ function MatchedRow({line,edit,errors,onChange,onRemove}:{line:QuoteLine;edit:Li
         {line.matchedBy==='rep'&&<span className={s.repTag}>{QUOTE_COPY.matchedByRep}</span>}
       </div>
       <div className={s.original}>{line.originalText}</div>
+      {quantityNote(line)&&<div className={line.quantityUnclear?s.qtyFlag:s.original}>{quantityNote(line)}</div>}
     </td>
     <td className={s.sku}>{sku}</td>
     <td className={s.num}>
       {edit
-        ?<NumberInput label={`Quantity for ${sku}`} value={edit.quantity} error={errors?.quantity} errorId={qtyError} onChange={quantity=>onChange({quantity})}/>
-        :line.quantity===null?<None>{QUOTE_COPY.notSet}</None>:<><span>{formatQuantity(line.quantity)}</span>{line.unit&&<span className={s.unit}> {line.unit}</span>}</>}
+        ?<NumberInput label={`Quantity for ${sku}`} value={edit.quantity} error={errors?.quantity} errorId={qtyError} suffix={qtyUnit} onChange={quantity=>onChange({quantity})}/>
+        :line.quantity===null?<None>{QUOTE_COPY.notSet}</None>:<><span>{formatQuantity(line.quantity)}</span>{qtyUnit&&<span className={s.unit}> {qtyUnit}</span>}</>}
     </td>
     <td className={s.num}>
       {edit
-        ?<NumberInput label={`Unit price for ${sku}`} value={edit.unitPrice} error={errors?.unitPrice} errorId={priceError} prefix="$" onChange={unitPrice=>onChange({unitPrice})}/>
-        :line.unitPrice===null?<None>{QUOTE_COPY.notPriced}</None>:formatUnitPrice(line.unitPrice)}
+        ?<NumberInput label={`Unit price for ${sku}`} value={edit.unitPrice} error={errors?.unitPrice} errorId={priceError} prefix="$" suffix={priceUnit} onChange={unitPrice=>onChange({unitPrice})}/>
+        :line.unitPrice===null?<None>{QUOTE_COPY.notPriced}</None>:<><span>{formatUnitPrice(line.unitPrice)}</span>{priceUnit&&<span className={s.unit}> {priceUnit}</span>}</>}
     </td>
     <td className={`${s.num} ${s.money}`}>{total===null?<None>{QUOTE_COPY.notPriced}</None>:formatMoney(total)}</td>
     {edit&&<td className={s.removeCol}><RemoveButton label={`${QUOTE_COPY.remove} ${sku}`} onClick={onRemove}/></td>}
   </tr>;
 }
 
-function NumberInput({label,value,error,errorId,prefix,onChange}:{label:string;value:string;error?:string;errorId:string;prefix?:string;onChange:(value:string)=>void}){
+/** What the customer asked for when the line's quantity was flagged or converted from it; null when it was used as it stood. */
+function quantityNote(line:QuoteLine):string|null{
+  if(line.quantityUnclear)return line.customerQuantity?`${QUOTE_COPY.quantityFlagged}: customer wrote ${line.customerQuantity}`:QUOTE_COPY.quantityFlagged;
+  return line.customerQuantity?`Customer asked for ${line.customerQuantity}`:null;
+}
+
+function NumberInput({label,value,error,errorId,prefix,suffix,onChange}:{label:string;value:string;error?:string;errorId:string;prefix?:string;suffix?:string|null;onChange:(value:string)=>void}){
   return <div className={s.numberField}>
-    <span className={s.inputWrap}>
-      {prefix&&<span className={s.prefix} aria-hidden="true">{prefix}</span>}
-      <input type="text" inputMode="decimal" autoComplete="off" className={`${s.input} ${s.numberInput} ${prefix?s.withPrefix:''}`} aria-label={label} value={value}
-        aria-invalid={error?true:undefined} aria-describedby={error?errorId:undefined} onChange={event=>onChange(event.target.value)}/>
+    <span className={s.inputRow}>
+      <span className={s.inputWrap}>
+        {prefix&&<span className={s.prefix} aria-hidden="true">{prefix}</span>}
+        <input type="text" inputMode="decimal" autoComplete="off" className={`${s.input} ${s.numberInput} ${prefix?s.withPrefix:''}`} aria-label={label} value={value}
+          aria-invalid={error?true:undefined} aria-describedby={error?errorId:undefined} onChange={event=>onChange(event.target.value)}/>
+      </span>
+      {suffix&&<span className={s.unit}>{suffix}</span>}
     </span>
     {error&&<span className={s.fieldError} id={errorId}>{error}</span>}
   </div>;

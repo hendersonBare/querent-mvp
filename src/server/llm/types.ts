@@ -20,7 +20,13 @@ export interface ParsedRow {
 
 export type ParseResult={ok:true;rows:ParsedRow[]}|{ok:false;error:string};
 
-export interface Parser {parse(input:ParseInput):Promise<ParseResult>}
+/** Optional per-call options for the parser (an extension of the contract: callers may omit them). */
+export interface ParseOptions {
+  /** Aborts the call (the quote tool's match route bounds the parse time with it). */
+  signal?:AbortSignal;
+}
+
+export interface Parser {parse(input:ParseInput,options?:ParseOptions):Promise<ParseResult>}
 
 export interface JudgeCandidate {sku:string;description:string;pack?:string|null;category?:string|null}
 

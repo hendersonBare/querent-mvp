@@ -20,11 +20,16 @@ import {APP_HOME,loginPath} from './paths';
 //   Route handlers:     export const GET=withApiUser(async(request,{user,db})=>…);   (./api.ts)
 //                       or: const session=await requireApiUser(request); if(session instanceof Response)return session;
 
-/** For pages, layouts and server actions: the session from next/headers' cookies(). */
+/**
+ * For pages, layouts and server actions: the session from next/headers' cookies().
+ * cookies() comes first, before the env is read: it makes the page dynamic, so `next build` stops
+ * prerendering there and builds without any Supabase env (CI builds before the stack starts;
+ * follow-up F1). At run time a missing env still throws (fail closed).
+ */
 export async function createSupabaseServerClient():Promise<Db>{
-  const {url,anonKey}=supabaseEnv();
   const store=await cookies();
   const secure=isHttps(await headers());
+  const {url,anonKey}=supabaseEnv();
   return createServerClient<Database>(url,anonKey,{
     cookieOptions:authCookieOptions(secure),
     cookies:{

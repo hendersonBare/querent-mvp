@@ -22,8 +22,8 @@ export function supabaseStatusEnv():Record<string,string>{
 
 /**
  * The env the test:db suite runs with: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and
- * DATABASE_URL from the shell when set (CI), else from the local stack. It refuses anything that is not
- * on this machine: the suite writes to the database.
+ * DATABASE_URL from the shell when set (CI), else from the local stack, and the stack's Mailpit URL
+ * (the reset-email checks). It refuses anything that is not on this machine: the suite writes to the database.
  */
 export function dbTestEnv():Record<string,string>{
   const shell={url:process.env.NEXT_PUBLIC_SUPABASE_URL,anonKey:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,databaseUrl:process.env.DATABASE_URL};
@@ -32,6 +32,7 @@ export function dbTestEnv():Record<string,string>{
     NEXT_PUBLIC_SUPABASE_URL:shell.url||status!.API_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY:shell.anonKey||status!.ANON_KEY,
     DATABASE_URL:shell.databaseUrl||status!.DB_URL,
+    MAILPIT_URL:process.env.MAILPIT_URL||status?.MAILPIT_URL||'http://127.0.0.1:54324',
   };
   if(!isLocalUrl(env.NEXT_PUBLIC_SUPABASE_URL)||!isLocalUrl(env.DATABASE_URL))throw new Error('test:db runs against the local stack only (127.0.0.1 or localhost).');
   return env;

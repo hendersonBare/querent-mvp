@@ -28,6 +28,13 @@ describe('live parser: request shape',()=>{
     expect(options?.timeout).toBeGreaterThan(0);
   });
 
+  it('passes the caller\'s abort signal to the request (the match route bounds the parse time with it)',async()=>{
+    const {client,parser}=parserWith(toolReply('record_rows',{rows:[row()]}));
+    const controller=new AbortController();
+    await parser.parse({kind:'text',text:'boxes'},{signal:controller.signal});
+    expect(client.requests[0].options?.signal).toBe(controller.signal);
+  });
+
   it('sends a PDF as a base64 document block before the instruction',async()=>{
     const {client,parser}=parserWith(toolReply('record_rows',{rows:[row()]}));
     const data=new Uint8Array([37,80,68,70,45,49,46,52,10]);

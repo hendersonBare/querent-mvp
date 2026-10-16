@@ -55,6 +55,8 @@ export interface QuoteLineInput {
   quantity:number|null;
   unit:string|null;
   quantityUnclear:boolean;
+  /** The customer's quantity as written ("10 pallets") when the line's quantity was converted from it or flagged; else null. */
+  customerQuantity:string|null;
   /** >= 0, or null until the rep prices it. */
   unitPrice:number|null;
   matchScore:number|null;

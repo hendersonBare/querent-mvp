@@ -28,7 +28,7 @@
   font-weight: 800;
   font-size: 20px;
   letter-spacing: -0.03em;
-  color: #fff;
+  color: var(--q-white);
 }
 .org {
   padding: 6px 8px 22px;
@@ -59,7 +59,7 @@
 }
 .link[aria-current="page"] {
   background: var(--q-accent);
-  color: #fff;
+  color: var(--q-white);
   font-weight: 700;
 }
 .link:hover {
@@ -95,7 +95,7 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--q-white);
   color: var(--q-rail);
   font-size: var(--q-text-secondary);
   font-weight: 800;
@@ -110,7 +110,7 @@
   white-space: nowrap;
   font-size: var(--q-text-secondary);
   font-weight: 700;
-  color: #fff;
+  color: var(--q-white);
 }
 .signOutForm {
   display: flex;
@@ -124,7 +124,7 @@
   border-radius: var(--q-radius-button);
   border: 1px solid var(--q-rail-button-border);
   background: transparent;
-  color: #fff;
+  color: var(--q-white);
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;

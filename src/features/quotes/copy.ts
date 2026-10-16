@@ -18,18 +18,24 @@ export const QUOTE_COPY={
   // List
   empty:'No quotes yet. Create one with the',
   emptyLink:'Quote creation tool',
-  none:'None',
+  /** An empty customer, reference or creator. */
+  none:'Not set',
   example:'Example',
+  /** Who created the example quote (the seed has no user). */
+  exampleCreator:'Example',
 
   // Detail
   backToQuotes:'Quotes',
   noCustomer:'No customer name',
   exampleNote:'This example can\'t be edited or deleted.',
-  matchedByRep:'Matched by rep',
+  /** A line whose item the rep picked (Swap, "Use this item"): the same words in the review dialog and here. */
+  matchedByRep:'Picked by rep',
   unmatchedTitle:'Unmatched lines',
   unmatchedLabel:'Unmatched - original text',
-  nearMissesTitle:'Near-misses',
+  nearMissesTitle:'Closest items',
+  similarity:'Similarity',
   notPriced:'Not priced',
+  quantityFlagged:'Quantity was flagged',
   notSet:'Not set',
   total:'Total',
   edit:'Edit quote',
