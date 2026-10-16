@@ -4,9 +4,15 @@ An internal tool for BOXT Packaging's sales reps. A rep pastes a customer's prod
 PDF (up to 200 lines, PDFs up to 4 MB). Claude reads it into lines, and each line is matched against BOXT's
 catalog (1,555 items from boxtpackaging.com). A line is **matched** only when the packaging-aware scorer
 clears the strictness threshold with a clear lead **and** a Claude judge, choosing only from the scorer's
-candidates, agrees. Anything less is **No match**, with the closest items offered as near-misses: a wrong
-item on a quote costs more than a line the rep matches by hand. The rep reviews the result, types every
-price (prices are never prefilled), and saves the quote.
+candidates, agrees; the judge is asked only about lines the scorer clears, and never matches a line on its
+own. At **Strict** (the default) the scorer also requires total accounting: every part of the line is read
+and confirmed by the item, and everything that defines the item is stated. Anything less is **No match**,
+with the closest items offered as near-misses ("Use this item"): a wrong item on a quote costs more than a
+line the rep matches by hand. The rep reviews the result, types every price (prices are never prefilled),
+and saves the quote. Each line is priced in its item's pricing unit (each, case, roll, coil); the
+customer's quantity is converted only when that is exact, and is otherwise kept and flagged "Check
+quantity". What reps can expect is in
+[OPERATIONS.md, matching](docs/boxt/OPERATIONS.md#matching-what-to-expect).
 
 - Left rail: **Quote creation tool**, **Quotes**, **Settings** (match strictness: Strict by default).
 - Sign-in with email and password only. There is no sign-up: the owner creates accounts in Supabase.
@@ -59,16 +65,19 @@ git-ignored; never commit a real key.
 | Command | What it checks |
 |---|---|
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Vitest: unit and component tests, the architecture guards (database access only in the repository layer, no secrets in the repository, no skipped tests), and the matching evaluation suite, which fails if a must-not-match line matches. No network, no database. |
+| `npm test` | Vitest: unit and component tests, the architecture guards (database access only in the repository layer, no secrets in the repository, no skipped or focused tests, including the Playwright specs), the pricing-unit test (fails on a catalog pack shape it does not know), and the matching evaluation gate, which fails if a must-not-match line matches (at Strict, or at the level the case names, with the recorded or an always-agreeing judge) or Strict recall drops below 90%. No network, no database. |
 | `npm run test:eval` | The evaluation suite alone |
 | `npm run eval:report` | Precision, recall and no-match rate per strictness level (`npm run eval:report -- --markdown` for the table only, `-- --cases` for every case) |
-| `npm run eval:record` | Re-records the judge verdicts with the live judge (needs `ANTHROPIC_API_KEY`) |
+| `npm run eval:record` | Re-records the judge verdicts with the live judge (needs `ANTHROPIC_API_KEY` in the shell). The current verdicts are hand-written: record them before relying on Balanced or Lenient ([OPERATIONS.md](docs/boxt/OPERATIONS.md#match-strictness)). |
 | `npm run test:db` | Against the local stack: repository round trips, row-level security (the public key alone reads nothing), auth (sign-up refused), the example-quote guard. Run `npm run db:reset` first. |
-| `npm run build` | `next build` |
-| `npm run smoke` | The Playwright end-to-end specs in `e2e/` |
+| `npm run build` | `next build`. Needs no Supabase settings (they are read when the app runs). |
+| `npm run e2e` (or `npm run smoke`, `npx playwright test`) | The Playwright specs in `e2e/` (access control, sign-in and password reset, quote tool, quotes, settings) against the production build: run `npm run build` first. It **resets the local database** first and starts its own server on a free port with the fixture parser and judge. How to run one spec or use another Chromium: [e2e/README.md](e2e/README.md). |
 
-CI (`.github/workflows/ci.yml`) runs on pull requests with the fixture parser and judge; it needs no
-secrets.
+CI (`.github/workflows/ci.yml`) runs on pull requests and on pushes to `main`, with the fixture parser and
+judge and no secrets: install, typecheck, `npm test` (with the evaluation gate), `npm run build` with no
+Supabase settings at all, then a local Supabase stack (`npx supabase start`), `npm run db:env` and
+`npm run db:reset`, `npm run test:db`, and the Playwright suite in Chromium. It keeps the Playwright report
+and traces when something fails, and the screenshots of every run.
 
 Other scripts: `npm run db:seed:boxt` (catalog and example quote into any `DATABASE_URL`, idempotent),
 `npm run db:types` (regenerates the database types from the local stack),
@@ -86,7 +95,8 @@ Other scripts: `npm run db:seed:boxt` (catalog and example quote into any `DATAB
 | `src/server/llm/` | The Claude parser and judge, and their fixtures |
 | `src/server/repository/` | The only place that queries the database |
 | `src/eval/` | The matching evaluation suite |
-| `supabase/` | Local stack config, migrations, the reset-password email template |
+| `e2e/` | The Playwright specs ([e2e/README.md](e2e/README.md)) |
+| `supabase/` | Local stack config, the four migrations, the reset-password email template |
 | `scripts/` | Database reset, seed, env and catalog scripts |
 
 ## Earlier Querent demo: not on this branch
