@@ -16,6 +16,8 @@
 //      not (./units.ts QuantityGate.packs).
 // Nothing here recognises pack wording: whatever is left over flags, whatever it says.
 
+import {QUOTE_LIMITS} from '@/features/quotes/limits';
+
 /** Words that may be left over without meaning anything about the quantity. */
 const FILLER=new Set(['qty','quantity','please','pls','of']);
 /** Labels before the quantity's number that belong to the quantity phrase: "qty 2 cases", "x 4 bundles". */
@@ -74,8 +76,9 @@ export function rawLeftover({rawText,description,suppliersSku,quantity,unit}:Raw
   const free=(t:Token)=>!removed.slice(t.start,t.end).some(Boolean);
 
   // A list marker the parser drops ("1.", "2)", "-", "•") at the very start.
-  const marker=/^\s*(?:[-*•·]|\d{1,3}[.)])\s+/.exec(text);
-  if(marker)remove(0,marker[0].length);
+  // A numbered marker is at most the list's line limit: "500." is not a line number.
+  const marker=/^\s*(?:[-*•·]|(\d{1,3})[.)])\s+/.exec(text);
+  if(marker&&(!marker[1]||Number(marker[1])<=QUOTE_LIMITS.linesMax))remove(0,marker[0].length);
   // The supplier's SKU, by exact span.
   const sku=suppliersSku?.normalize('NFKC').trim();
   if(sku){

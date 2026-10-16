@@ -243,6 +243,11 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['Boxes 12x10x8 4 bundles @','Boxes 12x10x8',null,4,'bundle','@'],
     ['Boxes 12x10x8 4 bundles *','Boxes 12x10x8',null,4,'bundle','*'],
     ['Boxes 12x10x8 4 bundles %','Boxes 12x10x8',null,4,'bundle','%'],
+    // A list marker is a line number of the list (at most 200 lines): "500." is not one.
+    ['1. Boxes 12x10x8 4 bundles','Boxes 12x10x8',null,4,'bundle',null],
+    ['200) Boxes 12x10x8 4 bundles','Boxes 12x10x8',null,4,'bundle',null],
+    ['500. Boxes 12x10x8 4 bundles','Boxes 12x10x8',null,4,'bundle','500.'],
+    ['500. Boxes 12x10x8 4 bundles','Boxes 12x10x8',null,4,'bundle','500.'],
     // Separators are not symbols.
     ['Boxes 12x10x8 - 4 bundles; (rush) ','Boxes 12x10x8',null,4,'bundle','rush'],
     ['Boxes 12x10x8 - 4 bundles.','Boxes 12x10x8',null,4,'bundle',null],
