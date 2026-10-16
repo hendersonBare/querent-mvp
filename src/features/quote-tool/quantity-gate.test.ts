@@ -243,6 +243,16 @@ describe('rawLeftover: the raw line besides the description, the supplier\'s SKU
     ['Boxes 12x10x8 4 bundles @','Boxes 12x10x8',null,4,'bundle','@'],
     ['Boxes 12x10x8 4 bundles *','Boxes 12x10x8',null,4,'bundle','*'],
     ['Boxes 12x10x8 4 bundles %','Boxes 12x10x8',null,4,'bundle','%'],
+    // An ordinary supplier code is taken out; one that may carry pack text stays (and flags).
+    ...['S-4128','S-1695','H-123','S-14823BL','S-12738','PB3866','T902900','S-5048','H-1180','ULINE48'].map(sku=>[`${sku} Boxes 12x10x8, 4 bundles`,'Boxes 12x10x8',sku,4,'bundle',null] as [string,string,string|null,number|null,string|null,string|null]),
+    ['CS-500 Bags 4x10, 2 cases','Bags 4x10','CS-500',2,'case','CS-500'],
+    ['500CS Bags 4x10, 2 cases','Bags 4x10','500CS',2,'case','500CS'],
+    ['S-500CS Bags 4x10, 2 cases','Bags 4x10','S-500CS',2,'case','S-500CS'],
+    ['BDL25 Mailers 10x4x4, 4 bundles','Mailers 10x4x4','BDL25',4,'bundle','BDL25'],
+    ['S-4128/500 Boxes 12x10x8, 4 bundles','Boxes 12x10x8','S-4128/500',4,'bundle','S-4128/500'],
+    ['pk12-S Knives, 3 cases','Knives','pk12-S',3,'case','pk12-S'],
+    ['S-12-34 Bags 4x10, 2 cases','Bags 4x10','S-12-34',2,'case','S-12-34'],
+    ['S 4128 Bags 4x10, 2 cases','Bags 4x10','S 4128',2,'case','S 4128'],
     // A list marker is a line number of the list (at most 200 lines): "500." is not one.
     ['1. Boxes 12x10x8 4 bundles','Boxes 12x10x8',null,4,'bundle',null],
     ['200) Boxes 12x10x8 4 bundles','Boxes 12x10x8',null,4,'bundle',null],
