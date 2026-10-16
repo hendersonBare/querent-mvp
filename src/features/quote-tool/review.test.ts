@@ -224,6 +224,27 @@ describe('withItem (Swap and "Use this item")',()=>{
 
     // Swap keeps comparing: to bags per case of 250, the 50/bundle pack is still not the item's.
     expect(quantityFlag(withItem(picked,BAGS,'rep'))).toBe('Check quantity: customer\'s pack is 50/bundle, this item is a case of 250');
+    // Once the rep types a quantity, the flag becomes an aside with the customer's words, and the save keeps them.
+    const edited=editQuantity(picked,'100');
+    expect([quantityFlag(edited),quantityAside(edited)]).toEqual([null,'Customer wrote: 2 bundles (50/bundle)']);
+    expect(toSaveRequest([{...edited,price:'1'}],{customerName:'',reference:'',level:'strict'}).lines[0]).toMatchObject({quantity:100,quantityUnclear:true,customerQuantity:'2 bundles (50/bundle)'});
+  });
+
+  it('flags 1 case of 500 bags picked as a case of 1,000, and reads a pack the parser left out of the description',()=>{
+    const run=sampleRun();
+    run.lines[2]={...run.lines[2],rawText:'Reclosable Poly Bags 4x10" 6 mil 500/case, 1 case',description:'Reclosable Poly Bags 4x10" 6 mil 500/case',quantity:1,unit:'case'};
+    run.lines[3]={...run.lines[3],rawText:'2 cases of 1,000 poly bags 4x10',description:'poly bags 4x10',quantity:2,unit:'case'};
+    const PB3866:ScoredItem={sku:'PB3866',description:'Reclosable Poly Bags, 4x10" 6 MIL',pack:'Case of 1,000',category:'bags',listPrice:112.19,listPriceUnit:'case',
+      pricing:pricingUnit('Case of 1,000',1,{description:'Reclosable Poly Bags, 4x10" 6 MIL',category:'bags'}),score:0.9};
+    const lines=initialReview(run);
+    const picked=withItem(lines[2],PB3866,'rep');
+    expect(picked).toMatchObject({quantity:'1',unit:'case',quantityNote:{kind:'check',wrote:'1 case (500/case)'}});
+    expect(quantityFlag(picked)).toBe('Check quantity: customer\'s pack is 500/case, this item is a case of 1,000');
+    expect(quantityChecks([picked])).toBe(1);
+
+    expect(lines[3].customerPack).toEqual({count:1000,per:'case',text:'1,000/case'});
+    expect(withItem(lines[3],PB3866,'rep')).toMatchObject({quantity:'2',unit:'case',quantityNote:null});
+    expect(quantityFlag(withItem(lines[3],BAGS,'rep'))).toBe('Check quantity: customer\'s pack is 1,000/case, this item is a case of 250');
   });
 
   it('keeps the quantity blank when the customer gave none',()=>{

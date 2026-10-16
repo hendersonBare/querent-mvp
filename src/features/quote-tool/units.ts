@@ -31,9 +31,10 @@ import {quantityProblem} from '@/features/quotes/limits';
 //   - Any other word ("pallets", "skids", "bx") is kept as written and flagged.
 //   - A part of a countable unit (2.5 bundles, 2.5 cases) is flagged, never presented as exact.
 //   - A pack size the customer states ("50/bundle", "500/case", "case of 1,000", "500 ct"; statedPack)
-//     must be the item's: when it differs from the item's known count, or the item's count is not known,
-//     the customer's numbers are kept and flagged ("Check quantity: customer's pack is 50/bundle, this
-//     item is a bundle of 25"); never converted.
+//     must be the item's (the same count; a roll is not a case): when it differs from the item's known
+//     count, or the item's count is not known, the customer's numbers are kept and flagged ("Check
+//     quantity: customer's pack is 50/bundle, this item is a bundle of 25"), never converted. When it is
+//     the item's, the quantity converts as above and the note names it ("2 bundles (25/bundle) = 50 each").
 
 export interface PricingUnit {
   /** What the list price is per, singular and lowercase: "each", "case", "roll", "coil". */
@@ -157,48 +158,71 @@ const amount=(quantity:number,unit:string|null)=>unit?`${NUMBER.format(quantity)
 /** A pack size the customer states: the count, what it is per (bundle, case, roll, box; null for a bare count: "500 ct", "pack of 100"), and how to say it. */
 export interface StatedPack {count:number;per:'bundle'|'case'|'roll'|'box'|null;text:string}
 
+/** Words a stated pack is per; a carton is a case (as for quantities), a pack is a bare count. */
 const CONTAINERS:Readonly<Record<string,StatedPack['per']>>={
-  bundle:'bundle',bundles:'bundle',bdl:'bundle',bdls:'bundle',bndl:'bundle',
+  bundle:'bundle',bundles:'bundle',bdl:'bundle',bdls:'bundle',bndl:'bundle',bndls:'bundle',
   case:'case',cases:'case',cs:'case',carton:'case',cartons:'case',ctn:'case',ctns:'case',
   box:'box',boxes:'box',bx:'box',roll:'roll',rolls:'roll',rl:'roll',rls:'roll',
   pack:null,packs:null,pk:null,pks:null,
 };
 const CONTAINER=`(${Object.keys(CONTAINERS).sort((a,b)=>b.length-a.length).join('|')})`;
-const COUNT=String.raw`(\d{1,3}(?:,\d{3})+|\d+)`;
-const PACK_PATTERNS:{re:RegExp;count:number;per:number|null}[]=[
-  // "50/bundle", "1,000 / cs", "100 per carton", "36 rolls per case", "500 a case"
-  {re:new RegExp(String.raw`(?<![\w.,#])${COUNT}\s*(?:[a-z]+\s+)?(?:\/|\bper\b|\ba\b)\s*${CONTAINER}\b`,'i'),count:1,per:2},
-  // "case of 1,000", "bundle of 25", "roll of 250", "pack of 100"
-  {re:new RegExp(String.raw`\b${CONTAINER}\s+of\s+${COUNT}\b`,'i'),count:2,per:1},
-  // "500 ct", "100 count", "12 pk", "12-pack"
-  {re:new RegExp(String.raw`(?<![\w.,#])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?)\b`,'i'),count:1,per:null},
+/** A whole count, with or without thousands separators: 50, 1000, 1,000, 12,500. */
+const PACK_COUNT=String.raw`(\d{1,3}(?:,\d{3})+|\d+)`;
+const NOT_PART_OF_A_NUMBER=String.raw`(?<![\w.,#/])`;
+interface PackPattern {re:RegExp;count:number;per:number|null}
+/** Phrases that can only be a pack size, wherever they stand in the line. */
+const PACK_PHRASES:PackPattern[]=[
+  // "50/bundle", "1,000 / cs", "100 per carton", "36 rolls per case", "500 bags/case", "500 a case"
+  {re:new RegExp(String.raw`${NOT_PART_OF_A_NUMBER}${PACK_COUNT}\s*(?:[a-z]+\s*)?(?:\/|\bper\b|\ba\b)\s*${CONTAINER}\b`,'i'),count:1,per:2},
+  // "case of 1,000", "bundle of 25", "roll of 250", "pack of 100", "2 cases of 500"
+  {re:new RegExp(String.raw`\b${CONTAINER}\s+of\s+${PACK_COUNT}\b`,'i'),count:2,per:1},
 ];
+/**
+ * A bare count ("500 ct", "100 count", "12 pk", "12-pack"): a pack size only in the description, since
+ * "3 pk" in the whole line may be the quantity. Singular words only: "3 packs" is a quantity.
+ */
+const BARE_COUNT:PackPattern={re:new RegExp(String.raw`${NOT_PART_OF_A_NUMBER}${PACK_COUNT}\s*-?\s*(?:ct|cnt|count|pk|pack)\b`,'i'),count:1,per:null};
 
-/** The pack size stated in the customer's line (its description), or null. */
-export function statedPack(text:string|null|undefined):StatedPack|null{
-  for(const {re,count,per} of PACK_PATTERNS){
-    const match=re.exec(text??'');
+function readPack(text:string,patterns:PackPattern[]):StatedPack|null{
+  for(const {re,count,per} of patterns){
+    const match=re.exec(text);
     if(!match)continue;
     const n=Number(match[count].replace(/,/g,''));
-    if(!Number.isInteger(n)||n<1)continue;
+    if(!Number.isSafeInteger(n)||n<1)continue;
     const container=per===null?null:CONTAINERS[match[per].toLowerCase()];
     return {count:n,per:container,text:container?`${NUMBER.format(n)}/${container}`:`${NUMBER.format(n)} ct`};
   }
   return null;
 }
 
-/** The item's own pack: bundles of N of an item priced each, or the pricing unit of N; null when the count is not known. */
+/**
+ * The pack size the customer states in a line, or null: from its description (the parser keeps "500/case"
+ * there), else from the whole line as written, where only a phrase that cannot be the quantity counts
+ * ("50/bundle", "case of 500"; not "3 pk").
+ */
+export function statedPack(description:string|null|undefined,rawText?:string|null):StatedPack|null{
+  return readPack(description??'',[...PACK_PHRASES,BARE_COUNT])??readPack(rawText??'',PACK_PHRASES);
+}
+
+/** What a pack holds pieces of: a roll's labels, or an outer pack's (case, bundle, box) pieces; null: any. */
+const packLevel=(per:string|null)=>per===null||per==='each'?null:per==='roll'?'roll':'outer';
+
+/** The item's own pack: a bundle of N of an item priced each, one piece, or its pricing unit of N; null when the count is not known. */
 function itemPack(pricing:PricingUnit):{count:number;per:string}|null{
-  if(pricing.unit==='each')return pricing.bundleOf?{count:pricing.bundleOf,per:'bundle'}:null;
+  if(pricing.unit==='each')return pricing.bundleOf?{count:pricing.bundleOf,per:'bundle'}:{count:1,per:'each'};
   return pricing.contains?{count:pricing.contains,per:pricing.unit}:null;
 }
 
-/** Why the customer's stated pack is not the item's, or null when it is. */
+/**
+ * Why the customer's stated pack is not the item's, or null when it is: the same count, and (when the
+ * customer names it) the same kind of pack (a roll is not a case; a case, bundle or box are alike).
+ */
 function packMismatch(pack:StatedPack,pricing:PricingUnit):string|null{
   const own=itemPack(pricing);
   if(!own)return 'this item\'s pack count is not known';
-  if(own.count===pack.count&&(pack.per===null||pack.per===own.per))return null;
-  return `this item is a ${own.per} of ${NUMBER.format(own.count)}`;
+  const level=packLevel(pack.per),ownLevel=packLevel(own.per);
+  if(own.count===pack.count&&(level===null||ownLevel===null||level===ownLevel))return null;
+  return own.per==='each'?'this item is sold one at a time':`this item is a ${own.per} of ${NUMBER.format(own.count)}`;
 }
 
 // ---- Converting -------------------------------------------------------------------------------------

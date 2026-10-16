@@ -270,53 +270,93 @@ describe('statedPack: the pack size the customer states',()=>{
   it.each<[string,{count:number;per:string|null;text:string}|null]>([
     ['Corrugated Boxes 12x10x8 32 ECT 50/bundle',{count:50,per:'bundle',text:'50/bundle'}],
     ['Reclosable Poly Bags 4x10" 6 mil 500/case',{count:500,per:'case',text:'500/case'}],
+    ['Boxes 12x10x8 25/bdl',{count:25,per:'bundle',text:'25/bundle'}],
     ['Poly bags 1,000 / cs',{count:1000,per:'case',text:'1,000/case'}],
+    ['Poly bags 12,500/ctn',{count:12500,per:'case',text:'12,500/case'}],
     ['Mailers 100 per carton',{count:100,per:'case',text:'100/case'}],
+    ['Boxes 25 per bundle',{count:25,per:'bundle',text:'25/bundle'}],
+    ['Mailers 50 per box',{count:50,per:'box',text:'50/box'}],
+    ['Labels 4x6 500 per roll',{count:500,per:'roll',text:'500/roll'}],
+    ['Gloves 100 per pack',{count:100,per:null,text:'100 ct'}],
     ['Tape 36 rolls per case',{count:36,per:'case',text:'36/case'}],
+    ['Poly bags 500 bags/case',{count:500,per:'case',text:'500/case'}],
     ['Boxes, bundle of 25',{count:25,per:'bundle',text:'25/bundle'}],
+    ['Poly bags case of 500',{count:500,per:'case',text:'500/case'}],
     ['Poly bags case of 1,000',{count:1000,per:'case',text:'1,000/case'}],
     ['Labels 4x6 roll of 250',{count:250,per:'roll',text:'250/roll'}],
     ['Mailers, box of 100',{count:100,per:'box',text:'100/box'}],
+    ['Gloves pack of 100',{count:100,per:null,text:'100 ct'}],
+    ['Poly bags 500ct',{count:500,per:null,text:'500 ct'}],
     ['Poly bags 500 ct',{count:500,per:null,text:'500 ct'}],
+    ['Poly bags 1,000 ct',{count:1000,per:null,text:'1,000 ct'}],
     ['Zip bags 100 count',{count:100,per:null,text:'100 ct'}],
     ['Labels 12 pk',{count:12,per:null,text:'12 ct'}],
-    ['Gloves pack of 100',{count:100,per:null,text:'100 ct'}],
+    ['Labels 12-pack',{count:12,per:null,text:'12 ct'}],
     ['Corrugated Boxes 12x10x8" 32 ECT',null],
     ['Poly bags 2 mil 12x15',null],
     ['#2 Kraft Bubble Mailers 8.5x12',null],
     ['Bubble Dispenser Packs 24"x50\'',null],
+    ['Tape 3/4" x 36 yds',null],
+    ['Gloves 3 packs',null],
   ])('%j -> %j',(text,pack)=>{
     expect(statedPack(text)).toEqual(pack);
+  });
+
+  it('reads the whole line when the description has none, but never takes the quantity for a pack',()=>{
+    expect(statedPack('Poly bags 4x10','2 cases of 500 poly bags 4x10')).toEqual({count:500,per:'case',text:'500/case'});
+    expect(statedPack('Labels 4x6','Labels 4x6, 3 pk')).toBeNull();
+    expect(statedPack('Labels 4x6','Labels 4x6 x 12')).toBeNull();
+    // The description wins.
+    expect(statedPack('Boxes 50/bundle','Boxes 50/bundle 25/bundle, 2 bundles')?.count).toBe(50);
+    expect(statedPack(null,null)).toBeNull();
   });
 });
 
 describe('convertQuantity with the customer\'s stated pack',()=>{
   const BOX25=pricingUnit('Each',25,{description:'Corrugated Boxes 12x10x8", 32 ECT single wall, bundle pricing',category:'boxes'});
   const BAGS1000=pricingUnit('Case of 1,000',1,{description:'Reclosable Poly Bags, 4x10" 6 MIL',category:'bags'});
+  const BAGS500=pricingUnit('Case of 500',1,{description:'Reclosable Poly Bags, 4x6" 2 MIL',category:'bags'});
+  const LABELS=pricingUnit('Roll of 500',1,{description:'Direct Thermal Labels 4x6"',category:'labels'});
   const TISSUE=pricingUnit('Case',1,{description:'Tissue Paper Sheets 20x30"',category:'paper'});
+  const TAPE=pricingUnit('Roll',1,{description:'Carton Sealing Tape 2" x 110 yds',category:'tape'});
   const GAYLORD=pricingUnit('Each',1,{description:'Single Wall Gaylord 48x40x36"',category:'boxes'});
 
   it('never converts when the customer\'s pack differs from the item\'s: keeps the numbers and says why',()=>{
+    // The verifier's examples: 2 bundles of 50 are not 2 bundles of 25; a case of 500 is not a case of 1,000.
     expect(convertQuantity(2,'bundle',BOX25,statedPack('Corrugated Boxes 12x10x8 32 ECT 50/bundle'))).toEqual({quantity:2,note:{kind:'check',wrote:'2 bundles (50/bundle)',
       text:'Check quantity: customer\'s pack is 50/bundle, this item is a bundle of 25'}});
     expect(convertQuantity(1,'case',BAGS1000,statedPack('Reclosable Poly Bags 4x10" 6 mil 500/case'))).toEqual({quantity:1,note:{kind:'check',wrote:'1 case (500/case)',
       text:'Check quantity: customer\'s pack is 500/case, this item is a case of 1,000'}});
-    // The same count in another kind of pack is not the same pack.
-    expect(convertQuantity(2,'case',BOX25,statedPack('boxes 25/case'))?.note?.text).toBe('Check quantity: customer\'s pack is 25/case, this item is a bundle of 25');
+    // Every phrasing, and in pieces too (3,000 bags would divide by 1,000, but not the customer's 500s).
+    expect(convertQuantity(2,'cases',BAGS1000,statedPack('Poly bags case of 500'))?.note?.text).toBe('Check quantity: customer\'s pack is 500/case, this item is a case of 1,000');
+    expect(convertQuantity(2,'cases',BAGS1000,statedPack('Poly bags 500ct'))?.note?.text).toBe('Check quantity: customer\'s pack is 500 ct, this item is a case of 1,000');
+    expect(convertQuantity(3000,'bags',BAGS1000,statedPack('Poly bags 500/cs'))).toMatchObject({quantity:3000,note:{kind:'check'}});
+    expect(convertQuantity(4,'bundles',BOX25,statedPack('Boxes bundle of 20'))).toMatchObject({quantity:4,note:{kind:'check',wrote:'4 bundles (20/bundle)'}});
+    expect(convertQuantity(1,'case',BAGS1000,statedPack('Bags 1,500/case'))?.note?.text).toBe('Check quantity: customer\'s pack is 1,500/case, this item is a case of 1,000');
+    // The same count per roll is not a case of it.
+    expect(convertQuantity(2,'case',BAGS500,statedPack('Labels 500/roll'))?.note?.text).toBe('Check quantity: customer\'s pack is 500/roll, this item is a case of 500');
+    expect(convertQuantity(2,'rolls',LABELS,statedPack('Labels 500/case'))?.note?.text).toBe('Check quantity: customer\'s pack is 500/case, this item is a roll of 500');
+    // An item sold one at a time is not a pack of 5.
+    expect(convertQuantity(2,'bundles',GAYLORD,statedPack('Gaylords 5/bundle'))?.note?.text).toBe('Check quantity: customer\'s pack is 5/bundle, this item is sold one at a time');
   });
 
   it('converts as before when the customer\'s pack is the item\'s, naming it in the note',()=>{
-    expect(convertQuantity(2,'bundles',BOX25,statedPack('boxes 25/bundle'))).toEqual({quantity:50,note:{kind:'converted',wrote:'2 bundles (25/bundle)',
+    expect(convertQuantity(2,'bundles',BOX25,statedPack('Corrugated Boxes 12x10x8 32 ECT 25/bundle'))).toEqual({quantity:50,note:{kind:'converted',wrote:'2 bundles (25/bundle)',
       text:'Customer asked for 2 bundles (25/bundle) = 50 each'}});
     expect(convertQuantity(2,'cases',BAGS1000,statedPack('bags case of 1,000'))).toEqual({quantity:2,note:null});
     expect(convertQuantity(3000,'bags',BAGS1000,statedPack('bags 1000/cs'))?.note?.text).toBe('Customer asked for 3,000 bags (1,000/case) = 3 cases');
     expect(convertQuantity(4,'bundle',BOX25,statedPack('boxes 25 ct'))?.quantity).toBe(100);
+    expect(convertQuantity(4,'rolls',LABELS,statedPack('labels roll of 500'))).toEqual({quantity:4,note:null});
+    expect(convertQuantity(2,'case',BAGS500,statedPack('bags 500 per box'))).toEqual({quantity:2,note:null});
+    // The same count in another outer pack converts only as the units allow: 2 cases of an item priced each is checked.
+    expect(convertQuantity(2,'case',BOX25,statedPack('boxes 25/case'))).toMatchObject({quantity:2,note:{kind:'check',text:'Check quantity (customer wrote: 2 cases (25/case))'}});
   });
 
   it('flags a stated pack when the item\'s count is not known',()=>{
     expect(convertQuantity(3,'case',TISSUE,statedPack('tissue sheets 480/case'))).toEqual({quantity:3,note:{kind:'check',wrote:'3 cases (480/case)',
       text:'Check quantity: customer\'s pack is 480/case, this item\'s pack count is not known'}});
-    expect(convertQuantity(5,'each',GAYLORD,statedPack('gaylords 5/bundle'))?.note?.text).toBe('Check quantity: customer\'s pack is 5/bundle, this item\'s pack count is not known');
+    expect(convertQuantity(2,'case',TAPE,statedPack('tape 36 rolls per case'))?.note?.text).toBe('Check quantity: customer\'s pack is 36/case, this item\'s pack count is not known');
+    expect(convertQuantity(2,'case',null,statedPack('tape 36/cs'))?.note?.text).toBe('Check quantity (customer wrote: 2 cases (36/case))');
   });
 
   it('keeps working without a stated pack',()=>{

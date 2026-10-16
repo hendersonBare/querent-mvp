@@ -54,7 +54,7 @@ export function initialReview(run:MatchRun):ReviewLine[]{
     const base:ReviewLine={
       key:line.index,status:'unmatched',restoreTo:'unmatched',reason:matched?null:line.reason,blockers:[...line.eligibility?.blockers??[]],
       rawText:line.rawText,quantity:line.quantity===null?'':String(line.quantity),unit:line.unit,quantityUnclear:line.quantityUnclear,
-      customerQuantity:line.quantity,customerUnit:line.unit,customerPack:statedPack(line.description),quantityNote:null,quantityChecked:false,
+      customerQuantity:line.quantity,customerUnit:line.unit,customerPack:statedPack(line.description,line.rawText),quantityNote:null,quantityChecked:false,
       price:'',item:null,matchedBy:null,score:null,candidates:line.candidates,nearMisses:line.nearMisses,
     };
     return matched?{...withItem(base,{...line.item!,score:line.score},'auto'),price:''}:base;
