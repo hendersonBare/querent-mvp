@@ -95,14 +95,12 @@ test('a PDF upload is read, matched and saved with its unmatched lines flagged',
   await expect(dialog.getByText('2 matched, 2 could not be matched.')).toBeVisible();
   await expect(dialog.getByText('Could not detect a match')).toHaveCount(2);
   await dialog.getByLabel('Customer name').fill('E2E PDF Co');
-  // The PDF's lines carry the customer's prices ("$1.10"): something besides the description, SKU and
-  // quantity, so each quantity is kept and flagged (B10b), and the rep sets it.
-  await expect(reviewLine(dialog,'12108-BDL')).toContainText('Check quantity (customer wrote: 10 bundles, $1.10)');
-  await expect(qty(dialog,'12108-BDL')).toHaveValue('10');
-  await expect(reviewLine(dialog,'PB3669')).toContainText('Check quantity (customer wrote: 2 cases, $89.00)');
-  await expect(dialog.getByText('2 lines have a quantity to check.')).toBeVisible();
-  await qty(dialog,'12108-BDL').fill('250');
-  await qty(dialog,'PB3669').fill('2');
+  // The PDF's lines carry the customer's unit prices ("$1.10"): a plain currency amount is not about the
+  // quantity (B10b), so the quantities convert as usual: 10 bundles = 250 each, 2 cases stay 2 cases.
+  await expect(qty(dialog,'12108-BDL')).toHaveValue('250');
+  await expect(reviewLine(dialog,'12108-BDL')).toContainText('Customer asked for 10 bundles = 250 each');
+  await expect(qty(dialog,'PB3669')).toHaveValue('2');
+  await expect(dialog.getByText(/quantity to check/)).toHaveCount(0);
   await price(dialog,'12108-BDL').fill('1.10');
   await price(dialog,'PB3669').fill('89');
   // 250 each x $1.10, plus 2 cases x $89.
