@@ -88,14 +88,17 @@ The customer's quantity is converted into the pricing unit only when that is exa
 - "2 cartons" of an item priced per case: **2 cases**, "Customer asked for 2 cartons = 2 cases";
 - "4 rolls" of a wrap sold per case of 4 rolls: **1 case**.
 
-Anything else keeps the customer's number and is flagged **Check quantity**: an unknown unit ("Check
-quantity (customer wrote: 10 pallets)"), a pack size that is not the item's ("Check quantity: customer's
-pack is 50/bundle, this item is a bundle of 25"), a part of a unit (2.5 bundles), or a quantity Claude
-marked as unclear. Under Save, "2 lines have a quantity to check." reminds the rep; Save is still allowed,
+A quantity is converted (or kept with no note) only when the line's description fully describes the
+chosen item and nothing but the quantity, the supplier SKU and a plain price is left in the customer's
+line. Anything else keeps the customer's number and is flagged **Check quantity**, with what the customer
+wrote: an unknown unit ("Check quantity (customer wrote: 10 pallets)"), a stated pack size of any kind
+("Check quantity (customer wrote: 2 bundles, 50/bundle)"), a part of a unit (2.5 bundles), any other text
+the tool cannot account for, or a quantity Claude marked as unclear. Under Save, "2 lines have a quantity to check." reminds the rep; Save is still allowed,
 because the rep decides. Typing a quantity clears the flag and the note then reads "Customer wrote: 10
 pallets"; the line is still saved as flagged, so the quote's page keeps the flag. A line with no quantity
 at all also says "Check quantity", and Save waits until it has one. After **Swap** or **Use this item** the
-quantity is converted again for the new item and its price is cleared.
+same check runs again for the new item and its price is cleared; because a picked item usually does not
+fully describe the customer's line, its quantity is normally kept as written and flagged for the rep.
 
 On the saved quote's page each line shows its quantity with the unit, the price per unit, the line total,
 and the customer's own quantity when it was converted or flagged: "Customer asked for 10 bundles", or

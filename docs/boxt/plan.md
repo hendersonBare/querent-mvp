@@ -132,13 +132,13 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B3 | Packaging-aware matching, strictness levels, evaluation suite | none (owns `src/server/matching/`) | superseded by B3b (blocked after 3 fix rounds) |
 | B3b | Strict total-accounting hardening (fresh implementer, all verifier probe lines as held-out eval) | B3 branch | merged |
 | B4 | LLM parser and judge with fixtures | none (owns `src/server/llm/`) | merged |
-| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | in progress (`boxt/task/B5-quote-tool`, B3 branch merged in for its API) |
+| B5 | Quote creation tool (pipeline, input, review dialog, save) | B1, B2, B3, B4 | merged (via the release candidate) |
 | B6 | Quotes list and detail | B1, B2 | merged |
-| B7 | Settings (match strictness) | B1, B2, B3 | in progress (`boxt/task/B7-settings`, B3 branch merged in for `strictness.ts`) |
-| B8 | E2E, access control, CI | B5, B6, B7 | in progress (`boxt/task/B8-e2e-ci`, staged on B5 + B7) |
-| B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 (staged on the B8 head) | blocked after 3 verifier FAILs; continued as B10b on the same branch |
-| B10b | Fail-closed quantity conversion (two-part total accounting) | B10 branch | final head `3944128`; under final verification in the release candidate `boxt/rc` |
-| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | final accuracy pass done (`eab30e2`, B10 merged in); to verify after B10b |
+| B7 | Settings (match strictness) | B1, B2, B3 | merged (via the release candidate) |
+| B8 | E2E, access control, CI | B5, B6, B7 | merged (via the release candidate) |
+| B10 | Price-unit correctness and UI polish (from B8 verification) | B5, B7, B8 | superseded by B10b (blocked after 3 fix rounds); merged with it |
+| B10b | Fail-closed quantity conversion (two-part total accounting) | B10 branch | merged (via the release candidate) |
+| B9 | DEPLOY.md, OPERATIONS.md, README | B8 | merged (via the release candidate; verified as DoD item 5) |
 
 ### B0: Strip to the shell; new stack scaffolding
 - Delete the SQLite data layer (`src/server/db`, `better-sqlite3`), every feature, route, component, test,
@@ -227,6 +227,8 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 
 | Task | Sub-branch head | Verdict | Evidence |
 |---|---|---|---|
+| RC | `9301784` | PASS (final) | Definition of done 1–6 all PASS: CI steps replayed locally in order (build without Supabase env, `test:db` 60, Playwright 23/23 twice); every DoD Playwright item asserted (read spec by spec); access control by curl (pages 307, APIs 401, cross-origin 403, Supabase signup 422, anon 42501 on every relation); eval gate proven to fail the build, Strict 0 FP with both judges, recall 95%; DEPLOY/OPERATIONS followed against the local stack (migrations, seed twice, go-live curls, admin API user lifecycle, Mailpit reset, every SQL block); screenshots reviewed. Product rules end to end (rail, no sign-up, Save gating, unmatched saved flagged, no email, activity log free of customer text, no outside hosts, secrets clean). Quantity safety: 0 silent wrong totals across 50,000+ generated lines, 132 + 20 + 44 attack lines and the browser. Non-blocking: two doc wording slips (fixed before merge), plan status rows (updated), a cosmetic dialog header overlap on scroll, `quantityUnclear` trusted from the client, technical wording of some no-match hints, old demo `docs/*.html` from `main` mention a model id. |
+| B10b | `3944128` | PASS (in the RC) | Folding cartons flag; pack-like supplier SKUs flag; symbols flag; 0 silent of 18,720 + 18,720 + 12,640 generated lines and 132 attack lines; gates and Playwright 23/23 twice; eval byte-identical. |
 | B3b | `c0f7271` | FAIL (B3b round 2) | Gates pass; memory flat; long inputs bounded; exact same-unit sizes; fractions; recall 37/37 new lines. 24 Strict FP from one class: defining choices the line leaves unsaid (hand/machine strapping, cast/blown film) and a missing size are not charged against the item, so Strict rested on the lead; 0.2% tolerance applied yd↔ft. Fix: item-side accounting of choices and full size at Strict. |
 | B3b | `3a23f0d` | FAIL (B3b round 3) | Gates pass; structure, memory, long input, typed SKUs, attacked exceptions held; recall 90/97 new lines, no wrong item. 10 Strict FP, one cause: an item material the line leaves unsaid is skipped (foam rolls, foam-in-bag "Expandable Bags"); also "1/2 mil" parsed as 2 mil (wrong item at Balanced/Lenient); a few lines rest on the lead via unstated defaults (single wall, colourless mailers). Limit reached; one documented final fix round granted because the misses narrowed to one cause (35 → 14 → 24 → 10). |
 | B3b | `70f33dd` | FAIL (final round, two scoped defects) | Gates pass except `npm test` flaky (eval test at the 5 s default timeout, 3 of 5 runs). Strict 0 FP on 405 new must-not lines and both mutation sweeps (190,736 word-add and 7,483 word-drop variants) except one defect: "thick" right after a size tuple is stripped as filler (13 lines, incl. plain IQRT40 for "18 x 24" Thick" while BOXT sells Extra Thick IQRT60). Recall 152/157 new lines. Material implications, defaults/variants, fraction parser, stand-ins all held. Decision: fix only these two mechanical defects and re-check with the verifier's own sweep scripts plus a scoped verifier, instead of another open-ended round. |
@@ -248,7 +250,7 @@ concurrency (4), a per-call timeout, and a failed call degrades that line to No 
 | B0 | `90a07a5` | PASS | typecheck 0; `npm test` 13 files / 147 tests; build routes only `/`, `/quote-tool`, `/quotes`, `/settings`; acceptance grep empty; curl: `/` 307 → `/quote-tool`, old routes 404; planted skip/key violations fail the guards; matching/llm untouched. Notes: Dialog.module.css kept for B5; `catalog.test.ts` excluded until B3; sign-out endpoint pending B2. |
 
 ## Release candidate
-`boxt/rc` (`9301784`) = `boxt/quote-tool` + the B10 branch (B5, B7, B8, B10, B10b) + B9 docs. Gates on it: typecheck 0, `npm test` 1,365 passed, build 0. Under final verification against the Definition of done; on PASS it is fast-forwarded into `boxt/quote-tool` and the PR to `main` is opened.
+`boxt/rc` (`9301784`) = `boxt/quote-tool` + the B10 branch (B5, B7, B8, B10, B10b) + B9 docs. Gates on it: typecheck 0, `npm test` 1,365 passed, build 0. Final verification PASS; merged into `boxt/quote-tool` and proposed to `main` as one PR.
 
 ## Follow-ups
 - F1 (B2): `createSupabaseServerClient` reads env before `cookies()`, so `next build` fails without Supabase env. Fix in B8 (call `connection()`/`cookies()` first; CI also sets env).
