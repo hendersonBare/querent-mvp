@@ -78,7 +78,7 @@ items, so nothing the customer asked for is lost.
 
 Every matched line is priced in its item's **pricing unit**, the unit BOXT's list price is per: **each**
 (boxes and mailers, even when sold in bundles), **case** (bags, sold per case of N), **roll**, **coil** and
-so on. The quantity box is labelled with it ("250 each"), the price box says "per each" or "per case", and
+so on. The quantity box is labelled with it ("each", "cases"), the price box says "per each" or "per case", and
 the reference label matches ("Web list: $0.84/each"). The web list price is only a reference: no price is
 ever filled in, and Save stays disabled until every matched line has a valid quantity and a price.
 
@@ -90,11 +90,12 @@ The customer's quantity is converted into the pricing unit only when that is exa
 
 Anything else keeps the customer's number and is flagged **Check quantity**: an unknown unit ("Check
 quantity (customer wrote: 10 pallets)"), a pack size that is not the item's ("Check quantity: customer's
-pack is 50/bundle, this item is a bundle of 25"), a part of a unit (2.5 bundles), or no quantity. Under
-Save, "2 lines have a quantity to check." reminds the rep; Save is still allowed, because the rep decides.
-Typing a quantity clears the flag and the note then reads "Customer wrote: 10 pallets"; the line is still
-saved as flagged, so the quote's page shows it was checked by hand. After **Swap** or
-**Use this item** the quantity is converted again for the new item and its price is cleared.
+pack is 50/bundle, this item is a bundle of 25"), a part of a unit (2.5 bundles), or a quantity Claude
+marked as unclear. Under Save, "2 lines have a quantity to check." reminds the rep; Save is still allowed,
+because the rep decides. Typing a quantity clears the flag and the note then reads "Customer wrote: 10
+pallets"; the line is still saved as flagged, so the quote's page keeps the flag. A line with no quantity
+at all also says "Check quantity", and Save waits until it has one. After **Swap** or **Use this item** the
+quantity is converted again for the new item and its price is cleared.
 
 On the saved quote's page each line shows its quantity with the unit, the price per unit, the line total,
 and the customer's own quantity when it was converted or flagged: "Customer asked for 10 bundles", or
@@ -386,8 +387,9 @@ To refresh it:
    prints how many items it wrote. Review the change (`git diff --stat data/boxt-catalog.json`).
 2. Run the tests (`npm test`): the evaluation suite runs every test line against the catalog, so a removed
    or renamed item shows up there, and the pricing-unit test fails on a pack shape the quote tool does not
-   know yet (for example a new "Bag of N"), so quantities are never read in the wrong unit. If an item the example quote uses disappears, the seed stops with "The
-   example quote needs SKUs the catalog does not have" and changes nothing.
+   know yet (for example a new "Bag of N"), so quantities are never read in the wrong unit. If an item
+   the example quote uses disappears, the seed stops with "The example quote needs SKUs the catalog does
+   not have" and changes nothing.
 3. Commit the file, then load it into the live database exactly as in
    [DEPLOY.md 2.2](DEPLOY.md#22-load-the-catalog-and-the-example-quote): `npm run db:seed:boxt` with
    `DATABASE_URL` set. It is idempotent: it updates existing items by SKU, adds new ones, refreshes the
