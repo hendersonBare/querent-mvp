@@ -4,7 +4,8 @@ import {decide,type NoMatchReason} from '@/server/matching/decide';
 import type {JudgeCandidate,JudgeVerdict} from '@/server/llm/types';
 import {withinCandidates} from '@/server/llm/verdicts';
 import {packLabel,productGroup} from '@/server/matching/packaging';
-import {retrieve,type Retrieval} from '@/server/matching/retrieve';
+import {RETRIEVE_DEPTH,retrieveScored,type Candidate,type Retrieval} from '@/server/matching/retrieve';
+import {scorePackaging} from '@/server/matching/score-packaging';
 import {CASES,type EvalCase} from './cases';
 import recording from './judge-recording.json';
 
@@ -68,16 +69,18 @@ export interface CaseResult {
 
 const GROUP_OF=new Map(CATALOG.map(row=>[row.sku,productGroup(row)]));
 
-/** retrieve() is pure and the catalog fixed, so one retrieval per line and level serves every judge and test. */
-const RETRIEVALS=new Map<string,Retrieval<CatalogRow>>();
-export function retrieveAt(description:string,level:StrictnessLevel){
-  const key=`${level}\u0000${description}`;
-  let retrieval=RETRIEVALS.get(key);
-  if(!retrieval){
-    retrieval=retrieve(description,CATALOG,matchConfig(level));
-    RETRIEVALS.set(key,retrieval);
+/**
+ * The scorer is pure and the catalog fixed, so each line is scored once (its top RETRIEVE_DEPTH
+ * candidates kept) and retrieveScored() applies each level's rule: the same result as retrieve().
+ */
+const SCORED=new Map<string,Candidate<CatalogRow>[]>();
+export function retrieveAt(description:string,level:StrictnessLevel):Retrieval<CatalogRow>{
+  let scored=SCORED.get(description);
+  if(!scored){
+    scored=scorePackaging(description,CATALOG).slice(0,RETRIEVE_DEPTH);
+    SCORED.set(description,scored);
   }
-  return retrieval;
+  return retrieveScored(description,scored,matchConfig(level));
 }
 
 export function runCase(c:EvalCase,level:StrictnessLevel,judge:JudgeKind):CaseResult{

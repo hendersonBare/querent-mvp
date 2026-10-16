@@ -40,9 +40,18 @@ export interface Retrieval<T> {
   rule:MatchRule;
 }
 
-export function retrieve<T extends PackagingItem>(description:string,catalog:readonly T[],{minScore,minLead,requireTotalAccounting=false,candidateLimit=8,nearMissLimit=5}:RetrieveOptions):Retrieval<T>{
+export function retrieve<T extends PackagingItem>(description:string,catalog:readonly T[],options:RetrieveOptions):Retrieval<T>{
+  return retrieveScored(description,scorePackaging(description,catalog),options);
+}
+
+/**
+ * retrieve() from candidates already scored for this line (scorePackaging's result, best first). The
+ * top RETRIEVE_DEPTH of them are always enough: a product group holds at most two pricing tiers, so the
+ * rival and five near-miss groups are within the first dozen. The evaluation suite scores each line
+ * once and calls this per level; the library itself caches nothing.
+ */
+export function retrieveScored<T>(description:string,scored:readonly Candidate<T>[],{minScore,minLead,requireTotalAccounting=false,candidateLimit=8,nearMissLimit=5}:RetrieveOptions):Retrieval<T>{
   const rule={minScore,minLead,requireTotalAccounting};
-  const scored=scorePackaging(description,catalog);
   const top=scored[0]??null;
   if(!top){
     const eligibility={strictEligible:false,blockers:[...parseSpec(description).blockers,'no catalog item fits the line']};
@@ -64,3 +73,5 @@ export function retrieve<T extends PackagingItem>(description:string,catalog:rea
   }
   return {candidates:scored.slice(0,Math.max(1,Math.floor(candidateLimit))),top,lead,namesProduct,eligibility,clears,nearMisses,rule};
 }
+/** How many of a line's candidates retrieveScored() needs at most (candidateLimit and nearMissLimit at their defaults). */
+export const RETRIEVE_DEPTH=40;

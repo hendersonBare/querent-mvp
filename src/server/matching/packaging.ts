@@ -28,7 +28,9 @@ import {normalize,stem} from './text';
 /** A number with its unit (in, ft, yd, mm, cm, m, lb, oz, cuft; null when the text gave none). */
 export interface Size {unit:string|null;value:number;label:string;
   /** A size outside the tuple with a label ("12\" deep"): its place in L, W, H/D order (0, 1, 2). */
-  rank?:number}
+  rank?:number;
+  /** Said as a thickness (".160\" thick"): only a size besides an item's dimensions can confirm it. */
+  thickness?:true}
 /** A pack quantity: `outer` is the count per case, bundle or carton; `roll` the count per roll. */
 export interface Pack {outer?:number;roll?:number}
 export type ChoiceKey='wall'|'flute'|'closure'|'adhesive'|'print'|'film'|'length'|'paper'|'condition';
@@ -57,7 +59,9 @@ export interface Spec {
   /** A strapping core ("8x8\" Core" is "8x8"). */
   core:string|null;
   /** Every value the line states for each scalar field, in order (the fields above keep the first). */
-  values:{ect:number[];burst:number[];mil:number[];gauge:number[];number:string[];core:string[]};
+  values:{ect:number[];burst:number[];mil:number[];gauge:number[];number:string[];core:string[];
+    /** The mil values converted from microns: only these compare within UNIT_TOLERANCE. */
+    milFromMicron:number[]};
   /** Every value stated per exclusive choice (choices keeps the first). */
   choiceValues:Partial<Record<ChoiceKey,string[]>>;
   /** Every pack count stated (pack keeps the first). */
@@ -79,6 +83,8 @@ export interface ItemSpec extends Spec {
   name:string;
   /** The words of the description alone (no keywords): the product noun must be one of them at Strict. */
   descWords:string[];
+  /** The item's head product noun ("lid" for "Gaylord Lid"), which a line must name at Strict; null when the name has none. */
+  head:string|null;
   /** The catalog's order for the item's sizes: L x W x H (boxes, pallets), W x L (bags, mailers, rolls, sheets, labels), or null (unknown). */
   dimOrder:DimOrder;
   /** The colours the description states; `colors` adds the implied ones (kraft for plain corrugated). */
@@ -103,7 +109,7 @@ function prepare(text:string){
     .replace(/(\d(?:mm|cm|yds?|ft|in|m)?|['"])\s*x\s*(?=[\d.])/g,'$1 x ')
     .replace(/\bcu(?:bic)?\.?\s*(?:feet|foot|ft)\.?/g,'cuft')
     // "4 x 6 x 2 mil": an "x" before a film thickness joins it to the size; a thickness is never a dimension.
-    .replace(/\bx\s*(?=\d*\.?\d+\s*-?\s*(?:mils?|gauge|gage|ga|microns?)\b)/g,' ')
+    .replace(/\bx\s*(?=(?:\d+[\s-]\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*-?\s*(?:mils?|gauge|gage|ga|microns?)\b)/g,' ')
     .replace(/\s+/g,' ').trim();
 }
 
@@ -123,11 +129,11 @@ const OUTER=String.raw`(?:cases?|cs|cartons?|ctns?|bundles?|bdls?|bndls?|boxe?s?
 const ROLL=String.raw`(?:rolls?|rls?)\b`;
 const PACK_RULES:{re:RegExp;unit:(m:RegExpExecArray)=>'outer'|'roll';count:(m:RegExpExecArray)=>string;contents?:(m:RegExpExecArray)=>string|undefined}[]=[
   // "25/bundle", "1,000/cs", "500 bags per case", "500 labels/roll"
-  {re:new RegExp(String.raw`(?<![\w.,])${COUNT}${CONTENTS}\s*(?:\/|\bper\b|\ba\b)\s*(${OUTER}|${ROLL})`,'g'),unit:m=>/^r/.test(m[3])?'roll':'outer',count:m=>m[1],contents:m=>m[2]},
+  {re:new RegExp(String.raw`(?<![\w.,\/])${COUNT}${CONTENTS}\s*(?:\/|\bper\b|\ba\b)\s*(${OUTER}|${ROLL})`,'g'),unit:m=>/^r/.test(m[3])?'roll':'outer',count:m=>m[1],contents:m=>m[2]},
   // "case of 500", "bundle of 25", "roll of 250"
   {re:new RegExp(String.raw`\b(${OUTER}|${ROLL})\s*(?:of|qty\.?:?)\s*${COUNT}\b`,'g'),unit:m=>/^r/.test(m[1])?'roll':'outer',count:m=>m[2]},
   // "1000 ct", "500 count", "10 pk", "10-pack", "500 pcs"
-  {re:new RegExp(String.raw`(?<![\w.,])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?|pkgs?|pcs|pieces)\b`,'g'),unit:()=>'outer',count:m=>m[1]},
+  {re:new RegExp(String.raw`(?<![\w.,\/])${COUNT}\s*-?\s*(?:ct|count|pks?|packs?|pkgs?|pcs|pieces)\b`,'g'),unit:()=>'outer',count:m=>m[1]},
 ];
 const toCount=(raw:string)=>Number(raw.replace(/,/g,''));
 
@@ -177,19 +183,24 @@ export function packLabel<T extends Pick<PackagingItem,'pack'|'caseQty'>>(item:T
 
 // ---- Strength, film and size numbers ---------------------------------------------------------------
 
-const ECT=/\b(\d{2})\s*-?\s*ect\b|\bect\s*-?\s*(\d{2})\b/g;
-const BURST=/\b(\d{3})\s*(?:#|lbs?\.?)\s*-?\s*(?:test|burst)\b|\b(?:mullen|burst)(?:\s*test)?\s*:?\s*(\d{3})\b/g;
+/**
+ * A number before a unit, read whole: a decimal, a proper fraction or a mixed number (1.5, 1/2, 1-1/2,
+ * 1 1/2). It never starts inside another number, so "1/2 mil" is half a mil, not 2 mil.
+ */
+const UNIT_NUMBER=String.raw`(?<![\w.\/-])(\d+[\s-]\d+\/\d+|\d+\/\d+|\d*\.\d+|\d+)`;
+const ECT=/(?<![\d.\/])\b(\d{2})\s*-?\s*ect\b|\bect\s*-?\s*(\d{2})\b(?![.\/]\d)/g;
+const BURST=/(?<![\d.\/])\b(\d{3})\s*(?:#|lbs?\.?)\s*-?\s*(?:test|burst)\b|\b(?:mullen|burst)(?:\s*test)?\s*:?\s*(\d{3})\b/g;
 /** A bare "200#": a burst rating on a box line, a weight anywhere else ("50# kraft paper"). */
-const BARE_POUNDS=/\b(\d{2,4})\s*#(?!\s*\d)(\s*-?\s*test\b)?/g;
+const BARE_POUNDS=/(?<![\d.\/])\b(\d{2,4})\s*#(?!\s*\d)(\s*-?\s*test\b)?/g;
 /** A strapping core: "8x8\" Core", "9 x 8 core". */
 const CORE=/\b(\d+)\s*x\s*(\d+)\s*(?:"|''|in\b\.?|inch(?:es)?\b)?\s*core\b/g;
 const BOX_LINE=/\b(?:box(?:es)?|cartons?|corrugated|cardboard|gaylords?|rsc)\b/;
-const MIL=/(?<![\w.])(\d*\.?\d+)\s*-?\s*mils?\b/g;
+const MIL=new RegExp(String.raw`${UNIT_NUMBER}\s*-?\s*mils?\b`,'g');
 /** Film thickness in microns, read as mil (1 mil = 25.4 µm). */
-const MICRON=/(?<![\w.])(\d*\.?\d+)\s*-?\s*(?:microns?|µm|μm|um|mic)(?![\w])/g;
+const MICRON=new RegExp(String.raw`${UNIT_NUMBER}\s*-?\s*(?:microns?|µm|μm|um|mic)(?![\w])`,'g');
 /** A legend after a tuple, "(L x W x H)" or "W x L x D": the members' labels, in order. */
 const LEGEND=/\(?\b([lwhd])\s*x\s*([lwhd])(?:\s*x\s*([lwhd]))?\b\)?/g;
-const GAUGE=/\b(\d+)\s*-?\s*(?:gauge|gage|ga)\b/g;
+const GAUGE=new RegExp(String.raw`${UNIT_NUMBER}\s*-?\s*(?:gauge|gage|ga)\b`,'g');
 const NUMBER=/(?<![\w#])#\s*(\d+[a-z]?)\b/g;
 
 /** The first capture group that matched, of a replace() callback's arguments. */
@@ -202,6 +213,7 @@ function takeValues<V extends number|string>(text:string,re:RegExp,read:(raw:str
     const raw=firstGroup(args);
     if(raw!==undefined){
       const v=read(raw);
+      if(typeof v==='number'&&!Number.isFinite(v))return ' ';
       if(!values.some(x=>typeof x==='number'&&typeof v==='number'?Math.abs(x-v)<1e-9:x===v))values.push(v);
     }
     return ' ';
@@ -252,10 +264,13 @@ const CHOICES:{key:ChoiceKey;values:[string,RegExp][]}[]=[
   ]},
 ];
 /**
- * The choices that make an item a different kind when the line doesn't say them. Single wall and
- * new are the defaults; kraft paper is also its colour, which is charged as a colour.
+ * The choices an item states that a line must state too (B3b fix round 2: when unsure, No match):
+ * closure, adhesive, print method, film type, hand or machine length, flute and paper grade, always;
+ * the wall and the condition unless they are the defaults (single wall, new). A choice the line leaves
+ * unsaid is unstated: 0.75, and a Strict blocker.
  */
-export const DEFINING_CHOICE=(key:ChoiceKey,value:string)=>key==='closure'||(key==='wall'&&value!=='single')||(key==='paper'&&value!=='kraft')||(key==='condition'&&value!=='new');
+export const DEFINING_CHOICE=(key:ChoiceKey,value:string)=>key==='closure'||key==='adhesive'||key==='print'||key==='film'||key==='length'||key==='flute'||key==='paper'
+  ||(key==='wall'&&value!=='single')||(key==='condition'&&value!=='new');
 
 /** The paper grade, read without removing the words: newsprint, tissue and kraft paper are different papers. */
 const PAPER_GRADES:[string,RegExp][]=[['newsprint',/\bnewsprint\b/],['tissue',/\btissue\b/],['crinkle',/\bcrinkle\b/],['honeycomb',/\bhoneycomb\b/]];
@@ -282,7 +297,10 @@ const COLORS:[string,RegExp][]=[
   ['steel blue',/\bsteel[\s-]*blue\b/g],
   ['pastel pink',/\bpastel[\s-]*pink\b/g],
   ['sherbet orange',/\bsherbet[\s-]*orange\b/g],
-  ['lavender',/\b(?:deep[\s-]*)?lavender\b/g],
+  // A shade is its own colour: "Deep Lavender" is not "Lavender", "Light Blue" not "Blue".
+  ...['light','dark','deep','pale','bright','neon'].flatMap(shade=>['lavender','blue','pink','green','gray','grey','red','yellow','orange','purple','brown','teal']
+    .map((base):[string,RegExp]=>[`${shade} ${base==='grey'?'gray':base}`,new RegExp(String.raw`\b${shade}[\s-]*${base}\b`,'g')])),
+  ['lavender',/\blavender\b/g],
   ['kraft',/\bkraft\b|\bbrown\b|\bnatural\b/g],
   ['white',/\bwhite\b/g],
   ['clear',/\bclear\b|\btransparent\b/g],
@@ -310,6 +328,11 @@ const MATERIALS:[string,RegExp][]=[
   ['vinyl',/\bvinyl\b/],
   ['tyvek',/\btyvek\b/],
 ];
+
+/** The material a single word names ("cardboard" is corrugated, "plastic" poly), or undefined. */
+export function materialOfWord(word:string){
+  return MATERIALS.find(([,re])=>re.test(word))?.[0];
+}
 
 function takeAll(text:string,table:[string,RegExp][]){
   const found:string[]=[];
@@ -354,7 +377,7 @@ const SIZE=new RegExp(String.raw`${LABEL_BEFORE}${NUM}(?![\d\/])${UNIT}${LABEL_A
 /** A label's place in the catalog's order: length, width, then height or depth. */
 const LABEL_RANK:Record<string,number>={l:0,length:0,long:0,w:1,width:1,wide:1,h:2,height:2,high:2,tall:2,d:2,depth:2,deep:2};
 /** Lengths, in inches; weights in pounds. A size compares only with one of the same family. */
-const TO_BASE:Record<string,[string,number]>={in:['length',1],ft:['length',12],yd:['length',36],mm:['length',1/25.4],cm:['length',1/2.54],m:['length',39.3701],
+const TO_BASE:Record<string,[string,number]>={in:['length',1],ft:['length',12],yd:['length',36],mm:['length',1/25.4],cm:['length',1/2.54],m:['length',1000/25.4],
   lb:['weight',1],oz:['weight',1/16],cuft:['volume',1],gal:['volume',0.133681]};
 export const familyOf=(unit:string|null)=>unit?TO_BASE[unit]?.[0]??unit:null;
 
@@ -375,7 +398,11 @@ function toNumber(raw:string){
  */
 function takeSizes(text:string){
   const found:(Size&{start:number;end:number;rank?:number})[]=[];
+  const blockers:string[]=[];
   for(const m of text.matchAll(SIZE)){
+    // Only a proper fraction is a number ("1/2", "8 1/2", "8-1/2"); "16/2" or "1/0" is not read.
+    const fraction=/(\d+)\/(\d+)$/.exec(m[2]);
+    if(fraction&&(Number(fraction[2])===0||Number(fraction[1])>=Number(fraction[2]))){blockers.push(`an improper fraction: ${m[2]}`);continue;}
     const value=toNumber(m[2]);
     if(!Number.isFinite(value))continue;
     const unit=m[3]?UNIT_OF[m[3].replace(/\.$/,'')]??null:null;
@@ -388,7 +415,6 @@ function takeSizes(text:string){
   for(let i=0;i<found.length;i++){
     if(i>0&&joined(i-1))groups.at(-1)!.push(found[i]);else groups.push([found[i]]);
   }
-  const blockers:string[]=[];
   const ranksOf=new Map<(typeof found),(number|null)[]|null>();
   for(const group of groups){
     let carry:string|null=null;
@@ -407,7 +433,16 @@ function takeSizes(text:string){
       blockers.push(labelled<group.length?'a size with labels on only some of its numbers':'a size with one label used twice');
     }else ranksOf.set(group,null);
   }
-  const strip=({unit,value,label,rank}:Size):Size=>({unit,value,label:unit?`${label} ${unit}`:label,...(rank!==undefined?{rank}:{})});
+  // ".160" thick": "thick" right after a single size in a length unit names that size's dimension and
+  // says nothing more. After a tuple ("18 x 24" Thick") or a number that is no length ("40 lb thick",
+  // "2 mil thick") it is a word the item must confirm. (Long, wide, high, deep and tall are labels,
+  // read by SIZE: on a tuple member or a single size they make a blocker, never filler.)
+  for(const group of groups){
+    if(group.length!==1||!group[0].unit||familyOf(group[0].unit)!=='length'||group[0].rank!==undefined)continue;
+    const after=/^\s*thick\b/.exec(text.slice(group[0].end));
+    if(after){group[0].end+=after[0].length;group[0].thickness=true;}
+  }
+  const strip=({unit,value,label,rank,thickness}:Size):Size=>({unit,value,label:unit?`${label} ${unit}`:label,...(rank!==undefined?{rank}:{}),...(thickness?{thickness}:{})});
   const tuples=groups.filter(g=>g.length>1);
   const tuple=tuples[0]??null;
   const at=tuple?groups.indexOf(tuple):-1;
@@ -428,21 +463,36 @@ function takeSizes(text:string){
   };
 }
 
-/** How close two sizes in different units must be after conversion: 914 mm is 36", 457 m is 1500'. */
-const UNIT_TOLERANCE=0.005;
 /**
- * Two sizes are the same when equal after converting to a shared unit family (within
- * UNIT_TOLERANCE). Without a unit on either side they compare by number alone, which only tuple
- * members do (the scorer never compares a stray or a unitless measure this way).
+ * How close a metric size must be to an imperial one after conversion. A metric line rounds a standard
+ * imperial size to a whole millimetre or metre: 914 mm is 36" (0.04%), 203 mm is 8" (0.1%), 274 m is
+ * 900' (0.12%). 0.2% admits those and nothing a supplier would sell as a different size. Sizes in one
+ * unit (or with none), and conversions within one system (yards, feet, inches), are exact: 12.05" is
+ * not 12", 2995' is not 1000 yd.
  */
-export function sameSize(a:Size,b:Size){
-  if(a.unit&&b.unit){
+export const UNIT_TOLERANCE=0.002;
+/** Equal as numbers: fractions and decimals are exact here (8 1/2 is 8.5, 5/8 is 0.625); 1e-9 absorbs float noise only. */
+const EXACT=1e-9;
+/**
+ * Two sizes are the same when equal: exactly in one unit (or unitless, which only tuple members are;
+ * the scorer never compares a stray or a unitless measure this way), or within UNIT_TOLERANCE after
+ * converting between units of one family (mm and inches, yards and feet).
+ */
+const METRIC=new Set(['mm','cm','m']);
+export function sameSize(a:Size,b:Size):boolean{
+  // Only a metric-imperial conversion rounds; yards to feet and feet to inches are exact.
+  if(a.unit&&b.unit&&a.unit!==b.unit&&METRIC.has(a.unit)!==METRIC.has(b.unit)){
     const [fa,ka]=TO_BASE[a.unit]??[a.unit,1],[fb,kb]=TO_BASE[b.unit]??[b.unit,1];
     if(fa!==fb)return false;
     const x=a.value*ka,y=b.value*kb;
-    return Math.abs(x-y)<=Math.max(1e-6,UNIT_TOLERANCE*Math.max(x,y));
+    return Math.abs(x-y)<=Math.max(EXACT,UNIT_TOLERANCE*Math.max(x,y));
   }
-  return Math.abs(a.value-b.value)<1e-6;
+  if(a.unit&&b.unit&&a.unit!==b.unit){
+    const [fa,ka]=TO_BASE[a.unit]??[a.unit,1],[fb,kb]=TO_BASE[b.unit]??[b.unit,1];
+    // Exact within the imperial (or metric) system: 300 yd is 900', 2995' is not 1000 yd.
+    return fa===fb&&Math.abs(a.value*ka-b.value*kb)<EXACT*Math.max(1,a.value*ka);
+  }
+  return Math.abs(a.value-b.value)<EXACT;
 }
 
 // ---- Words ------------------------------------------------------------------------------------------
@@ -453,7 +503,7 @@ export function sameSize(a:Size,b:Size){
  * confirm what they say about the line:
  *   - FILLER, the only words that say nothing about the item: "an", "the", "of", "with", polite and
  *     order words (please, our, we, need, qty, quantity), "size"/"sz"/"thickness" (the numbers carry
- *     the meaning; "thick" right after a size too), and the other supplier's own name ("uline",
+ *     the meaning; "thick" right after a single length, read by takeSizes), and the other supplier's own name ("uline",
  *     "brand"). "a" is NOT filler: it is a grade, a style or a flute letter as often as an article.
  *   - JOINING words relate the item to something else or join two things ("for", "to", "fit",
  *     "item", "style", "or", "and", "approx", "each", "inside", "assorted", "per", ...): a blocker;
@@ -472,8 +522,6 @@ const UNIT_WORDS=new Set(`x inch ft feet foot yd yds yard mm cm meter lb lbs pou
 const NUMBER_WORDS=new Set('half quarter third dozen pair one two three four five six seven eight nine ten eleven twelve twenty fifty hundred thousand'.split(' '));
 /** What may separate tokens without meaning anything: space, comma, full stop, semicolon, colon, brackets, quotes, ! ?, a hyphen or dash, a bullet. (A dash between numbers is a range: RANGE.) */
 const SEPARATOR=/[\s,.;:()'"!?\-–—•]/;
-/** ".160" thick": "thick" right after a size says nothing more. (Long, wide, high, deep and tall there are L/W/H labels.) Elsewhere ("long boxes") they count. */
-const SIZE_ADJECTIVE=/(\d(?:"|''|'|\s*(?:in|inch|inches|ft|feet|foot|mm|cm)\b\.?)?)\s*thick\b/g;
 
 /** The words of a text: every token but FILLER and bare numbers, stemmed, once each. */
 function wordsOf(text:string){
@@ -495,7 +543,8 @@ export const PRODUCT_NOUNS:ReadonlySet<string>=new Set(['box','carton','mailer',
 function readLeftover(text:string){
   const blockers:string[]=[];
   // "with" before a product ("tape with dispenser", "boxes with lids") adds a second item.
-  for(const m of text.matchAll(/\bwith\s+(?:(?:an?|the)\s+)?([a-z]+)/g))if(PRODUCT_NOUNS.has(stem(m[1])))blockers.push(`the line says "with ${m[1]}": a second product`);
+  let withProduct=false;
+  for(const m of text.matchAll(/\bwith\s+(?:(?:an?|the)\s+)?([a-z]+)/g))if(PRODUCT_NOUNS.has(stem(m[1]))){blockers.push(`the line says "with ${m[1]}": a second product`);withProduct=true;}
   for(const c of new Set([...text].filter(c=>!/[a-z0-9]/.test(c)&&!SEPARATOR.test(c))))blockers.push(`"${c}" in the line`);
   for(const raw of text.split(/[^a-z0-9]+/)){
     if(!raw||FILLER.has(raw))continue;
@@ -505,7 +554,10 @@ function readLeftover(text:string){
     else if(UNIT_WORDS.has(raw)||UNIT_WORDS.has(word))blockers.push(`a unit with no number: "${raw}"`);
     else if(raw.length===1)blockers.push(`a letter nothing reads: "${raw}"`);
   }
-  return {words:wordsOf(text),blockers:[...new Set(blockers)]};
+  // "with" before a product is not filler: it is a word no item confirms, at every level.
+  const words=wordsOf(text);
+  if(withProduct&&!words.includes('with'))words.push('with');
+  return {words,blockers:[...new Set(blockers)]};
 }
 
 // ---- Negation ---------------------------------------------------------------------------------------
@@ -562,13 +614,38 @@ export interface ParseOptions {
   item?:boolean;
 }
 
+/** A line longer than this is not read at all (a blocker, and no candidates): no quote line is this long. */
+export const MAX_LINE_LENGTH=500;
+/** A run of more digits than this is no size, count or rating: a blocker, removed before any other rule runs. */
+export const MAX_DIGITS=12;
+
+/** What a line that can't be read says: nothing, with why. */
+function unreadSpec(blockers:string[]):Spec{
+  return {dims:null,dimRanks:null,otherDims:[],altDims:null,measures:[],strays:[],ect:null,burst:null,mil:null,gauge:null,number:null,core:null,
+    values:{ect:[],burst:[],mil:[],gauge:[],number:[],core:[],milFromMicron:[]},colors:[],materials:[],choices:{},choiceValues:{},features:[],
+    pack:{},packValues:{outer:[],roll:[]},negated:{choices:{},features:[],colors:[],words:[]},words:[],blockers};
+}
+
 /** Takes a line (or a catalog description) apart. */
 export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
-  let text=prepare(raw).replace(TIER,' ');
-  if(item)text=text.replace(BUNDLE_WEIGHT,' ');
-  const said=text;
+  // Bounded work: a line over MAX_LINE_LENGTH is not read, and over-long digit runs go before any regex runs.
+  if(raw.length>MAX_LINE_LENGTH)return unreadSpec([`the line is too long to read (over ${MAX_LINE_LENGTH} characters)`]);
   const blockers:string[]=[];
+  const longDigits=new RegExp(String.raw`\d{${MAX_DIGITS+1},}`,'g');
+  if(longDigits.test(raw)){
+    blockers.push(`a number too long to read (over ${MAX_DIGITS} digits)`);
+    raw=raw.replace(longDigits,' ');
+  }
+  let text=prepare(raw).replace(TIER,' ');
+  // A catalog row's "50 lb./Bundle" is the bundle's weight, not the paper's.
+  if(item)text=text.replace(BUNDLE_WEIGHT,' ');
+  // "Perforated 12"" is the perforation spacing every BOXT roll has, on a line or an item: not a size of the item.
+  text=text.replace(/\bperforated\s+12\s*(?:"|''|in\b\.?|inch(?:es)?\b)/g,'perforated');
+  const said=text;
   if(RANGES.some(re=>re.test(said)))blockers.push('a range');
+  for(const m of said.matchAll(/(?<![\d.\/])(\d+)\s*\/\s*(\d+)(?![\d.\/])/g)){
+    if(Number(m[2])===0||Number(m[1])>=Number(m[2]))blockers.push(`an improper fraction: ${m[1]}/${m[2]}`);
+  }
   const negations=takeNegations(text);text=negations.text;
   const packed=takePack(text);text=packed.text;
   const ect=takeValues(text,ECT,Number);text=ect.text;
@@ -578,10 +655,10 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
     if(BOX_LINE.test(said)&&Number(n)>=100){if(!bursts.includes(Number(n)))bursts.push(Number(n));return ' ';}
     return ` ${n} lb ${test??''}`;
   });
-  const micron=takeValues(text,MICRON,raw=>Number(raw)/25.4);text=micron.text;
-  const mil=takeValues(text,MIL,Number);text=mil.text;
+  const micron=takeValues(text,MICRON,raw=>toNumber(raw)/25.4);text=micron.text;
+  const mil=takeValues(text,MIL,toNumber);text=mil.text;
   const mils=[...mil.values];
-  for(const m of micron.values)if(!mils.some(x=>Math.abs(x-m)<=0.005*Math.max(x,m)))mils.push(m);
+  for(const m of micron.values)if(!mils.some(x=>Math.abs(x-m)<=UNIT_TOLERANCE*Math.max(x,m)))mils.push(m);
   const legends:number[][]=[];
   text=text.replace(LEGEND,(_m:string,...labels:(string|undefined)[])=>{
     legends.push(labels.slice(0,3).filter((l):l is string=>!!l).map(l=>LABEL_RANK[l]));
@@ -589,7 +666,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   });
   const cores:string[]=[];
   text=text.replace(CORE,(_m:string,a:string,b:string)=>{if(!cores.includes(`${a}x${b}`))cores.push(`${a}x${b}`);return ' ';});
-  const gauge=takeValues(text,GAUGE,Number);text=gauge.text;
+  const gauge=takeValues(text,GAUGE,toNumber);text=gauge.text;
   const number=takeValues(text,NUMBER,String);text=number.text;
   const choices=takeChoices(text);text=choices.text;
   if((choices.choices.flute==='bc'||choices.choices.flute==='eb')&&!choices.choices.wall){
@@ -604,7 +681,7 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   if(kraft&&!materials.length&&!BOX_LINE.test(said))materials.push('paper');
   const grade=PAPER_GRADES.find(([,re])=>re.test(text))?.[0]??(kraft&&materials.includes('paper')?'kraft':undefined);
   if(grade){choices.choices.paper=grade;choices.values.paper=[grade];}
-  const sizes=takeSizes(text.replace(SIZE_ADJECTIVE,'$1 '));
+  const sizes=takeSizes(text);
   blockers.push(...sizes.blockers);
   // A legend labels the tuple's members in order; with each label once, put them in L, W, H/D order.
   if(legends.length>1)blockers.push('two size legends');
@@ -640,14 +717,21 @@ export function parseSpec(raw:string,{item=false}:ParseOptions={}):Spec{
   return {
     dims:sizes.dims,dimRanks:sizes.dimRanks,otherDims:sizes.otherDims,altDims:sizes.altDims,measures,strays,
     ect:ect.value,burst:bursts[0]??null,mil:mils[0]??null,gauge:gauge.value,number:number.value,core:cores[0]??null,
-    values:{ect:ect.values,burst:bursts,mil:mils,gauge:gauge.values,number:number.values,core:cores},
+    values:{ect:ect.values,burst:bursts,mil:mils,gauge:gauge.values,number:number.values,core:cores,milFromMicron:micron.values},
     colors:colors.found,materials,choices:choices.choices,choiceValues:choices.values,features:features.found,
     pack:packed.pack,packValues:packed.values,negated:negations.negated,
     words:leftover.words,blockers:[...new Set(blockers)],
   };
 }
 
-const PARSED=new WeakMap<object,ItemSpec>();
+/** Parsed rows, per row object, with the fields they were parsed from: a row edited in place is parsed again. */
+const PARSED=new WeakMap<object,{signature:string;spec:ItemSpec}>();
+const signatureOf=(item:PackagingItem)=>JSON.stringify([item.description,item.keywords??null,item.pack??null,item.caseQty??null,item.category??null]);
+/** The item's head product noun: the last product noun of its product name ("Gaylord Lid" is a lid, "Hand Tape Dispensers" dispensers). */
+function headOf(name:string){
+  const nouns=name.split(/[^a-z0-9]+/).map(stem).filter(w=>PRODUCT_NOUNS.has(w));
+  return nouns.at(-1)??null;
+}
 /**
  * Catalog categories whose unitless numbers are inches: strapping widths ("Poly Strapping, Hand
  * Length, 0.5 600 lbs") and edge protector thickness ("2x2x48\" .160"). Elsewhere a unitless catalog
@@ -680,13 +764,15 @@ function dimOrderOf(item:PackagingItem,name:string):DimOrder{
  * implied: kraft for plain corrugated, or the one colour its keywords name ("clear poly bags").
  */
 export function parseItemSpec(item:PackagingItem):ItemSpec{
+  const signature=signatureOf(item);
   const cached=PARSED.get(item);
-  if(cached)return cached;
+  if(cached?.signature===signature)return cached.spec;
   const spec=parseSpec(item.description,{item:true});
   const keywordColors=takeAll(takeAll(prepare(item.keywords??''),FEATURES).text,COLORS).found;
   const implied=spec.colors.length?[]:spec.materials.includes('corrugated')?['kraft']:keywordColors.length===1?keywordColors:[];
   const keywordWords=wordsOf(prepare(item.keywords??''));
-  const name=item.description.split(',')[0].replace(/^#\s*\S+\s+/,'').replace(/\s+[\d.].*$/,'').trim().toLowerCase();
+  // The product name: the description's first part without its # and its numbers ("Heavyweight 48-ECT Double Wall Sheets 48x40"" is "heavyweight double wall sheets").
+  const name=item.description.split(',')[0].replace(/^#\s*\S+\s+/,'').replace(/\S*\d\S*/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
   const unit=UNITLESS_INCH_CATEGORIES.has(item.category??'')?'in':null;
   const parsed:ItemSpec={
     ...spec,
@@ -696,9 +782,12 @@ export function parseItemSpec(item:PackagingItem):ItemSpec{
     words:[...new Set([...spec.words,...keywordWords])],
     descWords:spec.words,
     dimOrder:dimOrderOf(item,name),
+    head:headOf(name),
     name,
   };
-  PARSED.set(item,parsed);
+  // A mailer listed wider than long (Thermal Mailers 22x18", Glamour 13.75x11") may not be W x L: unknown.
+  if(parsed.dimOrder==='wl'&&item.category==='mailers'&&parsed.dims?.length===2&&parsed.dims[0].value>parsed.dims[1].value)parsed.dimOrder=null;
+  PARSED.set(item,{signature,spec:parsed});
   return parsed;
 }
 

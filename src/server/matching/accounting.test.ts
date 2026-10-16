@@ -46,7 +46,7 @@ describe('total accounting: a clean line is Strict-eligible',()=>{
     ['Corrugated Boxes 12" L x 10" W x 8" H, 32 ECT','12108-BDL'],
     ['Reclosable Bags 4 x 6", 2 Mil, 1,000/case','PB3565'],
     ['Kraft Bubble Mailers #2 8 1/2 x 12" 100/case','B855SS'],
-    ['Uline Industrial Tape 2" x 110 yds 1.9 Mil Clear Hot Melt 36 rolls/case','T902700'],
+    ['Uline Industrial Tape 2" x 110 yds 1.9 Mil Clear Hot Melt Hand Length 36 rolls/case','T902700'],
     ['Black Poly Strapping Machine Length 1/2" x 9000\' 300 lb 8x8 Core','PS2215'],
     ['Corrugated Boxes 12＂x10＂x8＂ 32 ECT','12108-BDL'],
   ])('"%s" has no blockers and matches %s',(line,sku)=>{
@@ -190,8 +190,9 @@ describe('total accounting: the product noun comes from the item\'s description'
     expect(t.eligible).toBe(false);
     expect(t.blockers.join(' ')).toContain('paper');
     expect(strictMatch('Kraft Paper 72mm x 450 ft')).toBeNull();
-    expect(strictMatch('Kraft Tape 72mm x 450\'')).toBe('T9077200');
-    expect(strictMatch('Kraft Paper Tape 72mm x 450\'')).toBe('T9077200');
+    // B3b fix 2: the item's #7200 must be said too.
+    expect(strictMatch('Kraft Tape #7200 72mm x 450\'')).toBe('T9077200');
+    expect(strictMatch('Kraft Paper Tape #7200 72mm x 450\'')).toBe('T9077200');
   });
 
   it('accepts the documented synonyms: bubble wrap is a bubble roll, stretch film is stretch wrap, an RSC is a box',()=>{
@@ -269,5 +270,325 @@ describe('total accounting: a thickness joined to the size with "x"',()=>{
     // A bare third number is still a third dimension, which no 4x6 bag has.
     expect(parseSpec('Reclosable Bags 4x6x2').dims?.map(d=>d.value)).toEqual([4,6,2]);
     expect(strictMatch('Reclosable Bags 4x6x2')).toBeNull();
+  });
+});
+
+// ---- B3b fix round 1 (verifier findings) --------------------------------------------------------
+const ITEMS2=[
+  {sku:'GAYLORDLID-BDL',description:'Gaylord Lid 48x40", bundle pricing',pack:'Each',caseQty:10,category:'boxes',keywords:'bulk containers gaylord boxes gaylord containers pallet boxes wholesale gaylords'},
+  {sku:'GAYLORD-BDL',description:'Single Wall Gaylord 48x40x36", bundle pricing',pack:'Each',caseQty:1,category:'boxes',keywords:'bulk containers gaylord boxes gaylord containers pallet boxes wholesale gaylords'},
+  {sku:'RM4SS',description:'White Flat Paper Mailers 12.75x15"',pack:'Case',caseQty:1,category:'mailers',keywords:'eco mailers flat mailers paper mailers rigid mailers'},
+  {sku:'B705',description:'Padded Paper Mailers 10.5x15.25"',pack:'Case',caseQty:1,category:'mailers',keywords:'eco mailers padded mailers paper mailers recyclable mailers'},
+  {sku:'TDSS2',description:'Seal Safe Hand Tape Dispensers 2"',pack:'Each',caseQty:1,category:'tape',keywords:'carton sealer hand tape dispenser packing tape gun tape dispenser tape gun'},
+  {sku:'IQRT40',description:'Expandable Foam Bags, 18x24"',pack:'Case of 36',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'IQRT40B',description:'Expandable Foam Bags (Bulk Pack), 18x24"',pack:'Case of 112',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'IQRT60',description:'Expandable Foam Bags Extra Thick, 18x24"',pack:'Case of 36',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'IQRT60B',description:'Extra Thick (Bulk Pack) Expandable Foam Bags, 18x24"',pack:'Case of 112',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place'},
+  {sku:'EP2248160BX',description:'Edge Protectors, Cased, 2x2x48" .160',pack:'Case of 80',caseQty:1,category:'storage',keywords:'corner protectors edge protectors pallet corner protectors pallet protectors'},
+  {sku:'INM1822',description:'Thermal Mailers 22x18"',pack:'Case of 100',caseQty:1,category:'mailers',keywords:'cold chain mailers insulated mailers temperature mailers thermal bubble mailers thermal mailers'},
+  {sku:'PS3227',description:'Black Poly Strapping, Machine Length, 0.5"x6600\' 500 lbs Black 9x8" Core',pack:'Coil',caseQty:1,category:'tape',keywords:'machine strapping poly strapping'},
+  ...CATALOG,
+];
+const eligibleTop=(line:string)=>{const t=scorePackaging(line,ITEMS2)[0];return t?{sku:t.item.sku,score:t.score,eligible:t.eligibility.strictEligible,blockers:t.eligibility.blockers}:null;};
+const strict2=(line:string)=>{const r=retrieve(line,ITEMS2,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+
+describe('fix round 1: the item\'s own product noun and description words must be accounted for',()=>{
+  it.each(['Gaylord Boxes 48 x 40','Gaylord 48x40"','Gaylords 48x40"','Gaylord 48x40" bundle of 10','White Paper 12.75" x 15"','Padded Paper 10.5 x 15.25"',
+    'Seal Safe Hand Tape, 2 inch','Pallet Protectors 2x2x48"'])('"%s" does not name what the item is: never Strict',line=>{
+    expect(strict2(line)).toBeNull();
+    const t=eligibleTop(line);
+    if(t)expect(t.eligible).toBe(false);
+  });
+
+  it('names the head noun the item is (a lid, mailers, a dispenser)',()=>{
+    expect(eligibleTop('Gaylord 48x40"')!.blockers.join(' ')).toMatch(/"lid"/);
+    expect(eligibleTop('White Paper 12.75" x 15"')!.blockers.join(' ')).toMatch(/"mailer"/);
+    expect(eligibleTop('Seal Safe Hand Tape, 2 inch')!.blockers.join(' ')).toMatch(/"dispenser"/);
+  });
+
+  it('charges a description word the line leaves out ("Extra Thick", "Bulk Pack"), so the plain item leads',()=>{
+    const scored=Object.fromEntries(scorePackaging('Expandable Foam Bags 18 x 24"',ITEMS2).map(c=>[c.item.sku,c.score]));
+    expect(scored.IQRT40).toBe(1);
+    expect(scored.IQRT40B).toBeLessThan(1);
+    expect(scored.IQRT60B).toBeLessThan(scored.IQRT40B);
+    expect(strict2('Expandable Foam Bags 18 x 24"')).toBe('IQRT40');
+    expect(strict2('Expandable Foam Bags Extra Thick (Bulk Pack) 18 x 24"')).toBe('IQRT60B');
+  });
+
+  it('keeps lines that name the item in other words: a material left unsaid, corner protectors, the head by its stand-in',()=>{
+    expect(strict2('Edge Protectors 2 x 2 x 48" .160"')).toBe('EP2248160BX');
+    expect(strict2('Corner Protectors 2" x 2" x 48" .160"')).toBe('EP2248160BX');
+    expect(strict2('Single Wall Gaylord Box 48 x 40 x 36"')).toBe('GAYLORD-BDL');
+    expect(strict2('Gaylord Lid 48 x 40"')).toBe('GAYLORDLID-BDL');
+    expect(strict2('Bubble Wrap 1/2" x 12" x 250\' Perforated')).toBe('BW12S12P');
+  });
+
+  it('a labelled size on a mailer listed wider than long is not placed (the order is unknown)',()=>{
+    expect(eligibleTop('Thermal Mailers 18" L x 22" W')!.eligible).toBe(false);
+  });
+});
+
+describe('fix round 1: sizes in one unit compare exactly; only a conversion has a tolerance',()=>{
+  it.each(['Corrugated Boxes 12.05 x 10 x 8"','Corrugated Boxes 12 x 10.04 x 8"','Reclosable Poly Bags 4 x 6.03" 2 mil'])('"%s" is not the item',line=>{
+    expect(strict2(line)).toBeNull();
+    expect(scorePackaging(line,ITEMS2).every(c=>c.score<=0.5)).toBe(true);
+  });
+  it('0.5" x 6630\' strapping is not the 6600\' coil',()=>{
+    expect(strict2('Poly Strapping, Machine Length, 0.5" x 6630\' 500 lbs Black 9x8" Core')).toBeNull();
+  });
+  it('a metric size that is a standard imperial size, to the nearest whole unit, still matches (within 0.2%)',()=>{
+    expect(strict2('Corrugated Boxes 305 x 254 x 203 mm')).toBe('12108-BDL');
+    expect(strict2('Corrugated Boxes 12x10x8.0"')).toBe('12108-BDL');
+    expect(strict2('Corrugated Boxes 12 1/2 x 10 x 8"')).toBeNull();
+  });
+  it('2 mil is 50.8 micron, not 51',()=>{
+    expect(scorePackaging('Reclosable Poly Bags 4 x 6" 50.8 micron',ITEMS2)[0].item.sku).toBe('PB3565');
+    expect(strict2('Reclosable Poly Bags 4 x 6" 51 micron')).toBeNull();
+  });
+});
+
+describe('fix round 1: only proper fractions are numbers',()=>{
+  it.each(['Corrugated Boxes 12x10x16/2"','Corrugated Boxes 12x10x8/1"','Corrugated Boxes 12x10x8 1/0"','Reclosable Bags 4 x 6" 4/2 Mil'])('"%s" is blocked',line=>{
+    expect(blockers(line).join(' ')).toMatch(/fraction/);
+    expect(strict2(line)).toBeNull();
+  });
+  it('mixed numbers still read',()=>{
+    expect(parseSpec('Mailers 8 1/2 x 12"').dims?.map(d=>d.value)).toEqual([8.5,12]);
+    expect(parseSpec('Mailers 8-1/2 x 12"').dims?.map(d=>d.value)).toEqual([8.5,12]);
+  });
+});
+
+describe('fix round 1: no shared state between calls, and bounded work per line',()=>{
+  it('returns fresh candidates: mutating one result never changes the next',()=>{
+    const a=scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',CATALOG);
+    a[0].score=0;a[0].eligibility.blockers.push('tampered');a.length=0;
+    const b=scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',CATALOG);
+    expect(b[0].score).toBe(1);
+    expect(b[0].eligibility.blockers).toEqual([]);
+  });
+  it('re-reads a catalog row edited in place',()=>{
+    const rows=[{...CATALOG[0]}];
+    expect(scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',rows)[0].score).toBe(1);
+    rows[0].description='Corrugated Boxes 12x10x6", 32 ECT single wall, bundle pricing';
+    expect(scorePackaging('Corrugated Boxes 12 x 10 x 8" 32 ECT',rows)[0]?.score??0).toBeLessThanOrEqual(0.5);
+  });
+  it('blocks a line over 500 characters or a number over 12 digits, quickly',()=>{
+    const long=`Corrugated Boxes 12 x 10 x 8" ${'kraft '.repeat(100)}`;
+    expect(blockers(long).join(' ')).toMatch(/too long/);
+    expect(blockers(`Corrugated Boxes ${'1'.repeat(20)} x 10 x 8"`).join(' ')).toMatch(/too long/);
+    const t=performance.now();
+    for(const line of ['1'.repeat(20000)+' boxes','2 '.repeat(5000)+'boxes','12x'.repeat(3000)+'8 boxes','1/'.repeat(5000)+'2 boxes','1'+',000'.repeat(3000)+' boxes',
+      '1'.repeat(499)+' boxes','12x'.repeat(160)+'8 boxes','1 x '.repeat(120)+'boxes','no '.repeat(160)+'boxes'])retrieve(line,CATALOG,STRICT);
+    expect(performance.now()-t).toBeLessThan(1500);
+  });
+});
+
+describe('fix round 1: a micron value is a second mil unless it converts within the tolerance',()=>{
+  it('"2 Mil 51 micron" states two thicknesses; "2 Mil 50.8 micron" one',()=>{
+    expect(blockers('Reclosable Poly Bags 4" x 6" 2 Mil 51 micron').join(' ')).toMatch(/two mil values/);
+    expect(blockers('Reclosable Poly Bags 4" x 6" 2 Mil 50.8 micron')).toEqual([]);
+  });
+});
+
+// ---- B3b fix round 2: what the item states, the line must state ---------------------------------
+const ITEMS3=[
+  {sku:'PS5826',description:'Black Poly Strapping, Hand Length, 0.625 800 lbs',pack:'Coil',caseQty:1,category:'tape',keywords:'hand strapping poly strapping'},
+  {sku:'PS3818',description:'Poly Strapping, Machine Length, 0.375"x12900\' 250 lbs White 9x8" Core',pack:'Coil',caseQty:1,category:'tape',keywords:'machine strapping poly strapping'},
+  {sku:'SF189',description:'Blown Stretch Wrap, Hand Length, 18"x1500\' 90 Gauge',pack:'Case of 4',caseQty:1,category:'stretch-wrap',keywords:'blown stretch wrap hand stretch wrap stretch film clear'},
+  {sku:'MSF2060B',description:'Blown Stretch Wrap, Machine Length, 20"x7500\' 60 Gauge',pack:'Roll',caseQty:1,category:'stretch-wrap',keywords:'blown stretch film machine stretch wrap clear'},
+  {sku:'DL1082',description:'Fragile Labels 3x5"',pack:'Case of 500',caseQty:1,category:'labels',keywords:'fragile labels shipping labels'},
+  {sku:'THD114',description:'White Direct Thermal Labels, Desktop, 4x6"',pack:'Case of 3,000',caseQty:1,category:'labels',keywords:'desktop labels direct thermal labels'},
+  {sku:'NP4890',description:'Newsprint Rolls, 48"x1440\'',pack:'Roll',caseQty:1,category:'paper',keywords:'newsprint rolls packing paper'},
+  {sku:'SP48',description:'Corrugated Sheets 48x48"',pack:'Each',caseQty:1,category:'boxes',keywords:'corrugated pads slip sheets'},
+  {sku:'B873',description:'#3 Flat Poly Mailers 9x12"',pack:'Case of 1,000',caseQty:1,category:'mailers',keywords:'flat poly mailers poly mailers'},
+  {sku:'B831',description:'#0 Poly Bubble Mailers 6.5x10"',pack:'Case of 250',caseQty:1,category:'mailers',keywords:'bubble mailers poly bubble mailers'},
+  {sku:'T903700',description:'Clear Hot Melt Tape, Machine Length, 2"x1000yd 1.9 MIL',pack:'Case of 6',caseQty:1,category:'tape',keywords:'machine tape'},
+  {sku:'T9077700',description:'Kraft Tape, #7700 3"x450\'',pack:'Case of 10',caseQty:1,category:'tape',keywords:'kraft tape'},
+  {sku:'CPW4840R2',description:'#2 Used Pallets, 48x40"',pack:'Each',caseQty:1,category:'storage',keywords:'used pallets'},
+  ...ITEMS2,
+];
+const strict3=(line:string)=>{const r=retrieve(line,ITEMS3,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+const top3=(line:string)=>scorePackaging(line,ITEMS3)[0];
+
+describe('fix round 2: a choice the item states must be stated by the line',()=>{
+  it.each([
+    ['Black Poly Strapping 5/8" 800 lb','PS5826','length'],
+    ['White Poly Strapping 3/8" x 12900\' 250 lb 9x8 Core','PS3818','length'],
+    ['Stretch Film 18" x 1500\' 90 Gauge','SF189','film'],
+    ['Hand Stretch Film 18" x 1500\' 90 ga Clear','SF189','film'],
+    ['Machine Stretch Film 20" x 7500\' 60 Gauge','MSF2060B','film'],
+    ['White Desktop Labels 4 x 6"','THD114','print'],
+    ['Clear Tape 2" x 110 yd 1.9 Mil','T902700','adhesive'],
+  ])('"%s" leaves %s\'s %s unsaid: not Strict',(line,sku,what)=>{
+    const t=top3(line);
+    expect(t.item.sku).toBe(sku);
+    expect(t.eligibility.strictEligible).toBe(false);
+    expect(t.eligibility.blockers.join(' ')).toContain(what);
+    expect(t.score).toBeLessThanOrEqual(0.75);
+    expect(strict3(line)).toBeNull();
+  });
+  it('a line that states the choices still matches',()=>{
+    expect(strict3('Black Poly Strapping Hand Length 5/8" 800 lb')).toBe('PS5826');
+    expect(strict3('Blown Hand Stretch Wrap 18" x 1500\' 90 Gauge')).toBe('SF189');
+    expect(strict3('Blown Machine Stretch Wrap 20" x 7500\' 60 Gauge')).toBe('MSF2060B');
+  });
+});
+
+describe('fix round 2: the item\'s size, specs and kind must be stated',()=>{
+  it.each([
+    ['Fragile Labels','DL1082','size'],
+    ['Newsprint Rolls 48"','NP4890','size'],
+    ['Sheets 48 x 48"','SP48','material'],
+    ['Flat Mailers 9 x 12"','B873','material'],
+    ['Bubble Mailers #0 6 1/2 x 10"','B831','material'],
+    ['Edge Protectors 2 x 2 x 48"','EP2248160BX','size'],
+    ['Reclosable Bags 4 x 6"','PB3565','mil'],
+    ['Kraft Tape 3" x 450\'','T9077700','number'],
+    ['Used Pallets 48 x 40"','CPW4840R2','number'],
+  ])('"%s" leaves %s\'s %s unsaid: not Strict',(line,sku,what)=>{
+    const t=top3(line);
+    expect(t.item.sku).toBe(sku);
+    expect(t.eligibility.blockers.join(' ')).toContain(what);
+    expect(strict3(line)).toBeNull();
+  });
+  it('counts the bubble size given in the tuple, and ignores the 12" perforation spacing every roll has',()=>{
+    expect(top3('Bubble Wrap 1/2" x 12" x 250\' Perforated').eligibility).toEqual({strictEligible:true,blockers:[]});
+  });
+});
+
+describe('fix round 2: no tolerance between yards, feet and inches',()=>{
+  it.each(['Clear Hot Melt Tape Machine Length 2" x 2995\' 1.9 Mil','Clear Hot Melt Tape Hand Length 2" x 329.5\' 1.9 Mil'])('"%s" is not the tape',line=>{
+    expect(strict3(line)).toBeNull();
+  });
+  it('3000\' is exactly 1000 yd, and 330\' exactly 110 yd',()=>{
+    expect(strict3('Clear Hot Melt Tape Machine Length 2" x 3000\' 1.9 Mil')).toBe('T903700');
+    expect(strict3('Clear Hot Melt Tape Hand Length 2" x 330\' 1.9 Mil')).toBe('T902700');
+  });
+});
+
+describe('fix round 2: a colour shade is its own colour',()=>{
+  it('reads "Deep Lavender" apart from "Lavender", and "Light Blue" apart from "Blue"',()=>{
+    expect(parseSpec('#5 Colored Bubble Mailers 10.5x15.25", Deep Lavender').colors).toEqual(['deep lavender']);
+    expect(parseSpec('#5 Lavender Colored Bubble Mailers').colors).toEqual(['lavender']);
+    expect(parseSpec('Light Blue Mailers').colors).toEqual(['light blue']);
+    const deep=[{sku:'AJ5DL',description:'#5 Colored Bubble Mailers 10.5x15.25", Deep Lavender',pack:'Case',caseQty:1,category:'mailers',keywords:'colored bubble mailers'}];
+    expect(scorePackaging('#5 Lavender Colored Bubble Mailers 10 1/2 x 15 1/4"',deep)[0]?.score??0).toBeLessThanOrEqual(0.5);
+    expect(scorePackaging('#5 Deep Lavender Colored Bubble Mailers 10 1/2 x 15 1/4"',deep)[0].eligibility.strictEligible).toBe(true);
+  });
+});
+
+// ---- B3b final fix round: materials, half mils, explicit defaults, recall fixes ------------------
+const ROWS4=[
+  {sku:'FW14S12P',description:'Foam Rolls, 1/4" Foam 12"x250\' Perforated 12"',pack:'Roll',caseQty:1,category:'cushioning',keywords:'air foam foam packaging foam rolls protective foam surface protection foam'},
+  {sku:'FW1448P',description:'Foam Rolls, 1/4" Foam 48"x250\' Perforated 12"',pack:'Roll',caseQty:1,category:'cushioning',keywords:'air foam foam packaging foam rolls protective foam surface protection foam'},
+  {sku:'FW14S24P',description:'Foam Rolls, 1/4" Foam 24"x250\' Perforated 12"',pack:'Roll',caseQty:1,category:'cushioning',keywords:'air foam foam packaging foam rolls protective foam surface protection foam'},
+  {sku:'IQRT20',description:'Expandable Foam Bags, 18x18"',pack:'Case of 36',caseQty:1,category:'cushioning',keywords:'foam bags foam in bag foam in place instapak instapak quick protective foam'},
+  {sku:'PS1231',description:'Black Poly Strapping, Hand Length, 0.5 600 lbs',pack:'Coil',caseQty:1,category:'tape',keywords:'carton strapping hand strapping pallet strapping poly strapping polypropylene strapping strapping void fill'},
+  {sku:'GL484048-BDL',description:'Single Wall Gaylord 48x40x48", bundle pricing',pack:'Each',caseQty:1,category:'boxes',keywords:'bulk containers gaylord boxes gaylord containers pallet boxes wholesale gaylords'},
+  {sku:'GL484048DW',description:'Double Wall Gaylord 48x40x48"',pack:'Each',caseQty:5,category:'boxes',keywords:'bulk containers gaylord boxes gaylord containers pallet boxes wholesale gaylords'},
+  {sku:'AJ5R',description:'#5 Colored Bubble Mailers 10.5x15.25"',pack:'Case',caseQty:1,category:'mailers',keywords:'brand mailers color mailers colored bubble mailers colored mailer bags colored packaging mailers'},
+  {sku:'AJ5B',description:'#5 Colored Bubble Mailers 10.5x15.25", Blue',pack:'Case',caseQty:1,category:'mailers',keywords:'blue mailers brand mailers color mailers colored bubble mailers'},
+  {sku:'SP4048DW',description:'Heavyweight 48-ECT Double Wall Sheets 48x40"',pack:'Each',caseQty:5,category:'boxes',keywords:'corrugated pads corrugated sheets layer pads pallet pads slip sheets'},
+  {sku:'SP40',description:'Standard 32-ECT Sheets 48x40"',pack:'Each',caseQty:5,category:'boxes',keywords:'corrugated pads corrugated sheets layer pads pallet pads slip sheets'},
+  {sku:'MSF2080BLUE',description:'Cast Stretch Wrap, Machine Length, Colors 20"x6000\' 80 Gauge, Blue',pack:'Roll',caseQty:1,category:'stretch-wrap',keywords:'cast stretch film colored pallet wrap colored stretch wrap machine stretch wrap'},
+  {sku:'PB3615',description:'Reclosable Poly Bags, 6x9" 2 MIL',pack:'Case of 1,000',caseQty:1,category:'bags',keywords:'clear poly bags plastic bags poly bags reclosable bags resealable bags zip lock bags'},
+  {sku:'1184-BDL',description:'Corrugated Boxes 11.25x8.75x4", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:'bulk boxes cardboard boxes corrugated boxes rsc boxes shipping boxes wholesale boxes'},
+  {sku:'1184W-BDL',description:'White Corrugated Boxes 11.25x8.75x4", 32 ECT single wall, bundle pricing',pack:'Each',caseQty:25,category:'boxes',keywords:'bulk boxes premium boxes white boxes white corrugated white shipping boxes'},
+  ...CATALOG,
+];
+const strict4=(line:string)=>{const r=retrieve(line,ROWS4,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+const top4=(line:string)=>scorePackaging(line,ROWS4)[0];
+
+describe('final round: a material the item states must be stated, or implied by the line\'s own words',()=>{
+  it.each([['Rolls 1/4" 12" x 250\'','FW14S12P'],['1/4" Roll 48" x 250\'','FW1448P'],['Expandable Bags 18 x 18"','IQRT20'],
+    ['Black Hand Strapping 1/2" 600 lb','PS1231'],['Strapping, Hand Length, 1/2" 600 lb, Black','PS1231'],['Shipping Boxes 12 x 10 x 8"','12108-BDL']])('"%s": %s\'s material is unsaid',(line,sku)=>{
+    const t=top4(line);
+    expect(t.item.sku).toBe(sku);
+    expect(t.eligibility.blockers.join(' ')).toContain('material');
+    expect(strict4(line)).toBeNull();
+  });
+  it('takes the material from the line\'s own words where they imply it: an ECT, flute or wall is corrugated board; mil or gauge is plastic film',()=>{
+    expect(strict4('Foam Rolls 1/4" x 12" x 250\' Perforated')).toBe('FW14S12P');
+    expect(strict4('Black Poly Strapping Hand Length 1/2" 600 lb')).toBe('PS1231');
+    expect(strict4('Brown Shipping Boxes 12x10x8 32ECT')).toBe('12108-BDL');
+    expect(strict4('Reclosable Bags 6 x 9" 2 Mil')).toBe('PB3615');
+  });
+});
+
+describe('final round: fractions and mixed numbers before a unit are read whole',()=>{
+  it.each([['1/2 Mil',0.5],['1-1/2 Mil',1.5],['1 1/2 mil',1.5],['1.5 mil',1.5],['.5 mil',0.5]])('"%s" is %s mil',(text,mil)=>{
+    expect(parseSpec(`Reclosable Poly Bags 6 x 9" ${text}`).values.mil).toEqual([mil]);
+  });
+  it('a half mil is not 2 mil, at any level',()=>{
+    for(const line of ['Reclosable Poly Bags 6 x 9" 1/2 Mil','Reclosable Poly Bags 6 x 9" 1-1/2 Mil'])
+      expect(scorePackaging(line,ROWS4).filter(c=>c.item.sku==='PB3615').every(c=>c.score<=0.5),line).toBe(true);
+    expect(parseSpec('Stretch Film 18" x 1500\' 1/2 gauge').gauge).toBe(0.5);
+  });
+});
+
+describe('final round: a default is implied only when no variant of the item states otherwise',()=>{
+  it('single wall must be said when the same gaylord comes double wall',()=>{
+    expect(top4('Gaylord 48 x 40 x 48"').eligibility.blockers.join(' ')).toContain('wall');
+    expect(strict4('Gaylord 48 x 40 x 48"')).toBeNull();
+    expect(strict4('Single Wall Gaylord 48 x 40 x 48"')).toBe('GL484048-BDL');
+  });
+  it('an item whose colour is not stated, among variants that state theirs, can\'t be confirmed',()=>{
+    expect(strict4('#5 Colored Bubble Mailers 10.5 x 15.25"')).toBeNull();
+    expect(strict4('#5 Blue Colored Bubble Mailers 10.5 x 15.25"')).toBe('AJ5B');
+  });
+  it('kraft must be said when the same box comes white; not when it doesn\'t',()=>{
+    expect(strict4('Corrugated Boxes 11 1/4 x 8 3/4 x 4" 32 ECT')).toBeNull();
+    expect(strict4('Kraft Corrugated Boxes 11 1/4 x 8 3/4 x 4" 32 ECT')).toBe('1184-BDL');
+    expect(strict4('Corrugated Boxes 12 x 10 x 8" 32 ECT')).toBe('12108-BDL');
+  });
+});
+
+describe('final round: recall fixes',()=>{
+  it('reads a product name past a number in it ("Heavyweight 48-ECT Double Wall Sheets")',()=>{
+    expect(strict4('Heavyweight 48 ECT Double Wall Corrugated Sheets 48 x 40"')).toBe('SP4048DW');
+    expect(strict4('Heavyweight 48 ECT Double Wall Sheets 48 x 40"')).toBe('SP4048DW');
+  });
+  it('accounts for a family word "Colors" with the colour the line states',()=>{
+    expect(strict4('Blue Cast Stretch Wrap Machine Length 20" x 6000\' 80 Gauge')).toBe('MSF2080BLUE');
+  });
+  it('takes "Foam Wrap" as the foam roll it stands for',()=>{
+    expect(strict4('Foam Wrap 1/4" 24" x 250\', Perforated')).toBe('FW14S24P');
+  });
+});
+
+// ---- B3b final verification: "thick" is filler only right after a single thickness -------------
+describe('final verification: "thick" after a size tuple is a word the item must confirm',()=>{
+  it.each(['Expandable Foam Bags 18 x 24" Thick','Expandable Foam Bags 18 x 24 thick','Expandable Foam Bags 18" x 24" thick','Corrugated Boxes 12 x 10 x 8" Thick',
+    'Reclosable Poly Bags 4 x 6" Thick 2 Mil','Bubble Pouches 4 x 6" Thick Flush Cut'])('"%s" keeps "thick"',line=>{
+    expect(parseSpec(line).words).toContain('thick');
+  });
+  it('the plain foam bag is not "18 x 24" Thick" at Strict',()=>{
+    expect(strict4('Expandable Foam Bags 18 x 24" Thick')).toBeNull();
+    expect(strict4('Corrugated Boxes 12 x 10 x 8" Thick')).toBeNull();
+  });
+  it('".160" thick" after a single thickness is still read as that thickness, with nothing left',()=>{
+    expect(parseSpec('Edge Protectors 2 x 2 x 48", .160" thick').words).toEqual(['edge','protector']);
+    expect(parseSpec('Edge Protectors 2 x 2 x 48", .160" thick').blockers).toEqual([]);
+    expect(parseSpec('Edge Protectors 2 x 2 x 48", .160" thick').measures.map(m=>m.value)).toEqual([0.16]);
+  });
+  it('"thick" after a number that is no length (a weight, a mil) is a word',()=>{
+    expect(parseSpec('Kraft Paper Roll 36" x 900\' 40 lb thick').words).toContain('thick');
+    expect(parseSpec('Reclosable Poly Bags 4 x 6" 2 mil thick').words).toContain('thick');
+  });
+});
+
+describe('final verification: a "thick" size is a thickness besides the item\'s dimensions',()=>{
+  const ROWS5=[
+    {sku:'TDSS2',description:'Seal Safe Hand Tape Dispensers 2"',pack:'Each',caseQty:1,category:'tape',keywords:'carton sealer hand tape dispenser packing tape gun tape dispenser tape gun'},
+    ...ROWS4,
+  ];
+  const strict5=(line:string)=>{const r=retrieve(line,ROWS5,STRICT);const d=decide(r,{sku:r.top?.item.sku??null});return d.outcome==='matched'?d.item.sku:null;};
+  it('"2" Thick" on a dispenser is no thickness of it (its 2" is the tape width): not Strict',()=>{
+    expect(strict5('Seal Safe Hand Tape Dispensers 2" Thick')).toBeNull();
+    expect(strict5('Seal Safe Hand Tape Dispensers 2"')).toBe('TDSS2');
+  });
+  it('a foam roll\'s or an edge protector\'s thickness still reads as one',()=>{
+    expect(strict5('Foam Rolls, 1/4" Thick Foam 12"x250\' Perforated')).toBe('FW14S12P');
+    expect(strict4('Edge Protectors 2 x 2 x 48", .160" thick')).toBe('EP2248160BX');
   });
 });

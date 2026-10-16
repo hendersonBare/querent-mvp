@@ -180,8 +180,10 @@ describe('scorePackaging: what the line says',()=>{
     expect(s('Heat Treated Pallets 48 x 40" New').CPW4840RH??0).toBeLessThanOrEqual(CONFLICT);
     expect(s('New Heat Treated Wood Pallets 48 x 40"').CPW4840RH??0).toBeLessThanOrEqual(CONFLICT);
     expect(s('Heat Treated Pallets 48 x 40"').CPW4840RH).toBeLessThanOrEqual(UNCONFIRMED);
-    expect(s('Recycled Heat Treated Pallets 48 x 40"').CPW4840RH).toBe(1);
-    expect(s('Used Pallets 48 x 40"').CPW4840R2).toBe(1);
+    // B3b fix 2: the grade number (#1, #2) is part of what the item states.
+    expect(s('Recycled Heat Treated Pallets 48 x 40"').CPW4840RH).toBe(UNCONFIRMED);
+    expect(s('#1 Recycled Heat Treated Pallets 48 x 40"').CPW4840RH).toBe(1);
+    expect(s('#2 Used Pallets 48 x 40"').CPW4840R2).toBe(1);
   });
 
   it('charges each contradiction by the CONFLICT factor on top of its lost weight',()=>{
@@ -254,7 +256,8 @@ describe('round 3 classes',()=>{
   });
   it('never clears a line that names no product type, and says why',()=>{
     const r=retrieve('12 x 10 x 8"',CATALOG,STRICT);
-    expect(r.top?.score).toBe(1);
+    // B3b: a bare size fits the box, but doesn't name what the item is (its product noun) or its material.
+    expect(r.top?.score).toBe(0.56);
     expect(r.namesProduct).toBe(false);
     expect(r.clears).toBe(false);
     expect(decide(r,{sku:'12108-BDL'})).toEqual({outcome:'no_match',reason:'no_product_type'});

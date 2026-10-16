@@ -1721,6 +1721,2426 @@
     "a18-must": {
       "sku": "PB3565",
       "reason": "The candidate that is the item the line describes."
+    },
+    "h4n01": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n02": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n03": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n04": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n05": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n06": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n07": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n08": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n09": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n10": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n11": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n12": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n13": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n14": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n15": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n16": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n17": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n18": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n19": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n20": {
+      "sku": "INM1217",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4n21": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n23": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n25": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n26": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n27": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h4n28": {
+      "sku": "GAYLORDLID-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m01": {
+      "sku": "M642",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m02": {
+      "sku": "864W-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m03": {
+      "sku": "1486-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m04": {
+      "sku": "883-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m05": {
+      "sku": "HD241818DW-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m06": {
+      "sku": "GAYLORDDW-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m07": {
+      "sku": "B873",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m08": {
+      "sku": "B860SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m09": {
+      "sku": "B852SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m10": {
+      "sku": "B831",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m11": {
+      "sku": "AJ0T",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m12": {
+      "sku": "GBM0706S",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m13": {
+      "sku": "T905700",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m14": {
+      "sku": "T903900",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m15": {
+      "sku": "T9077700",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m16": {
+      "sku": "PB3867",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m17": {
+      "sku": "PB3579",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m18": {
+      "sku": "PMR091215",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m19": {
+      "sku": "BOB46F",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m20": {
+      "sku": "BOB1218",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m21": {
+      "sku": "SF189",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m22": {
+      "sku": "MSF20706B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m23": {
+      "sku": "SF181CRED",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m24": {
+      "sku": "BW12S12P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m25": {
+      "sku": "NP4890",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m26": {
+      "sku": "KP2450",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m27": {
+      "sku": "NP203025",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m28": {
+      "sku": "KPS182440",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m29": {
+      "sku": "THD433",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m30": {
+      "sku": "THL574",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m31": {
+      "sku": "PL525",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m32": {
+      "sku": "EP2212160BX",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m33": {
+      "sku": "PS2231",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m34": {
+      "sku": "PC99",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m35": {
+      "sku": "PT0404",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m36": {
+      "sku": "IQRT40",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m37": {
+      "sku": "FW14S24P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m38": {
+      "sku": "RTC48",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m39": {
+      "sku": "BINMT812",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h4m40": {
+      "sku": "CPW4840R2",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "v01-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v02-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v03-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v04-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v05-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v06-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v07-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v08-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v09-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v10-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v11-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v12-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v13-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v14-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v15-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v16-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v17-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v18-attack": {
+      "sku": null,
+      "reason": "None of the candidates is the item the line describes."
+    },
+    "v19-must": {
+      "sku": "IQRT60",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "v20-must": {
+      "sku": "IQRT80",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "v21-must": {
+      "sku": "PC99",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "v22-must": {
+      "sku": "12108-BDL",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "v23-must": {
+      "sku": "KP3640",
+      "reason": "The candidate that is the item the line describes."
+    },
+    "h5n01": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n02": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n03": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n04": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n05": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n06": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n07": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n08": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n09": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n10": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n11": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n12": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n13": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n14": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n15": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n16": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n17": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n18": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n19": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n20": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n21": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n22": {
+      "sku": "MINP67",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5n23": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n24": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n25": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n26": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n27": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n28": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n29": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n30": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n31": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n32": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n33": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n34": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n35": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n36": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n37": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n38": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n39": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n40": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n41": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n42": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n43": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n44": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n45": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n46": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n47": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n48": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n49": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n50": {
+      "sku": "PB3565",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5n51": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n52": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n53": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n54": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n55": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n56": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n57": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n58": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n59": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n60": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n61": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n62": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n63": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n64": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n65": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n66": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n67": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n68": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n69": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n70": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n71": {
+      "sku": "PC85",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5n72": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n73": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n74": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n75": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n76": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n77": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n78": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n79": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n80": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n81": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n82": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n83": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n84": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n88": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n89": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5n90": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h5m01": {
+      "sku": "PS5826",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m02": {
+      "sku": "PS1226Y",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m03": {
+      "sku": "PS3818",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m04": {
+      "sku": "SF189",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m05": {
+      "sku": "MSF2060B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m06": {
+      "sku": "SF181CRED",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m07": {
+      "sku": "SF188CAST",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m08": {
+      "sku": "B834",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m10": {
+      "sku": "B852SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m11": {
+      "sku": "RM10SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m12": {
+      "sku": "B702",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m13": {
+      "sku": "B876",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m14": {
+      "sku": "BOB811",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m15": {
+      "sku": "BOB69F",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m16": {
+      "sku": "INM1517",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m17": {
+      "sku": "THD457",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m18": {
+      "sku": "THL573",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m19": {
+      "sku": "DL1082",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m20": {
+      "sku": "T9052291",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m21": {
+      "sku": "T9031000",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m22": {
+      "sku": "T9077000",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m23": {
+      "sku": "EP3336160BX",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m26": {
+      "sku": "T2436J",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m27": {
+      "sku": "CP10A",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m28": {
+      "sku": "HCP300",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m29": {
+      "sku": "FW14S24P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m30": {
+      "sku": "BW516S12P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m31": {
+      "sku": "20NUTSAS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m32": {
+      "sku": "IQRT10",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m33": {
+      "sku": "GL484048DW",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m34": {
+      "sku": "M743",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m35": {
+      "sku": "RTC57",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m36": {
+      "sku": "PC515",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m37": {
+      "sku": "TDSS3",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m40": {
+      "sku": "MSF2080ORG",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h5m41": {
+      "sku": "PS2231",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n001": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n002": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n003": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n004": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n005": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n006": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n007": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n008": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n009": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n010": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n011": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n012": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n013": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n014": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n015": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n016": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n017": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n018": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n019": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n020": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n021": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n022": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n023": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n024": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n025": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n026": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n027": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n028": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n029": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n030": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n031": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n032": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n033": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n034": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n035": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n036": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n037": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n038": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n039": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n040": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n041": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n042": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n043": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n044": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n045": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n046": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n047": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n048": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n049": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n050": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n051": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n052": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n053": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n054": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n055": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n056": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n057": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n058": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n059": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n060": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n061": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n062": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n063": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n064": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n065": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n066": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n067": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n068": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n069": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n070": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n071": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n072": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n073": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n074": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n075": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n076": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n077": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n078": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n079": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n080": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n081": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n082": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n083": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n084": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n085": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n086": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n087": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n088": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n089": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n090": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n091": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n092": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n093": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n094": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n095": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n096": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n097": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n098": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n099": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n100": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n101": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n102": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n103": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n104": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n105": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n106": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n107": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n108": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n109": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n110": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n111": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n112": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m001": {
+      "sku": "B855SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m002": {
+      "sku": "B831",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m003": {
+      "sku": "AJ000B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m004": {
+      "sku": "AJ2SO",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m005": {
+      "sku": "GBM0911GD",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m006": {
+      "sku": "GBM1317S",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m007": {
+      "sku": "THL576",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m008": {
+      "sku": "THD433",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m009": {
+      "sku": "PL5",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m010": {
+      "sku": "PL473",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m011": {
+      "sku": "NP3690",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m012": {
+      "sku": "KP2440",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m013": {
+      "sku": "KPS182430",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m014": {
+      "sku": "HCP1700",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m015": {
+      "sku": "FW1848P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m016": {
+      "sku": "7NUTSAS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m017": {
+      "sku": "IQRT10B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m018": {
+      "sku": "TDWH3",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m019": {
+      "sku": "BD51612",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m020": {
+      "sku": "EP252536160B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m021": {
+      "sku": "BINMT1224",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m022": {
+      "sku": "RTC57W",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m023": {
+      "sku": "PC504",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m024": {
+      "sku": "PMR060915",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m025": {
+      "sku": "BOB912F",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m026": {
+      "sku": "BOB68",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m027": {
+      "sku": "PS3822",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m028": {
+      "sku": "PS1217W",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m029": {
+      "sku": "SF181CRED",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m030": {
+      "sku": "MSF2090B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m031": {
+      "sku": "T905900",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m032": {
+      "sku": "SP4048DW",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m033": {
+      "sku": "HD201616DW-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m034": {
+      "sku": "M553",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m035": {
+      "sku": "B871",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m036": {
+      "sku": "INM811",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m037": {
+      "sku": "KN100",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m038": {
+      "sku": "MSF2080BLUE",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m039": {
+      "sku": "CPW4840RH",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m040": {
+      "sku": "T903900",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m041": {
+      "sku": "1184W-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n113": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n114": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n115": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n116": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n117": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n118": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n119": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n120": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m042": {
+      "sku": "BINJ222410",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n121": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m043": {
+      "sku": "PCR-242017-BIN",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n122": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n123": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n124": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n125": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n126": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n127": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n128": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n129": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n130": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n131": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n132": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n133": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n134": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n135": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n136": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n137": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n138": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n139": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n140": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n141": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n142": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n143": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n144": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n145": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n146": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n147": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n148": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n149": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n150": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n151": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n152": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n153": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n154": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n155": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n156": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n157": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n158": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n159": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n160": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n161": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n162": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n163": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n164": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n165": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n166": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n167": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n168": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n169": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n170": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n171": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n172": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n173": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n174": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n175": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n176": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n177": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n178": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n179": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n180": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n181": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n182": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n183": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n184": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n185": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n186": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n187": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n188": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n189": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n190": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n191": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n192": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n193": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n194": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n195": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n196": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n197": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n198": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n199": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n200": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n201": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n202": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n203": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n204": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n205": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n206": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n207": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n208": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n209": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n210": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n211": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n212": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n213": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n214": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n215": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n216": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n217": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n218": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n219": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n220": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n221": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n222": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n223": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n224": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n225": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n226": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n227": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n228": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n229": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n230": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n231": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n232": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n233": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n234": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n235": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n236": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n237": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n238": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n239": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n240": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n241": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n242": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n243": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n244": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m044": {
+      "sku": "PT0404",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n245": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n246": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n247": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n248": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n249": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n250": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n251": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n252": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n253": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n254": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n255": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n256": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n257": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m045": {
+      "sku": "PL474",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n258": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n259": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n260": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n261": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n262": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n263": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m046": {
+      "sku": "FW18S12P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m047": {
+      "sku": "FW14S24P",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m048": {
+      "sku": "IQRT60B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m049": {
+      "sku": "IQRT80",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m050": {
+      "sku": "PS1226",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m051": {
+      "sku": "PS2231",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m052": {
+      "sku": "PS3422",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m053": {
+      "sku": "PC91",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m054": {
+      "sku": "SP3636",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m055": {
+      "sku": "MSF20755B",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m056": {
+      "sku": "SF188CORANGE",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m057": {
+      "sku": "SF188CYELLOW",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m058": {
+      "sku": "MSF2080BLK",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m059": {
+      "sku": "T9033900",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m060": {
+      "sku": "T905170",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m061": {
+      "sku": "T9077200",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m062": {
+      "sku": "NP1230",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m063": {
+      "sku": "NP4890",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m064": {
+      "sku": "KP1230",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m065": {
+      "sku": "KPS404850",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m066": {
+      "sku": "THL571",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m067": {
+      "sku": "THD415",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m068": {
+      "sku": "PL70",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m069": {
+      "sku": "TDSS2",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m070": {
+      "sku": "BD31624",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m071": {
+      "sku": "20NUTSAS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m072": {
+      "sku": "14NUTSAS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m073": {
+      "sku": "CPW4840R",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m074": {
+      "sku": "EP3372160BX",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m075": {
+      "sku": "BINJ222410",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m076": {
+      "sku": "RTC57",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m077": {
+      "sku": "GBM0711R",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m078": {
+      "sku": "AJ0Y",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m079": {
+      "sku": "B860SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m080": {
+      "sku": "B829",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m081": {
+      "sku": "B827",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m082": {
+      "sku": "B703",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m083": {
+      "sku": "RM9SS",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m084": {
+      "sku": "B878",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m085": {
+      "sku": "M1294",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m086": {
+      "sku": "M962",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m087": {
+      "sku": "BOB45",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m088": {
+      "sku": "BOB2424F",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m089": {
+      "sku": "PMR182415",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m090": {
+      "sku": "PBM14201",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m091": {
+      "sku": "GAYLORD-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m092": {
+      "sku": "GAYLORDLID-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m093": {
+      "sku": "HD1812DW-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n264": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n265": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n266": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n267": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n268": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m094": {
+      "sku": "MSF20805C",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m095": {
+      "sku": "T9077200",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6m096": {
+      "sku": "NP3690",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n269": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6m097": {
+      "sku": "1184-BDL",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n270": {
+      "sku": "PC91",
+      "reason": "Held-out line: the candidate that is the item the line describes."
+    },
+    "h6n271": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n272": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n273": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n274": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n275": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n276": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n277": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h6n278": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n01": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n02": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n03": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n04": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n05": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n06": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n07": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n08": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n09": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n10": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n11": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n12": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n13": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n14": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n15": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n16": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n17": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
+    },
+    "h7n18": {
+      "sku": null,
+      "reason": "Held-out line: none of the candidates is the item the line describes."
     }
   }
 }

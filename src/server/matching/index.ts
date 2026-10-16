@@ -3,5 +3,5 @@
 // evaluation suite (src/eval) share. Pure and client-safe: the catalog and the rule are arguments.
 export {scorePackaging,type Candidate,type Eligibility} from './score-packaging';
 export {packLabel,productGroup,type PackagingItem} from './packaging';
-export {retrieve,type MatchRule,type RetrieveOptions,type Retrieval} from './retrieve';
+export {retrieve,retrieveScored,type MatchRule,type RetrieveOptions,type Retrieval} from './retrieve';
 export {decide,type Decision,type NoMatchReason,type Verdict} from './decide';

@@ -1,8 +1,10 @@
-import {describe,expect,it} from 'vitest';
+import {beforeAll,describe,expect,it} from 'vitest';
 import {STRICTNESS_LEVELS,type StrictnessLevel} from '@/features/settings/strictness';
 import {CASES,NO_MATCH_WHYS,withoutSupplierSku} from './cases';
 import {HELDOUT_BARE_SIZES} from './heldout';
 import {decide} from '@/server/matching/decide';
+import {parseItemSpec} from '@/server/matching/packaging';
+import {NON_DEFINING_WORDS} from '@/server/matching/score-packaging';
 import {retrieve} from '@/server/matching/retrieve';
 import {matchConfig} from '@/features/settings/strictness';
 import {CATALOG,JUDGES,RECORDED_BY,RECORDING,judgeCandidates,judgeVerdict,retrieveAt,runCase,runEval} from './run';
@@ -16,6 +18,16 @@ const atOrStricterThan=(level:StrictnessLevel)=>STRICTNESS_LEVELS.slice(0,STRICT
 const skus=new Set(CATALOG.map(row=>row.sku));
 const mustMatch=CASES.filter(c=>c.expect!=='no_match');
 const mustNot=CASES.filter(c=>c.expect==='no_match');
+
+// Score every line once, before any test: retrieveAt() memoizes per line and level, so the tests below
+// only read results. With 1,000+ lines this takes a few seconds, which as part of one test sat at
+// vitest's default 5 s timeout and made the gate flaky; here it has an explicit generous timeout.
+beforeAll(()=>{
+  for(const level of STRICTNESS_LEVELS){
+    for(const c of CASES)retrieveAt(c.description,level);
+    for(const line of HELDOUT_BARE_SIZES)retrieveAt(line,level);
+  }
+},120_000);
 
 describe('the evaluation set',()=>{
   it('has at least 40 lines: 12 or more must-match, 25 or more must-not-match, every reason covered',()=>{
@@ -65,6 +77,34 @@ describe('the evaluation set',()=>{
       if(verdict.sku!==null)expect(skus.has(verdict.sku),id).toBe(true);
       expect(verdict.reason.length,id).toBeGreaterThan(5);
     }
+  });
+});
+
+describe('the catalog facts the scorer relies on',()=>{
+  it('never lets a non-defining description word tell two catalog items apart (each is on every item of its kind)',()=>{
+    const specs=CATALOG.map(row=>parseItemSpec(row));
+    for(const word of NON_DEFINING_WORDS){
+      const withWord=specs.filter(s=>s.descWords.includes(word));
+      expect(withWord.length,word).toBeGreaterThanOrEqual(2);
+      // A line that says everything else an item with the word says must not also describe an item
+      // without it: no item of the same product (head noun) without the word has description words all
+      // within another's (minus the word).
+      const clash=specs.filter(other=>!other.descWords.includes(word)&&other.descWords.length&&
+        withWord.some(s=>other.head===s.head&&other.descWords.every(w=>w!==word&&s.descWords.includes(w))));
+      expect([...new Set(clash.map(s=>s.name))],word).toEqual([]);
+    }
+  });
+});
+
+describe('the catalog facts the material implications rely on',()=>{
+  it('no item with an ECT, burst rating, flute or wall states a material other than corrugated; none with a mil or gauge one other than poly',()=>{
+    const specs=CATALOG.map(row=>({row,spec:parseItemSpec(row)}));
+    const board=specs.filter(({spec})=>spec.ect!==null||spec.burst!==null||spec.choices.flute||spec.choices.wall);
+    const film=specs.filter(({spec})=>spec.mil!==null||spec.gauge!==null);
+    expect(board.length).toBeGreaterThan(100);
+    expect(film.length).toBeGreaterThan(100);
+    expect(board.filter(({spec})=>spec.materials.some(m=>m!=='corrugated')).map(({row})=>row.sku)).toEqual([]);
+    expect(film.filter(({spec})=>spec.materials.some(m=>m!=='poly')).map(({row})=>row.sku)).toEqual([]);
   });
 });
 
