@@ -94,7 +94,7 @@ describe('the quote tool against the local stack',()=>{
     const {items}=await response.json() as {items:ScoredItem[]};
     expect(items.length).toBeGreaterThan(0);
     expect(items.length).toBeLessThanOrEqual(10);
-    expect(items[0]).toEqual({sku:expect.any(String),description:expect.stringMatching(/stretch/i),pack:expect.anything(),category:expect.anything(),listPrice:expect.anything(),listPriceUnit:expect.any(String),pricing:expect.objectContaining({unit:expect.any(String)}),score:expect.any(Number)});
+    expect(items[0]).toEqual({sku:expect.any(String),description:expect.stringMatching(/stretch/i),pack:expect.anything(),category:expect.anything(),listPrice:expect.anything(),listPriceUnit:expect.any(String),pricing:expect.objectContaining({unit:expect.any(String)}),score:expect.any(Number),accounted:false});
   });
 
   it('saves the reviewed quote with the catalog\'s item details, its unmatched lines and near-misses, and logs quote_create',async()=>{
