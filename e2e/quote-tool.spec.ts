@@ -266,6 +266,42 @@ test('a pack size the customer states is kept: "Use this item" on a box bundled 
     .toEqual([[100,'each',true,'2 bundles (50/bundle)','rep'],[250,'each',false,'10 bundles','auto']]);
 });
 
+test('pack wording it does not read is never converted: "Use this item" on a box bundled 25 for "bdl/50, 2 bundles" keeps 2 and flags it (B10b)',async({page})=>{
+  const bdl='Corrugated Boxes 12x10x8 32 ECT bdl/50, 2 bundles';
+  await page.goto('/quote-tool');
+  await list(page).fill([bdl,LINES.box].join('\n'));
+  const dialog=await findMatches(page);
+  await expect(dialog.getByText('1 matched, 1 could not be matched.')).toBeVisible();
+  await dialog.getByLabel('Customer name').fill('E2E Pack Wording Co');
+  await dialog.getByTestId('line-1').getByLabel('Unit price for 12108-BDL').fill('1.25');
+
+  const unmatched=dialog.getByTestId('line-0');
+  await expect(unmatched).toContainText(bdl);
+  await unmatched.getByRole('button',{name:/^Show \d closest items?$/}).click();
+  await unmatched.getByTestId('near-miss').filter({hasText:'12108-BDL'}).getByRole('button',{name:'Use this item'}).click();
+
+  // "bdl/50" is pack wording the tool does not read, so the customer's 2 bundles are not turned into 50 each.
+  const picked=dialog.getByTestId('line-0');
+  await expect(picked.getByLabel('Quantity for 12108-BDL')).toHaveValue('2');
+  await expect(picked.getByTestId('qty-unit')).toHaveText('each');
+  await expect(picked).toContainText('Check quantity (customer wrote: 2 bundles (bdl/50))');
+  await expect(picked).not.toContainText('Customer asked for');
+  await expect(dialog.getByText('1 line has a quantity to check.')).toBeVisible();
+  await shot(page,'03f-review-dialog-unread-pack');
+
+  // Saved as the rep left it (2 each), flagged, with the customer's words.
+  await picked.getByLabel('Unit price for 12108-BDL').fill('1.25');
+  await expect(dialog.getByTestId('quote-total')).toHaveText('$315.00');
+  await saveButton(dialog).click();
+  await expect(page).toHaveURL(QUOTE_URL);
+  const rows=page.getByRole('table',{name:'Items'}).getByRole('row').filter({hasText:'12108-BDL'});
+  await expect(rows.filter({hasText:bdl})).toContainText('Quantity was flagged: customer wrote 2 bundles (bdl/50)');
+  const id=new URL(page.url()).pathname.split('/').pop();
+  const {quote}=await (await page.request.get(`/api/quotes/${id}`)).json();
+  expect(quote.lines.map((l:{quantity:number;unit:string;quantityUnclear:boolean;customerQuantity:string|null;matchedBy:string})=>[l.quantity,l.unit,l.quantityUnclear,l.customerQuantity,l.matchedBy]))
+    .toEqual([[2,'each',true,'2 bundles (bdl/50)','rep'],[250,'each',false,'10 bundles','auto']]);
+});
+
 test('a list over 200 lines is refused before anything is sent, here and by the API',async({page})=>{
   await page.goto('/quote-tool');
   const lines=Array.from({length:201},(_,i)=>`${i+1} x 12x10x8 corrugated boxes`).join('\n');
