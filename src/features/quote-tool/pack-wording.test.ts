@@ -287,3 +287,15 @@ describe('property: conversion happens only when no pack was written or the writ
     }
   });
 });
+
+describe('false flags on real product names',()=>{
+  it('reads no pack wording in any catalog description written as a line ("<description>, 2 cases"), except a stated weight per bundle',()=>{
+    const flagged=catalog.flatMap(row=>{
+      const reading=readPacks(row.description,`${row.description}, 2 cases`,2,'case');
+      return reading.unread?[reading.unread]:[];
+    });
+    // "Kraft Paper Sheets, 36x48" 50 lb., 50 lb./Bundle": a weight per bundle is not a count, so it is flagged.
+    expect(new Set(flagged)).toEqual(new Set(['50 lb./Bundle']));
+    expect(flagged.length).toBeLessThan(30);
+  });
+});

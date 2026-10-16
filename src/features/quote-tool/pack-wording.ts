@@ -10,8 +10,8 @@
 //
 // How a line is read, per text (the description first, then the raw line; a description that is a part of
 // the raw line, as the scripted parser leaves it, is read only as part of the raw line):
-//   1. Tokens: numbers ("1,000", "2.5"), words, and single marks, after NFKC and with every slash-like
-//      character ("⁄", "∕", "÷") read as "/".
+//   1. Tokens: numbers ("1,000", "2.5", ".160"), words ("72MMx450" is 72 MM x 450), and single marks,
+//      after NFKC, without zero-width characters, and with every slash-like character ("⁄", "∕", "÷") read as "/".
 //   2. The quantity: the parsed quantity's number followed by its unit word (directly, or after up to 3
 //      plain words: "500 Corrugated Boxes"), with a "qty"/"x" label before it; else the number alone
 //      when labelled ("qty 12", "x 12") or first or last in the text. BOXT's price tiers ("bundle
@@ -79,7 +79,7 @@ const STRONG=new Set([
 /** Pack wording only next to a count, "/", a STRONG word, "of N" or "x N", since they also name products ("Corrugated Boxes", "Folding Cartons", "Bubble Dispenser Packs"). */
 const WEAK=new Set(list('box boxes carton cartons pack packs packet packets bag bags roll rolls coil coils tube tubes spool spools pallet pallets bale bales mailer mailers envelope envelopes sheet sheets label labels pouch pouches'));
 /** Words after a number that make it a measure, not a count. */
-const MEASURE=new Set(list('in inch inches mil mils ft feet foot mm cm yd yds yard yards lb lbs pound pounds oz gauge ga ect ply gal gallon gallons kg g l ml mic micron microns cu test wide long high deep thick dia'));
+const MEASURE=new Set(list('in inch inches mil mils ft feet foot mm cm yd yds yard yards lb lbs pound pounds oz cubic gauge ga ect ply gal gallon gallons kg g l ml mic micron microns cu test wide long high deep thick dia'));
 const MEASURE_MARK=new Set(['"','\'','′','″','”','’','%','#']);
 const DIMENSION=new Set(['x','×','*']);
 /** Words before a number that make it a label, not a count ("#2", "size 4", "item 3"). */
@@ -121,14 +121,14 @@ interface Token {
   glued:boolean;
 }
 
-const TOKEN=/\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?|[a-z]+|\S/giu;
+const TOKEN=/\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?|(?<![\d.])\.\d+|[a-z]+?(?=[x×]\d)|[a-z]+|\S/giu;
 
 function tokenize(text:string):{text:string;tokens:Token[]}{
   const normal=text.normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g,'').replace(/[\u2044\u2215\u00F7\u29F8]/g,'/');
   const tokens:Token[]=[];
   for(const m of normal.matchAll(TOKEN)){
     const raw=m[0],start=m.index;
-    const type=/^\d/.test(raw)?'num':/^[a-z]/i.test(raw)?'word':'mark';
+    const type=/^\.?\d/.test(raw)?'num':/^[a-z]/i.test(raw)?'word':'mark';
     const prev=tokens.at(-1);
     tokens.push({type,raw,low:raw.toLowerCase(),start,end:start+raw.length,value:type==='num'?Number(raw.replace(/,/g,'')):NaN,glued:prev!==undefined&&prev.end===start});
   }
@@ -181,6 +181,8 @@ class Text {
     const nxt=this.at(i+1);
     if(this.dimension(i))return true;
     if(nxt&&(MEASURE.has(nxt.low)||MEASURE_MARK.has(nxt.low)))return !this.inPack(i+1);
+    // "48-ECT", "2-mil"
+    if(nxt?.low==='-'&&nxt.glued&&MEASURE.has(this.low(i+2)))return true;
     return this.fraction(i);
   }
   /**
