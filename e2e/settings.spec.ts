@@ -6,9 +6,9 @@ import {LINES,shot} from './support/helpers';
 
 const level=(page:Page,name:string)=>page.getByRole('radio',{name:new RegExp(`^${name}\\b`)});
 
-/** A match run through the API: the level it ran at and the wrap line's outcome. */
-async function runWrap(page:Page){
-  const response=await page.request.post('/api/quote-tool/match',{multipart:{text:LINES.wrap}});
+/** A match run through the API: the level it ran at and the bubble roll line's outcome. */
+async function runBubble(page:Page){
+  const response=await page.request.post('/api/quote-tool/match',{multipart:{text:LINES.bubble}});
   expect(response.status()).toBe(200);
   const events=(await response.text()).trim().split('\n').map(line=>JSON.parse(line));
   const result=events.find(event=>event.type==='result');
@@ -41,8 +41,8 @@ async function changeAndRestore(page:Page){
   await page.reload();
   await expect(level(page,'Balanced')).toBeChecked();
   expect(await (await page.request.get('/api/settings')).json()).toEqual({matchStrictness:'balanced'});
-  // New runs use it: the stretch wrap line, No match under Strict, matches under Balanced.
-  expect(await runWrap(page)).toEqual({level:'balanced',outcome:'matched'});
+  // New runs use it: the bubble roll line, No match under Strict, matches under Balanced.
+  expect(await runBubble(page)).toEqual({level:'balanced',outcome:'matched'});
 
   await level(page,'Strict').check();
   await save.click();
@@ -50,5 +50,5 @@ async function changeAndRestore(page:Page){
   await page.reload();
   await expect(level(page,'Strict')).toBeChecked();
   expect(await (await page.request.get('/api/settings')).json()).toEqual({matchStrictness:'strict'});
-  expect(await runWrap(page)).toEqual({level:'strict',outcome:'no_match'});
+  expect(await runBubble(page)).toEqual({level:'strict',outcome:'no_match'});
 }

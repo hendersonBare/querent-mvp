@@ -53,4 +53,6 @@ export const LINES={
   bags:'Reclosable Poly Bags 30 x 30" 2 Mil, qty 2 cases',
   /** No match under Strict (coloured variants come within the lead); SF188CAST is its first near-miss. */
   wrap:'Cast Stretch Wrap 18" x 1500\' 80 Gauge   4 rolls',
+  /** No match under Strict, BW12S12P under Balanced (final B3b scorer): the settings spec's line. */
+  bubble:'Bubble Rolls 12" x 250\'   2 rolls',
 } as const;

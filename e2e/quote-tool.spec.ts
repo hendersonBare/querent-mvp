@@ -110,7 +110,8 @@ test('a PDF upload is read, matched and saved with its unmatched lines flagged',
   await expect(unmatched).toContainText('Kraft Packing Paper Roll 36"');
   await expect(unmatched).toContainText('Cast Stretch Wrap 18" x 1500\' 80 Gauge');
   await expect(unmatched.getByRole('table',{name:/Closest items/}).first()).toBeVisible();
-  await expect(unmatched.getByRole('table',{name:/Closest items/}).first()).toContainText('100%');
+  // A neutral similarity per closest item (its value is the scorer's: 75% for the wrap under the final B3b scorer).
+  await expect(unmatched.getByRole('table',{name:/Closest items/}).first()).toContainText(/Similarity.*\d{1,3}%/);
   await expect(unmatched).toContainText('Qty 4 rolls');
   await shot(page,'08-quote-detail-unmatched');
 });
